@@ -22,11 +22,21 @@ async function readError(res: Response): Promise<string> {
   return data?.detail || `Error ${res.status}`;
 }
 
-export async function scanInventario(codigo: string, modo: ScanModo): Promise<ScanResponse> {
+export async function scanInventario(
+  codigo: string,
+  modo: ScanModo,
+  nota?: string,
+): Promise<ScanResponse> {
+  const body: { codigo_barras: string; modo: ScanModo; nota?: string } = {
+    codigo_barras: codigo,
+    modo,
+  };
+  const notaTrim = (nota ?? "").trim();
+  if (notaTrim) body.nota = notaTrim.slice(0, 255);
   const res = await fetchApi("/api/inventario/scan/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ codigo_barras: codigo, modo }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await readError(res));
   return (await res.json()) as ScanResponse;

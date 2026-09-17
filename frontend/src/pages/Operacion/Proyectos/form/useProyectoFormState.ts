@@ -11,6 +11,7 @@ import {
 import {
   coalesceProyectoEquipos,
   clampPorcentajeAvance,
+  applyProyectoEquipoPatch,
   createEmptyNotaDia,
   dateRangeFromFechasInicio,
   emptyPersona,
@@ -547,25 +548,7 @@ export function useProyectoFormState({
 
   const updateEquipo = (lineaId: string, patch: Partial<ProyectoEquipoLinea>) => {
     setEquipos((prev) =>
-      prev.map((eq) => {
-        if (eq.lineaId !== lineaId) return eq;
-        const next = { ...eq, ...patch };
-        // Entrega no debe degradar un equipo ya marcado como instalado.
-        if (patch.equipoEntregado === true) {
-          if (next.estadoInstalacion === "pendiente" || next.estadoInstalacion === "no_instalado") {
-            next.estadoInstalacion = "entregado";
-          }
-        } else if (patch.equipoEntregado === false && next.estadoInstalacion === "entregado") {
-          next.estadoInstalacion = "pendiente";
-        }
-        if (patch.estadoInstalacion === "instalado") {
-          next.equipoEntregado = true;
-        }
-        if (patch.estadoInstalacion === "no_instalado") {
-          next.equipoEntregado = false;
-        }
-        return next;
-      })
+      prev.map((eq) => (eq.lineaId !== lineaId ? eq : applyProyectoEquipoPatch(eq, patch)))
     );
   };
 

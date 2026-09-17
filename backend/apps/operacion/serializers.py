@@ -250,6 +250,27 @@ class ProyectoSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError([f"Día {i + 1}: formato inválido."])
         return value
 
+    def validate_equipos(self, value):
+        """No se puede marcar instalación (ni "no instalado") en un equipo que
+        todavía no está entregado — aplica a cualquier actor, no solo al
+        técnico (ver `assert_tecnico_locked_fields` para el candado de quién
+        puede tocar `equipoEntregado`)."""
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("equipos debe ser una lista.")
+        for i, item in enumerate(value):
+            if not isinstance(item, dict):
+                raise serializers.ValidationError([f"Equipo {i + 1}: formato inválido."])
+            if not item.get("equipoEntregado") and item.get("estadoInstalacion") in (
+                "instalado",
+                "no_instalado",
+            ):
+                raise serializers.ValidationError(
+                    [f"Equipo {i + 1}: no se puede marcar instalación sin antes marcar la entrega."]
+                )
+        return value
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
         instance = getattr(self, "instance", None)

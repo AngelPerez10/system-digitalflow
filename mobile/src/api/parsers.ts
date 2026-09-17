@@ -8,6 +8,22 @@ import {
   type TipoOrden,
 } from '@/types/orden';
 import type { LoginResponse, ModulePermissions, PermissionFlags, SessionUser } from '@/types/api';
+import {
+  PROYECTO_STATUSES,
+  type CotizacionOrigen,
+  type CotizacionResumen,
+  type EquipoEstadoInstalacion,
+  type Proyecto,
+  type ProyectoCotizacionBloque,
+  type ProyectoEquipoLinea,
+  type ProyectoListItem,
+  type ProyectoNotaDia,
+  type ProyectoPersonaAsignada,
+  type ProyectoStatus,
+  type ProyectoStatusAdministrativo,
+  type ProyectoTecnicoAsignado,
+  type ProyectoTipoTrabajo,
+} from '@/types/proyecto';
 
 /** Normalizadores tolerantes: la API puede mandar `null` en casi todo. */
 
@@ -223,5 +239,201 @@ export function parseSessionUser(raw: unknown): SessionUser {
     is_superuser: asBool(data.is_superuser),
     avatar_url: asString(data.avatar_url),
     ...parseContextoPortal(data),
+  };
+}
+
+/** Normalizadores de Proyecto — mismo criterio tolerante que Orden. */
+
+export function parseProyectoStatus(value: unknown): ProyectoStatus {
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return (PROYECTO_STATUSES as readonly string[]).includes(raw) ? (raw as ProyectoStatus) : 'en_proceso';
+}
+
+function parseProyectoStatusAdministrativo(value: unknown): ProyectoStatusAdministrativo {
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (raw === 'en_revision' || raw === 'enviado' || raw === 'cerrado') return raw;
+  return 'pendiente';
+}
+
+function parseEquipoEstadoInstalacion(value: unknown): EquipoEstadoInstalacion {
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (raw === 'entregado' || raw === 'no_instalado' || raw === 'instalado') return raw;
+  return 'pendiente';
+}
+
+function parseTiposTrabajo(value: unknown): ProyectoTipoTrabajo[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry): ProyectoTipoTrabajo | null => {
+      const data = asRecord(entry);
+      const id = asNumber(data.id);
+      if (id === null) return null;
+      return { id, nombre: asString(data.nombre) ?? '' };
+    })
+    .filter((item): item is ProyectoTipoTrabajo => item !== null);
+}
+
+function parsePersonasAsignadas(value: unknown): ProyectoPersonaAsignada[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry): ProyectoPersonaAsignada | null => {
+      const data = asRecord(entry);
+      const id = asNumber(data.id);
+      if (id === null) return null;
+      return { id, nombre: asString(data.nombre) ?? '' };
+    })
+    .filter((item): item is ProyectoPersonaAsignada => item !== null);
+}
+
+function parseTecnicosAsignados(value: unknown): ProyectoTecnicoAsignado[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry): ProyectoTecnicoAsignado | null => {
+      const data = asRecord(entry);
+      const id = asNumber(data.id);
+      if (id === null) return null;
+      return { id, nombre: asString(data.nombre) ?? '', responsable: asBool(data.responsable) };
+    })
+    .filter((item): item is ProyectoTecnicoAsignado => item !== null);
+}
+
+function parseFechasInicio(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => (typeof v === 'string' ? v.trim().slice(0, 10) : ''))
+    .filter((v) => v.length > 0);
+}
+
+function parseCotizacionOrigen(value: unknown): CotizacionOrigen {
+  return value === 'sicar' ? 'sicar' : 'digitalflow';
+}
+
+function parseCotizacionResumen(value: unknown): CotizacionResumen | null {
+  const data = asRecord(value);
+  const id = asString(data.id);
+  if (!id) return null;
+  return {
+    id,
+    origen: parseCotizacionOrigen(data.origen),
+    folio: asString(data.folio) ?? '',
+    cliente: asString(data.cliente) ?? '',
+    fecha: asString(data.fecha) ?? '',
+    contacto: asString(data.contacto) ?? undefined,
+  };
+}
+
+function parseCotizacionBloques(value: unknown): ProyectoCotizacionBloque[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry): ProyectoCotizacionBloque | null => {
+      const data = asRecord(entry);
+      const vinculoId = asString(data.vinculoId);
+      const cotizacion = parseCotizacionResumen(data.cotizacion);
+      if (!vinculoId || !cotizacion) return null;
+      return { vinculoId, orden: asNumber(data.orden) ?? 1, cotizacion };
+    })
+    .filter((item): item is ProyectoCotizacionBloque => item !== null);
+}
+
+function parseEquipos(value: unknown): ProyectoEquipoLinea[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry): ProyectoEquipoLinea | null => {
+      const data = asRecord(entry);
+      const lineaId = asString(data.lineaId);
+      if (!lineaId) return null;
+      const fuente = data.fuenteProducto;
+      return {
+        lineaId,
+        modelo: asString(data.modelo) ?? '',
+        modeloOriginal: asString(data.modeloOriginal) ?? asString(data.modelo) ?? '',
+        cantidad: asNumber(data.cantidad) ?? 1,
+        productoId: asString(data.productoId) ?? undefined,
+        marca: asString(data.marca) ?? undefined,
+        imagenUrl: asString(data.imagenUrl) ?? undefined,
+        fuenteProducto:
+          fuente === 'tvc' || fuente === 'manual' || fuente === 'syscom' ? fuente : undefined,
+        estadoInstalacion: parseEquipoEstadoInstalacion(data.estadoInstalacion),
+        equipoEntregado: asBool(data.equipoEntregado),
+        cotizacionVinculoId: asString(data.cotizacionVinculoId) ?? undefined,
+        cotizacionOrden: asNumber(data.cotizacionOrden) ?? undefined,
+        cotizacionFolio: asString(data.cotizacionFolio) ?? undefined,
+      };
+    })
+    .filter((item): item is ProyectoEquipoLinea => item !== null);
+}
+
+function parseNotasPorDia(value: unknown): ProyectoNotaDia[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry, index) => {
+    const data = asRecord(entry);
+    return {
+      id: asString(data.id) ?? `dia-${index + 1}`,
+      nota: typeof data.nota === 'string' ? data.nota : '',
+      imagenesUrls: asStringArray(data.imagenesUrls).slice(0, 2),
+    };
+  });
+}
+
+/** `null` si la fila no trae `id` usable: mejor omitirla que romper la lista. */
+export function parseProyectoListItem(raw: unknown): ProyectoListItem | null {
+  const data = asRecord(raw);
+  const id = asNumber(data.id);
+  if (id === null) return null;
+  return {
+    id,
+    idx: asNumber(data.idx),
+    folio: asString(data.folio),
+    cliente_id: asNumber(data.cliente_id),
+    cliente_nombre: asString(data.cliente_nombre),
+    status: parseProyectoStatus(data.status),
+    motivo_pausa: asString(data.motivo_pausa),
+    tipo_trabajo_nombre: asString(data.tipo_trabajo_nombre),
+    tipos_trabajo: parseTiposTrabajo(data.tipos_trabajo),
+    fechas_inicio: parseFechasInicio(data.fechas_inicio),
+    hora_llegada: asString(data.hora_llegada),
+    hora_salida: asString(data.hora_salida),
+    tecnicos: parseTecnicosAsignados(data.tecnicos),
+    auxiliares: parsePersonasAsignadas(data.auxiliares),
+    cotizaciones_count: asNumber(data.cotizaciones_count) ?? 0,
+    cotizacion_folio: asString(data.cotizacion_folio),
+    cotizacion_origen: data.cotizacion_origen ? parseCotizacionOrigen(data.cotizacion_origen) : null,
+    equipos_total: asNumber(data.equipos_total) ?? 0,
+    equipos_entregados: asNumber(data.equipos_entregados) ?? 0,
+    equipos_instalados: asNumber(data.equipos_instalados) ?? 0,
+    porcentaje_avance: asNumber(data.porcentaje_avance) ?? 0,
+    notas_por_dia: parseNotasPorDia(data.notas_por_dia),
+    status_changed_by_full_name: asString(data.status_changed_by_full_name),
+    status_changed_at: asString(data.status_changed_at),
+    created_at: asString(data.created_at),
+  };
+}
+
+export function parseProyectoList(raw: unknown): ProyectoListItem[] {
+  const rows = Array.isArray(raw) ? raw : Array.isArray(asRecord(raw).results) ? (asRecord(raw).results as unknown[]) : [];
+  return rows.map(parseProyectoListItem).filter((item): item is ProyectoListItem => item !== null);
+}
+
+export function parseProyecto(raw: unknown): Proyecto {
+  const base = parseProyectoListItem(raw);
+  if (!base) throw new Error('El proyecto recibido no es válido.');
+  const data = asRecord(raw);
+  return {
+    ...base,
+    motivo_cancelacion: asString(data.motivo_cancelacion),
+    fecha_autorizacion: asString(data.fecha_autorizacion),
+    quien_autorizo: asString(data.quien_autorizo),
+    vehiculo_asignado: asString(data.vehiculo_asignado),
+    herramientas_generales: asString(data.herramientas_generales),
+    cotizaciones: parseCotizacionBloques(data.cotizaciones),
+    equipos: parseEquipos(data.equipos),
+    incidencias: asString(data.incidencias),
+    requerimientos_adicionales: asString(data.requerimientos_adicionales),
+    requiere_presupuesto_adicional: asBool(data.requiere_presupuesto_adicional),
+    cotizacion_adicional: data.cotizacion_adicional ? parseCotizacionResumen(data.cotizacion_adicional) : null,
+    status_administrativo: parseProyectoStatusAdministrativo(data.status_administrativo),
+    evidencias_urls: asStringArray(data.evidencias_urls),
+    firma_cliente_url: asString(data.firma_cliente_url),
+    firma_tecnico_url: asString(data.firma_tecnico_url),
   };
 }

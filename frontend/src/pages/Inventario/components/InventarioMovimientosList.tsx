@@ -41,6 +41,8 @@ type InventarioMovimientosListProps = {
   loading: boolean;
   filterItem: InventarioItem | null;
   onClearFilter: () => void;
+  /** En el modal del ítem: no muestra el chip de filtro ni el título del producto. */
+  itemScoped?: boolean;
 };
 
 export default function InventarioMovimientosList({
@@ -48,10 +50,11 @@ export default function InventarioMovimientosList({
   loading,
   filterItem,
   onClearFilter,
+  itemScoped = false,
 }: InventarioMovimientosListProps) {
   return (
     <div className="space-y-3">
-      {filterItem ? (
+      {!itemScoped && filterItem ? (
         <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-[rgba(27,92,255,0.25)] bg-[rgba(27,92,255,0.06)] px-3 py-2 text-sm dark:border-[#4B7CFF]/30 dark:bg-[rgba(75,124,255,0.10)]">
           <span className="text-[#52525B] dark:text-[#B7C1D1]">
             Filtrando por{" "}
@@ -68,11 +71,11 @@ export default function InventarioMovimientosList({
             Ver todos
           </button>
         </div>
-      ) : (
+      ) : !itemScoped ? (
         <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
           Últimos movimientos registrados. Haz clic en un producto de la tabla para filtrar.
         </p>
-      )}
+      ) : null}
 
       {loading ? (
         <p className="py-6 text-center text-sm text-[#52525B] dark:text-[#B7C1D1]" role="status" aria-live="polite">
@@ -87,7 +90,7 @@ export default function InventarioMovimientosList({
             <HistoryIcon className="h-5 w-5" />
           </span>
           <p className="text-sm text-[#52525B] dark:text-[#B7C1D1]">
-            {filterItem
+            {filterItem || itemScoped
               ? "Este ítem aún no tiene movimientos."
               : "Aún no hay movimientos registrados."}
           </p>
@@ -98,22 +101,38 @@ export default function InventarioMovimientosList({
             const titulo = tituloMovimiento(mov, filterItem);
             const entrada = mov.tipo === "entrada";
             const quien = mov.usuario_nombre?.trim() || "Usuario desconocido";
+            const nota = mov.nota?.trim() ?? "";
             return (
-              <li key={mov.id} className="flex items-center gap-3 py-2.5">
-                <span className={movimientoChipClass(mov.tipo)}>
+              <li key={mov.id} className="flex items-start gap-3 py-2.5">
+                <span className={`mt-0.5 ${movimientoChipClass(mov.tipo)}`}>
                   <MovimientoIcon tipo={mov.tipo} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p
-                    className="truncate text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]"
-                    title={mov.item_nombre || titulo}
-                  >
-                    {titulo}
-                  </p>
+                  {itemScoped ? (
+                    <p className="text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                      {entrada ? "Entrada" : "Salida"}
+                    </p>
+                  ) : (
+                    <p
+                      className="truncate text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]"
+                      title={mov.item_nombre || titulo}
+                    >
+                      {titulo}
+                    </p>
+                  )}
                   <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
-                    {entrada ? "Entrada" : "Salida"} · {formatFecha(mov.creado_en)} · {quien}
-                    {mov.nota?.trim() ? ` · ${mov.nota.trim()}` : ""}
+                    {itemScoped ? null : (
+                      <>
+                        {entrada ? "Entrada" : "Salida"} ·{" "}
+                      </>
+                    )}
+                    {formatFecha(mov.creado_en)} · {quien}
                   </p>
+                  {nota ? (
+                    <p className="mt-1 text-sm leading-snug text-[#52525B] dark:text-[#B7C1D1]">
+                      {nota}
+                    </p>
+                  ) : null}
                 </div>
                 <span
                   className={`shrink-0 text-sm font-semibold tabular-nums ${

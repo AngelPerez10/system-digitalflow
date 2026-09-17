@@ -21,8 +21,6 @@ import {
   dateToHoraISO,
   formatFecha,
   formatHora,
-  horaActual,
-  hoyISO,
   parseFechaToDate,
   parseHoraToDate,
 } from '@/utils/fecha';
@@ -41,6 +39,8 @@ interface Props {
   onChange: (valor: string) => void;
   error?: string;
   accessibilityLabel?: string;
+  disabled?: boolean;
+  helper?: string;
 }
 
 function valorComoDate(mode: Modo, value: string): Date {
@@ -63,6 +63,8 @@ export function DateTimeField({
   onChange,
   error,
   accessibilityLabel,
+  disabled = false,
+  helper,
 }: Props) {
   const { colors } = useTheme();
   const [abierto, setAbierto] = useState(false);
@@ -82,6 +84,7 @@ export function DateTimeField({
   const nombre = accessibilityLabel ?? label;
 
   const abrir = () => {
+    if (disabled) return;
     setBorrador(valorComoDate(mode, value));
     setAbierto(true);
   };
@@ -112,9 +115,14 @@ export function DateTimeField({
         accessibilityLabel={nombre}
         accessibilityValue={{ text: vacio ? 'Sin valor' : mostrar }}
         accessibilityHint={
-          mode === 'date' ? 'Abre el calendario del sistema' : 'Abre el reloj del sistema'
+          disabled
+            ? undefined
+            : mode === 'date'
+              ? 'Abre el calendario del sistema'
+              : 'Abre el reloj del sistema'
         }
-        accessibilityState={{ selected: !vacio, expanded: abierto }}
+        accessibilityState={{ selected: !vacio, expanded: abierto, disabled }}
+        disabled={disabled}
         onPress={abrir}
         style={({ pressed }) => [
           styles.celdaHit,
@@ -123,7 +131,8 @@ export function DateTimeField({
             borderColor: error ? colors.danger : colors.line,
           },
           error ? { backgroundColor: colors.dangerBg } : null,
-          pressed ? { backgroundColor: colors.surfaceSunken, borderColor: colors.lineStrong } : null,
+          pressed && !disabled ? { backgroundColor: colors.surfaceSunken, borderColor: colors.lineStrong } : null,
+          disabled ? { backgroundColor: colors.surfaceSunken, opacity: 0.6 } : null,
         ]}
       >
         <Text style={[styles.celdaLabel, { color: colors.inkMuted }]}>{label}</Text>
@@ -146,9 +155,11 @@ export function DateTimeField({
         >
           {error}
         </Text>
+      ) : helper ? (
+        <Text style={[styles.error, { color: colors.inkSubtle }]}>{helper}</Text>
       ) : null}
 
-      {abierto && Platform.OS === 'android' ? (
+      {abierto && !disabled && Platform.OS === 'android' ? (
         <DateTimePicker
           value={valorComoDate(mode, value)}
           mode={mode}
@@ -162,7 +173,7 @@ export function DateTimeField({
 
       {Platform.OS === 'ios' ? (
         <IosPickerSheet
-          visible={abierto}
+          visible={abierto && !disabled}
           titulo={`Elegir ${nombre}`}
           mode={mode}
           borrador={borrador}
@@ -347,115 +358,78 @@ function IosPickerSheet({
   );
 }
 
-interface FechaHoraBloqueProps {
-  titulo: string;
-  fecha: string;
-  hora: string;
-  errorFecha?: string;
-  errorHora?: string;
-  onFecha: (valor: string) => void;
-  onHora: (valor: string) => void;
+interface HorarioOrdenEditorProps {
+  fechaInicio: string;
+  horaInicio: string;
+  fechaFinalizacion: string;
+  horaTermino: string;
+  errorFechaInicio?: string;
+  errorHoraInicio?: string;
+  errorFechaFinalizacion?: string;
+  errorHoraTermino?: string;
+  onFechaInicio: (valor: string) => void;
+  onHoraInicio: (valor: string) => void;
+  onFechaFinalizacion: (valor: string) => void;
+  onHoraTermino: (valor: string) => void;
 }
 
 /**
- * Bloque Inicio / Finalización: dos celdas (fecha · hora) + atajos en chips.
+ * Inicio / Finalización — mismo corte minimalista que `FechasInicioEditor`
+ * de Proyectos: dos filas de celdas, sin título por bloque ni chips.
  */
-export function FechaHoraBloque({
-  titulo,
-  fecha,
-  hora,
-  errorFecha,
-  errorHora,
-  onFecha,
-  onHora,
-}: FechaHoraBloqueProps) {
-  const { colors } = useTheme();
-  const hayValor = Boolean(fecha.trim() || hora.trim());
-
+export function HorarioOrdenEditor({
+  fechaInicio,
+  horaInicio,
+  fechaFinalizacion,
+  horaTermino,
+  errorFechaInicio,
+  errorHoraInicio,
+  errorFechaFinalizacion,
+  errorHoraTermino,
+  onFechaInicio,
+  onHoraInicio,
+  onFechaFinalizacion,
+  onHoraTermino,
+}: HorarioOrdenEditorProps) {
   return (
-    <View style={styles.bloque} accessibilityRole="summary">
-      <Text accessibilityRole="header" style={[styles.bloqueTitulo, { color: colors.ink }]}>
-        {titulo}
-      </Text>
+    <View style={styles.wrap}>
       <View style={styles.filaCeldas}>
         <DateTimeField
-          label="Fecha"
+          label="Fecha de inicio"
           mode="date"
-          value={fecha}
-          onChange={onFecha}
-          error={errorFecha}
-          accessibilityLabel={`Fecha de ${titulo.toLowerCase()}`}
+          value={fechaInicio}
+          onChange={onFechaInicio}
+          error={errorFechaInicio}
+          accessibilityLabel="Fecha de inicio"
         />
         <DateTimeField
-          label="Hora"
+          label="Hora de inicio"
           mode="time"
-          value={hora}
-          onChange={onHora}
-          error={errorHora}
-          accessibilityLabel={`Hora de ${titulo.toLowerCase()}`}
+          value={horaInicio}
+          onChange={onHoraInicio}
+          error={errorHoraInicio}
+          accessibilityLabel="Hora de inicio"
         />
       </View>
-      <View style={styles.atajos}>
-        <AtajoChip
-          label="Hoy"
-          accessibilityLabel={`Usar la fecha de hoy en ${titulo}`}
-          onPress={() => onFecha(hoyISO())}
+      <View style={styles.filaCeldas}>
+        <DateTimeField
+          label="Fecha de fin"
+          mode="date"
+          value={fechaFinalizacion}
+          onChange={onFechaFinalizacion}
+          error={errorFechaFinalizacion}
+          accessibilityLabel="Fecha de finalización"
         />
-        <AtajoChip
-          label="Ahora"
-          accessibilityLabel={`Usar la hora actual en ${titulo}`}
-          onPress={() => onHora(horaActual())}
+        <DateTimeField
+          label="Hora de fin"
+          mode="time"
+          value={horaTermino}
+          onChange={onHoraTermino}
+          error={errorHoraTermino}
+          accessibilityLabel="Hora de finalización"
         />
-        {hayValor ? (
-          <AtajoChip
-            label="Limpiar"
-            accessibilityLabel={`Quitar fecha y hora de ${titulo}`}
-            onPress={() => {
-              onFecha('');
-              onHora('');
-            }}
-            tono="muted"
-          />
-        ) : null}
       </View>
     </View>
-  );
-}
-
-function AtajoChip({
-  label,
-  accessibilityLabel,
-  onPress,
-  tono = 'primary',
-}: {
-  label: string;
-  accessibilityLabel: string;
-  onPress: () => void;
-  tono?: 'primary' | 'muted';
-}) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.chip,
-        {
-          borderColor: colors.line,
-          backgroundColor: pressed ? colors.line : colors.surfaceSunken,
-        },
-      ]}
-    >
-      <Text
-        style={[
-          styles.chipTexto,
-          { color: tono === 'muted' ? colors.inkMuted : colors.primary },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -485,20 +459,8 @@ const styles = StyleSheet.create({
   },
   celdaValorVacio: { ...type.body, fontFamily: type.body.fontFamily },
   error: { ...type.caption, marginTop: spacing.xs },
-  bloque: { gap: spacing.sm },
-  bloqueTitulo: { ...type.bodyMedium },
+  wrap: { gap: spacing.sm },
   filaCeldas: { flexDirection: 'row', gap: spacing.sm },
-  atajos: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
-    minHeight: TOUCH_TARGET,
-    minWidth: TOUCH_TARGET,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipTexto: { ...type.label, fontSize: 13 },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   modalBackdrop: { ...StyleSheet.absoluteFill },
   modalHoja: {

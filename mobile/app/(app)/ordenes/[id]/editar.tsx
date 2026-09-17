@@ -22,7 +22,7 @@ import { Colapsable } from '@/components/Colapsable';
 import { ErrorState, InlineError } from '@/components/StateViews';
 import { SubmitButton, type SubmitPhase } from '@/components/SubmitButton';
 import { TextField } from '@/components/TextField';
-import { FechaHoraBloque } from '@/features/orders/components/DateTimeField';
+import { HorarioOrdenEditor } from '@/features/orders/components/DateTimeField';
 import { EditarOrdenHero } from '@/features/orders/components/EditarOrdenHero';
 import { EquiposOrdenEditor } from '@/features/orders/components/EquiposOrdenEditor';
 import { FotosEditor } from '@/features/orders/components/FotosEditor';
@@ -259,24 +259,19 @@ export default function EditarOrdenScreen() {
 
             <Animated.View style={entrance(3)}>
               <SeccionCard titulo="Horario" tono={tono}>
-                <FechaHoraBloque
-                  titulo="Inicio"
-                  fecha={form.fecha_inicio}
-                  hora={form.hora_inicio}
-                  errorFecha={errores.fecha_inicio}
-                  errorHora={errores.hora_inicio}
-                  onFecha={(valor) => actualizar('fecha_inicio', valor)}
-                  onHora={(valor) => actualizar('hora_inicio', valor)}
-                />
-                <View style={[styles.separador, { backgroundColor: colors.line }]} />
-                <FechaHoraBloque
-                  titulo="Finalización"
-                  fecha={form.fecha_finalizacion}
-                  hora={form.hora_termino}
-                  errorFecha={errores.fecha_finalizacion}
-                  errorHora={errores.hora_termino}
-                  onFecha={(valor) => actualizar('fecha_finalizacion', valor)}
-                  onHora={(valor) => actualizar('hora_termino', valor)}
+                <HorarioOrdenEditor
+                  fechaInicio={form.fecha_inicio}
+                  horaInicio={form.hora_inicio}
+                  fechaFinalizacion={form.fecha_finalizacion}
+                  horaTermino={form.hora_termino}
+                  errorFechaInicio={errores.fecha_inicio}
+                  errorHoraInicio={errores.hora_inicio}
+                  errorFechaFinalizacion={errores.fecha_finalizacion}
+                  errorHoraTermino={errores.hora_termino}
+                  onFechaInicio={(valor) => actualizar('fecha_inicio', valor)}
+                  onHoraInicio={(valor) => actualizar('hora_inicio', valor)}
+                  onFechaFinalizacion={(valor) => actualizar('fecha_finalizacion', valor)}
+                  onHoraTermino={(valor) => actualizar('hora_termino', valor)}
                 />
               </SeccionCard>
             </Animated.View>
@@ -366,10 +361,6 @@ const styles = StyleSheet.create({
   },
   subtitulo: { ...type.caption, fontSize: 12, marginTop: -spacing.xs },
   campoColapsado: { paddingBottom: spacing.sm },
-  separador: {
-    height: StyleSheet.hairlineWidth,
-    marginVertical: spacing.xs,
-  },
   acciones: { marginTop: spacing.sm, gap: spacing.sm },
   cancelar: {
     minHeight: TOUCH_TARGET,

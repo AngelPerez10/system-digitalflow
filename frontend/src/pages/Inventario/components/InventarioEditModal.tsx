@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Modal } from "@/components/ui/modal";
 import {
   fetchCatalogoDetallePorRef,
@@ -21,12 +21,17 @@ import {
   invModalScrollClass,
   invModalShellClass,
   invModalSubtitleClass,
+  invModalTabClass,
+  invModalTabIndicatorClass,
+  invModalTabListClass,
   invModalTitleClass,
+  invNotaSalidaTextareaClass,
   invPrimaryBtnClass,
   invSecondaryBtnClass,
   invTextareaLikeClass,
 } from "../shared/inventarioStyles";
 import InventarioFormSection from "./InventarioFormSection";
+import InventarioItemHistorialTab from "./InventarioItemHistorialTab";
 import InventarioSeccionBadge from "./InventarioSeccionBadge";
 import InventarioThumb from "./InventarioThumb";
 import {
@@ -34,6 +39,7 @@ import {
   CheckIcon,
   CloseIcon,
   EntradaIcon,
+  HistoryIcon,
   LinkIcon,
   PhotoIcon,
   RefreshIcon,
@@ -53,6 +59,14 @@ import { INVENTARIO_SECCIONES } from "../shared/inventarioSecciones";
 
 const MIN_BUSQUEDA = 3;
 const MAX_IMAGEN_MB = 8;
+const NOTA_MAX = 255;
+
+type ModalTab = "ficha" | "historial";
+
+const MODAL_TABS: { id: ModalTab; label: string }[] = [
+  { id: "ficha", label: "Ficha" },
+  { id: "historial", label: "Historial" },
+];
 
 function leerComoDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -98,6 +112,13 @@ export default function InventarioEditModal({
   onItemUpdated,
 }: InventarioEditModalProps) {
   const titleId = useId();
+  const tabFichaId = `${titleId}-tab-ficha`;
+  const tabHistorialId = `${titleId}-tab-historial`;
+  const panelFichaId = `${titleId}-panel-ficha`;
+  const panelHistorialId = `${titleId}-panel-historial`;
+  const [modalTab, setModalTab] = useState<ModalTab>("ficha");
+  const [historialRefreshKey, setHistorialRefreshKey] = useState(0);
+  const [notaSalida, setNotaSalida] = useState("");
   const [nombre, setNombre] = useState("");
   const [marca, setMarca] = useState("");
   const [modelo, setModelo] = useState("");
@@ -147,6 +168,8 @@ export default function InventarioEditModal({
 
   useEffect(() => {
     if (!item) return;
+    setModalTab("ficha");
+    setNotaSalida("");
     setRefrescoAviso(null);
     setFichaAviso(null);
     setAjusteAviso(null);
@@ -378,12 +401,17 @@ export default function InventarioEditModal({
         const pasos = Math.abs(deltaExistencia);
         let actualizado = item;
         for (let i = 0; i < pasos; i += 1) {
-          const result = await scanInventario(item.codigo_barras, modo);
+          const result = await scanInventario(
+            item.codigo_barras,
+            modo,
+            modo === "salida" ? notaSalida : undefined,
+          );
           actualizado = result.item;
         }
         setCantidadGuardada(actualizado.cantidad);
         setCantidad(actualizado.cantidad);
         onItemUpdated?.(actualizado);
+        setHistorialRefreshKey((k) => k + 1);
         setAjusteAviso(
           deltaExistencia > 0
             ? `Se registraron ${pasos} entrada${pasos === 1 ? "" : "s"} · existencia ${actualizado.cantidad}`
@@ -411,6 +439,34 @@ export default function InventarioEditModal({
 
   const vinculado = fuente !== "desconocido" && refExterna.trim().length > 0;
   const terminoValido = termino.trim().length >= MIN_BUSQUEDA;
+
+  const tabIdFor = (id: ModalTab) => (id === "ficha" ? tabFichaId : tabHistorialId);
+  const panelIdFor = (id: ModalTab) => (id === "ficha" ? panelFichaId : panelHistorialId);
+
+  const onModalTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const last = MODAL_TABS.length - 1;
+    let next = index;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault();
+      next = index === last ? 0 : index + 1;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault();
+      next = index === 0 ? last : index - 1;
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      next = 0;
+    } else if (event.key === "End") {
+      event.preventDefault();
+      next = last;
+    } else {
+      return;
+    }
+    const nextTab = MODAL_TABS[next];
+    setModalTab(nextTab.id);
+    window.requestAnimationFrame(() => {
+      document.getElementById(tabIdFor(nextTab.id))?.focus();
+    });
+  };
 
   return (
     <Modal
@@ -455,6 +511,56 @@ export default function InventarioEditModal({
 
         <div className={invModalBodyClass}>
           <div className={invModalScrollClass}>
+            <div
+              className={invModalTabListClass}
+              role="tablist"
+              aria-label="Secciones de la ficha"
+            >
+              {MODAL_TABS.map((tab, index) => {
+                const selected = modalTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    id={tabIdFor(tab.id)}
+                    role="tab"
+                    aria-selected={selected}
+                    aria-controls={panelIdFor(tab.id)}
+                    tabIndex={selected ? 0 : -1}
+                    className={invModalTabClass(selected)}
+                    onClick={() => setModalTab(tab.id)}
+                    onKeyDown={(e) => onModalTabKeyDown(e, index)}
+                  >
+                    {tab.id === "ficha" ? (
+                      <TagIcon className="h-4 w-4 shrink-0 opacity-80" />
+                    ) : (
+                      <HistoryIcon className="h-4 w-4 shrink-0 opacity-80" />
+                    )}
+                    {tab.label}
+                    {selected ? (
+                      <span className={invModalTabIndicatorClass} aria-hidden="true" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+
+            {modalTab === "historial" && item ? (
+              <InventarioItemHistorialTab
+                item={item}
+                refreshKey={historialRefreshKey}
+                labelledBy={tabHistorialId}
+                panelId={panelHistorialId}
+              />
+            ) : null}
+
+            <div
+              id={panelFichaId}
+              role="tabpanel"
+              aria-labelledby={tabFichaId}
+              hidden={modalTab !== "ficha"}
+              className={modalTab === "ficha" ? "space-y-4" : undefined}
+            >
             <InventarioFormSection
               titleId={`${titleId}-sec-existencia`}
               eyebrow="Existencia"
@@ -542,6 +648,38 @@ export default function InventarioEditModal({
                   </p>
                 ) : null}
               </div>
+              {canAdjustStock ? (
+                <div className="mt-3">
+                  <div className="mb-1.5 flex flex-wrap items-end justify-between gap-2">
+                    <label htmlFor={`${titleId}-nota-salida`} className={inventarioFieldLabelClass}>
+                      Motivo de la salida{" "}
+                      <span className="font-normal normal-case tracking-normal text-[#6E6E77] dark:text-[#8EA0B8]">
+                        (opcional)
+                      </span>
+                    </label>
+                    <span
+                      className="text-[11px] tabular-nums text-[#6E6E77] dark:text-[#8EA0B8]"
+                      aria-live="polite"
+                    >
+                      {notaSalida.length}/{NOTA_MAX}
+                    </span>
+                  </div>
+                  <textarea
+                    id={`${titleId}-nota-salida`}
+                    value={notaSalida}
+                    onChange={(e) => setNotaSalida(e.target.value.slice(0, NOTA_MAX))}
+                    maxLength={NOTA_MAX}
+                    rows={3}
+                    disabled={busy}
+                    autoComplete="off"
+                    placeholder="Ej. Entrega a obra Norte, préstamo a técnico, merma en almacén…"
+                    className={invNotaSalidaTextareaClass}
+                  />
+                  <p className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                    Se aplica a las salidas pendientes al Guardar.
+                  </p>
+                </div>
+              ) : null}
               {ajusteAviso ? (
                 <p className="mt-2 text-xs text-[#04724D] dark:text-[#4ADE80]" role="status" aria-live="polite">
                   {ajusteAviso}
@@ -945,27 +1083,39 @@ export default function InventarioEditModal({
                 {error}
               </p>
             ) : null}
+            </div>
           </div>
         </div>
 
-        <footer className={invModalFooterClass}>
-          <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end sm:gap-3">
-            <button type="button" className={invSecondaryBtnClass} onClick={onClose} disabled={busy}>
-              <CloseIcon className="h-4 w-4" />
-              Cancelar
-            </button>
-            <button type="submit" className={invPrimaryBtnClass} disabled={busy || !item}>
-              <CheckIcon className="h-4 w-4" />
-              {aplicandoExistencia
-                ? "Registrando existencia…"
-                : saving
-                  ? "Guardando…"
-                  : deltaExistencia !== 0
-                    ? `Guardar (${deltaExistencia > 0 ? "+" : ""}${deltaExistencia})`
-                    : "Guardar"}
-            </button>
-          </div>
-        </footer>
+        {modalTab === "ficha" ? (
+          <footer className={invModalFooterClass}>
+            <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end sm:gap-3">
+              <button type="button" className={invSecondaryBtnClass} onClick={onClose} disabled={busy}>
+                <CloseIcon className="h-4 w-4" />
+                Cancelar
+              </button>
+              <button type="submit" className={invPrimaryBtnClass} disabled={busy || !item}>
+                <CheckIcon className="h-4 w-4" />
+                {aplicandoExistencia
+                  ? "Registrando existencia…"
+                  : saving
+                    ? "Guardando…"
+                    : deltaExistencia !== 0
+                      ? `Guardar (${deltaExistencia > 0 ? "+" : ""}${deltaExistencia})`
+                      : "Guardar"}
+              </button>
+            </div>
+          </footer>
+        ) : (
+          <footer className={invModalFooterClass}>
+            <div className="flex justify-end">
+              <button type="button" className={invSecondaryBtnClass} onClick={onClose}>
+                <CloseIcon className="h-4 w-4" />
+                Cerrar
+              </button>
+            </div>
+          </footer>
+        )}
       </form>
     </Modal>
   );

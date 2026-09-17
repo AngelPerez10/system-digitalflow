@@ -223,7 +223,7 @@ export default function InventarioPage() {
     setMovimientosPage(1);
   };
 
-  const handleScan = async (rawCode: string) => {
+  const handleScan = async (rawCode: string, notaSalida?: string) => {
     const code = rawCode.trim();
     if (!code) return;
 
@@ -241,12 +241,19 @@ export default function InventarioPage() {
     setScanStatus(null);
 
     try {
-      const result = await scanInventario(code, modo);
+      const result = await scanInventario(
+        code,
+        modo,
+        modo === "salida" ? notaSalida : undefined,
+      );
       const nombre = result.item.nombre || result.item.codigo_barras;
       const accion = modo === "entrada" ? "Entrada" : "Salida";
       const extras: string[] = [];
       if (result.creado) extras.push("ítem nuevo");
       if (result.enriquecido) extras.push("datos enriquecidos");
+      if (modo === "salida" && result.movimiento.nota?.trim()) {
+        extras.push(`motivo: ${result.movimiento.nota.trim()}`);
+      }
       const suffix = extras.length > 0 ? ` (${extras.join(", ")})` : "";
       setScanStatus(
         `${accion} registrada: ${nombre} — existencia ${result.item.cantidad}${suffix}`,
@@ -389,7 +396,7 @@ export default function InventarioPage() {
             <InventarioScanBar
               modo={modo}
               onModoChange={setModo}
-              onScan={(code) => void handleScan(code)}
+              onScan={(code, nota) => void handleScan(code, nota)}
               disabled={!canCreate || scanning}
               scanning={scanning}
               statusMessage={scanStatus}

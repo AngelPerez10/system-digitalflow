@@ -1,5 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
-import { deleteSecureValue, readSecureValue } from './secureStore';
+import { deleteSecureValue, readSecureValue, writeSecureValue } from './secureStore';
 
 /**
  * Access en memoria + SecureStore; refresh **solo** en SecureStore
@@ -22,15 +21,15 @@ export const tokenStore = {
 
   async save(tokens: TokenPair): Promise<void> {
     accessInMemory = tokens.access;
-    await SecureStore.setItemAsync(ACCESS_KEY, tokens.access);
-    await SecureStore.setItemAsync(REFRESH_KEY, tokens.refresh);
+    await writeSecureValue(ACCESS_KEY, tokens.access);
+    await writeSecureValue(REFRESH_KEY, tokens.refresh);
   },
 
   /** Tras rotar el refresh: guardar ambos sin pasar por el login. */
   async updateAccess(access: string, refresh?: string): Promise<void> {
     accessInMemory = access;
-    await SecureStore.setItemAsync(ACCESS_KEY, access);
-    if (refresh) await SecureStore.setItemAsync(REFRESH_KEY, refresh);
+    await writeSecureValue(ACCESS_KEY, access);
+    if (refresh) await writeSecureValue(REFRESH_KEY, refresh);
   },
 
   async getRefresh(): Promise<string | null> {

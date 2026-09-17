@@ -21,11 +21,13 @@ import type {
 const deliveredClass = (delivered: boolean) =>
   [
     "flex h-[3.25rem] w-full min-w-[10.5rem] max-w-[12rem] cursor-pointer items-center gap-2.5 rounded-xl border px-3 transition",
-    "has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50",
+    "has-[:disabled]:cursor-not-allowed",
     "focus-within:outline-none focus-within:ring-2 focus-within:ring-[#1B5CFF]/30",
+    // Entregado (aunque sea solo lectura para el técnico) debe verse en verde pleno;
+    // pendiente bloqueado sí se atenúa un poco para no parecer accionable.
     delivered
-      ? "border-emerald-300/80 bg-emerald-50 dark:border-emerald-600/50 dark:bg-emerald-950/35"
-      : "border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]",
+      ? "border-emerald-400 bg-emerald-50 dark:border-emerald-500/60 dark:bg-emerald-950/45"
+      : "border-[#E7E7EA] bg-[#FAFAFA] has-[:disabled]:opacity-70 dark:border-[#273244] dark:bg-[#111827]",
   ].join(" ");
 
 const installBtnClass = (active: boolean, value: "instalado" | "no_instalado") => {
@@ -290,26 +292,44 @@ export function ProyectoEquiposSection({
                                 title={
                                   !presupuestoCargado
                                     ? "Disponible al cargar presupuesto"
-                                    : undefined
+                                    : !isAdmin
+                                      ? "Solo un administrador puede confirmar la entrega"
+                                      : undefined
                                 }
                               >
                                 <input
                                   type="checkbox"
-                                  className="h-4 w-4 shrink-0 rounded border-[#D3D3D8] text-[#1B5CFF] focus:ring-[#1B5CFF]/30"
+                                  className={
+                                    eq.equipoEntregado
+                                      ? "h-4 w-4 shrink-0 rounded border-emerald-500 text-emerald-600 accent-emerald-600 focus:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-100"
+                                      : "h-4 w-4 shrink-0 rounded border-[#D3D3D8] text-[#1B5CFF] accent-[#1B5CFF] focus:ring-[#1B5CFF]/30 disabled:cursor-not-allowed"
+                                  }
                                   checked={eq.equipoEntregado}
-                                  disabled={!presupuestoCargado}
+                                  disabled={!presupuestoCargado || !isAdmin}
                                   onChange={(e) =>
                                     onUpdateEquipo(eq.lineaId, {
                                       equipoEntregado: e.target.checked,
                                     })
                                   }
-                                  aria-label={`Entrega de ${title}`}
+                                  aria-label={`Entrega de ${title}${!isAdmin ? " (solo administrador)" : ""}`}
                                 />
                                 <span className="min-w-0 leading-tight">
-                                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
+                                  <span
+                                    className={
+                                      eq.equipoEntregado
+                                        ? "block text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300"
+                                        : "block text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]"
+                                    }
+                                  >
                                     Entrega
                                   </span>
-                                  <span className="text-xs font-semibold text-[#09090B] dark:text-[#f8fafc]">
+                                  <span
+                                    className={
+                                      eq.equipoEntregado
+                                        ? "text-xs font-semibold text-emerald-900 dark:text-emerald-100"
+                                        : "text-xs font-semibold text-[#09090B] dark:text-[#f8fafc]"
+                                    }
+                                  >
                                     {eq.equipoEntregado ? "Entregado" : "Pendiente"}
                                   </span>
                                 </span>
@@ -356,7 +376,12 @@ export function ProyectoEquiposSection({
                                       type="button"
                                       role="radio"
                                       aria-checked={pressed}
-                                      disabled={!presupuestoCargado}
+                                      disabled={!presupuestoCargado || !eq.equipoEntregado}
+                                      title={
+                                        !eq.equipoEntregado
+                                          ? "Primero hay que marcar la entrega"
+                                          : undefined
+                                      }
                                       onClick={() =>
                                         onUpdateEquipo(eq.lineaId, {
                                           estadoInstalacion: opt.value,
@@ -369,39 +394,37 @@ export function ProyectoEquiposSection({
                                   );
                                 })}
                               </div>
+                              {!eq.equipoEntregado ? (
+                                <p className="mt-1.5 text-[11px] leading-snug text-[#6E6E77] dark:text-[#8ea0b8]">
+                                  Se puede instalar cuando se confirme la entrega.
+                                </p>
+                              ) : null}
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:pt-6">
-                              {isAdmin ? (
-                                <>
+                            {isAdmin ? (
+                              <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:pt-6">
+                                <button
+                                  type="button"
+                                  disabled={!presupuestoCargado}
+                                  className={`${erpSecondaryBtnClass} !px-3 !py-1.5 !text-xs`}
+                                  onClick={() => onCambiarModelo(eq.lineaId)}
+                                  aria-label={`Cambiar modelo de catálogo de ${title}`}
+                                >
+                                  Cambiar modelo
+                                </button>
+                                {modificado ? (
                                   <button
                                     type="button"
                                     disabled={!presupuestoCargado}
-                                    className={`${erpSecondaryBtnClass} !px-3 !py-1.5 !text-xs`}
-                                    onClick={() => onCambiarModelo(eq.lineaId)}
-                                    aria-label={`Cambiar modelo de catálogo de ${title}`}
+                                    className="rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#52525B] transition hover:border-[#1B5CFF]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 disabled:opacity-50 dark:border-[#273244] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
+                                    onClick={() => onRestaurarModelo(eq)}
+                                    aria-label={`Restaurar modelo original de ${eq.modeloOriginal}`}
                                   >
-                                    Cambiar modelo
+                                    Restaurar original
                                   </button>
-                                  {modificado ? (
-                                    <button
-                                      type="button"
-                                      disabled={!presupuestoCargado}
-                                      className="rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#52525B] transition hover:border-[#1B5CFF]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 disabled:opacity-50 dark:border-[#273244] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
-                                      onClick={() => onRestaurarModelo(eq)}
-                                      aria-label={`Restaurar modelo original de ${eq.modeloOriginal}`}
-                                    >
-                                      Restaurar original
-                                    </button>
-                                  ) : null}
-                                </>
-                              ) : (
-                                <p className="max-w-[16rem] text-[11px] leading-snug text-[#6E6E77] dark:text-[#8ea0b8]">
-                                  Solo un administrador puede cambiar el modelo desde el catálogo
-                                  (Syscom, TVC o Manual).
-                                </p>
-                              )}
-                            </div>
+                                ) : null}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </article>

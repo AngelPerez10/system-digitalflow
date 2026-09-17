@@ -134,6 +134,29 @@ export const invModalScrollClass =
 export const invModalFooterClass =
   "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:px-6";
 
+/** Pestañas Ficha / Historial — estilo subrayado (más editorial que el segmento relleno). */
+export const invModalTabListClass =
+  "mb-5 flex gap-1 border-b border-[#E7E7EA] dark:border-[#273244]";
+
+export function invModalTabClass(active: boolean): string {
+  return [
+    "relative inline-flex min-h-11 flex-1 items-center justify-center gap-2 px-3 pb-3 pt-1 text-sm font-semibold tracking-[-0.1px] transition-colors",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.4)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#111827]",
+    "motion-reduce:transition-none",
+    active
+      ? "text-[#1B5CFF] dark:text-[#4B7CFF]"
+      : "text-[#6E6E77] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:text-[#F8FAFC]",
+  ].join(" ");
+}
+
+/** Indicador de pestaña activa (línea inferior). */
+export const invModalTabIndicatorClass =
+  "pointer-events-none absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#1B5CFF] dark:bg-[#4B7CFF]";
+
+/** Textarea corto para motivo de salida (máx. 255 en API). */
+export const invNotaSalidaTextareaClass =
+  "min-h-[4.75rem] w-full resize-y rounded-[10px] border border-[#E7E7EA] bg-white px-3.5 py-2.5 text-[15px] leading-snug tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
+
 export const invModalSectionCardShellClass =
   "rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#1B2539] sm:p-5";
 

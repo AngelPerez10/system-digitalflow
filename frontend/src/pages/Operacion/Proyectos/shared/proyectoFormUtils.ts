@@ -451,6 +451,29 @@ export function estadoInstalacionLabel(estado: EquipoEstadoInstalacion): string 
   }
 }
 
+/**
+ * Aplica un patch a una línea de equipo.
+ * Entrega e instalación son ejes independientes: marcar «No instalado» no
+ * revierte `equipoEntregado`; «Instalado» sí implica entregado.
+ */
+export function applyProyectoEquipoPatch(
+  eq: ProyectoEquipoLinea,
+  patch: Partial<ProyectoEquipoLinea>
+): ProyectoEquipoLinea {
+  const next = { ...eq, ...patch };
+  if (patch.equipoEntregado === true) {
+    if (next.estadoInstalacion === "pendiente" || next.estadoInstalacion === "no_instalado") {
+      next.estadoInstalacion = "entregado";
+    }
+  } else if (patch.equipoEntregado === false && next.estadoInstalacion === "entregado") {
+    next.estadoInstalacion = "pendiente";
+  }
+  if (patch.estadoInstalacion === "instalado") {
+    next.equipoEntregado = true;
+  }
+  return next;
+}
+
 export function estadoProyectoLabel(estado: ProyectoEstado): string {
   switch (estado) {
     case "pausado":

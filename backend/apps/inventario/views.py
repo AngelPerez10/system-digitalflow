@@ -118,6 +118,7 @@ class ScanView(APIView):
             )
 
         modo = serializer.validated_data['modo']
+        nota = (serializer.validated_data.get('nota') or '').strip()[:255]
         creado = False
         enriquecido = False
 
@@ -186,6 +187,7 @@ class ScanView(APIView):
                 tipo=modo,
                 cantidad=1,
                 usuario=request.user,
+                nota=nota,
             )
 
         return Response(

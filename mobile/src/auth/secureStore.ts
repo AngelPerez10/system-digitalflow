@@ -23,3 +23,16 @@ export async function deleteSecureValue(key: string): Promise<void> {
     // Un borrado que falla no debe tumbar el logout o el cambio de perfil.
   }
 }
+
+/**
+ * Best-effort: si el almacén no está disponible (p. ej. `react-native-web`,
+ * que no implementa `expo-secure-store`), la sesión sigue viva en memoria
+ * para lo que dure la pestaña — solo no sobrevive a un refresh.
+ */
+export async function writeSecureValue(key: string, value: string): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(key, value);
+  } catch (error) {
+    console.warn('[auth] No se pudo escribir en el almacén seguro', (error as Error)?.name);
+  }
+}

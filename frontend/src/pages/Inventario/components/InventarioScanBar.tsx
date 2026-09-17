@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   consolaRailClass,
   consolaShellClass,
+  inventarioFieldLabelClass,
+  invNotaSalidaTextareaClass,
   modoToggleBtnClass,
   modoToggleWrapClass,
   scanInputClass,
@@ -12,7 +14,8 @@ import { BarcodeIcon, EntradaIcon, SalidaIcon } from "./inventarioIcons";
 type InventarioScanBarProps = {
   modo: ScanModo;
   onModoChange: (modo: ScanModo) => void;
-  onScan: (codigo: string) => void;
+  /** Segundo argumento: motivo opcional (solo se usa en salidas). */
+  onScan: (codigo: string, notaSalida?: string) => void;
   disabled: boolean;
   scanning: boolean;
   statusMessage: string | null;
@@ -22,6 +25,8 @@ const MODOS: { value: ScanModo; label: string; hint: string }[] = [
   { value: "entrada", label: "Entrada", hint: "Cada escaneo suma 1 a la existencia." },
   { value: "salida", label: "Salida", hint: "Cada escaneo resta 1 a la existencia." },
 ];
+
+const NOTA_MAX = 255;
 
 function ModoIcon({ modo }: { modo: ScanModo }) {
   return modo === "entrada" ? (
@@ -42,8 +47,10 @@ export default function InventarioScanBar({
   const inputRef = useRef<HTMLInputElement>(null);
   const modoGroupId = useId();
   const scanInputId = useId();
+  const notaInputId = useId();
   const statusId = useId();
   const [focused, setFocused] = useState(false);
+  const [notaSalida, setNotaSalida] = useState("");
 
   useEffect(() => {
     if (!disabled) {
@@ -54,7 +61,7 @@ export default function InventarioScanBar({
   const submitScan = () => {
     const value = inputRef.current?.value.trim() ?? "";
     if (!value || disabled) return;
-    onScan(value);
+    onScan(value, modo === "salida" ? notaSalida.trim() : undefined);
     if (inputRef.current) inputRef.current.value = "";
     inputRef.current?.focus();
   };
@@ -110,41 +117,79 @@ export default function InventarioScanBar({
       </div>
 
       <form
-        className="mt-5"
+        className="mt-5 space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
           submitScan();
         }}
       >
-        <label
-          htmlFor={scanInputId}
-          className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6E6E77] dark:text-[#8EA0B8]"
-        >
-          Código de barras
-        </label>
-        <div className="relative">
-          <span
-            className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]"
-            aria-hidden="true"
+        {modo === "salida" ? (
+          <div>
+            <div className="mb-1.5 flex flex-wrap items-end justify-between gap-2">
+              <label htmlFor={notaInputId} className={inventarioFieldLabelClass}>
+                Motivo de la salida{" "}
+                <span className="font-normal normal-case tracking-normal text-[#6E6E77] dark:text-[#8EA0B8]">
+                  (opcional)
+                </span>
+              </label>
+              <span
+                className="text-[11px] tabular-nums text-[#6E6E77] dark:text-[#8EA0B8]"
+                aria-live="polite"
+              >
+                {notaSalida.length}/{NOTA_MAX}
+              </span>
+            </div>
+            <textarea
+              id={notaInputId}
+              value={notaSalida}
+              onChange={(e) => setNotaSalida(e.target.value.slice(0, NOTA_MAX))}
+              maxLength={NOTA_MAX}
+              rows={2}
+              disabled={disabled}
+              autoComplete="off"
+              placeholder="Ej. Entrega a obra, préstamo, merma…"
+              className={invNotaSalidaTextareaClass}
+            />
+            <p className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
+              Se reutiliza en cada escaneo hasta que lo borres. El foco vuelve al código para el
+              escáner.
+            </p>
+          </div>
+        ) : null}
+
+        <div>
+          <label
+            htmlFor={scanInputId}
+            className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6E6E77] dark:text-[#8EA0B8]"
           >
-            <BarcodeIcon className="h-6 w-6" />
-          </span>
-          <input
-            ref={inputRef}
-            id={scanInputId}
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            disabled={disabled}
-            placeholder={disabled ? "Sin permiso para escanear" : "Escanea o escribe el código y presiona Enter"}
-            className={scanInputClass}
-            aria-describedby={statusId}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-          />
+            Código de barras
+          </label>
+          <div className="relative">
+            <span
+              className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]"
+              aria-hidden="true"
+            >
+              <BarcodeIcon className="h-6 w-6" />
+            </span>
+            <input
+              ref={inputRef}
+              id={scanInputId}
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={disabled}
+              placeholder={
+                disabled ? "Sin permiso para escanear" : "Escanea o escribe el código y presiona Enter"
+              }
+              className={scanInputClass}
+              aria-describedby={statusId}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+            />
+          </div>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
           {disabled ? (
             <span>Necesitas permiso de creación en inventario para registrar entradas y salidas.</span>
           ) : (
@@ -160,7 +205,7 @@ export default function InventarioScanBar({
               <span>
                 {focused
                   ? "Listo para escanear."
-                  : "Haz clic en el campo para volver a capturar el escáner."}
+                  : "Haz clic en el campo de código para volver a capturar el escáner."}
               </span>
             </>
           )}

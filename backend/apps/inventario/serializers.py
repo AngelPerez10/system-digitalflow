@@ -97,6 +97,14 @@ class InventarioMovimientoSerializer(serializers.ModelSerializer):
 class ScanSerializer(serializers.Serializer):
     codigo_barras = serializers.CharField(required=True)
     modo = serializers.ChoiceField(choices=['entrada', 'salida'])
+    # Motivo opcional de la salida (también aceptado en entrada por compatibilidad).
+    nota = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=255,
+        default='',
+        trim_whitespace=True,
+    )
 
 
 class ImportarFacturaSerializer(serializers.Serializer):

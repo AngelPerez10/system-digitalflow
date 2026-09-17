@@ -1,0 +1,57 @@
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { SkeletonBar as Barra, SkeletonRegion } from '@/components/Skeleton';
+import { useTheme } from '@/theme/ThemeProvider';
+import { elevationFor, radius, spacing } from '@/theme/tokens';
+
+/** Silueta de `ProyectoCard` mientras llega el primer lote de proyectos. */
+export function ProyectoCardSkeleton() {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }, elevationFor(colors, 'card')]}
+    >
+      <View style={[styles.acento, { backgroundColor: colors.line }]} />
+      <View style={styles.contenido}>
+        <View style={styles.filaSuperior}>
+          <Barra width={72} height={18} radiusOverride={radius.sm} />
+          <Barra width={90} height={18} radiusOverride={radius.pill} />
+        </View>
+        <Barra width="70%" height={16} />
+        <View style={styles.fila}>
+          <Barra width={22} height={22} radiusOverride={radius.sm} />
+          <Barra width="50%" height={11} />
+        </View>
+        <View style={[styles.footer, { borderTopColor: colors.line }]}>
+          <Barra width={90} height={11} />
+          <Barra width={110} height={30} radiusOverride={radius.md} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+export function ProyectosSkeletonList({ filas = 4 }: { filas?: number }) {
+  return (
+    <SkeletonRegion label="Cargando proyectos">
+      {Array.from({ length: filas }, (_, i) => (
+        <ProyectoCardSkeleton key={i} />
+      ))}
+    </SkeletonRegion>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: { flexDirection: 'row', borderWidth: 1, borderRadius: radius.lg, marginBottom: spacing.md, overflow: 'hidden' },
+  acento: { width: 4 },
+  contenido: { flex: 1, padding: spacing.lg, gap: spacing.md },
+  filaSuperior: { flexDirection: 'row', justifyContent: 'space-between' },
+  fila: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    paddingTop: spacing.md,
+  },
+});

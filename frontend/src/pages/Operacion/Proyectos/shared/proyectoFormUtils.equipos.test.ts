@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyProyectoEquipoPatch,
   buildEquiposFromCotizaciones,
   buildEquiposFromPresupuesto,
 } from "./proyectoFormUtils";
@@ -93,5 +94,40 @@ describe("buildEquiposFromCotizaciones", () => {
     expect(cableEq?.equipoEntregado).toBe(true);
     expect(cableEq?.estadoInstalacion).toBe("instalado");
     expect(next.find((e) => e.lineaId === "v1:lin-router")?.modelo).toBe("Router custom");
+  });
+});
+
+describe("applyProyectoEquipoPatch", () => {
+  const base: ProyectoEquipoLinea = {
+    lineaId: "eq-1",
+    modelo: "GPS X",
+    modeloOriginal: "GPS X",
+    cantidad: 1,
+    estadoInstalacion: "entregado",
+    equipoEntregado: true,
+  };
+
+  it("al marcar No instalado conserva la entrega", () => {
+    const next = applyProyectoEquipoPatch(base, { estadoInstalacion: "no_instalado" });
+    expect(next.estadoInstalacion).toBe("no_instalado");
+    expect(next.equipoEntregado).toBe(true);
+  });
+
+  it("al marcar Instalado fuerza entregado", () => {
+    const next = applyProyectoEquipoPatch(
+      { ...base, equipoEntregado: false, estadoInstalacion: "pendiente" },
+      { estadoInstalacion: "instalado" }
+    );
+    expect(next.estadoInstalacion).toBe("instalado");
+    expect(next.equipoEntregado).toBe(true);
+  });
+
+  it("al confirmar entrega desde pendiente pasa a estado entregado", () => {
+    const next = applyProyectoEquipoPatch(
+      { ...base, equipoEntregado: false, estadoInstalacion: "pendiente" },
+      { equipoEntregado: true }
+    );
+    expect(next.equipoEntregado).toBe(true);
+    expect(next.estadoInstalacion).toBe("entregado");
   });
 });

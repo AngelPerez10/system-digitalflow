@@ -23,7 +23,7 @@ export function OrdenesHero({ nombre, mes }: Props) {
         Hola, {nombre}
       </Text>
       <Text style={[styles.sub, { color: colors.onNavyMuted }]} numberOfLines={1}>
-        Técnico de campo · {etiquetaMes(mes)}
+        Órdenes asignadas · {etiquetaMes(mes)}
       </Text>
     </View>
   );

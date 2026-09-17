@@ -1,15 +1,15 @@
-import React, { useCallback } from 'react';
-import { RefreshControl, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useRef } from 'react';
+import { Animated, Easing, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
 import { useSession } from '@/auth/SessionProvider';
-import { AppButton } from '@/components/AppButton';
 import { BarraCarga } from '@/components/BarraCarga';
 import { EmptyState, InlineError } from '@/components/StateViews';
 import { TextField } from '@/components/TextField';
 import { EstadoConteo } from '@/features/orders/components/EstadoConteo';
+import { IconBox, IconFlecha } from '@/features/orders/components/icons';
 import { MesSelector } from '@/features/orders/components/MesSelector';
 import { OrdenCard } from '@/features/orders/components/OrdenCard';
 import { OrdenesSkeletonList } from '@/features/orders/components/OrdenCardSkeleton';
@@ -18,8 +18,87 @@ import { useOrdenes } from '@/features/orders/useOrdenes';
 import { statusSolid } from '@/features/orders/ordenFormat';
 import { usePush } from '@/notifications/PushProvider';
 import { useTheme } from '@/theme/ThemeProvider';
-import { font, radius, spacing, type } from '@/theme/tokens';
+import { elevationFor, font, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
+import { useReducedMotion } from '@/utils/useReducedMotion';
 import type { OrdenListItem } from '@/types/orden';
+
+/**
+ * Banner de "Órdenes disponibles" — reemplaza el botón secundario + badge
+ * flotante por una tarjeta con el mismo lenguaje que `OrdenCard`/`ProyectoCard`:
+ * placa de icono, texto y chevron. Se acentúa en dorado cuando hay nuevas sin ver.
+ */
+function OrdenesPoolBanner({ conAviso, cantidad, onPress }: { conAviso: boolean; cantidad: number; onPress: () => void }) {
+  const { colors } = useTheme();
+  const reduced = useReducedMotion();
+  const escala = useRef(new Animated.Value(1)).current;
+
+  const animarA = (destino: number) => {
+    if (reduced) return;
+    Animated.timing(escala, {
+      toValue: destino,
+      duration: destino < 1 ? 90 : 140,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const subtitulo = conAviso
+    ? `${cantidad} orden${cantidad === 1 ? '' : 'es'} nueva${cantidad === 1 ? '' : 's'} liberada${
+        cantidad === 1 ? '' : 's'
+      } por otros técnicos`
+    : 'Toma trabajo extra que otros técnicos liberaron';
+
+  return (
+    <Animated.View style={{ transform: [{ scale: escala }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Órdenes disponibles"
+        accessibilityHint={subtitulo}
+        onPress={onPress}
+        onPressIn={() => animarA(0.985)}
+        onPressOut={() => animarA(1)}
+        style={({ pressed }) => [
+          styles.banner,
+          {
+            backgroundColor: conAviso ? colors.goldSoftBg : pressed ? colors.surfaceSunken : colors.surface,
+            borderColor: conAviso ? colors.gold : colors.line,
+            ...elevationFor(colors, 'card'),
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.bannerIcono,
+            { backgroundColor: conAviso ? 'rgba(255,255,255,0.5)' : colors.surfaceSunken },
+          ]}
+        >
+          <IconBox color={conAviso ? colors.goldSoftText : colors.navyText} size={17} />
+        </View>
+        <View style={styles.bannerTextos}>
+          <View style={styles.bannerTituloFila}>
+            <Text style={[styles.bannerTitulo, { color: colors.ink }]} numberOfLines={1}>
+              Órdenes disponibles
+            </Text>
+            {conAviso ? (
+              <View style={[styles.bannerBadge, { backgroundColor: colors.gold }]}>
+                <Text style={[styles.bannerBadgeTexto, { color: colors.navy }]}>
+                  {cantidad > 9 ? '9+' : cantidad}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <Text
+            style={[styles.bannerSub, { color: conAviso ? colors.goldSoftText : colors.inkSubtle }]}
+            numberOfLines={1}
+          >
+            {subtitulo}
+          </Text>
+        </View>
+        <IconFlecha color={colors.inkSubtle} size={13} />
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 function Lupa({ color }: { color: string }) {
   return (
@@ -60,40 +139,23 @@ export default function OrdenesScreen() {
   const hayAviso = disponiblesSinVer > 0;
   const buscador = (
     <View style={styles.controles}>
-      <View>
-        <AppButton
-          label="Órdenes disponibles"
-          variant="secondary"
-          onPress={() => router.push('/ordenes/pool')}
-          accessibilityHint={
-            hayAviso
-              ? `${disponiblesSinVer} orden${disponiblesSinVer === 1 ? '' : 'es'} nueva${
-                  disponiblesSinVer === 1 ? '' : 's'
-                } liberada${disponiblesSinVer === 1 ? '' : 's'} por otros técnicos`
-              : 'Ver las órdenes que otros técnicos liberaron'
-          }
-        />
-        {hayAviso ? (
-          <View
-            style={[styles.badge, { backgroundColor: colors.primary, borderColor: colors.surface }]}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          >
-            <Text style={[styles.badgeTexto, { color: colors.onPrimary }]}>
-              {disponiblesSinVer > 9 ? '9+' : disponiblesSinVer}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-      <TextField
-        label="Buscar"
-        value={busqueda}
-        onChangeText={setBusqueda}
-        placeholder="Folio, cliente, dirección…"
-        autoCapitalize="none"
-        autoCorrect={false}
-        leadingIcon={<Lupa color={colors.inkSubtle} />}
+      <OrdenesPoolBanner
+        conAviso={hayAviso}
+        cantidad={disponiblesSinVer}
+        onPress={() => router.push('/ordenes/pool')}
       />
+
+      <View style={styles.buscadorFila}>
+        <TextField
+          label="Buscar"
+          value={busqueda}
+          onChangeText={setBusqueda}
+          placeholder="Folio, cliente, dirección…"
+          autoCapitalize="none"
+          autoCorrect={false}
+          leadingIcon={<Lupa color={colors.inkSubtle} />}
+        />
+      </View>
       {error ? <InlineError message={error} /> : null}
     </View>
   );
@@ -184,19 +246,38 @@ const styles = StyleSheet.create({
   },
   lista: { padding: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.xxl, flexGrow: 1 },
   controles: { gap: spacing.md, marginBottom: spacing.sm },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    minWidth: 20,
-    height: 20,
-    borderRadius: radius.pill,
-    borderWidth: 2,
-    paddingHorizontal: 4,
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: TOUCH_TARGET + 6,
+    borderWidth: 1,
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  bannerIcono: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeTexto: { ...type.caption, fontSize: 11, fontFamily: font.semibold, lineHeight: 14 },
+  bannerTextos: { flex: 1, minWidth: 0, gap: 1 },
+  bannerTituloFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  bannerTitulo: { ...type.bodyMedium, fontSize: 14 },
+  bannerSub: { ...type.caption, fontSize: 11 },
+  bannerBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: radius.pill,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerBadgeTexto: { fontFamily: font.semibold, fontSize: 10, lineHeight: 13 },
+  buscadorFila: { gap: spacing.xs },
+  totalTexto: { ...type.caption, fontSize: 11, paddingHorizontal: 2 },
   pie: { marginTop: spacing.lg },
   seccionRow: {
     flexDirection: 'row',

@@ -557,7 +557,11 @@ export function ProyectoOperacionTab({
       <ProyectoFormSection
         titleId="proyecto-sec-equipo"
         title="Equipo de campo"
-        hint="Varios técnicos: marca uno como responsable. Los auxiliares también ven el proyecto."
+        hint={
+          assignedTechnicianLocked
+            ? "Solo lectura: la oficina asigna técnicos y auxiliares. Tú ves el equipo, pero no puedes cambiarlo."
+            : "Varios técnicos: marca uno como responsable. Los auxiliares también ven el proyecto."
+        }
         icon={iconTeam}
       >
         <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -567,6 +571,7 @@ export function ProyectoOperacionTab({
             value={tecnicosAsignados}
             onChange={setTecnicosAsignados}
             options={tecnicoOptions}
+            disabled={assignedTechnicianLocked}
             excludeIds={auxiliaresAsignados
               .map((a) => a.id)
               .filter((id): id is number => id != null)}
@@ -579,6 +584,7 @@ export function ProyectoOperacionTab({
               value={auxiliaresAsignados}
               onChange={setAuxiliaresAsignados}
               options={tecnicoOptions}
+              disabled={assignedTechnicianLocked}
               excludeIds={tecnicosAsignados
                 .map((t) => t.id)
                 .filter((id): id is number => id != null)}

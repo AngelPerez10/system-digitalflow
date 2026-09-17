@@ -72,6 +72,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hidratado) return;
+    // react-native-web no implementa setColorScheme (solo nativo); ahí el
+    // esquema ya se resuelve bien vía `colors` sin forzar el del SO.
+    if (typeof Appearance.setColorScheme !== 'function') return;
     // RN 0.86: setColorScheme ya no acepta undefined; 'unspecified' = seguir al sistema.
     Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference);
   }, [preference, hidratado]);

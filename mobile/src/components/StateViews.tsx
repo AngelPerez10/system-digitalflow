@@ -18,13 +18,26 @@ export function LoadingState({ label = 'Cargando…' }: { label?: string }) {
   );
 }
 
+/**
+ * Estado de error a pantalla completa — antes reusaba `InlineError` (un
+ * banner pensado para formularios) suelto en medio de la pantalla, sin
+ * jerarquía. Ahora es su propia composición: insignia circular, título fijo
+ * y el mensaje del servidor debajo, con "Reintentar" como acción primaria
+ * (es lo único que hay que hacer en esta pantalla).
+ */
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   const { colors } = useTheme();
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]} edges={['top', 'bottom']}>
       <View style={styles.center}>
-        <InlineError message={message} />
-        {onRetry ? <AppButton label="Reintentar" variant="secondary" onPress={onRetry} style={styles.action} /> : null}
+        <View style={[styles.errorInsignia, { backgroundColor: colors.dangerBg, borderColor: colors.dangerLine }]}>
+          <AlertGlyph color={colors.danger} size={26} />
+        </View>
+        <Text style={[styles.errorTitulo, { color: colors.ink }]}>Algo salió mal</Text>
+        <Text style={[styles.muted, { color: colors.inkMuted }]} accessibilityLiveRegion="polite">
+          {message}
+        </Text>
+        {onRetry ? <AppButton label="Reintentar" onPress={onRetry} style={styles.action} /> : null}
       </View>
     </SafeAreaView>
   );
@@ -49,9 +62,9 @@ export function EmptyState({
   );
 }
 
-function AlertGlyph({ color }: { color: string }) {
+function AlertGlyph({ color, size = 16 }: { color: string; size?: number }) {
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 8.5v4.2M12 16.4h.01M10.3 3.9 2.6 17.2a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
         stroke={color}
@@ -87,6 +100,15 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.lg },
   muted: { ...type.body, textAlign: 'center' },
   emptyTitle: { ...type.title, textAlign: 'center' },
+  errorInsignia: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorTitulo: { ...type.title, textAlign: 'center' },
   errorBox: {
     flexDirection: 'row',
     gap: spacing.md,

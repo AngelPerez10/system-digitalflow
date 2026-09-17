@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { toUserMessage } from '@/api/errors';
 import { getOrden } from '@/api/ordenesApi';
@@ -43,7 +43,16 @@ export function useOrden(id: number | null): UseOrdenResult {
     }
   }, [id]);
 
-  // Recarga al entrar y al volver de la edición: el detalle nunca queda viejo.
+  // `useFocusEffect` no es el disparador confiable de la primera carga en
+  // todas las plataformas (en la vista web el evento de foco puede no llegar
+  // al montar la pantalla); este efecto normal garantiza que la petición
+  // siempre sale, sin depender de eso.
+  useEffect(() => {
+    void cargar();
+    return () => peticionActiva.current?.abort();
+  }, [cargar]);
+
+  // Recarga también al volver de la edición: el detalle nunca queda viejo.
   useFocusEffect(
     useCallback(() => {
       void cargar();

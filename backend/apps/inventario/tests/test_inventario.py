@@ -71,6 +71,47 @@ class InventarioScanTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['item']['cantidad'], 1)
 
+    @patch('apps.inventario.views.enrich_from_catalogs', return_value=None)
+    def test_salida_guarda_nota_opcional(self, _enrich):
+        InventarioItem.objects.create(codigo_barras='ABC', cantidad=2)
+        res = self.client.post(
+            '/api/inventario/scan/',
+            {
+                'codigo_barras': 'ABC',
+                'modo': 'salida',
+                'nota': '  Entrega a obra Norte  ',
+            },
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['movimiento']['nota'], 'Entrega a obra Norte')
+        mov = InventarioMovimiento.objects.get(pk=res.data['movimiento']['id'])
+        self.assertEqual(mov.nota, 'Entrega a obra Norte')
+
+    @patch('apps.inventario.views.enrich_from_catalogs', return_value=None)
+    def test_salida_sin_nota_queda_vacia(self, _enrich):
+        InventarioItem.objects.create(codigo_barras='ABC', cantidad=1)
+        res = self.client.post(
+            '/api/inventario/scan/',
+            {'codigo_barras': 'ABC', 'modo': 'salida'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['movimiento']['nota'], '')
+
+    def test_scan_nota_demasiado_larga(self):
+        InventarioItem.objects.create(codigo_barras='ABC', cantidad=1)
+        res = self.client.post(
+            '/api/inventario/scan/',
+            {
+                'codigo_barras': 'ABC',
+                'modo': 'salida',
+                'nota': 'x' * 256,
+            },
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_salida_sin_existencia(self):
         InventarioItem.objects.create(codigo_barras='ABC', cantidad=0)
         res = self.client.post(

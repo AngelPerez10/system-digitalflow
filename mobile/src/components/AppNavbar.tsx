@@ -25,6 +25,16 @@ const DRAWER_WIDTH = Math.min(320, Dimensions.get('window').width * 0.86);
 const MS_OPEN = 280;
 const MS_CLOSE = 200;
 
+export interface NavItem {
+  key: string;
+  label: string;
+  hint?: string;
+  icon: (color: string) => React.ReactNode;
+  /** Resalta la fila como la sección actual (punto dorado + fondo). */
+  active?: boolean;
+  onPress: () => void;
+}
+
 interface Props {
   titulo?: string;
   /** Nombre de la persona (saludo en el panel). */
@@ -33,6 +43,10 @@ interface Props {
   rolLabel?: string;
   /** Número de usuario (login del portal cliente). Se muestra bajo el rol si llega. */
   numeroUsuario?: string;
+  /** Accesos directos del menú (Órdenes, Proyectos…). Con varios, cada uno
+   *  resalta según `active`. Si se omite, cae a un solo acceso vía
+   *  `itemLabel`/`onIrInicio` (compat con el portal cliente). */
+  items?: NavItem[];
   /** Texto del acceso directo principal del menú (a la pantalla de inicio de la sección). */
   itemLabel?: string;
   /** Pista accesible para ese acceso directo. */
@@ -52,7 +66,7 @@ function IconMenu({ color, size = 22 }: { color: string; size?: number }) {
   );
 }
 
-function IconOrdenes({ color, size = 20 }: { color: string; size?: number }) {
+export function IconOrdenes({ color, size = 20 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -61,6 +75,21 @@ function IconOrdenes({ color, size = 20 }: { color: string; size?: number }) {
         strokeWidth={1.9}
         strokeLinecap="round"
       />
+    </Svg>
+  );
+}
+
+export function IconProyectos({ color, size = 20 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinejoin="round"
+      />
+      <Path d="M3.5 7.5 12 11.5l8.5-4" stroke={color} strokeWidth={1.9} strokeLinejoin="round" />
+      <Line x1={12} y1={11.5} x2={12} y2={20.5} stroke={color} strokeWidth={1.9} />
     </Svg>
   );
 }
@@ -97,6 +126,7 @@ export function AppNavbar({
   nombreUsuario,
   rolLabel = 'Técnico de campo',
   numeroUsuario,
+  items,
   itemLabel = 'Mis órdenes',
   itemHint = 'Abre el listado del mes',
   onIrInicio,
@@ -112,6 +142,18 @@ export function AppNavbar({
 
   const nombreVisible = nombreUsuario?.trim() || rolLabel;
   const iniciales = inicialesUsuarioDisplay(nombreVisible);
+
+  const menuItems: NavItem[] =
+    items ?? [
+      {
+        key: 'inicio',
+        label: itemLabel,
+        hint: itemHint,
+        icon: (color) => <IconOrdenes color={color} />,
+        active: true,
+        onPress: () => onIrInicio?.(),
+      },
+    ];
 
   const abrir = useCallback(() => {
     setDeseado(true);
@@ -172,11 +214,6 @@ export function AppNavbar({
     outputRange: [-8, 0],
   });
 
-  const irInicio = () => {
-    cerrar();
-    onIrInicio?.();
-  };
-
   const salir = () => {
     cerrar();
     onCerrarSesion?.();
@@ -216,7 +253,7 @@ export function AppNavbar({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Ir al inicio"
-            onPress={onIrInicio}
+            onPress={() => (menuItems[0] ? menuItems[0].onPress() : onIrInicio?.())}
             style={styles.marca}
           >
             <BrandMark size={22} background={colors.gold} foreground={colors.onGold} />
@@ -309,22 +346,29 @@ export function AppNavbar({
 
               <View style={[styles.divisor, { backgroundColor: colors.line }]} />
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={itemLabel}
-                accessibilityHint={itemHint}
-                onPress={irInicio}
-                style={({ pressed }) => [
-                  styles.filaMenu,
-                  styles.filaActiva,
-                  { backgroundColor: pressed ? colors.surfaceSunken : colors.goldSoftBg },
-                ]}
-              >
-                <View style={[styles.marcadorActivo, { backgroundColor: colors.gold }]} />
-                <IconOrdenes color={colors.navyText} />
-                <Text style={[styles.filaTexto, { color: colors.ink }]}>{itemLabel}</Text>
-                <IconChevron direction="right" color={colors.inkSubtle} size={16} />
-              </Pressable>
+              {menuItems.map((item) => (
+                <Pressable
+                  key={item.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                  accessibilityHint={item.hint}
+                  accessibilityState={{ selected: item.active }}
+                  onPress={() => {
+                    cerrar();
+                    item.onPress();
+                  }}
+                  style={({ pressed }) => [
+                    styles.filaMenu,
+                    item.active ? styles.filaActiva : null,
+                    { backgroundColor: pressed ? colors.surfaceSunken : item.active ? colors.goldSoftBg : 'transparent' },
+                  ]}
+                >
+                  {item.active ? <View style={[styles.marcadorActivo, { backgroundColor: colors.gold }]} /> : null}
+                  {item.icon(colors.navyText)}
+                  <Text style={[styles.filaTexto, { color: colors.ink }]}>{item.label}</Text>
+                  <IconChevron direction="right" color={colors.inkSubtle} size={16} />
+                </Pressable>
+              ))}
 
               <View style={styles.spacer} />
 

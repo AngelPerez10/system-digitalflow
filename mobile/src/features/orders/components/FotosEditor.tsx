@@ -21,6 +21,10 @@ interface Props {
   maxFotos: number;
   onChange: (urls: string[]) => void;
   disabled?: boolean;
+  /** Sube una foto ya comprimida (data URL) y regresa su URL https. Por
+   *  defecto sube a `ordenes/fotos`; Proyectos pasa `uploadProyectoImage`
+   *  con su propia carpeta (`proyectos/evidencias`). */
+  subirFoto?: (dataUrl: string) => Promise<string>;
 }
 
 const HUECO = spacing.sm;
@@ -29,12 +33,18 @@ const COLUMNAS = 2;
 /**
  * Galería editable: miniaturas existentes + botones para cámara / galería.
  * Cada foto se redimensiona a ≤1280 px y se comprime en el dispositivo
- * (`comprimirFotoParaSubida`), se sube a Cloudinary vía
- * `POST /ordenes/upload-image/` (el backend la re-optimiza a ~80 KB) y solo se
- * guarda la URL https en el formulario — el PATCH de la orden manda la lista
- * completa. HEIC de iPhone entra y sale como JPEG.
+ * (`comprimirFotoParaSubida`), se sube a Cloudinary vía `subirFoto` (el
+ * backend la re-optimiza a ~80 KB) y solo se guarda la URL https en el
+ * formulario — el PATCH manda la lista completa. HEIC de iPhone entra y
+ * sale como JPEG.
  */
-export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Props) {
+export function FotosEditor({
+  urls,
+  maxFotos,
+  onChange,
+  disabled = false,
+  subirFoto = (dataUrl) => uploadOrdenImage(dataUrl, 'ordenes/fotos'),
+}: Props) {
   const { colors } = useTheme();
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +64,7 @@ export function FotosEditor({ urls, maxFotos, onChange, disabled = false }: Prop
       for (const asset of seleccion) {
         try {
           const dataUrl = await comprimirFotoParaSubida(asset.uri);
-          const url = await uploadOrdenImage(dataUrl, 'ordenes/fotos');
+          const url = await subirFoto(dataUrl);
           nuevas.push(url);
         } catch (err) {
           fallos.push(toUserMessage(err));

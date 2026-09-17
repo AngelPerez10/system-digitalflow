@@ -576,8 +576,8 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(bad_add.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("cotizaciones", bad_add.data)
 
-        # Sí puede marcar entrega de equipos.
-        ok_entrega = self.client.patch(
+        # NO puede marcar la entrega de un equipo — eso lo confirma oficina/almacén.
+        bad_entrega = self.client.patch(
             f"/api/proyectos/{proyecto_id}/",
             {
                 "equipos": [
@@ -592,9 +592,50 @@ class ProyectosSmokeTests(APITestCase):
             },
             format="json",
         )
-        self.assertEqual(ok_entrega.status_code, status.HTTP_200_OK, ok_entrega.data)
-        self.assertTrue(ok_entrega.data["equipos"][0]["equipoEntregado"])
+        self.assertEqual(bad_entrega.status_code, status.HTTP_400_BAD_REQUEST, bad_entrega.data)
+        self.assertIn("equipos", bad_entrega.data)
 
+        # Tampoco puede marcar instalación mientras el equipo no está entregado
+        # (regla universal, no solo del técnico).
+        bad_instalado_sin_entrega = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {
+                "equipos": [
+                    {
+                        "lineaId": "eq-1",
+                        "modelo": "GPS X",
+                        "modeloOriginal": "GPS X",
+                        "estadoInstalacion": "instalado",
+                        "equipoEntregado": False,
+                    }
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(bad_instalado_sin_entrega.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("equipos", bad_instalado_sin_entrega.data)
+
+        # Oficina confirma la entrega (no es el técnico asignado).
+        self.client.force_authenticate(user=self.user)
+        entrega_por_oficina = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {
+                "equipos": [
+                    {
+                        "lineaId": "eq-1",
+                        "modelo": "GPS X",
+                        "modeloOriginal": "GPS X",
+                        "estadoInstalacion": "entregado",
+                        "equipoEntregado": True,
+                    }
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(entrega_por_oficina.status_code, status.HTTP_200_OK, entrega_por_oficina.data)
+        self.client.force_authenticate(user=tech)
+
+        # Ya entregado: el técnico sí puede marcar instalación.
         # PATCH completo estilo frontend: mismos ids de tipos/cotización (con ruido
         # de nombre / prefijo df-) + marcar instalado — no debe bloquearse.
         ok_instalado = self.client.patch(
@@ -639,6 +680,48 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(ok_instalado.data["equipos_instalados"], 1)
         self.assertEqual(len(ok_instalado.data["evidencias_urls"]), 1)
 
+        # «No instalado» no debe exigir ni tocar la entrega (siguen independientes).
+        ok_no_instalado = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {
+                "equipos": [
+                    {
+                        "lineaId": "eq-1",
+                        "modelo": "GPS X",
+                        "modeloOriginal": "GPS X",
+                        "estadoInstalacion": "no_instalado",
+                        "equipoEntregado": True,
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(ok_no_instalado.status_code, status.HTTP_200_OK, ok_no_instalado.data)
+        self.assertEqual(ok_no_instalado.data["equipos"][0]["estadoInstalacion"], "no_instalado")
+        self.assertTrue(ok_no_instalado.data["equipos"][0]["equipoEntregado"])
+
+        # NO puede reasignar técnicos ni auxiliares.
+        bad_tecnicos = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {
+                "tecnicos": [
+                    {"id": tech.id, "nombre": "proy_tech", "responsable": True},
+                    {"id": self.user.id, "nombre": "admin", "responsable": False},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(bad_tecnicos.status_code, status.HTTP_400_BAD_REQUEST, bad_tecnicos.data)
+        self.assertIn("tecnicos", bad_tecnicos.data)
+
+        bad_aux = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {"auxiliares": [{"id": self.user.id, "nombre": "admin"}]},
+            format="json",
+        )
+        self.assertEqual(bad_aux.status_code, status.HTTP_400_BAD_REQUEST, bad_aux.data)
+        self.assertIn("auxiliares", bad_aux.data)
+
         # Sí puede actualizar campos no bloqueados (p. ej. incidencias).
         ok = self.client.patch(
             f"/api/proyectos/{proyecto_id}/",
@@ -647,6 +730,15 @@ class ProyectosSmokeTests(APITestCase):
         )
         self.assertEqual(ok.status_code, status.HTTP_200_OK, ok.data)
         self.assertEqual(ok.data["incidencias"], "Sin novedades")
+
+        # NO puede cancelar el proyecto — solo un admin.
+        bad_cancel = self.client.patch(
+            f"/api/proyectos/{proyecto_id}/",
+            {"status": "cancelado"},
+            format="json",
+        )
+        self.assertEqual(bad_cancel.status_code, status.HTTP_400_BAD_REQUEST, bad_cancel.data)
+        self.assertIn("status", bad_cancel.data)
 
     def test_quien_autorizo_persists(self):
         create_res = self.client.post(

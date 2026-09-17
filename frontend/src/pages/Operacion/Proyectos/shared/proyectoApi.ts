@@ -337,6 +337,14 @@ export function draftToApiPayload(
     payload.tipo_trabajo_nombre = tiposTrabajo[0]?.nombre?.trim() || "";
     payload.fecha_autorizacion = draft.fechaAutorizacion.trim() || null;
     payload.cotizaciones = cotizaciones;
+  } else {
+    // Asignación de equipo de campo: solo oficina/admin.
+    delete payload.tecnicos;
+    delete payload.auxiliares;
+    delete payload.tecnico_id;
+    delete payload.tecnico_nombre;
+    delete payload.auxiliar_id;
+    delete payload.auxiliar_nombre;
   }
 
   return payload;

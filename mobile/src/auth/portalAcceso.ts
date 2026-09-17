@@ -1,5 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
-import { deleteSecureValue, readSecureValue } from './secureStore';
+import { deleteSecureValue, readSecureValue, writeSecureValue } from './secureStore';
 
 /** Portal elegido antes del login — define a dónde entra tras restaurar sesión. */
 export type PortalAcceso = 'tecnico' | 'cliente';
@@ -30,7 +29,7 @@ export const portalAcceso = {
 
   async set(portal: PortalAcceso): Promise<void> {
     enMemoria = portal;
-    await SecureStore.setItemAsync(KEY, portal);
+    await writeSecureValue(KEY, portal);
   },
 
   /** Olvida la elección: la bienvenida vuelve a salir en el próximo arranque. */
