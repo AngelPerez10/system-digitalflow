@@ -131,6 +131,9 @@ export interface Proyecto extends ProyectoListItem {
 export interface ProyectoFieldPatch {
   status?: ProyectoStatus;
   motivo_pausa?: string;
+  /** Solo admin: el backend exige este motivo al poner `status: "cancelado"`
+   *  y rechaza que el técnico asignado lo toque. */
+  motivo_cancelacion?: string;
   fecha_autorizacion?: string;
   fechas_inicio?: string[];
   hora_llegada?: string;

@@ -35,6 +35,7 @@ import { PorcentajeAvance } from '@/features/proyectos/components/PorcentajeAvan
 import { EditarProyectoSkeleton } from '@/features/proyectos/components/ProyectoSkeletons';
 import { ProyectoStatusSegment } from '@/features/proyectos/components/ProyectoStatusSegment';
 import {
+  MOTIVO_CANCELACION_MAX,
   MOTIVO_PAUSA_MAX,
   construirPatch,
   crearNotaDia,
@@ -197,6 +198,23 @@ export default function EditarProyectoScreen() {
                       maxLength={MOTIVO_PAUSA_MAX}
                       error={errores.motivo_pausa}
                       helper={`Obligatorio. ${form.motivo_pausa.length}/${MOTIVO_PAUSA_MAX}`}
+                    />
+                  </View>
+                </Colapsable>
+                {/* Solo admin: el técnico ni siquiera puede seleccionar «Cancelado»
+                    en el segmento de arriba (`permiteCancelar`), así que este campo
+                    nunca aparece para él. */}
+                <Colapsable abierto={form.status === 'cancelado' && isAdmin(user)}>
+                  <View style={styles.campoColapsado}>
+                    <TextField
+                      label="Motivo de la cancelación"
+                      value={form.motivo_cancelacion}
+                      onChangeText={(valor) => actualizar('motivo_cancelacion', valor)}
+                      placeholder="Explique por qué se canceló el proyecto"
+                      multiline
+                      maxLength={MOTIVO_CANCELACION_MAX}
+                      error={errores.motivo_cancelacion}
+                      helper={`Obligatorio. ${form.motivo_cancelacion.length}/${MOTIVO_CANCELACION_MAX}`}
                     />
                   </View>
                 </Colapsable>

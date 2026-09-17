@@ -11,6 +11,7 @@ import { esFechaValida, esHoraValida } from '@/utils/fecha';
 export interface EditarProyectoFormState {
   status: ProyectoStatus;
   motivo_pausa: string;
+  motivo_cancelacion: string;
   fecha_autorizacion: string;
   fechas_inicio: string[];
   hora_llegada: string;
@@ -35,6 +36,7 @@ export type EditarProyectoErrors = Partial<
 };
 
 export const MOTIVO_PAUSA_MAX = 500;
+export const MOTIVO_CANCELACION_MAX = 500;
 /** Mínimo obligatorio por jornada — solo se exige al cerrar (espejo de `NOTA_DIA_MIN_CHARS`). */
 export const NOTA_DIA_MIN_CHARS = 150;
 
@@ -42,6 +44,7 @@ export function formStateFromProyecto(proyecto: Proyecto): EditarProyectoFormSta
   return {
     status: proyecto.status,
     motivo_pausa: proyecto.motivo_pausa ?? '',
+    motivo_cancelacion: proyecto.motivo_cancelacion ?? '',
     fecha_autorizacion: proyecto.fecha_autorizacion ?? '',
     fechas_inicio: [...proyecto.fechas_inicio],
     hora_llegada: proyecto.hora_llegada ?? '',
@@ -75,6 +78,13 @@ export function validarForm(
   }
   if (state.motivo_pausa.length > MOTIVO_PAUSA_MAX) {
     errors.motivo_pausa = `Máximo ${MOTIVO_PAUSA_MAX} caracteres.`;
+  }
+
+  if (state.status === 'cancelado' && !state.motivo_cancelacion.trim()) {
+    errors.motivo_cancelacion = 'Indique por qué se canceló el proyecto.';
+  }
+  if (state.motivo_cancelacion.length > MOTIVO_CANCELACION_MAX) {
+    errors.motivo_cancelacion = `Máximo ${MOTIVO_CANCELACION_MAX} caracteres.`;
   }
 
   if (state.fecha_autorizacion && !esFechaValida(state.fecha_autorizacion)) {
@@ -165,6 +175,12 @@ export function construirPatch(original: Proyecto, state: EditarProyectoFormStat
   }
   if (state.status === 'pausado' && patch.motivo_pausa === undefined) {
     patch.motivo_pausa = state.motivo_pausa.trim();
+  }
+  if (state.motivo_cancelacion.trim() !== base.motivo_cancelacion.trim()) {
+    patch.motivo_cancelacion = state.motivo_cancelacion.trim();
+  }
+  if (state.status === 'cancelado' && patch.motivo_cancelacion === undefined) {
+    patch.motivo_cancelacion = state.motivo_cancelacion.trim();
   }
 
   if (!mismoArregloStrings(state.fechas_inicio, base.fechas_inicio)) {
