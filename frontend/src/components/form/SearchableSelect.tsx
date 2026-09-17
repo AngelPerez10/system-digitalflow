@@ -14,6 +14,9 @@ import Label from "@/components/form/Label";
 import { cn } from "@/lib/utils";
 import { shouldKeepComboboxFocusAfterCommit } from "./searchableSelectCommit";
 
+/** Misma tipografía que Clientes / cotizaciones / modal de Órdenes. */
+const selectSansStyle = { fontFamily: "Geist, Outfit, system-ui, sans-serif" } as const;
+
 /** Acento eléctrico del ERP (alineado al resto del formulario de órdenes). */
 const selectInputClass =
   "w-full min-h-11 rounded-[10px] border border-[#E7E7EA] bg-white py-2.5 pl-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
@@ -436,6 +439,7 @@ export default function SearchableSelect({
               width: menuCoords.width,
               maxHeight: menuCoords.maxHeight,
               zIndex: MENU_Z_INDEX,
+              ...selectSansStyle,
             }}
           >
             {allowClearOption && value ? (
@@ -543,7 +547,7 @@ export default function SearchableSelect({
       : null;
 
   return (
-    <div className="min-w-0 w-full" ref={rootRef}>
+    <div className="min-w-0 w-full" ref={rootRef} style={selectSansStyle}>
       <Label
         htmlFor={inputId}
         className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]"

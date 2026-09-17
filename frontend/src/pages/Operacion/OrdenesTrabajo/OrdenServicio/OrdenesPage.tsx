@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useId, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useId, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import {
@@ -181,10 +181,13 @@ export default function Ordenes() {
   });
 
   const ro = isFieldReadOnly;
-  const inputLockedClass = (field: Parameters<typeof isFieldReadOnly>[0]) =>
-    ro(field)
-      ? "bg-[#F1F5FF] text-[#52525B] cursor-not-allowed dark:bg-[#111827]/50 dark:text-[#8EA0B8]"
-      : "bg-white text-[#09090B] dark:bg-[#111827] dark:text-[#B7C1D1] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20 dark:focus:border-[#4B7CFF] dark:focus:ring-[#4B7CFF]/20";
+  const inputLockedClass = useCallback(
+    (field: Parameters<typeof isFieldReadOnly>[0]) =>
+      ro(field)
+        ? "bg-[#F1F5FF] text-[#52525B] cursor-not-allowed dark:bg-[#111827]/50 dark:text-[#8EA0B8]"
+        : "bg-white text-[#09090B] dark:bg-[#111827] dark:text-[#B7C1D1] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20 dark:focus:border-[#4B7CFF] dark:focus:ring-[#4B7CFF]/20",
+    [ro],
+  );
   const [filterOpen, setFilterOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{
     open: boolean;
@@ -1675,8 +1678,9 @@ export default function Ordenes() {
           triggerSaveFromFooter={triggerSaveFromFooter}
           showCalificacionTab={isAdmin && !!editingOrden}
         >
+          {activeTab === "cliente" ? (
           <OrdenClienteTab
-              hidden={activeTab !== "cliente"}
+              hidden={false}
               variant="admin"
               panelId={ORDEN_FORM_PANEL_IDS.cliente}
               labelledBy={ORDEN_FORM_TAB_IDS.cliente}
@@ -1719,11 +1723,13 @@ export default function Ordenes() {
               isLimitedEdit={isLimitedEdit}
               isAdmin={isAdmin}
             />
+          ) : null}
+          {activeTab === "orden" ? (
             <OrdenDetalleTab
               variant="admin"
               panelId={ORDEN_FORM_PANEL_IDS.orden}
               labelledBy={ORDEN_FORM_TAB_IDS.orden}
-              isActive={activeTab === "orden"}
+              isActive
               showLevantamiento={tipoOrden === "levantamiento"}
               tipoOrden={tipoOrden}
               setTipoOrden={setTipoOrden}
@@ -1750,6 +1756,7 @@ export default function Ordenes() {
               cotizacionesAdmin={cotizacionesAdmin}
               setCotizacionesAdmin={setCotizacionesAdmin}
             />
+          ) : null}
           {activeTab === "equipos" && (
             <OrdenEquiposTab
               panelId={ORDEN_FORM_PANEL_IDS.equipos}

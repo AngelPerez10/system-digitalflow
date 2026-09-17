@@ -108,6 +108,12 @@ export const erpHeroHeaderClass = (cardShell: string) =>
  * `OrdenTrabajoModals.tsx`; las páginas de esos módulos conservan sus propios
  * tokens naranja (no se tocan aquí).
  */
+
+/** Misma tipografía que Clientes / Cotizaciones / página de Órdenes (`erpSansStyle`). */
+export const erpModalSansStyle = {
+  fontFamily: "Geist, Outfit, system-ui, sans-serif",
+} as const;
+
 export const erpModalShellClass =
   "flex max-h-[min(94dvh,94vh)] w-full flex-col overflow-hidden rounded-t-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)] sm:max-h-[min(92vh,92vh)] sm:w-[min(96vw,56rem)] sm:max-w-4xl sm:rounded-[20px]";
 

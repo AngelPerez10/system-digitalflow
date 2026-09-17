@@ -12,6 +12,7 @@ import {
   erpModalBodyClass,
   erpModalFooterClass,
   erpModalFormScrollClass,
+  erpModalSansStyle,
   erpModalSecondaryBtnClass,
   erpModalShellClass,
   erpModalTabClass,
@@ -232,6 +233,7 @@ export default function OrdenFormModal({
       ariaLabel={`${editingOrden ? "Editar" : "Nueva"} orden de ${tipoOrdenLabel}`}
       className={erpModalShellClass}
     >
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden" style={erpModalSansStyle}>
       <OrdenFormModalHeader
         editing={!!editingOrden}
         title={`${editingOrden ? "Editar" : "Nueva"} orden de ${tipoOrdenLabel}`}
@@ -379,6 +381,7 @@ export default function OrdenFormModal({
         <div className={erpModalFooterClass}>
           <OrdenModalFooterActions onCancel={onClose} primary={bodyLoading ? null : savePrimary} />
         </div>
+      </div>
       </div>
     </Modal>
   );

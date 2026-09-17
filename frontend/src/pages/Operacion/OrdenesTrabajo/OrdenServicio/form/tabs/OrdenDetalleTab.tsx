@@ -8,6 +8,7 @@ import type { OrdenComboItem } from "../fields/OrdenHeroComboBox";
 import type { OrdenStatusAdministrativo } from "../../shared/ordenesPageTypes";
 import { COMENTARIO_TECNICO_MIN_LENGTH } from "../../shared/ordenesPageTypes";
 import type { OrdenFormData } from "../useOrdenFormDraft";
+import { useBufferedTextField } from "../useBufferedTextField";
 import { OrdenFormSection, RequiredMark, type OrdenFieldKey } from "./ordenTabHelpers";
 
 const SERVICIO_CREAR_PREFIX = "__crear__:";
@@ -50,7 +51,8 @@ export function OrdenDetalleTab({
   labelledBy,
   isActive,
   showLevantamiento,
-  setTipoOrden,
+  tipoOrden: _tipoOrden,
+  setTipoOrden: _setTipoOrden,
   isReadOnly,
   isLimitedEdit,
   editingOrden,
@@ -74,7 +76,6 @@ export function OrdenDetalleTab({
   cotizacionesAdmin = [],
   setCotizacionesAdmin,
 }: OrdenDetalleTabProps) {
-  const tipoOrdenSelectId = "orden-tipo-select";
   const problematicaId = "orden-problematica";
   const comentarioId = "orden-comentario-tecnico";
   const serviciosLocked = ro("servicios_realizados");
@@ -83,6 +84,15 @@ export function OrdenDetalleTab({
   const comentarioTecnicoRequerido =
     Boolean(editingOrden) &&
     (formData.status === "resuelto" || statusAdministrativo === "cerrado");
+
+  const problematicaField = useBufferedTextField(formData.problematica, (next) => {
+    setFormData((prev) => (prev.problematica === next ? prev : { ...prev, problematica: next }));
+  });
+  const comentarioField = useBufferedTextField(formData.comentario_tecnico, (next) => {
+    setFormData((prev) =>
+      prev.comentario_tecnico === next ? prev : { ...prev, comentario_tecnico: next },
+    );
+  });
 
   const servicioOptions = useMemo((): OrdenComboItem[] => {
     const opts: OrdenComboItem[] = serviciosDisponibles.map((s) => ({ id: s, label: s }));
@@ -153,34 +163,6 @@ export function OrdenDetalleTab({
           className="space-y-6 focus:outline-none"
         >
           <OrdenFormSection
-            title="Tipo de orden"
-            description="En este módulo solo se capturan órdenes de servicio técnico."
-            icon={
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            }
-          >
-            <div>
-              <label htmlFor={tipoOrdenSelectId} className="mb-2 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
-                Tipo de orden
-              </label>
-              {/* Solo "Servicio Técnico" en Órdenes de servicio; Levantamiento y
-                  Mantenimiento tienen sus propios módulos y no se crean desde aquí. */}
-              <select
-                id={tipoOrdenSelectId}
-                value="servicio_tecnico"
-                onChange={() => setTipoOrden("servicio_tecnico")}
-                disabled
-                aria-readonly="true"
-                className="h-11 w-full cursor-not-allowed rounded-[10px] border border-[#E7E7EA] bg-[#F4F4F5] px-3.5 text-sm text-[#6E6E77] outline-none transition-colors dark:border-[#273244] dark:bg-[#0f172a]/60 dark:text-[#8ea0b8]"
-              >
-                <option value="servicio_tecnico">Servicio Técnico</option>
-              </select>
-            </div>
-          </OrdenFormSection>
-
-          <OrdenFormSection
             title="Trabajo en campo"
             description="Problemática, servicios hechos y cierre del técnico."
             icon={
@@ -195,12 +177,14 @@ export function OrdenDetalleTab({
                 </label>
                 <textarea
                   id={problematicaId}
-                  value={formData.problematica}
+                  value={problematicaField.value}
                   readOnly={ro("problematica")}
                   disabled={ro("problematica")}
-                  onChange={(e) => setFormData({ ...formData, problematica: e.target.value })}
+                  onChange={(e) => problematicaField.onChange(e.target.value)}
+                  onFocus={problematicaField.onFocus}
+                  onBlur={problematicaField.onBlur}
                   rows={3}
-                  className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("problematica")}`}
+                  className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none dark:border-[#273244] ${inputLockedClass("problematica")}`}
                   placeholder="Describe el problema reportado"
                 />
               </div>
@@ -240,21 +224,23 @@ export function OrdenDetalleTab({
                   {comentarioTecnicoRequerido ? <RequiredMark /> : null}
                 </label>
                 {(() => {
-                  const comentarioLen = (formData.comentario_tecnico || "").trim().length;
+                  const comentarioLen = (comentarioField.value || "").trim().length;
                   const requiereMinimo = comentarioTecnicoRequerido;
                   const cumpleMinimo = comentarioLen >= COMENTARIO_TECNICO_MIN_LENGTH;
                   return (
                     <>
                       <textarea
                         id={comentarioId}
-                        value={formData.comentario_tecnico}
+                        value={comentarioField.value}
                         readOnly={ro("comentario_tecnico")}
                         disabled={ro("comentario_tecnico")}
-                        onChange={(e) => setFormData({ ...formData, comentario_tecnico: e.target.value })}
+                        onChange={(e) => comentarioField.onChange(e.target.value)}
+                        onFocus={comentarioField.onFocus}
+                        onBlur={comentarioField.onBlur}
                         rows={4}
                         minLength={requiereMinimo ? COMENTARIO_TECNICO_MIN_LENGTH : undefined}
                         aria-describedby={`${comentarioId}-hint`}
-                        className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("comentario_tecnico")}`}
+                        className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none dark:border-[#273244] ${inputLockedClass("comentario_tecnico")}`}
                         placeholder={
                           requiereMinimo
                             ? `Observaciones del técnico (mínimo ${COMENTARIO_TECNICO_MIN_LENGTH} caracteres)...`

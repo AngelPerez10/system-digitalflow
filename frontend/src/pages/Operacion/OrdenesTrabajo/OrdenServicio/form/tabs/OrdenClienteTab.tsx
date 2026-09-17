@@ -14,6 +14,7 @@ import {
   OrdenPhotoPreviewModal,
 } from "../../../OrdenTrabajoModals";
 import type { OrdenFormData } from "../useOrdenFormDraft";
+import { useBufferedTextField } from "../useBufferedTextField";
 import SearchableSelect, { type SearchableSelectOption } from "@/components/form/SearchableSelect";
 import { clienteComboSelectedKey, comboSelectedKeyInItems, usuarioComboLabel, withSelectedComboItem } from "../fields/ordenHeroComboBoxUtils";
 import type { OrdenComboItem } from "../fields/OrdenHeroComboBox";
@@ -138,7 +139,6 @@ export function OrdenClienteTab({
 }: OrdenClienteTabProps) {
   const fotosExtraId = variant === "admin" ? "fotos-extra-max" : "fotos-extra-max-tecnico";
   const fotosExtraHintId = variant === "admin" ? "fotos-extra-hint-admin" : "fotos-extra-hint-tecnico";
-  const folioInputId = "orden-cliente-folio";
   const nombreClienteId = "orden-cliente-nombre";
   const telefonoId = "orden-cliente-telefono";
   const direccionId = "orden-cliente-direccion";
@@ -154,6 +154,24 @@ export function OrdenClienteTab({
   const mostrarOpcionCancelada = puedeCancelar || formData.status === "cancelada";
   const prioridadPoolId = "orden-prioridad-pool";
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<Record<string, boolean>>({});
+
+  const nombreClienteField = useBufferedTextField(formData.nombre_cliente, (next) => {
+    setFormData((prev) => (prev.nombre_cliente === next ? prev : { ...prev, nombre_cliente: next }));
+  });
+  const telefonoField = useBufferedTextField(formData.telefono_cliente, (next) => {
+    setFormData((prev) => (prev.telefono_cliente === next ? prev : { ...prev, telefono_cliente: next }));
+  });
+  const direccionField = useBufferedTextField(formData.direccion, (next) => {
+    setFormData((prev) => (prev.direccion === next ? prev : { ...prev, direccion: next }));
+  });
+  const motivoPausaField = useBufferedTextField(formData.motivo_pausa, (next) => {
+    setFormData((prev) => (prev.motivo_pausa === next ? prev : { ...prev, motivo_pausa: next }));
+  });
+  const motivoCancelacionField = useBufferedTextField(formData.motivo_cancelacion, (next) => {
+    setFormData((prev) =>
+      prev.motivo_cancelacion === next ? prev : { ...prev, motivo_cancelacion: next },
+    );
+  });
 
   const normalizePreviewUrl = (url: string) => {
     const raw = String(url || "").trim();
@@ -413,11 +431,13 @@ export function OrdenClienteTab({
           <input
             id={nombreClienteId}
             type="text"
-            value={formData.nombre_cliente}
+            value={nombreClienteField.value}
             readOnly={ro("nombre_cliente")}
             disabled={ro("nombre_cliente")}
-            onChange={(e) => setFormData({ ...formData, nombre_cliente: e.target.value })}
-            className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("nombre_cliente")}`}
+            onChange={(e) => nombreClienteField.onChange(e.target.value)}
+            onFocus={nombreClienteField.onFocus}
+            onBlur={nombreClienteField.onBlur}
+            className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none dark:border-[#273244] ${inputLockedClass("nombre_cliente")}`}
             placeholder="Nombre completo del cliente"
             autoComplete="organization"
           />
@@ -434,24 +454,26 @@ export function OrdenClienteTab({
               inputMode="numeric"
               autoComplete="tel"
               pattern="[0-9]*"
-              value={formData.telefono_cliente}
+              value={telefonoField.value}
               readOnly={ro("telefono_cliente")}
               disabled={ro("telefono_cliente")}
               onChange={(e) => {
-                setFormData({ ...formData, telefono_cliente: e.target.value.replace(/\D/g, "").slice(0, 10) });
+                telefonoField.onChange(e.target.value.replace(/\D/g, "").slice(0, 10));
               }}
-              className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("telefono_cliente")}`}
+              onFocus={telefonoField.onFocus}
+              onBlur={telefonoField.onBlur}
+              className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none dark:border-[#273244] ${inputLockedClass("telefono_cliente")}`}
               placeholder="10 dígitos"
               maxLength={10}
             />
             <a
-              href={formData.telefono_cliente ? `tel:${formData.telefono_cliente}` : undefined}
+              href={telefonoField.value ? `tel:${telefonoField.value}` : undefined}
               onClick={(e) => {
-                if (!formData.telefono_cliente) e.preventDefault();
+                if (!telefonoField.value) e.preventDefault();
               }}
-              aria-disabled={!formData.telefono_cliente || undefined}
-              tabIndex={formData.telefono_cliente ? undefined : -1}
-              className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] dark:hover:bg-[#243048] ${!formData.telefono_cliente ? "pointer-events-none opacity-50" : ""}`}
+              aria-disabled={!telefonoField.value || undefined}
+              tabIndex={telefonoField.value ? undefined : -1}
+              className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] dark:hover:bg-[#243048] ${!telefonoField.value ? "pointer-events-none opacity-50" : ""}`}
               aria-label="Llamar al cliente"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -481,19 +503,21 @@ export function OrdenClienteTab({
           <div className="relative">
             <textarea
               id={direccionId}
-              value={formData.direccion}
+              value={direccionField.value}
               readOnly={ro("direccion")}
               disabled={ro("direccion")}
-              onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+              onChange={(e) => direccionField.onChange(e.target.value)}
+              onFocus={direccionField.onFocus}
+              onBlur={direccionField.onBlur}
               rows={2}
-              className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 pr-12 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("direccion")}`}
+              className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 pr-12 text-sm outline-none dark:border-[#273244] ${inputLockedClass("direccion")}`}
               placeholder="Dirección, coordenadas o URL de Google Maps"
               autoComplete="street-address"
             />
-            {formData.direccion && (
+            {direccionField.value && (
               <button
                 type="button"
-                onClick={() => openDireccionInMaps(formData.direccion)}
+                onClick={() => openDireccionInMaps(direccionField.value)}
                 className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
                 aria-label="Abrir dirección en Google Maps"
               >
@@ -515,24 +539,6 @@ export function OrdenClienteTab({
           </svg>
         }
       >
-        {editingOrden ? (
-          <div>
-            <label htmlFor={folioInputId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
-              Folio
-            </label>
-            <input
-              id={folioInputId}
-              type="text"
-              value={formData.folio || ""}
-              readOnly={ro("folio")}
-              disabled={ro("folio")}
-              onChange={(e) => setFormData({ ...formData, folio: e.target.value })}
-              className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none transition-colors dark:border-[#273244] ${inputLockedClass("folio")}`}
-              placeholder="Ej: ATX2000"
-            />
-          </div>
-        ) : null}
-
         <div className="flex items-start gap-2">
           <div className="flex-1">
             <SearchableSelect
@@ -718,15 +724,17 @@ export function OrdenClienteTab({
             </label>
             <textarea
               id={motivoPausaId}
-              value={formData.motivo_pausa}
+              value={motivoPausaField.value}
               readOnly={ro("motivo_pausa")}
               disabled={ro("motivo_pausa")}
-              onChange={(e) => setFormData({ ...formData, motivo_pausa: e.target.value })}
+              onChange={(e) => motivoPausaField.onChange(e.target.value)}
+              onFocus={motivoPausaField.onFocus}
+              onBlur={motivoPausaField.onBlur}
               rows={3}
               aria-required="true"
               aria-describedby={`${motivoPausaId}-hint`}
               placeholder="Describe el motivo de la pausa…"
-              className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] ${inputLockedClass("motivo_pausa")}`}
+              className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] ${inputLockedClass("motivo_pausa")}`}
             />
             <p id={`${motivoPausaId}-hint`} className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
               Obligatorio al marcar Pausado.
@@ -745,14 +753,14 @@ export function OrdenClienteTab({
             <HeroInput
               id={motivoCancelacionId}
               aria-label="Motivo de cancelación"
-              value={formData.motivo_cancelacion}
+              value={motivoCancelacionField.value}
               readOnly={ro("motivo_cancelacion")}
               disabled={ro("motivo_cancelacion")}
-              onChange={(e) =>
-                setFormData({ ...formData, motivo_cancelacion: e.target.value })
-              }
+              onChange={(e) => motivoCancelacionField.onChange(e.target.value)}
+              onFocus={motivoCancelacionField.onFocus}
+              onBlur={motivoCancelacionField.onBlur}
               aria-required="true"
-              aria-invalid={!formData.motivo_cancelacion.trim()}
+              aria-invalid={!motivoCancelacionField.value.trim()}
               aria-describedby={`${motivoCancelacionId}-hint`}
               placeholder="Describe por qué se cancela la orden…"
               className={`w-full rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] ${inputLockedClass("motivo_cancelacion")}`}

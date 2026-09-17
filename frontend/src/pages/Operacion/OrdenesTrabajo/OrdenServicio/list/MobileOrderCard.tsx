@@ -1,5 +1,5 @@
 import { OrdenViewModal } from "../../OrdenTrabajoModals";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { erpMobileCardClass } from "../ordenServicioStyles";
 import {
@@ -380,7 +380,7 @@ interface MobileOrderListProps {
   selectedMonth?: string;
 }
 
-export function MobileOrderList({
+export const MobileOrderList = memo(function MobileOrderList({
   ordenes,
   startIndex,
   loading,
@@ -485,4 +485,4 @@ export function MobileOrderList({
       )}
     </div>
   );
-}
+});

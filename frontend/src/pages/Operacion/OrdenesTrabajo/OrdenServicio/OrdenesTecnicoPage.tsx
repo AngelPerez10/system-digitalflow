@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
@@ -274,10 +274,13 @@ export default function OrdenesTecnico() {
   };
 
   const ro = isFieldReadOnly;
-  const inputLockedClass = (field: Parameters<typeof isFieldReadOnly>[0]) =>
-    ro(field)
-      ? 'bg-[#F1F5FF] text-[#52525B] cursor-not-allowed dark:bg-[#111827]/50 dark:text-[#8EA0B8]'
-      : 'bg-white text-[#09090B] dark:bg-[#111827] dark:text-[#B7C1D1] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20';
+  const inputLockedClass = useCallback(
+    (field: Parameters<typeof isFieldReadOnly>[0]) =>
+      ro(field)
+        ? 'bg-[#F1F5FF] text-[#52525B] cursor-not-allowed dark:bg-[#111827]/50 dark:text-[#8EA0B8]'
+        : 'bg-white text-[#09090B] dark:bg-[#111827] dark:text-[#B7C1D1] focus:border-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/20',
+    [ro],
+  );
 
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; index: number | null; url: string | null }>({ open: false, index: null, url: null });
   const [photoPreview, setPhotoPreview] = useState<{ open: boolean; url: string | null; index: number }>({
@@ -1191,8 +1194,9 @@ export default function OrdenesTecnico() {
         canOrdenesCreate={canOrdenesCreate}
       >
 
+          {activeTab === "cliente" ? (
           <OrdenClienteTab
-            hidden={activeTab !== "cliente"}
+            hidden={false}
             variant="tecnico"
             panelId={ORDEN_FORM_PANEL_IDS.cliente}
             labelledBy={ORDEN_FORM_TAB_IDS.cliente}
@@ -1234,11 +1238,13 @@ export default function OrdenesTecnico() {
             isLimitedEdit={isLimitedEdit}
             isAdmin={isAdmin}
           />
+          ) : null}
+        {activeTab === "orden" ? (
         <OrdenDetalleTab
             variant="tecnico"
             panelId={ORDEN_FORM_PANEL_IDS.orden}
             labelledBy={ORDEN_FORM_TAB_IDS.orden}
-            isActive={activeTab === "orden"}
+            isActive
             showLevantamiento={tipoOrden === "levantamiento"}
             tipoOrden={tipoOrden}
             setTipoOrden={setTipoOrden}
@@ -1256,6 +1262,7 @@ export default function OrdenesTecnico() {
             setServiciosDisponibles={setServiciosDisponibles}
             addServicio={addServicio}
           />
+        ) : null}
         {activeTab === "equipos" && (
           <OrdenEquiposTab
             panelId={ORDEN_FORM_PANEL_IDS.equipos}

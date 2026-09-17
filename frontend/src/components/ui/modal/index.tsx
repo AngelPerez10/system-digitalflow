@@ -1,5 +1,16 @@
 import { useRef, useEffect, useId } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+  MODAL_BACKDROP_CLASS,
+  MODAL_BACKDROP_TRANSITION,
+  MODAL_PANEL_ANIMATE,
+  MODAL_PANEL_ENTER_TRANSITION,
+  MODAL_PANEL_EXIT,
+  MODAL_PANEL_EXIT_TRANSITION,
+  MODAL_PANEL_INITIAL,
+  MODAL_REDUCE_TRANSITION,
+} from "./modalMotion";
 
 interface ModalBaseProps {
   isOpen: boolean;
@@ -40,6 +51,7 @@ export const Modal: React.FC<ModalProps> = ({
   ariaDescribedBy,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
   const fallbackLabelId = useId().replace(/:/g, "");
   const resolvedAriaLabel = ariaLabel ?? (ariaLabelledBy ? undefined : "Diálogo");
   const labelledBy = ariaLabelledBy ?? (resolvedAriaLabel ? fallbackLabelId : undefined);
@@ -62,14 +74,11 @@ export const Modal: React.FC<ModalProps> = ({
   }, [isOpen, onClose, closeOnEscape]);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = prev || "unset";
     };
   }, [isOpen]);
 
@@ -123,70 +132,94 @@ export const Modal: React.FC<ModalProps> = ({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (typeof document === "undefined") return null;
 
   const overlayClasses = mobileBottomSheet
     ? "erp-modal-overlay fixed inset-0 z-99999 flex items-end justify-center overflow-y-auto overscroll-contain sm:items-center sm:p-4"
-    : "erp-modal-overlay modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto";
+    : "erp-modal-overlay modal fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-0 sm:p-4";
 
   // Con mobileBottomSheet, el shell del caller controla max-h / radius (p. ej. erpModalShellClass).
   const contentClasses = isFullscreen
-    ? "w-full h-full"
+    ? "relative z-10 w-full h-full"
     : mobileBottomSheet
-      ? "relative flex min-h-0 w-full flex-col bg-white dark:bg-gray-900"
-      : "relative flex min-h-0 w-full flex-col rounded-3xl bg-white dark:bg-gray-900";
+      ? "relative z-10 flex min-h-0 w-full flex-col bg-white dark:bg-gray-900"
+      : "relative z-10 flex min-h-0 w-full flex-col rounded-3xl bg-white dark:bg-gray-900";
 
-  // Portal a body: fuera de `.app-ui-scale { zoom }`, coords de canvas/pointer 1:1.
+  const fadeTransition = reduce ? MODAL_REDUCE_TRANSITION : MODAL_BACKDROP_TRANSITION;
+  const panelTransition = reduce ? MODAL_REDUCE_TRANSITION : MODAL_PANEL_ENTER_TRANSITION;
+  const panelExitTransition = reduce ? MODAL_REDUCE_TRANSITION : MODAL_PANEL_EXIT_TRANSITION;
+
+  const panelInitial = reduce || isFullscreen ? { opacity: 0 } : MODAL_PANEL_INITIAL;
+  const panelAnimate = reduce || isFullscreen ? { opacity: 1 } : MODAL_PANEL_ANIMATE;
+  const panelExit = reduce || isFullscreen
+    ? { opacity: 0, transition: panelExitTransition }
+    : { ...MODAL_PANEL_EXIT, transition: panelExitTransition };
+
+  // Misma estructura que el modal de «Status colocado por»:
+  // wrapper estático + backdrop motion + panel motion (fondo y tiempos compartidos).
   return createPortal(
-    <div className={overlayClasses}>
-      {!isFullscreen && (
-        <div
-          className="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
-          onClick={closeOnBackdropClick ? onClose : undefined}
-        ></div>
-      )}
-      <div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={labelledBy}
-        aria-label={resolvedAriaLabel}
-        aria-describedby={ariaDescribedBy}
-        className={`${contentClasses} ${className ?? ""}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {resolvedAriaLabel && !ariaLabelledBy ? (
-          <span id={fallbackLabelId} className="sr-only">
-            {resolvedAriaLabel}
-          </span>
-        ) : null}
-        {showCloseButton && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar ventana"
-            className="absolute right-3 top-3 z-999 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6"
+    <AnimatePresence>
+      {isOpen ? (
+        <div key="erp-modal" className={overlayClasses} role="presentation">
+          {!isFullscreen ? (
+            <motion.div
+              aria-hidden
+              className={MODAL_BACKDROP_CLASS}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={fadeTransition}
+              onClick={closeOnBackdropClick ? onClose : undefined}
+            />
+          ) : null}
+          <motion.div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={labelledBy}
+            aria-label={resolvedAriaLabel}
+            aria-describedby={ariaDescribedBy}
+            className={`${contentClasses} ${className ?? ""}`}
+            initial={panelInitial}
+            animate={panelAnimate}
+            exit={panelExit}
+            transition={panelTransition}
+            onClick={(e) => e.stopPropagation()}
           >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M6.04289 16.5413C5.65237 16.9318 5.65237 17.565 6.04289 17.9555C6.43342 18.346 7.06658 18.346 7.45711 17.9555L11.9987 13.4139L16.5408 17.956C16.9313 18.3466 17.5645 18.3466 17.955 17.956C18.3455 17.5655 18.3455 16.9323 17.955 16.5418L13.4129 11.9997L17.955 7.4576C18.3455 7.06707 18.3455 6.43391 17.955 6.04338C17.5645 5.65286 16.9313 5.65286 16.5408 6.04338L11.9987 10.5855L7.45711 6.0439C7.06658 5.65338 6.43342 5.65338 6.04289 6.0439C5.65237 6.43442 5.65237 7.06759 6.04289 7.45811L10.5845 11.9997L6.04289 16.5413Z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
-        )}
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">{children}</div>
-      </div>
-    </div>,
+            {resolvedAriaLabel && !ariaLabelledBy ? (
+              <span id={fallbackLabelId} className="sr-only">
+                {resolvedAriaLabel}
+              </span>
+            ) : null}
+            {showCloseButton && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Cerrar ventana"
+                className="absolute right-3 top-3 z-999 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6"
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M6.04289 16.5413C5.65237 16.9318 5.65237 17.565 6.04289 17.9555C6.43342 18.346 7.06658 18.346 7.45711 17.9555L11.9987 13.4139L16.5408 17.956C16.9313 18.3466 17.5645 18.3466 17.955 17.956C18.3455 17.5655 18.3455 16.9323 17.955 16.5418L13.4129 11.9997L17.955 7.4576C18.3455 7.06707 18.3455 6.43391 17.955 6.04338C17.5645 5.65286 16.9313 5.65286 16.5408 6.04338L11.9987 10.5855L7.45711 6.0439C7.06658 5.65338 6.43342 5.65338 6.04289 6.0439C5.65237 6.43442 5.65237 7.06759 6.04289 7.45811L10.5845 11.9997L6.04289 16.5413Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+            )}
+            <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">{children}</div>
+          </motion.div>
+        </div>
+      ) : null}
+    </AnimatePresence>,
     document.body
   );
 };

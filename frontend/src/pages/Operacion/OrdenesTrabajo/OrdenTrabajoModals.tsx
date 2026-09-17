@@ -54,7 +54,7 @@ export function OrdenFormModalHeader({
   titleId,
 }: OrdenFormModalHeaderProps) {
   return (
-    <header className={erpModalHeaderClass}>
+    <header className={erpModalHeaderClass} style={{ fontFamily: "Geist, Outfit, system-ui, sans-serif" }}>
       <div className="flex items-start gap-3 sm:gap-3.5">
         <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C] sm:size-11">
           {docIcon}
@@ -74,12 +74,12 @@ export function OrdenFormModalHeader({
           </div>
           <h2
             id={titleId}
-            className="mt-1 text-[18px] font-semibold leading-[1.25] tracking-[-0.4px] text-white sm:text-[20px] sm:tracking-[-0.5px]"
+            className="mt-1 text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white"
           >
             {title}
           </h2>
           {subtitle ? (
-            <p className="mt-1 line-clamp-2 max-w-md text-[13px] leading-[19px] text-white/70 sm:line-clamp-none sm:text-[14px] sm:leading-[20px]">
+            <p className="mt-1 line-clamp-2 max-w-md text-[14px] leading-5 text-white/70 sm:line-clamp-none">
               {subtitle}
             </p>
           ) : null}
