@@ -57,6 +57,13 @@ class SignatureNormalizeTests(unittest.TestCase):
         uri = signature_image_to_png_data_uri(normalize_signature_image(img))
         self.assertTrue(uri.startswith("data:image/png;base64,"))
 
+    def test_all_white_returns_original_not_empty(self):
+        img = Image.new("RGB", (80, 120), (255, 255, 255))
+        out = normalize_signature_image(img)
+        self.assertEqual(out.size, (80, 120))
+        # No PNG 1×1 vacío (dejaba el pad del ERP en blanco).
+        self.assertNotEqual(out.size, (1, 1))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,6 +37,32 @@ function drawSegment(ctx: CanvasRenderingContext2D, from: Point, to: Point) {
   ctx.stroke();
 }
 
+function drawContained(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  srcW: number,
+  srcH: number,
+  canvasW: number,
+  canvasH: number,
+  maxUpscale = Number.POSITIVE_INFINITY
+) {
+  const scale = Math.min(canvasW / srcW, canvasH / srcH, maxUpscale);
+  const dw = Math.max(1, Math.floor(srcW * scale));
+  const dh = Math.max(1, Math.floor(srcH * scale));
+  ctx.drawImage(
+    source,
+    Math.floor((canvasW - dw) / 2),
+    Math.floor((canvasH - dh) / 2),
+    dw,
+    dh
+  );
+}
+
+/**
+ * Dibuja una firma remota. Si hay mucho margen vacío (pad móvil / JPEG blanco),
+ * recorta a la tinta con tope de escala. Si no, contain simple.
+ * Nunca deja el canvas en blanco.
+ */
 function drawSignatureImage(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -50,69 +76,93 @@ function drawSignatureImage(
     return;
   }
 
-  // Offscreen: quitar blanco/gris de lienzo y recortar a la tinta (firmas móviles antiguas).
+  const containFull = Math.min(canvasW / iw, canvasH / ih);
+
   const off = document.createElement("canvas");
   off.width = iw;
   off.height = ih;
-  const octx = off.getContext("2d");
+  const octx = off.getContext("2d", { willReadFrequently: true });
   if (!octx) {
-    const scale = Math.min(canvasW / iw, canvasH / ih);
-    const dw = Math.max(1, Math.floor(iw * scale));
-    const dh = Math.max(1, Math.floor(ih * scale));
-    ctx.drawImage(img, Math.floor((canvasW - dw) / 2), Math.floor((canvasH - dh) / 2), dw, dh);
+    drawContained(ctx, img, iw, ih, canvasW, canvasH);
     return;
   }
-  octx.drawImage(img, 0, 0);
-  const data = octx.getImageData(0, 0, iw, ih);
-  const px = data.data;
-  let minX = iw;
-  let minY = ih;
-  let maxX = -1;
-  let maxY = -1;
-  const WHITE = 198;
-  for (let i = 0; i < px.length; i += 4) {
-    const r = px[i]!;
-    const g = px[i + 1]!;
-    const b = px[i + 2]!;
-    const a = px[i + 3]!;
-    if (
-      a < 10 ||
-      (r >= WHITE && g >= WHITE && b >= WHITE && Math.abs(r - g) <= 18 && Math.abs(g - b) <= 18)
-    ) {
-      px[i + 3] = 0;
-      continue;
+
+  try {
+    octx.drawImage(img, 0, 0);
+    const data = octx.getImageData(0, 0, iw, ih);
+    const px = data.data;
+    let minX = iw;
+    let minY = ih;
+    let maxX = -1;
+    let maxY = -1;
+    // Blanco casi puro o guía gris clara (poca croma) — no comer anti-alias oscuro.
+    const WHITE = 242;
+    const GUIDE_LUMA = 185;
+    let inkPixels = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      const r = px[i]!;
+      const g = px[i + 1]!;
+      const b = px[i + 2]!;
+      const a = px[i + 3]!;
+      const lo = Math.min(r, g, b);
+      const hi = Math.max(r, g, b);
+      const isBg =
+        a < 12 ||
+        (r >= WHITE && g >= WHITE && b >= WHITE) ||
+        (lo >= GUIDE_LUMA && hi - lo <= 24);
+      if (isBg) {
+        px[i + 3] = 0;
+        continue;
+      }
+      inkPixels += 1;
+      const p = i / 4;
+      const x = p % iw;
+      const y = (p / iw) | 0;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
     }
-    const p = i / 4;
-    const x = p % iw;
-    const y = (p / iw) | 0;
-    if (x < minX) minX = x;
-    if (y < minY) minY = y;
-    if (x > maxX) maxX = x;
-    if (y > maxY) maxY = y;
+
+    // Sin tinta detectable → contain del original (nunca canvas en blanco).
+    if (maxX < 0 || inkPixels < 40) {
+      drawContained(ctx, img, iw, ih, canvasW, canvasH);
+      return;
+    }
+
+    octx.putImageData(data, 0, 0);
+    const pad = Math.max(12, Math.round(Math.min(iw, ih) * 0.03));
+    const sx = Math.max(0, minX - pad);
+    const sy = Math.max(0, minY - pad);
+    const sw = Math.min(iw, maxX + pad + 1) - sx;
+    const sh = Math.min(ih, maxY + pad + 1) - sy;
+
+    // Poco margen vacío → no “agrandar” (firmas ya recortadas se veían enormes).
+    if ((sw * sh) / (iw * ih) > 0.55) {
+      drawContained(ctx, img, iw, ih, canvasW, canvasH);
+      return;
+    }
+
+    // Ampliar vs marco vacío, con tope vs el contain del asset completo.
+    const containCrop = Math.min(canvasW / sw, canvasH / sh);
+    const scale = Math.min(containCrop * 0.88, containFull * 2.2);
+    const dw = Math.max(1, Math.floor(sw * scale));
+    const dh = Math.max(1, Math.floor(sh * scale));
+    ctx.drawImage(
+      off,
+      sx,
+      sy,
+      sw,
+      sh,
+      Math.floor((canvasW - dw) / 2),
+      Math.floor((canvasH - dh) / 2),
+      dw,
+      dh
+    );
+  } catch {
+    // CORS / canvas tainted → al menos mostrar la imagen completa.
+    drawContained(ctx, img, iw, ih, canvasW, canvasH);
   }
-  octx.putImageData(data, 0, 0);
-
-  if (maxX < 0) return;
-
-  const pad = 12;
-  const sx = Math.max(0, minX - pad);
-  const sy = Math.max(0, minY - pad);
-  const sw = Math.min(iw, maxX + pad + 1) - sx;
-  const sh = Math.min(ih, maxY + pad + 1) - sy;
-  const scale = Math.min(canvasW / sw, canvasH / sh);
-  const dw = Math.max(1, Math.floor(sw * scale));
-  const dh = Math.max(1, Math.floor(sh * scale));
-  ctx.drawImage(
-    off,
-    sx,
-    sy,
-    sw,
-    sh,
-    Math.floor((canvasW - dw) / 2),
-    Math.floor((canvasH - dh) / 2),
-    dw,
-    dh
-  );
 }
 
 function paintExternalValue(
@@ -143,17 +193,13 @@ function paintExternalValue(
     try {
       drawSignatureImage(ctx, img, canvas.width, canvas.height);
     } catch {
-      const iw = img.naturalWidth || img.width || 1;
-      const ih = img.naturalHeight || img.height || 1;
-      const scale = Math.min(canvas.width / iw, canvas.height / ih);
-      const dw = Math.max(1, Math.floor(iw * scale));
-      const dh = Math.max(1, Math.floor(ih * scale));
-      ctx.drawImage(
+      drawContained(
+        ctx,
         img,
-        Math.floor((canvas.width - dw) / 2),
-        Math.floor((canvas.height - dh) / 2),
-        dw,
-        dh
+        img.naturalWidth || img.width || 1,
+        img.naturalHeight || img.height || 1,
+        canvas.width,
+        canvas.height
       );
     }
     onEmpty(false);
@@ -378,7 +424,7 @@ export default function SignaturePad({
       ) : null}
 
       <div
-        className={`relative inline-block max-w-full touch-none rounded-lg border-2 bg-transparent dark:border-gray-700 ${
+        className={`relative inline-block max-w-full touch-none rounded-lg border-2 bg-white dark:border-gray-700 dark:bg-gray-900 ${
           disabled ? "border-gray-300 opacity-75 grayscale-[0.5]" : "border-gray-300"
         }`}
       >
