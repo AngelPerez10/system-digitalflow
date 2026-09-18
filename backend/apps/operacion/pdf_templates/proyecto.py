@@ -581,11 +581,15 @@ def generate_proyecto_pdf_html(proyecto) -> str:
         break-inside: avoid;
       }}
       .sigimgwrap {{
-        height: 160px; border-radius: 12px; border: 1px dashed var(--border);
+        height: 210px; box-sizing: border-box; padding: 12px;
+        border-radius: 12px; border: 1px dashed var(--border);
         display: flex; align-items: center; justify-content: center; overflow: hidden;
         background: var(--blue-50); margin-top: 8px;
       }}
-      .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; background: transparent; }}
+      .sigimgwrap img {{
+        display: block; max-width: 100%; max-height: 100%; width: auto; height: auto;
+        object-fit: contain; background: transparent;
+      }}
       .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 10px; color: var(--muted); }}
       .sigline b {{ font-weight: 700; color: var(--text); }}
       .cot-table {{ width: 100%; border-collapse: collapse; font-size: 10px; }}

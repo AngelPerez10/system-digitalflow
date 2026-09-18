@@ -154,8 +154,16 @@ def generate_orden_pdf_html(orden) -> str:
         page-break-inside: avoid;
         break-inside: avoid;
       }}
-      .sigimgwrap {{ height: 160px; border-radius: 12px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--blue-50); margin-top: 8px; }}
-      .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; background: transparent; }}
+      .sigimgwrap {{
+        height: 210px; box-sizing: border-box; padding: 12px;
+        border-radius: 12px; border: 1px dashed var(--border);
+        display: flex; align-items: center; justify-content: center; overflow: hidden;
+        background: var(--blue-50); margin-top: 8px;
+      }}
+      .sigimgwrap img {{
+        display: block; max-width: 100%; max-height: 100%; width: auto; height: auto;
+        object-fit: contain; background: transparent;
+      }}
       .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; color: var(--muted); }}
       .sigline b {{ font-weight: 700; color: var(--text); }}
     </style>
@@ -244,14 +252,14 @@ def generate_orden_pdf_html(orden) -> str:
       <div class='sigbox'>
         <div class='label'>Firma técnico</div>
         <div class='sigimgwrap'>
-          {f"<img src='{firma_tecnico}' />" if firma_tecnico else "<div class='muted'>Sin firma</div>"}
+          {f"<img src='{firma_tecnico}' alt='Firma del técnico' />" if firma_tecnico else "<div class='muted'>Sin firma</div>"}
         </div>
         <div class='sigline'><b>Nombre:</b> {esc(tecnico_nombre or orden.nombre_encargado or '-') }</div>
       </div>
       <div class='sigbox'>
         <div class='label'>Firma cliente</div>
         <div class='sigimgwrap'>
-          {f"<img src='{firma_cliente}' />" if firma_cliente else "<div class='muted'>Sin firma</div>"}
+          {f"<img src='{firma_cliente}' alt='Firma del cliente' />" if firma_cliente else "<div class='muted'>Sin firma</div>"}
         </div>
         <div class='sigline'><b>Nombre:</b> {esc(orden.nombre_cliente or '-') }</div>
       </div>
