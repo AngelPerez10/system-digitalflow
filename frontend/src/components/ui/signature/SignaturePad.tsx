@@ -37,6 +37,84 @@ function drawSegment(ctx: CanvasRenderingContext2D, from: Point, to: Point) {
   ctx.stroke();
 }
 
+function drawSignatureImage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  canvasW: number,
+  canvasH: number
+) {
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  if (!iw || !ih) {
+    ctx.drawImage(img, 0, 0);
+    return;
+  }
+
+  // Offscreen: quitar blanco/gris de lienzo y recortar a la tinta (firmas móviles antiguas).
+  const off = document.createElement("canvas");
+  off.width = iw;
+  off.height = ih;
+  const octx = off.getContext("2d");
+  if (!octx) {
+    const scale = Math.min(canvasW / iw, canvasH / ih);
+    const dw = Math.max(1, Math.floor(iw * scale));
+    const dh = Math.max(1, Math.floor(ih * scale));
+    ctx.drawImage(img, Math.floor((canvasW - dw) / 2), Math.floor((canvasH - dh) / 2), dw, dh);
+    return;
+  }
+  octx.drawImage(img, 0, 0);
+  const data = octx.getImageData(0, 0, iw, ih);
+  const px = data.data;
+  let minX = iw;
+  let minY = ih;
+  let maxX = -1;
+  let maxY = -1;
+  const WHITE = 198;
+  for (let i = 0; i < px.length; i += 4) {
+    const r = px[i]!;
+    const g = px[i + 1]!;
+    const b = px[i + 2]!;
+    const a = px[i + 3]!;
+    if (
+      a < 10 ||
+      (r >= WHITE && g >= WHITE && b >= WHITE && Math.abs(r - g) <= 18 && Math.abs(g - b) <= 18)
+    ) {
+      px[i + 3] = 0;
+      continue;
+    }
+    const p = i / 4;
+    const x = p % iw;
+    const y = (p / iw) | 0;
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  octx.putImageData(data, 0, 0);
+
+  if (maxX < 0) return;
+
+  const pad = 12;
+  const sx = Math.max(0, minX - pad);
+  const sy = Math.max(0, minY - pad);
+  const sw = Math.min(iw, maxX + pad + 1) - sx;
+  const sh = Math.min(ih, maxY + pad + 1) - sy;
+  const scale = Math.min(canvasW / sw, canvasH / sh);
+  const dw = Math.max(1, Math.floor(sw * scale));
+  const dh = Math.max(1, Math.floor(sh * scale));
+  ctx.drawImage(
+    off,
+    sx,
+    sy,
+    sw,
+    sh,
+    Math.floor((canvasW - dw) / 2),
+    Math.floor((canvasH - dh) / 2),
+    dw,
+    dh
+  );
+}
+
 function paintExternalValue(
   canvas: HTMLCanvasElement,
   src: string,
@@ -62,24 +140,22 @@ function paintExternalValue(
   const drawLoaded = (img: HTMLImageElement) => {
     if (token !== loadTokenRef.current) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const iw = img.naturalWidth || img.width;
-    const ih = img.naturalHeight || img.height;
-    if (!iw || !ih) {
-      ctx.drawImage(img, 0, 0);
-      onEmpty(false);
-      onLoadError?.(false);
-      return;
+    try {
+      drawSignatureImage(ctx, img, canvas.width, canvas.height);
+    } catch {
+      const iw = img.naturalWidth || img.width || 1;
+      const ih = img.naturalHeight || img.height || 1;
+      const scale = Math.min(canvas.width / iw, canvas.height / ih);
+      const dw = Math.max(1, Math.floor(iw * scale));
+      const dh = Math.max(1, Math.floor(ih * scale));
+      ctx.drawImage(
+        img,
+        Math.floor((canvas.width - dw) / 2),
+        Math.floor((canvas.height - dh) / 2),
+        dw,
+        dh
+      );
     }
-    const scale = Math.min(canvas.width / iw, canvas.height / ih);
-    const dw = Math.max(1, Math.floor(iw * scale));
-    const dh = Math.max(1, Math.floor(ih * scale));
-    ctx.drawImage(
-      img,
-      Math.floor((canvas.width - dw) / 2),
-      Math.floor((canvas.height - dh) / 2),
-      dw,
-      dh
-    );
     onEmpty(false);
     onLoadError?.(false);
   };
@@ -302,7 +378,7 @@ export default function SignaturePad({
       ) : null}
 
       <div
-        className={`relative inline-block max-w-full touch-none rounded-lg border-2 bg-white dark:border-gray-700 ${
+        className={`relative inline-block max-w-full touch-none rounded-lg border-2 bg-transparent dark:border-gray-700 ${
           disabled ? "border-gray-300 opacity-75 grayscale-[0.5]" : "border-gray-300"
         }`}
       >
@@ -331,7 +407,7 @@ export default function SignaturePad({
           <img
             src={value}
             alt={label ? `${label} guardada` : "Firma guardada"}
-            className="block max-w-full rounded-[6px] bg-white"
+            className="block max-w-full rounded-[6px] bg-transparent"
             style={{ width: `${width}px`, height: "auto", aspectRatio: `${width} / ${height}` }}
           />
         ) : null}

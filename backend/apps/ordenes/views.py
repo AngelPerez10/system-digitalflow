@@ -565,10 +565,15 @@ def _upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
 
     Si Cloudinary no está configurado, conserva el data URI validado (solo local).
     Si Cloudinary falla, no se devuelve el data URL (evita miniaturas en blanco).
+    Las firmas (`*/firmas`) se normalizan a PNG transparente recortado a la tinta.
     """
+    from apps.ordenes.image_services import folder_is_firmas, optimize_image
+
     try:
         # Validate + optimize first (reject invalid/unsafe payloads).
-        optimized_url = _optimize_image(data_url, max_size_kb)
+        optimized_url = optimize_image(
+            data_url, max_size_kb, as_signature=folder_is_firmas(folder)
+        )
     except ValueError:
         # Avoid leaking details to clients.
         raise ValidationError("Imagen inválida o demasiado grande")

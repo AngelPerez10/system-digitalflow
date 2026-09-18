@@ -172,3 +172,52 @@ def img_url_to_data_uri(url: str, *, timeout: int = 30, max_bytes: int = MAX_EMB
     except Exception:
         logger.exception("Failed to download and embed remote image for PDF")
         return ""
+
+
+def firma_url_to_data_uri(url: str, *, timeout: int = 30, max_bytes: int = MAX_EMBED_REMOTE_BYTES) -> str:
+    """Embed de firma para PDF: fondo transparente + recorte a la tinta.
+
+    Cubre firmas ya guardadas como JPEG/PNG opacos a pantalla completa (pad
+    móvil antiguo) para que en el PDF no se vean el «marco de celular» ni
+    un sello blanco diminuto.
+    """
+    if not isinstance(url, str) or not url:
+        return ""
+    u = url.strip()
+    if not u or not is_embed_url_allowed(u):
+        return ""
+
+    from apps.common.signature_image import (
+        normalize_signature_bytes,
+        normalize_signature_image,
+        signature_image_to_png_data_uri,
+    )
+
+    try:
+        if u.startswith("data:"):
+            from apps.ordenes.image_services import _decode_base64_image_bytes, _open_and_verify_image
+
+            _, raw = _decode_base64_image_bytes(u, max_bytes * 8)
+            img = _open_and_verify_image(raw)
+            return signature_image_to_png_data_uri(normalize_signature_image(img))
+
+        req = Request(
+            url=u,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+            },
+            method="GET",
+        )
+        with _safe_opener.open(req, timeout=timeout) as resp:
+            raw = resp.read()
+        if not raw or len(raw) > max_bytes:
+            return ""
+        normalized = normalize_signature_bytes(raw)
+        if not normalized:
+            return img_url_to_data_uri(u, timeout=timeout, max_bytes=max_bytes)
+        b64 = base64.b64encode(normalized).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+    except Exception:
+        logger.exception("Failed to normalize signature for PDF embed")
+        return img_url_to_data_uri(u, timeout=timeout, max_bytes=max_bytes)

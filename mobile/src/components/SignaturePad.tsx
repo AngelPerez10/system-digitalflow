@@ -18,15 +18,18 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 
 /**
- * El lienzo de firma es blanco fijo en ambos temas (la imagen capturada tiene
- * que imprimirse bien y adjuntarse al PDF), así que el trazo, el texto de
- * ayuda y la línea guía llevan tonos fijos oscuros — no los del tema, que en
- * modo oscuro serían casi blancos e invisibles sobre el lienzo.
+ * El lienzo de firma es blanco fijo al firmar (contraste del trazo). Al
+ * confirmar se captura solo el área de tinta —sin borde ni guía— y el backend
+ * convierte el blanco a transparente y recorta. El trazo, el texto de ayuda y
+ * la línea guía llevan tonos fijos oscuros (en modo oscuro del tema serían
+ * invisibles sobre el lienzo blanco).
  */
 const LIENZO_BG = '#FFFFFF';
 const TINTA_FIRMA = '#09090B';
 const LIENZO_TEXTO = '#71717A';
 const LIENZO_GUIA = '#D3D3D8';
+/** Pad landscape (cerca del 400×250 del ERP web) — evita el «marco de celular» en PDF. */
+const LIENZO_ASPECT = 2;
 
 interface Props {
   value: string;
@@ -122,7 +125,7 @@ export function SignaturePad({ value, onChange, disabled = false }: Props) {
   return (
     <View style={styles.wrap}>
       {hayFirma ? (
-        <View style={[styles.preview, { borderColor: colors.line }]}>
+        <View style={[styles.preview, { borderColor: colors.line, backgroundColor: colors.surfaceSunken }]}>
           <Image
             source={{ uri: value }}
             style={styles.previewImg}
@@ -145,7 +148,7 @@ export function SignaturePad({ value, onChange, disabled = false }: Props) {
         >
           <Text style={[styles.ctaTitulo, { color: colors.primary }]}>Toca para firmar</Text>
           <Text style={[styles.ctaSub, { color: colors.inkMuted }]}>
-            Lienzo a pantalla completa · trazo fluido
+            Lienzo horizontal · trazo fluido
           </Text>
         </Pressable>
       )}
@@ -329,9 +332,11 @@ function FirmaModal({
     setCapturando(true);
     setError(null);
     try {
+      // Un frame para ocultar la guía antes del snapshot (no va en el PNG).
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       const uri = await captureRef(lienzoRef, {
         format: 'png',
-        quality: 0.92,
+        quality: 1,
         result: 'data-uri',
       });
       if (typeof uri !== 'string' || !uri.startsWith('data:image/')) {
@@ -397,45 +402,52 @@ function FirmaModal({
           Deslice el dedo con naturalidad — el trazo se suaviza solo
         </Text>
 
-        <View
-          ref={lienzoRef}
-          collapsable={false}
-          onLayout={medirOrigen}
-          style={styles.lienzo}
-          {...pan.panHandlers}
-          accessibilityLabel="Área para firmar"
-          accessibilityHint="Deslice el dedo para firmar"
-        >
-          <Svg width="100%" height="100%" pointerEvents="none">
-            {pathsCerrados.map((d, i) => (
-              <Path
-                key={i}
-                d={d}
-                stroke={TINTA_FIRMA}
-                strokeWidth={STROKE}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            ))}
-            {pathVivo ? (
-              <Path
-                d={pathVivo}
-                stroke={TINTA_FIRMA}
-                strokeWidth={STROKE}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+        {/* Marco visual (borde) fuera del ref: el PNG no lleva «celular» ni guía. */}
+        <View style={[styles.lienzoMarco, { borderColor: colors.line }]}>
+          <View
+            ref={lienzoRef}
+            collapsable={false}
+            onLayout={medirOrigen}
+            style={styles.lienzoCaptura}
+            {...pan.panHandlers}
+            accessibilityLabel="Área para firmar"
+            accessibilityHint="Deslice el dedo para firmar"
+          >
+            <Svg width="100%" height="100%" pointerEvents="none">
+              {pathsCerrados.map((d, i) => (
+                <Path
+                  key={i}
+                  d={d}
+                  stroke={TINTA_FIRMA}
+                  strokeWidth={STROKE}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ))}
+              {pathVivo ? (
+                <Path
+                  d={pathVivo}
+                  stroke={TINTA_FIRMA}
+                  strokeWidth={STROKE}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : null}
+            </Svg>
+            {!hayTrazo && !capturando ? (
+              <Text style={styles.placeholder} pointerEvents="none">
+                Firme aquí
+              </Text>
             ) : null}
-          </Svg>
-          {!hayTrazo ? (
-            <Text style={styles.placeholder} pointerEvents="none">
-              Firme aquí
-            </Text>
-          ) : null}
-          <View style={styles.lineaGuia} pointerEvents="none" />
+            {hayTrazo && !capturando ? (
+              <View style={styles.lineaGuia} pointerEvents="none" />
+            ) : null}
+          </View>
         </View>
+
+        <View style={styles.modalSpacer} />
 
         {error ? (
           <Text
@@ -485,7 +497,6 @@ const styles = StyleSheet.create({
   ctaSub: { ...type.caption, textAlign: 'center' },
   preview: {
     height: 148,
-    backgroundColor: LIENZO_BG,
     borderWidth: 1,
     borderRadius: radius.lg,
     overflow: 'hidden',
@@ -528,17 +539,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     marginBottom: spacing.sm,
   },
-  lienzo: {
-    flex: 1,
+  lienzoMarco: {
+    aspectRatio: LIENZO_ASPECT,
+    width: '100%',
+    maxHeight: 280,
+    alignSelf: 'center',
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    backgroundColor: LIENZO_BG,
-    borderColor: LIENZO_GUIA,
     borderWidth: 1,
     borderRadius: radius.xl,
     overflow: 'hidden',
+    backgroundColor: LIENZO_BG,
+  },
+  lienzoCaptura: {
+    flex: 1,
+    backgroundColor: LIENZO_BG,
     justifyContent: 'center',
   },
+  modalSpacer: { flex: 1, minHeight: spacing.md },
   placeholder: {
     ...type.title,
     color: LIENZO_TEXTO,
@@ -552,7 +570,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: spacing.xl,
     right: spacing.xl,
-    bottom: '26%',
+    bottom: '28%',
     height: StyleSheet.hairlineWidth,
     backgroundColor: LIENZO_GUIA,
   },

@@ -4,7 +4,7 @@ import logging
 from apps.common.document_folio import FOLIO_SERIE_ODT, resolve_document_folio
 from apps.common.marca import logo_data_uri_for_pdf
 from apps.common.pdf_html import esc
-from apps.common.pdf_images import img_url_to_data_uri
+from apps.common.pdf_images import firma_url_to_data_uri, img_url_to_data_uri
 from apps.ordenes.pdf_limits import orden_max_fotos
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,8 @@ def generate_orden_pdf_html(orden) -> str:
     fotos_embedded = [src for src in fotos_embedded if src]
     has_photos = bool(fotos_embedded)
 
-    firma_tecnico = img_url_to_data_uri(getattr(orden, 'firma_encargado_url', None) or '')
-    firma_cliente = img_url_to_data_uri(getattr(orden, 'firma_cliente_url', None) or '')
+    firma_tecnico = firma_url_to_data_uri(getattr(orden, 'firma_encargado_url', None) or '')
+    firma_cliente = firma_url_to_data_uri(getattr(orden, 'firma_cliente_url', None) or '')
 
     status_text = "RESUELTO" if orden.status == "resuelto" else (
         "PAUSADO" if orden.status == "pausado" else "PENDIENTE"
@@ -154,8 +154,8 @@ def generate_orden_pdf_html(orden) -> str:
         page-break-inside: avoid;
         break-inside: avoid;
       }}
-      .sigimgwrap {{ height: 105px; border-radius: 12px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--blue-50); margin-top: 8px; }}
-      .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; }}
+      .sigimgwrap {{ height: 160px; border-radius: 12px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--blue-50); margin-top: 8px; }}
+      .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; background: transparent; }}
       .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; color: var(--muted); }}
       .sigline b {{ font-weight: 700; color: var(--text); }}
     </style>

@@ -7,7 +7,7 @@ from typing import Any
 from apps.common.document_folio import FOLIO_SERIE_COT, FOLIO_SERIE_PRJ, resolve_document_folio
 from apps.common.marca import logo_data_uri_for_pdf
 from apps.common.pdf_html import esc
-from apps.common.pdf_images import embed_remote_images
+from apps.common.pdf_images import embed_remote_images, firma_url_to_data_uri
 
 logger = logging.getLogger(__name__)
 
@@ -367,8 +367,6 @@ def generate_proyecto_pdf_html(proyecto) -> str:
     image_urls = [
         *[u for entry in bitacora for u in entry["fotos"]],
         *evidencias,
-        *([firma_tecnico_url] if firma_tecnico_url else []),
-        *([firma_cliente_url] if firma_cliente_url else []),
     ]
     embedded = embed_remote_images(image_urls)
 
@@ -410,8 +408,8 @@ def generate_proyecto_pdf_html(proyecto) -> str:
         else ""
     )
 
-    firma_tecnico = embedded.get(firma_tecnico_url, "")
-    firma_cliente = embedded.get(firma_cliente_url, "")
+    firma_tecnico = firma_url_to_data_uri(firma_tecnico_url) if firma_tecnico_url else ""
+    firma_cliente = firma_url_to_data_uri(firma_cliente_url) if firma_cliente_url else ""
     logo_data_uri = logo_data_uri_for_pdf()
 
     vehiculo = str(getattr(proyecto, "vehiculo_asignado", "") or "").strip() or "-"
@@ -583,11 +581,11 @@ def generate_proyecto_pdf_html(proyecto) -> str:
         break-inside: avoid;
       }}
       .sigimgwrap {{
-        height: 105px; border-radius: 12px; border: 1px dashed var(--border);
+        height: 160px; border-radius: 12px; border: 1px dashed var(--border);
         display: flex; align-items: center; justify-content: center; overflow: hidden;
         background: var(--blue-50); margin-top: 8px;
       }}
-      .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; }}
+      .sigimgwrap img {{ width: 100%; height: 100%; object-fit: contain; background: transparent; }}
       .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 10px; color: var(--muted); }}
       .sigline b {{ font-weight: 700; color: var(--text); }}
       .cot-table {{ width: 100%; border-collapse: collapse; font-size: 10px; }}

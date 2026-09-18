@@ -108,16 +108,22 @@ def _open_and_verify_image(raw: bytes) -> Image.Image:
         raise ValueError("Imagen invalida o peligrosa")
 
 
-def optimize_image(data_url: str, max_size_kb: int = 80) -> str:
+def optimize_image(data_url: str, max_size_kb: int = 80, *, as_signature: bool = False) -> str:
     try:
         max_input_bytes = max_size_kb * 1024 * MAX_BASE64_INPUT_MULTIPLIER
         _, img_data = _decode_base64_image_bytes(data_url, max_input_bytes)
         img = _open_and_verify_image(img_data)
 
-        has_transparency = img.mode in ("RGBA", "LA", "P")
-        if img.mode == "P":
-            img = img.convert("RGBA")
+        if as_signature:
+            from apps.common.signature_image import normalize_signature_image
+
+            img = normalize_signature_image(img)
             has_transparency = True
+        else:
+            has_transparency = img.mode in ("RGBA", "LA", "P")
+            if img.mode == "P":
+                img = img.convert("RGBA")
+                has_transparency = True
 
         max_size_bytes = max_size_kb * 1024
 
@@ -131,8 +137,8 @@ def optimize_image(data_url: str, max_size_kb: int = 80) -> str:
 
             if size > max_size_bytes:
                 scale = (max_size_bytes / size) ** 0.5
-                new_width = int(img.width * scale)
-                new_height = int(img.height * scale)
+                new_width = max(1, int(img.width * scale))
+                new_height = max(1, int(img.height * scale))
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
                 output = io.BytesIO()
@@ -156,8 +162,8 @@ def optimize_image(data_url: str, max_size_kb: int = 80) -> str:
 
         if size > max_size_bytes:
             scale = (max_size_bytes / size) ** 0.5
-            new_width = int(img.width * scale)
-            new_height = int(img.height * scale)
+            new_width = max(1, int(img.width * scale))
+            new_height = max(1, int(img.height * scale))
             img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
             output = io.BytesIO()
@@ -171,6 +177,41 @@ def optimize_image(data_url: str, max_size_kb: int = 80) -> str:
     except Exception:
         logger.exception("Image optimization failed, returning original data URL")
         return data_url
+
+
+def folder_is_firmas(folder: str) -> bool:
+    return "firmas" in str(folder or "").replace("\\", "/").lower()
+
+
+def upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
+    try:
+        optimized_url = optimize_image(
+            data_url, max_size_kb, as_signature=folder_is_firmas(folder)
+        )
+    except ValueError:
+        raise ValidationError("Imagen invalida o demasiado grande")
+
+    if not cloudinary:
+        return optimized_url
+
+    try:
+        res = cloudinary.uploader.upload(
+            optimized_url,
+            folder=folder,
+            resource_type="image",
+            overwrite=False,
+            unique_filename=True,
+            use_filename=False,
+        )
+        url = res.get("secure_url") or res.get("url") or ""
+        if not str(url).startswith(("http://", "https://")):
+            raise RuntimeError("Cloudinary did not return an HTTP URL")
+        return url
+    except ValidationError:
+        raise
+    except Exception:
+        logger.exception("Cloudinary upload failed")
+        raise ValidationError("No se pudo subir la imagen a Cloudinary")
 
 
 def extract_public_id_from_url(url: str) -> str:
@@ -219,32 +260,3 @@ def delete_cloudinary_public_id(public_id: str, resource_type: str = "image"):
     if not cloudinary:
         return None
     return cloudinary.uploader.destroy(public_id, resource_type=resource_type)
-
-
-def upload_data_url(data_url: str, folder: str, max_size_kb: int = 80) -> str:
-    try:
-        optimized_url = optimize_image(data_url, max_size_kb)
-    except ValueError:
-        raise ValidationError("Imagen invalida o demasiado grande")
-
-    if not cloudinary:
-        return optimized_url
-
-    try:
-        res = cloudinary.uploader.upload(
-            optimized_url,
-            folder=folder,
-            resource_type="image",
-            overwrite=False,
-            unique_filename=True,
-            use_filename=False,
-        )
-        url = res.get("secure_url") or res.get("url") or ""
-        if not str(url).startswith(("http://", "https://")):
-            raise RuntimeError("Cloudinary did not return an HTTP URL")
-        return url
-    except ValidationError:
-        raise
-    except Exception:
-        logger.exception("Cloudinary upload failed")
-        raise ValidationError("No se pudo subir la imagen a Cloudinary")
