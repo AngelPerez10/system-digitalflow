@@ -13,6 +13,60 @@ import {
 
 export type { CotizacionRow };
 
+/** Fecha y hora locales (es-MX) desde ISO; metadatos de auditoría en listados. */
+function formatIsoDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
+}
+
+function CotizacionRegistroCell({
+  creadaPor,
+  editadaPor,
+  fechaCreacion,
+  fechaActualizacion,
+}: {
+  creadaPor: string;
+  editadaPor: string;
+  fechaCreacion?: string;
+  fechaActualizacion?: string;
+}) {
+  const creadaEn = formatIsoDateTime(fechaCreacion);
+  const editadaEn = formatIsoDateTime(fechaActualizacion);
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5 text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
+      <div className="min-w-0">
+        <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">Creada por</div>
+        <div className="truncate font-medium text-[#09090B] dark:text-white" title={creadaPor}>
+          {creadaPor}
+        </div>
+        {fechaCreacion ? (
+          <time className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]" dateTime={fechaCreacion}>
+            {creadaEn}
+          </time>
+        ) : (
+          <span className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">—</span>
+        )}
+      </div>
+      <div className="min-w-0 border-t border-[#EDEDED] pt-1.5 dark:border-[#273244]">
+        <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">Editada por</div>
+        <div className="truncate font-medium text-[#09090B] dark:text-white" title={editadaPor}>
+          {editadaPor}
+        </div>
+        {fechaActualizacion ? (
+          <time
+            className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
+            dateTime={fechaActualizacion}
+          >
+            {editadaEn}
+          </time>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function StatusSectionIcon({ statusKey }: { statusKey: CotizacionStatusSectionKey }) {
   if (statusKey === "AUTORIZADA") {
     return (
@@ -66,7 +120,7 @@ function CotizacionStatusSectionHeader({
       <span className={`absolute inset-y-0 left-0 w-1 ${tone.accent}`} aria-hidden />
       <div className="flex min-w-0 items-center gap-2.5 pl-1.5 sm:gap-3">
         <span
-          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-black/[0.06] bg-white/80 dark:border-white/10 dark:bg-black/20 ${tone.icon}`}
+          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-black/6 bg-white/80 dark:border-white/10 dark:bg-black/20 ${tone.icon}`}
         >
           <StatusSectionIcon statusKey={statusKey} />
         </span>
@@ -143,9 +197,61 @@ export type CotizacionStats = {
   autorizadas: string;
   pendientes: string;
   canceladas: string;
+  /** 0–100; null si no hay montos autorizados ni pendientes en el mes. */
+  tasaCierre: number | null;
 };
 
+/** Autorizadas ÷ (Autorizadas + Pendientes); ignora canceladas. */
+export function computeTasaCierreMensual(
+  autorizadas: number,
+  pendientes: number,
+): number | null {
+  const a = Number.isFinite(autorizadas) ? Math.max(0, autorizadas) : 0;
+  const p = Number.isFinite(pendientes) ? Math.max(0, pendientes) : 0;
+  const denom = a + p;
+  if (denom <= 0) return null;
+  return Math.min(100, Math.max(0, (a / denom) * 100));
+}
+
+/** Color + nivel textual (no solo color) según el %. Rojo → azul → verde (sin dorado). */
+export function tasaCierreVisual(tasa: number | null): {
+  color: string;
+  nivel: "sin-datos" | "baja" | "media" | "alta";
+  nivelLabel: string;
+} {
+  if (tasa == null) {
+    return {
+      color: "rgba(255,255,255,0.35)",
+      nivel: "sin-datos",
+      nivelLabel: "Sin datos",
+    };
+  }
+  const t = Math.min(1, Math.max(0, tasa / 100));
+  // 0% rojo (0) → 50% azul (210) → 100% verde (145)
+  const hue = t <= 0.5 ? t * 2 * 210 : 210 - (t - 0.5) * 2 * 65;
+  const nivel = tasa < 40 ? "baja" : tasa < 70 ? "media" : "alta";
+  const nivelLabel = nivel === "baja" ? "Baja" : nivel === "media" ? "Media" : "Alta";
+  return {
+    color: `hsl(${Math.round(hue)} 72% 62%)`,
+    nivel,
+    nivelLabel,
+  };
+}
+
+function formatTasaCierrePct(tasa: number | null): string {
+  if (tasa == null) return "—";
+  return `${tasa.toLocaleString("es-MX", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })}%`;
+}
+
 export function CotizacionPageHeader({ stats }: { stats?: CotizacionStats }) {
+  const tasa = stats?.tasaCierre ?? null;
+  const tasaLabel = formatTasaCierrePct(tasa);
+  const fillPct = tasa == null ? 0 : tasa;
+  const visual = tasaCierreVisual(tasa);
+
   return (
     <>
       <nav
@@ -154,7 +260,7 @@ export function CotizacionPageHeader({ stats }: { stats?: CotizacionStats }) {
       >
         <Link
           to="/"
-          className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+          className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
         >
           Inicio
         </Link>
@@ -163,7 +269,7 @@ export function CotizacionPageHeader({ stats }: { stats?: CotizacionStats }) {
         </span>
         <Link
           to="/cotizacion"
-          className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+          className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
         >
           Ventas
         </Link>
@@ -178,7 +284,7 @@ export function CotizacionPageHeader({ stats }: { stats?: CotizacionStats }) {
           className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-[#E6A23C]/15 blur-3xl"
           aria-hidden
         />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
           <div className="flex min-w-0 items-start gap-4">
             <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">
               <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -191,49 +297,93 @@ export function CotizacionPageHeader({ stats }: { stats?: CotizacionStats }) {
               <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">
                 Cotizaciones
               </h1>
-              <p className="mt-1.5 max-w-[62ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70">
+              <p className="mt-1.5 max-w-[62ch] text-[15px] leading-5.5 tracking-[-0.1px] text-white/70">
                 Consulta el historial, filtra por cliente o folio, abre el PDF y administra el estado de cada cotización.
               </p>
             </div>
           </div>
 
           {stats ? (
-            <div className="flex w-full shrink-0 flex-wrap items-center gap-2 lg:w-auto" role="group" aria-label="Resumen del periodo">
-              {(
-                [
-                  { label: "Total", value: stats.total, gold: false },
-                  { label: "Autorizadas", value: stats.autorizadas, gold: true },
-                  { label: "Pendientes", value: stats.pendientes, gold: false },
-                  { label: "Canceladas", value: stats.canceladas, gold: false },
-                ] as const
-              ).map((item) => (
-                <div key={item.label} className="inline-flex h-[3.25rem] items-center gap-3 rounded-[16px] bg-white/10 px-4">
-                  <span
-                    className={`inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-white/10 ${
-                      item.gold ? "text-[#E6A23C]" : "text-white/80"
-                    }`}
-                  >
-                    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                      {item.label === "Autorizadas" ? (
-                        <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                      ) : item.label === "Canceladas" ? (
-                        <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                      ) : item.label === "Pendientes" ? (
-                        <>
-                          <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </>
-                      ) : (
-                        <path d="M6 6h12M6 12h12M6 18h12" strokeLinecap="round" />
-                      )}
-                    </svg>
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/55">{item.label}</p>
-                    <p className="text-[18px] font-semibold tabular-nums leading-none text-white">{item.value}</p>
+            <div className="flex w-full shrink-0 flex-col items-end gap-6 lg:mt-0.5 lg:w-auto">
+              <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Resumen del periodo">
+                {(
+                  [
+                    { label: "Total", value: stats.total, gold: false },
+                    { label: "Autorizadas", value: stats.autorizadas, gold: true },
+                    { label: "Pendientes", value: stats.pendientes, gold: false },
+                    { label: "Canceladas", value: stats.canceladas, gold: false },
+                  ] as const
+                ).map((item) => (
+                  <div key={item.label} className="inline-flex h-13 items-center gap-3 rounded-3xl bg-white/10 px-4">
+                    <span
+                      className={`inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-white/10 ${
+                        item.gold ? "text-[#E6A23C]" : "text-white/80"
+                      }`}
+                    >
+                      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                        {item.label === "Autorizadas" ? (
+                          <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                        ) : item.label === "Canceladas" ? (
+                          <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                        ) : item.label === "Pendientes" ? (
+                          <>
+                            <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                          </>
+                        ) : (
+                          <path d="M6 6h12M6 12h12M6 18h12" strokeLinecap="round" />
+                        )}
+                      </svg>
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-white/55">{item.label}</p>
+                      <p className="text-[18px] font-semibold tabular-nums leading-none text-white">{item.value}</p>
+                    </div>
                   </div>
+                ))}
+              </div>
+
+              <div className="ml-auto flex w-[min(100%,42rem)] items-center gap-2.5">
+                <p
+                  id="cotizacion-tasa-cierre-label"
+                  className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.08em] text-white/50"
+                >
+                  Cierre
+                </p>
+                <div
+                  className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10"
+                  role="progressbar"
+                  aria-labelledby="cotizacion-tasa-cierre-label"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  {...(tasa == null
+                    ? { "aria-valuetext": "Sin montos autorizados ni pendientes en el mes" }
+                    : {
+                        "aria-valuenow": Math.round(tasa * 10) / 10,
+                        "aria-valuetext": `${tasaLabel.replace("%", "").trim()} por ciento, ${visual.nivelLabel.toLowerCase()}`,
+                      })}
+                >
+                  <div
+                    className="h-full rounded-full transition-[width,background-color] duration-500 ease-out motion-reduce:transition-none"
+                    style={{ width: `${fillPct}%`, backgroundColor: visual.color }}
+                  />
                 </div>
-              ))}
+                <p
+                  className="shrink-0 text-[12px] font-semibold tabular-nums leading-none tracking-[-0.2px]"
+                  style={{ color: visual.color }}
+                  aria-hidden
+                >
+                  {tasaLabel}
+                </p>
+                {tasa != null ? (
+                  <span
+                    className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.06em] text-white/55"
+                    aria-hidden
+                  >
+                    {visual.nivelLabel}
+                  </span>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>
@@ -292,10 +442,10 @@ export function CotizacionesMobileList({
                 return (
                   <li
                     key={r.id}
-                    className="rounded-[16px] border border-[#E7E7EA] bg-white p-4 shadow-[0_6px_20px_-14px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827]"
+                    className="rounded-3xl border border-[#E7E7EA] bg-white p-4 shadow-[0_6px_20px_-14px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827]"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="inline-flex rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]">
                             {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
@@ -336,12 +486,20 @@ export function CotizacionesMobileList({
                       </div>
                       <p className="shrink-0 text-sm font-semibold tabular-nums text-[#09090B] dark:text-white">{r.monto}</p>
                     </div>
+                    <div className="mt-3 min-w-0 rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] p-2.5 dark:border-[#273244] dark:bg-[#1B2539]">
+                      <CotizacionRegistroCell
+                        creadaPor={r.creadaPor}
+                        editadaPor={r.editadaPor}
+                        fechaCreacion={r.fechaCreacion}
+                        fechaActualizacion={r.fechaActualizacion}
+                      />
+                    </div>
                     <div className="mt-3 flex items-center justify-end gap-2 border-t border-[#E7E7EA] pt-3 dark:border-[#273244]">
                       <button
                         type="button"
                         disabled={excelLoading}
                         onClick={() => actions.onEdit(r)}
-                        className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-[#1B5CFF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a]"
+                        className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-[#1B5CFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a]"
                         title="Editar"
                         aria-label="Editar"
                       >
@@ -352,7 +510,7 @@ export function CotizacionesMobileList({
                           type="button"
                           disabled={excelLoading}
                           onClick={() => actions.onDownloadExcel!(r)}
-                          className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-emerald-400 hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a]"
+                          className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-emerald-400 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a]"
                           title="Excel"
                           aria-label="Descargar Excel"
                         >
@@ -363,7 +521,7 @@ export function CotizacionesMobileList({
                         type="button"
                         disabled={excelLoading}
                         onClick={() => actions.onOpenPdf(r.id)}
-                        className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:hover:text-[#4B7CFF]"
+                        className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:hover:text-[#4B7CFF]"
                         title="PDF"
                         aria-label="Ver PDF"
                       >
@@ -376,7 +534,7 @@ export function CotizacionesMobileList({
                         type="button"
                         disabled={excelLoading}
                         onClick={() => actions.onDelete(r)}
-                        className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-rose-400 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a]"
+                        className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-rose-400 hover:text-rose-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a]"
                         title="Eliminar"
                         aria-label="Eliminar"
                       >
@@ -412,32 +570,31 @@ export function CotizacionesTable({
         <span className="inline-block h-px w-4 bg-[#1B5CFF]/70" aria-hidden />
         Desliza horizontalmente para ver el listado completo
       </p>
-      <div className="touch-pan-x overflow-x-auto overscroll-x-contain rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] [-webkit-overflow-scrolling:touch] dark:border-[#273244] dark:bg-[#1B2539]">
-        <Table className="w-full min-w-[1180px] border-collapse">
+      <div className="touch-pan-x overflow-x-auto overscroll-x-contain rounded-3xl border border-[#E7E7EA] bg-[#FAFAFA] [-webkit-overflow-scrolling:touch] dark:border-[#273244] dark:bg-[#1B2539]">
+        <Table className="w-full min-w-275 border-collapse">
           <TableHeader className="sticky top-0 z-10 border-b border-[#E7E7EA] bg-white text-[11px] font-semibold text-[#09090B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC]">
             <TableRow>
-              <TableCell isHeader scope="col" className="w-[80px] min-w-[80px] whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Folio</TableCell>
-              <TableCell isHeader scope="col" className="w-[104px] min-w-[104px] whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Fecha</TableCell>
-              <TableCell isHeader scope="col" className="min-w-[120px] max-w-[160px] px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Medio</TableCell>
-              <TableCell isHeader scope="col" className="w-[108px] min-w-[108px] whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Status</TableCell>
-              <TableCell isHeader scope="col" className="min-w-[132px] max-w-[180px] px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Creada por</TableCell>
-              <TableCell isHeader scope="col" className="min-w-[132px] max-w-[180px] px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Editada por</TableCell>
-              <TableCell isHeader scope="col" className="min-w-[160px] px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Cliente</TableCell>
-              <TableCell isHeader scope="col" className="min-w-[160px] max-w-[220px] px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Tipo de trabajo</TableCell>
-              <TableCell isHeader scope="col" className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-right text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Monto</TableCell>
-              <TableCell isHeader scope="col" className="w-[160px] min-w-[160px] whitespace-nowrap px-2 py-2 text-center text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Acciones</TableCell>
+              <TableCell isHeader scope="col" className="w-20 min-w-20 whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Folio</TableCell>
+              <TableCell isHeader scope="col" className="w-26 min-w-26 whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Fecha</TableCell>
+              <TableCell isHeader scope="col" className="min-w-30 max-w-40 px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Medio</TableCell>
+              <TableCell isHeader scope="col" className="w-27 min-w-27 whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Status</TableCell>
+              <TableCell isHeader scope="col" className="w-45 min-w-45 whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Registro</TableCell>
+              <TableCell isHeader scope="col" className="min-w-40 px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Cliente</TableCell>
+              <TableCell isHeader scope="col" className="min-w-40 max-w-55 px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Tipo de trabajo</TableCell>
+              <TableCell isHeader scope="col" className="w-33 min-w-33 whitespace-nowrap px-2 py-2 text-right text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Monto</TableCell>
+              <TableCell isHeader scope="col" className="w-40 min-w-40 whitespace-nowrap px-2 py-2 text-center text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Acciones</TableCell>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-[#EDEDED] text-[11px] text-[#52525B] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
             {loading ? (
               <TableRow>
-                <TableCell className="px-3 py-3 text-[#6E6E77]" colSpan={10}>
+                <TableCell className="px-3 py-3 text-[#6E6E77]" colSpan={9}>
                   Cargando…
                 </TableCell>
               </TableRow>
             ) : !rows.length ? (
               <TableRow>
-                <TableCell className="px-3 py-2" colSpan={10}>
+                <TableCell className="px-3 py-2" colSpan={9}>
                   <div className="py-8 text-center text-sm text-[#6E6E77] dark:text-[#8ea0b8]">No hay cotizaciones.</div>
                 </TableCell>
               </TableRow>
@@ -446,7 +603,7 @@ export function CotizacionesTable({
                 const headingId = `cotizaciones-table-${section.key.toLowerCase()}`;
                 const headerRow = (
                   <TableRow key={`${section.key}-header`} className="hover:bg-transparent dark:hover:bg-transparent">
-                    <TableCell isHeader scope="colgroup" colSpan={10} className="border-y-0 bg-transparent p-0 text-left">
+                    <TableCell isHeader scope="colgroup" colSpan={9} className="border-y-0 bg-transparent p-0 text-left">
                       <div className="px-2 py-2 sm:px-3">
                         <CotizacionStatusSectionHeader
                           statusKey={section.key}
@@ -463,41 +620,33 @@ export function CotizacionesTable({
                   const statusUpper = normalizeCotizacionStatus(r.status) || "PENDIENTE";
                   return (
                     <TableRow key={r.id} className="align-top transition-colors hover:bg-[#FAFAFA]/80 dark:hover:bg-[#243048]/40">
-                      <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
+                      <TableCell className="whitespace-nowrap px-2 py-2 align-top sm:px-3">
                         <span className="inline-flex items-center justify-center rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] sm:text-[11px]">
                           {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
                         </span>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">{formatDMY(r.fecha)}</TableCell>
-                      <TableCell className="min-w-0 max-w-[160px] px-2 py-2 align-middle sm:px-3">
+                      <TableCell className="whitespace-nowrap px-2 py-2 align-top sm:px-3">{formatDMY(r.fecha)}</TableCell>
+                      <TableCell className="min-w-0 max-w-40 px-2 py-2 align-top sm:px-3">
                         <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${medioChipClass}`}>
                           {normalizeMedioLabel(r.medioContacto)}
                         </span>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-2 py-2 align-middle sm:px-3">
+                      <TableCell className="whitespace-nowrap px-2 py-2 align-top sm:px-3">
                         <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${statusChipClass(r.status)}`}>
                           {statusUpper === "PENDIENTE"
                             ? "Pendiente"
                             : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
                         </span>
                       </TableCell>
-                      <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
-                        <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
-                          <span className="truncate sm:text-[12px]" title={r.creadaPor}>
-                            {r.creadaPor}
-                          </span>
-                          <span className="shrink-0 text-[10px] leading-tight text-[#6E6E77] dark:text-[#8ea0b8]">Creada</span>
-                        </div>
+                      <TableCell className="w-45 min-w-45 px-2 py-2 align-top sm:px-3">
+                        <CotizacionRegistroCell
+                          creadaPor={r.creadaPor}
+                          editadaPor={r.editadaPor}
+                          fechaCreacion={r.fechaCreacion}
+                          fechaActualizacion={r.fechaActualizacion}
+                        />
                       </TableCell>
-                      <TableCell className="min-w-0 max-w-[180px] px-2 py-2 align-top sm:px-3">
-                        <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
-                          <span className="truncate sm:text-[12px]" title={r.editadaPor}>
-                            {r.editadaPor}
-                          </span>
-                          <span className="shrink-0 text-[10px] leading-tight text-[#6E6E77] dark:text-[#8ea0b8]">Última edición</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="min-w-[160px] max-w-[280px] px-2 py-2 align-top sm:px-3">
+                      <TableCell className="min-w-40 max-w-70 px-2 py-2 align-top sm:px-3">
                         <span className="block truncate font-medium sm:text-[12px]" title={r.cliente}>
                           {r.cliente}
                         </span>
@@ -519,7 +668,7 @@ export function CotizacionesTable({
                           </a>
                         ) : null}
                       </TableCell>
-                      <TableCell className="min-w-[140px] max-w-[220px] px-2 py-2 align-top sm:px-3">
+                      <TableCell className="min-w-35 max-w-55 px-2 py-2 align-top sm:px-3">
                         <span
                           className="block line-clamp-2 text-[11px] leading-snug text-[#52525B] dark:text-[#cbd5e1] sm:text-[12px]"
                           title={r.tipoTrabajo}
@@ -527,12 +676,12 @@ export function CotizacionesTable({
                           {r.tipoTrabajo || "—"}
                         </span>
                       </TableCell>
-                      <TableCell className="w-[132px] min-w-[132px] whitespace-nowrap px-2 py-2 text-right align-middle sm:px-3">
+                      <TableCell className="w-33 min-w-33 whitespace-nowrap px-2 py-2 text-right align-top sm:px-3">
                         <span className="inline-flex max-w-full justify-end rounded-md border border-[#E7E7EA] bg-[#FAFAFA] px-2 py-0.5 text-[11px] font-semibold tabular-nums dark:border-[#273244] dark:bg-[#0f172a] sm:text-[12px]">
                           {r.monto}
                         </span>
                       </TableCell>
-                      <TableCell className="w-[160px] min-w-[160px] whitespace-nowrap px-2 py-2 text-center align-middle sm:px-3">
+                      <TableCell className="w-40 min-w-40 whitespace-nowrap px-2 py-2 text-center align-top sm:px-3">
                         <div className="inline-flex items-center gap-1 rounded-md bg-[#FAFAFA] px-1.5 py-1 dark:bg-white/10">
                           <button
                             type="button"
