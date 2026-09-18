@@ -1,4 +1,4 @@
-import { agruparEquiposPorProducto } from '../proyectoFormat';
+import { agruparEquiposPorProducto, proyectoTieneTipoAlarmas } from '../proyectoFormat';
 import type { ProyectoEquipoLinea } from '@/types/proyecto';
 
 function crearEquipo(overrides: Partial<ProyectoEquipoLinea>): ProyectoEquipoLinea {
@@ -46,5 +46,31 @@ describe('agruparEquiposPorProducto (Proyectos)', () => {
       crearEquipo({ lineaId: 'b', modelo: 'Soporte de pared' }),
     ];
     expect(agruparEquiposPorProducto(equipos)).toHaveLength(2);
+  });
+});
+
+describe('proyectoTieneTipoAlarmas', () => {
+  it('reconoce el tipo de trabajo "Alarmas" exacto', () => {
+    expect(proyectoTieneTipoAlarmas([{ nombre: 'Alarmas' }])).toBe(true);
+  });
+
+  it('no distingue mayúsculas ni acentos', () => {
+    expect(proyectoTieneTipoAlarmas([{ nombre: 'ALARMAS' }])).toBe(true);
+  });
+
+  it('reconoce el tipo dentro de varios tipos de trabajo', () => {
+    expect(
+      proyectoTieneTipoAlarmas([{ nombre: 'Instalaciones' }, { nombre: 'Alarmas' }]),
+    ).toBe(true);
+  });
+
+  it('no falsea con otros tipos de trabajo', () => {
+    expect(proyectoTieneTipoAlarmas([{ nombre: 'Instalaciones' }, { nombre: 'Mantenimiento' }])).toBe(
+      false,
+    );
+  });
+
+  it('una lista vacía no cuenta como Alarmas', () => {
+    expect(proyectoTieneTipoAlarmas([])).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import {
   sectionLabelOrangeClass as erpSectionLabelClass,
   erpSubheadingClass,
 } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import { erpModalSansStyle } from "../../../OrdenesTrabajo/ordenTrabajoStyles";
 import { displayCotizacionFolio } from "../../shared/proyectoFormUtils";
 import type { CotizacionOrigen, CotizacionResumen } from "../../shared/proyectoTypes";
 import {
@@ -62,6 +63,7 @@ export function ProyectoCotizacionPickerModal({
       ariaLabelledBy={titleId}
       className={proyectoPickerModalClass}
     >
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden" style={erpModalSansStyle}>
       <header className={proyectoPickerModalHeaderClass}>
         <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#1B5CFF]" aria-hidden />
         <div className="flex min-w-0 items-start gap-3">
@@ -178,6 +180,7 @@ export function ProyectoCotizacionPickerModal({
             })
           )}
         </ul>
+      </div>
       </div>
     </Modal>
   );

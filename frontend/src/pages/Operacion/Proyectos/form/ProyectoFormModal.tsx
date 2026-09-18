@@ -9,6 +9,7 @@ import {
   erpModalBodyClass,
   erpModalFooterClass,
   erpModalFormScrollClass,
+  erpModalSansStyle,
   erpModalSecondaryBtnClass,
   erpModalShellClass,
   erpModalTabClass,
@@ -94,8 +95,6 @@ export default function ProyectoFormModal({
     setInstalacionDraft,
     cliente,
     setCliente,
-    clienteId,
-    setClienteId,
     cotizaciones,
     equipos,
     tiposTrabajo,
@@ -137,6 +136,8 @@ export default function ProyectoFormModal({
     setRequierePresupuestoAdicional,
     cotizacionAdicional,
     setCotizacionAdicional,
+    monitoreo,
+    setMonitoreo,
     statusAdministrativo,
     setStatusAdministrativo,
     fechaEnvioAdmin,
@@ -217,6 +218,10 @@ export default function ProyectoFormModal({
         ariaLabel={`${editing ? "Editar" : "Nuevo"} proyecto`}
         className={erpModalShellClass}
       >
+        <div
+          className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
+          style={erpModalSansStyle}
+        >
         <OrdenFormModalHeader
           editing={editing}
           contextLabel="Operación · Proyectos"
@@ -281,8 +286,6 @@ export default function ProyectoFormModal({
                   labelledBy={tabIds.cliente}
                   cliente={cliente}
                   setCliente={setCliente}
-                  clienteId={clienteId}
-                  setClienteId={setClienteId}
                   clienteStepError={clienteStepError}
                   setClienteStepError={setClienteStepError}
                   quienAutorizo={quienAutorizo}
@@ -370,6 +373,8 @@ export default function ProyectoFormModal({
                   setRequierePresupuestoAdicional={setRequierePresupuestoAdicional}
                   cotizacionAdicional={cotizacionAdicional}
                   setCotizacionAdicional={setCotizacionAdicional}
+                  monitoreo={monitoreo}
+                  setMonitoreo={setMonitoreo}
                   openCotizacionPicker={openCotizacionPicker}
                   evidenciasUrls={evidenciasUrls}
                   setEvidenciasUrls={setEvidenciasUrls}
@@ -491,6 +496,7 @@ export default function ProyectoFormModal({
             </div>
           </footer>
         </div>
+        </div>
       </Modal>
 
       <ProyectoCotizacionPickerModal
@@ -518,7 +524,7 @@ export default function ProyectoFormModal({
         ariaLabelledBy={clearCotizacionesTitleId}
         className={`${erpDeleteModalClass} z-100000`}
       >
-        <div className={erpDeleteModalPanelClass}>
+        <div className={erpDeleteModalPanelClass} style={erpModalSansStyle}>
           <div className="mb-4 flex flex-col items-center text-center">
             <span
               className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"

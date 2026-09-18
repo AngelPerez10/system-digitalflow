@@ -7,17 +7,19 @@ import { useSession } from '@/auth/SessionProvider';
 import { canEditModule } from '@/auth/permissions';
 import { AppButton } from '@/components/AppButton';
 import { ErrorState } from '@/components/StateViews';
-import { CampoDato } from '@/features/orders/components/CampoDato';
-import { FotosGaleria } from '@/features/orders/components/FotosGaleria';
-import { IconClipboard, IconComment, IconPerson, IconWrench } from '@/features/orders/components/icons';
-import { SeccionCard } from '@/features/orders/components/SeccionCard';
+import { CampoDato } from '@/components/CampoDato';
+import { FotosGaleria } from '@/components/FotosGaleria';
+import { IconClipboard, IconComment, IconPerson, IconWrench } from '@/components/icons';
+import { SeccionCard } from '@/components/SeccionCard';
 import { CotizacionesResumen } from '@/features/proyectos/components/CotizacionesResumen';
 import { EquiposProyectoLista } from '@/features/proyectos/components/EquiposProyectoLista';
 import { FirmasProyectoTarjeta } from '@/features/proyectos/components/FirmasProyectoTarjeta';
+import { MonitoreoIndicador } from '@/features/proyectos/components/MonitoreoIndicador';
 import { NotasPorDiaLista } from '@/features/proyectos/components/NotasPorDiaLista';
 import { ProyectoDetalleHero } from '@/features/proyectos/components/ProyectoDetalleHero';
 import { DetalleProyectoSkeleton } from '@/features/proyectos/components/ProyectoSkeletons';
-import { folioDisplay, statusLabel, statusSolid } from '@/features/proyectos/proyectoFormat';
+import { TiposTrabajoField } from '@/features/proyectos/components/TiposTrabajoField';
+import { folioDisplay, proyectoTieneTipoAlarmas, statusLabel, statusSolid } from '@/features/proyectos/proyectoFormat';
 import { useProyecto } from '@/features/proyectos/useProyecto';
 import { useTheme } from '@/theme/ThemeProvider';
 import { spacing, type } from '@/theme/tokens';
@@ -45,7 +47,7 @@ export default function DetalleProyectoScreen() {
   const proyectoId = Number(id);
   const { proyecto, cargando, error, recargar } = useProyecto(Number.isFinite(proyectoId) ? proyectoId : null);
   const { user, permissions } = useSession();
-  const entrance = useEntrance(10);
+  const entrance = useEntrance(11);
   const { colors, scheme } = useTheme();
 
   if (cargando) return <DetalleProyectoSkeleton />;
@@ -61,6 +63,7 @@ export default function DetalleProyectoScreen() {
   const fechaInicioDisplay = diasTrabajo > 0 ? formatFecha(proyecto.fechas_inicio[0]!) : '—';
   const fechaFinDisplay = diasTrabajo > 0 ? formatFecha(proyecto.fechas_inicio[diasTrabajo - 1]!) : '—';
   const auxiliaresDisplay = proyecto.auxiliares.map((a) => a.nombre).join(', ');
+  const esAlarmas = proyectoTieneTipoAlarmas(proyecto.tipos_trabajo);
 
   const hoja = {
     backgroundColor: colors.surface,
@@ -87,6 +90,13 @@ export default function DetalleProyectoScreen() {
           accessibilityLabel={`Detalle del proyecto ${folio}`}
         >
           <Animated.View style={entrance(1)}>
+            <SeccionCard titulo="Tipo de trabajo" tono={tono}>
+              <TiposTrabajoField tiposTrabajo={proyecto.tipos_trabajo} />
+              {esAlarmas ? <MonitoreoIndicador value={proyecto.monitoreo} /> : null}
+            </SeccionCard>
+          </Animated.View>
+
+          <Animated.View style={entrance(2)}>
             <SeccionCard titulo="Equipo de trabajo" tono={tono}>
               <CampoDato
                 icon={<IconPerson color={colors.inkMuted} size={12} />}
@@ -124,7 +134,7 @@ export default function DetalleProyectoScreen() {
             </SeccionCard>
           </Animated.View>
 
-          <Animated.View style={entrance(2)}>
+          <Animated.View style={entrance(3)}>
             <SeccionCard titulo="Programación" tono={tono}>
               <Placa label="Fecha de autorización" valor={proyecto.fecha_autorizacion ? formatFecha(proyecto.fecha_autorizacion) : '—'} />
               <View style={styles.placasFila}>
@@ -142,26 +152,26 @@ export default function DetalleProyectoScreen() {
             </SeccionCard>
           </Animated.View>
 
-          <Animated.View style={entrance(3)}>
+          <Animated.View style={entrance(4)}>
             <SeccionCard titulo="Cotizaciones" tono={tono} conteo={proyecto.cotizaciones.length}>
               <CotizacionesResumen bloques={proyecto.cotizaciones} />
             </SeccionCard>
           </Animated.View>
 
-          <Animated.View style={entrance(4)}>
+          <Animated.View style={entrance(5)}>
             <SeccionCard titulo="Equipos" tono={tono} conteo={proyecto.equipos.length}>
               <EquiposProyectoLista equipos={proyecto.equipos} />
             </SeccionCard>
           </Animated.View>
 
-          <Animated.View style={entrance(5)}>
+          <Animated.View style={entrance(6)}>
             <SeccionCard titulo="Bitácora por jornada" tono={tono}>
               <NotasPorDiaLista notas={proyecto.notas_por_dia} />
             </SeccionCard>
           </Animated.View>
 
           {(proyecto.incidencias || proyecto.requerimientos_adicionales) ? (
-            <Animated.View style={entrance(6)}>
+            <Animated.View style={entrance(7)}>
               <SeccionCard titulo="Incidencias y requerimientos" tono={tono}>
                 {proyecto.incidencias ? (
                   <CampoDato
@@ -187,7 +197,7 @@ export default function DetalleProyectoScreen() {
           ) : null}
 
           {proyecto.evidencias_urls.length > 0 ? (
-            <Animated.View style={entrance(7)}>
+            <Animated.View style={entrance(8)}>
               <SeccionCard titulo="Evidencias" tono={tono} conteo={proyecto.evidencias_urls.length}>
                 <FotosGaleria urls={proyecto.evidencias_urls} />
               </SeccionCard>
@@ -195,14 +205,14 @@ export default function DetalleProyectoScreen() {
           ) : null}
 
           {hayFirmas ? (
-            <Animated.View style={entrance(8)}>
+            <Animated.View style={entrance(9)}>
               <SeccionCard titulo="Firmas" tono={tono}>
                 <FirmasProyectoTarjeta firmaCliente={proyecto.firma_cliente_url} firmaTecnico={proyecto.firma_tecnico_url} />
               </SeccionCard>
             </Animated.View>
           ) : null}
 
-          <Animated.View style={[entrance(9), styles.accionesBloque]}>
+          <Animated.View style={[entrance(10), styles.accionesBloque]}>
             {puedeEditar ? (
               <AppButton
                 label="Editar proyecto"

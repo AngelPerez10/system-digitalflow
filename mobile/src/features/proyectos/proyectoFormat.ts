@@ -6,6 +6,22 @@ import type {
   ProyectoStatus,
 } from '@/types/proyecto';
 
+/**
+ * Si alguno de los tipos de trabajo del proyecto es "Alarmas" (el nombre viene libre del
+ * catálogo de Servicios, sin un enum fijo — se compara sin distinguir mayúsculas/acentos,
+ * igual que `proyectoTieneTipoAlarmas` del web `Operacion/Proyectos/shared/proyectoFormUtils`).
+ */
+export function proyectoTieneTipoAlarmas(
+  tiposTrabajo: readonly { nombre?: string | null }[],
+): boolean {
+  return tiposTrabajo.some((t) =>
+    String(t?.nombre || '')
+      .trim()
+      .toUpperCase()
+      .includes('ALARMA'),
+  );
+}
+
 export interface ProyectoEquipoAgrupado extends ProyectoEquipoLinea {
   /** Todas las `lineaId` originales que se colapsaron en esta fila. */
   lineaIds: string[];
@@ -52,16 +68,16 @@ const STATUS_LABEL: Record<ProyectoStatus, string> = {
 };
 
 /**
- * Colores propios por estatus (no los prestados de Órdenes): dorado para «en
- * proceso» (el trabajo activo — el acento que el sistema ya usa para leerse
- * bien sobre la banda marina; el azul primario se perdía ahí, azul sobre
- * azul), ámbar para pausado (atención), verde para cerrado (hecho) y rojo
- * para cancelado.
+ * Tonos suaves por estatus sobre lienzo blanco (y chips en banda marina):
+ * azul eléctrico para «en proceso» (marca SertelPro — el dorado se leía
+ * terroso/sucio en el selector), índigo para pausado, verde para cerrado y
+ * rojo para cancelado. `primaryDisabled` da un fill limpio; el dorado queda
+ * reservado a acentos de «sin guardar» / viñetas, no al estatus activo.
  */
 function toneMap(c: ThemeColors): Record<ProyectoStatus, { bg: string; text: string }> {
   return {
-    en_proceso: { bg: c.goldSoftBg, text: c.goldSoftText },
-    pausado: { bg: c.statusPendienteBg, text: c.statusPendienteText },
+    en_proceso: { bg: c.primaryDisabled, text: c.primary },
+    pausado: { bg: c.statusPausadoBg, text: c.statusPausadoText },
     cerrado: { bg: c.statusResueltoBg, text: c.statusResueltoText },
     cancelado: { bg: c.dangerBg, text: c.danger },
   };

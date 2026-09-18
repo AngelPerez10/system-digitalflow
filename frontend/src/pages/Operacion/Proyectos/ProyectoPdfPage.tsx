@@ -7,10 +7,10 @@ import { objectUrlsForPdfViewer } from "@/utils/pdfViewerPreview";
 import {
   claudeBodyClass,
   erpCardShellClass as cardShellClass,
-  erpHeroHeadingClass,
   erpPageCanvasClass,
   erpPageInnerClass,
   erpPrimaryBtnClass,
+  erpSansStyle,
   erpSecondaryBtnClass,
   erpSubheadingClass,
   outlineCoralBtnClass,
@@ -20,6 +20,7 @@ import {
 const erpCardShellMutedClass =
   "overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]/90";
 import { displayProyectoFolio } from "./shared/proyectoFormUtils";
+import { proyectoPdfPageHeroHeadingClass } from "./shared/proyectoPageStyles";
 
 const viewerFrameClass =
   "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-140 lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
@@ -265,7 +266,7 @@ export default function ProyectoPdfPage() {
     : "Vista previa del documento del proyecto";
 
   return (
-    <div className={erpPageCanvasClass}>
+    <div className={erpPageCanvasClass} style={erpSansStyle}>
       <div className={erpPageInnerClass}>
         <PageMeta
           title="PDF Proyecto | Digitalflow"
@@ -294,7 +295,7 @@ export default function ProyectoPdfPage() {
           <span className="text-[#D3D3D8] dark:text-[#334155]" aria-hidden>
             /
           </span>
-          <span className="text-[#44403c] dark:text-[#cbd5e1]">Vista PDF</span>
+          <span className="text-[#3F3F46] dark:text-[#cbd5e1]">Vista PDF</span>
         </nav>
 
         {alert.show ? (
@@ -314,7 +315,7 @@ export default function ProyectoPdfPage() {
             <div className="min-w-0 flex-1">
               <p className={sectionLabelOrangeClass}>Proyecto</p>
               <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
-                <h1 className={erpHeroHeadingClass}>Vista PDF</h1>
+                <h1 className={proyectoPdfPageHeroHeadingClass}>Vista PDF</h1>
                 {folioLabel ? (
                   <span className="inline-flex items-center rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]">
                     {folioLabel}
@@ -367,7 +368,7 @@ export default function ProyectoPdfPage() {
                       </p>
                     </div>
                   </div>
-                  <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
+                  <p className="text-[11px] text-[#52525B] dark:text-[#8ea0b8]">
                     {isHtmlFallback ? "Respaldo HTML: el motor PDF no está disponible." : "El visor usa el motor PDF del navegador."}
                   </p>
                 </div>
@@ -435,7 +436,7 @@ export default function ProyectoPdfPage() {
               <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-5">
                 <p className={sectionLabelOrangeClass}>Documento</p>
                 <h2 className={`mt-1 ${erpSubheadingClass}`}>Archivo y acciones</h2>
-                <p className="mt-1 text-xs text-[#6E6E77] dark:text-[#8ea0b8] sm:text-sm">
+                <p className="mt-1 text-xs text-[#52525B] dark:text-[#8ea0b8] sm:text-sm">
                   Nombre sugerido al descargar y accesos rápidos.
                 </p>
               </div>
@@ -497,7 +498,7 @@ export default function ProyectoPdfPage() {
                   </button>
                 </div>
 
-                <p className="text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
+                <p className="text-[11px] leading-relaxed text-[#52525B] dark:text-[#8ea0b8]">
                   Si la vista previa se ve cortada o es pesada (fotos), abra el archivo en una pestaña nueva o descárguelo.
                 </p>
               </div>

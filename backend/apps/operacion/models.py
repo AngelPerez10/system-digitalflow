@@ -110,6 +110,12 @@ class Proyecto(models.Model):
     incidencias = models.TextField(blank=True, default="")
     requerimientos_adicionales = models.TextField(blank=True, default="")
     requiere_presupuesto_adicional = models.BooleanField(default=False)
+    # Solo tiene sentido cuando algún tipo de trabajo es "Alarmas"; no se valida en servidor
+    # (igual que requiere_presupuesto_adicional, es un dato operativo libre).
+    # `null=True`: a diferencia de un booleano normal, aquí `NULL` es un tercer estado real
+    # ("aún no se ha elegido") — el frontend obliga a elegir Sí/No antes de guardar en vez
+    # de asumir "No" por defecto, así que no puede haber un `default=False` implícito.
+    monitoreo = models.BooleanField(null=True, blank=True, default=None)
 
     evidencias_urls = models.JSONField(default=list, blank=True)
     firma_cliente_url = models.TextField(blank=True, default="")

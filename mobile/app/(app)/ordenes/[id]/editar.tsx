@@ -22,13 +22,13 @@ import { Colapsable } from '@/components/Colapsable';
 import { ErrorState, InlineError } from '@/components/StateViews';
 import { SubmitButton, type SubmitPhase } from '@/components/SubmitButton';
 import { TextField } from '@/components/TextField';
-import { HorarioOrdenEditor } from '@/features/orders/components/DateTimeField';
+import { HorarioOrdenEditor } from '@/components/DateTimeField';
 import { EditarOrdenHero } from '@/features/orders/components/EditarOrdenHero';
 import { EquiposOrdenEditor } from '@/features/orders/components/EquiposOrdenEditor';
-import { FotosEditor } from '@/features/orders/components/FotosEditor';
+import { FotosEditor } from '@/components/FotosEditor';
 import { EditarOrdenSkeleton } from '@/features/orders/components/OrdenSkeletons';
-import { SeccionCard } from '@/features/orders/components/SeccionCard';
-import { SignaturePad } from '@/features/orders/components/SignaturePad';
+import { SeccionCard } from '@/components/SeccionCard';
+import { SignaturePad } from '@/components/SignaturePad';
 import { StatusSegment } from '@/features/orders/components/StatusSegment';
 import { folioDisplay, statusSolid } from '@/features/orders/ordenFormat';
 import {

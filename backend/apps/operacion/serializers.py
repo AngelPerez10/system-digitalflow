@@ -152,6 +152,7 @@ class ProyectoSerializer(serializers.ModelSerializer):
             "incidencias",
             "requerimientos_adicionales",
             "requiere_presupuesto_adicional",
+            "monitoreo",
             "status_administrativo",
             "fecha_envio_admin",
             "evidencias_urls",

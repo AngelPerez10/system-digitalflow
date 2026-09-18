@@ -38,6 +38,8 @@ export type ProyectoCotizacionBloque = {
   orden: number;
   cotizacion: CotizacionResumen;
   lineas: PresupuestoLinea[];
+  /** Tipos de trabajo detectados en la cotización de origen al momento de adjuntarla (informativo). */
+  tiposTrabajo?: ProyectoTipoTrabajo[];
 };
 
 export type EquipoEstadoInstalacion = "pendiente" | "entregado" | "no_instalado" | "instalado";
@@ -142,6 +144,11 @@ export type ProyectoDraft = {
   requierePresupuestoAdicional: boolean;
   /** Cotización vinculada cuando hay requerimientos / presupuesto adicional. */
   cotizacionAdicional: CotizacionResumen | null;
+  /**
+   * Solo aplica cuando algún tipo de trabajo es "Alarmas". `null` = aún no elegido
+   * (obliga a elegir Sí/No antes de guardar); no tiene un valor por defecto implícito.
+   */
+  monitoreo: boolean | null;
   /** Seguimiento administrativo de oficina; solo visible/editable para admins. */
   statusAdministrativo: ProyectoStatusAdministrativo;
   fechaEnvioAdmin: string;

@@ -330,7 +330,13 @@ function parseCotizacionBloques(value: unknown): ProyectoCotizacionBloque[] {
       const vinculoId = asString(data.vinculoId);
       const cotizacion = parseCotizacionResumen(data.cotizacion);
       if (!vinculoId || !cotizacion) return null;
-      return { vinculoId, orden: asNumber(data.orden) ?? 1, cotizacion };
+      const tiposTrabajo = parseTiposTrabajo(data.tiposTrabajo);
+      return {
+        vinculoId,
+        orden: asNumber(data.orden) ?? 1,
+        cotizacion,
+        ...(tiposTrabajo.length ? { tiposTrabajo } : {}),
+      };
     })
     .filter((item): item is ProyectoCotizacionBloque => item !== null);
 }
@@ -430,6 +436,7 @@ export function parseProyecto(raw: unknown): Proyecto {
     incidencias: asString(data.incidencias),
     requerimientos_adicionales: asString(data.requerimientos_adicionales),
     requiere_presupuesto_adicional: asBool(data.requiere_presupuesto_adicional),
+    monitoreo: data.monitoreo == null ? null : asBool(data.monitoreo),
     cotizacion_adicional: data.cotizacion_adicional ? parseCotizacionResumen(data.cotizacion_adicional) : null,
     status_administrativo: parseProyectoStatusAdministrativo(data.status_administrativo),
     evidencias_urls: asStringArray(data.evidencias_urls),

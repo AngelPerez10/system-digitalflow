@@ -10,7 +10,7 @@ import { EmptyState, InlineError } from '@/components/StateViews';
 import { TextField } from '@/components/TextField';
 import { EstadoConteo } from '@/features/orders/components/EstadoConteo';
 import { IconBox, IconFlecha } from '@/features/orders/components/icons';
-import { MesSelector } from '@/features/orders/components/MesSelector';
+import { MesSelector } from '@/components/MesSelector';
 import { OrdenCard } from '@/features/orders/components/OrdenCard';
 import { OrdenesSkeletonList } from '@/features/orders/components/OrdenCardSkeleton';
 import { OrdenesHero } from '@/features/orders/components/OrdenesHero';

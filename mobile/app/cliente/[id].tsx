@@ -16,20 +16,15 @@ import { inicialesUsuarioDisplay, nombreUsuarioDisplay } from '@/auth/nombreUsua
 import { useSession } from '@/auth/SessionProvider';
 import { AppButton } from '@/components/AppButton';
 import { Avatar } from '@/components/Avatar';
-import { IconChevron } from '@/components/icons';
-import { SkeletonPanel, SkeletonRegion } from '@/components/Skeleton';
-import { InlineError } from '@/components/StateViews';
-import { CalificacionTecnico } from '@/features/orders/components/CalificacionTecnico';
-import { CampoUbicacion } from '@/features/orders/components/CampoDato';
-import { EquiposLista } from '@/features/orders/components/EquiposLista';
-import { FirmasTarjeta } from '@/features/orders/components/FirmasTarjeta';
-import { FotosGaleria } from '@/features/orders/components/FotosGaleria';
-import { SeccionCard } from '@/features/orders/components/SeccionCard';
+import { CampoUbicacion } from '@/components/CampoDato';
+import { FirmasTarjeta } from '@/components/FirmasTarjeta';
+import { FotosGaleria } from '@/components/FotosGaleria';
 import {
   IconAlerta,
   IconBox,
   IconCalendar,
   IconCamera,
+  IconChevron,
   IconClipboard,
   IconClock,
   IconEstrella,
@@ -37,7 +32,12 @@ import {
   IconSignature,
   IconVisto,
   IconWrench,
-} from '@/features/orders/components/icons';
+} from '@/components/icons';
+import { SeccionCard } from '@/components/SeccionCard';
+import { SkeletonPanel, SkeletonRegion } from '@/components/Skeleton';
+import { InlineError } from '@/components/StateViews';
+import { CalificacionTecnico } from '@/features/orders/components/CalificacionTecnico';
+import { EquiposLista } from '@/features/orders/components/EquiposLista';
 import {
   folioDisplay,
   statusLabel,

@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { toUserMessage } from '@/api/errors';
+import { useCallback, useMemo, useState } from 'react';
 import { listProyectos } from '@/api/proyectosApi';
+import { useEntityList } from '@/hooks/useEntityList';
 import type { ProyectoListItem } from '@/types/proyecto';
 import { mesActual } from '@/utils/fecha';
 import { agruparPorStatus, contarPorStatus, type ProyectoSection } from './agrupar';
@@ -31,53 +30,18 @@ export interface UseProyectosResult {
 export function useProyectos(): UseProyectosResult {
   const [mes, setMes] = useState(() => mesActual());
   const [busqueda, setBusqueda] = useState('');
-  const [proyectos, setProyectos] = useState<ProyectoListItem[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const peticionActiva = useRef<AbortController | null>(null);
 
-  const cargar = useCallback(async (modo: 'inicial' | 'refresco') => {
-    peticionActiva.current?.abort();
-    const controller = new AbortController();
-    peticionActiva.current = controller;
-
-    if (modo === 'refresco') setRefrescando(true);
-    else setCargando(true);
-    setError(null);
-
-    try {
-      const data = await listProyectos(controller.signal);
-      if (controller.signal.aborted) return;
-      setProyectos(data);
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(toUserMessage(err));
-    } finally {
-      if (!controller.signal.aborted) {
-        setCargando(false);
-        setRefrescando(false);
-      }
-    }
-  }, []);
-
-  // Un solo disparador (no uno de montaje + otro de enfoque): con los dos a
-  // la vez, la primera entrada a la pantalla pedía el listado dos veces
-  // seguidas — la petición duplicada se aborta, pero el viaje de red de más
-  // es justo lo que hacía sentir la carga más lenta de lo que es.
-  useFocusEffect(
-    useCallback(() => {
-      void cargar('inicial');
-      return () => peticionActiva.current?.abort();
-    }, [cargar]),
-  );
+  const fetcher = useCallback((signal: AbortSignal) => listProyectos(signal), []);
+  const { items, cargando, refrescando, error, recargar } = useEntityList<ProyectoListItem>({
+    fetcher,
+  });
 
   const filtrados = useMemo(
     () =>
-      proyectos.filter(
+      items.filter(
         (proyecto) => perteneceAlMes(proyecto, mes) && coincideBusqueda(proyecto, busqueda),
       ),
-    [proyectos, mes, busqueda],
+    [items, mes, busqueda],
   );
 
   return {
@@ -91,6 +55,6 @@ export function useProyectos(): UseProyectosResult {
     cargando,
     refrescando,
     error,
-    recargar: useCallback(() => void cargar('refresco'), [cargar]),
+    recargar,
   };
 }

@@ -2,9 +2,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, type } from '@/theme/tokens';
-import { abrirEnlace } from '@/utils/abrirEnlace';
-import { esEnlaceUbicacion } from '../ordenFormat';
-import { IconPhone, IconPin } from './icons';
+import { abrirEnlace, esEnlaceUbicacion } from '@/utils/abrirEnlace';
+import { IconPhone, IconPin } from '@/components/icons';
 
 interface Props {
   icon: React.ReactNode;

@@ -1,7 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { toUserMessage } from '@/api/errors';
+import { useCallback } from 'react';
 import { listOrdenesPool } from '@/api/ordenesApi';
+import { useEntityList } from '@/hooks/useEntityList';
 import type { OrdenListItem } from '@/types/orden';
 
 export interface UseOrdenesPoolResult {
@@ -20,51 +19,17 @@ export interface UseOrdenesPoolResult {
  * Recarga al enfocar la pantalla y con "jalar para refrescar".
  */
 export function useOrdenesPool(): UseOrdenesPoolResult {
-  const [ordenes, setOrdenes] = useState<OrdenListItem[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const peticionActiva = useRef<AbortController | null>(null);
-
-  const cargar = useCallback(async (modo: 'inicial' | 'refresco') => {
-    peticionActiva.current?.abort();
-    const controller = new AbortController();
-    peticionActiva.current = controller;
-
-    if (modo === 'refresco') setRefrescando(true);
-    else setCargando(true);
-    setError(null);
-
-    try {
-      const data = await listOrdenesPool(controller.signal);
-      if (controller.signal.aborted) return;
-      setOrdenes(data);
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(toUserMessage(err));
-    } finally {
-      if (!controller.signal.aborted) {
-        setCargando(false);
-        setRefrescando(false);
-      }
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      void cargar('inicial');
-      return () => peticionActiva.current?.abort();
-    }, [cargar]),
-  );
+  const fetcher = useCallback((signal: AbortSignal) => listOrdenesPool(signal), []);
+  const { items, cargando, refrescando, error, recargar, mutar } = useEntityList<OrdenListItem>({
+    fetcher,
+  });
 
   return {
-    ordenes,
+    ordenes: items,
     cargando,
     refrescando,
     error,
-    recargar: useCallback(() => void cargar('refresco'), [cargar]),
-    quitar: useCallback((id: number) => {
-      setOrdenes((prev) => prev.filter((o) => o.id !== id));
-    }, []),
+    recargar,
+    quitar: useCallback((id: number) => mutar((prev) => prev.filter((o) => o.id !== id)), [mutar]),
   };
 }

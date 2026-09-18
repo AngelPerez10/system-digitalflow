@@ -8,11 +8,18 @@ import {
   proyectoCotizacionAddZoneClass,
   proyectoCotizacionAddZoneIconClass,
   proyectoCotizacionClearLinkClass,
-  proyectoCotizacionMetaRowClass,
+  proyectoCotizacionCountChipClass,
+  proyectoCotizacionListClass,
+  proyectoCotizacionListHeaderClass,
+  proyectoCotizacionListShellClass,
+  proyectoCotizacionMetaChipClass,
+  proyectoCotizacionRowClass,
+  proyectoCotizacionRowIconClass,
   proyectoEmptyPanelClass,
   proyectoFieldLabelClass,
   proyectoGhostIconBtnClass,
   proyectoOrigenBadgeClass,
+  proyectoTipoTrabajoTagClass,
 } from "../../shared/proyectoPageStyles";
 import type { CotizacionPickerTarget } from "../cotizaciones/useCotizacionPicker";
 import { ProyectoFormSection, proyectoSectionIconClass } from "../ProyectoFormSection";
@@ -22,8 +29,6 @@ export type ProyectoClienteTabProps = {
   labelledBy: string;
   cliente: string;
   setCliente: (v: string) => void;
-  clienteId: string;
-  setClienteId: (v: string) => void;
   clienteStepError: string;
   setClienteStepError: (v: string) => void;
   quienAutorizo: string;
@@ -77,8 +82,6 @@ export function ProyectoClienteTab({
   labelledBy,
   cliente,
   setCliente,
-  clienteId,
-  setClienteId,
   clienteStepError,
   setClienteStepError,
   quienAutorizo,
@@ -101,53 +104,36 @@ export function ProyectoClienteTab({
         titleId="proyecto-sec-cliente"
         eyebrow="Paso 1"
         title="Identificación"
-        hint="Cliente del proyecto y referencia interna."
+        hint="Cliente del proyecto."
         icon={iconUser}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="proyecto-modal-cliente" className={proyectoFieldLabelClass}>
-              Cliente
-            </label>
-            <input
-              id="proyecto-modal-cliente"
-              type="text"
-              value={cliente}
-              onChange={(e) => {
-                setCliente(e.target.value);
-                if (clienteStepError) setClienteStepError("");
-              }}
-              placeholder="Nombre o razón social"
-              className={erpInputLikeClass}
-              autoComplete="organization"
-              aria-invalid={Boolean(clienteStepError)}
-              aria-describedby={clienteStepError ? "proyecto-cliente-step-error" : undefined}
-            />
-            {clienteStepError ? (
-              <p
-                id="proyecto-cliente-step-error"
-                className="mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400"
-                role="alert"
-              >
-                {clienteStepError}
-              </p>
-            ) : null}
-          </div>
-          <div>
-            <label htmlFor="proyecto-modal-cliente-id" className={proyectoFieldLabelClass}>
-              ID cliente
-            </label>
-            <input
-              id="proyecto-modal-cliente-id"
-              type="text"
-              value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
-              placeholder="Referencia interna"
-              className={erpInputLikeClass}
-              readOnly={presupuestoCargado}
-              aria-readonly={presupuestoCargado}
-            />
-          </div>
+        <div>
+          <label htmlFor="proyecto-modal-cliente" className={proyectoFieldLabelClass}>
+            Cliente
+          </label>
+          <input
+            id="proyecto-modal-cliente"
+            type="text"
+            value={cliente}
+            onChange={(e) => {
+              setCliente(e.target.value);
+              if (clienteStepError) setClienteStepError("");
+            }}
+            placeholder="Nombre o razón social"
+            className={erpInputLikeClass}
+            autoComplete="organization"
+            aria-invalid={Boolean(clienteStepError)}
+            aria-describedby={clienteStepError ? "proyecto-cliente-step-error" : undefined}
+          />
+          {clienteStepError ? (
+            <p
+              id="proyecto-cliente-step-error"
+              className="mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400"
+              role="alert"
+            >
+              {clienteStepError}
+            </p>
+          ) : null}
         </div>
         <div className="mt-4">
           <label htmlFor="proyecto-modal-quien-autorizo" className={proyectoFieldLabelClass}>
@@ -170,19 +156,17 @@ export function ProyectoClienteTab({
         titleId="proyecto-sec-cotizacion"
         eyebrow="Presupuesto"
         title="Cotizaciones del proyecto"
-        hint="Puedes vincular varias cotizaciones sin duplicar el formulario."
+        hint="Vincula cotizaciones para traer partidas sin importes."
         icon={iconDoc}
-        card={presupuestoCargado}
+        card={false}
       >
         {presupuestoCargado ? (
-          <div className="space-y-3">
-            <div className={proyectoCotizacionMetaRowClass}>
-              <p className="text-xs font-medium text-[#6E6E77] dark:text-[#8ea0b8]">
-                <span className="font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">
-                  {cotizaciones.length}
-                </span>{" "}
-                {cotizaciones.length === 1 ? "vinculada" : "vinculadas"}
-              </p>
+          <div className={proyectoCotizacionListShellClass}>
+            <div className={proyectoCotizacionListHeaderClass}>
+              <span className={proyectoCotizacionCountChipClass}>
+                <span className="tabular-nums">{cotizaciones.length}</span>
+                {cotizaciones.length === 1 ? " cotización vinculada" : " cotizaciones vinculadas"}
+              </span>
               {!assignedTechnicianLocked ? (
                 <button
                   type="button"
@@ -196,45 +180,75 @@ export function ProyectoClienteTab({
               ) : null}
             </div>
 
-            <ul className="space-y-2.5" aria-label="Cotizaciones vinculadas">
-              {cotizaciones.map((bloque) => (
-                <li
-                  key={bloque.vinculoId}
-                  className="flex items-start gap-3 rounded-xl border border-[#E7E7EA] bg-[white] p-3.5 dark:border-[#334155] dark:bg-[#0f172a]/50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#1B5CFF]/15 px-2 text-[11px] font-bold tabular-nums text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]">
-                        {bloque.orden}
-                      </span>
-                      <span className={proyectoOrigenBadgeClass(bloque.cotizacion.origen)}>
-                        {bloque.cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR"}
-                      </span>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        Cotización {bloque.orden} ·{" "}
-                        {displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}
-                      </p>
+            <ul className={proyectoCotizacionListClass} role="list" aria-label="Cotizaciones vinculadas">
+              {cotizaciones.map((bloque) => {
+                const folio = displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen);
+                const origenLabel = bloque.cotizacion.origen === "digitalflow" ? "DigitalFlow" : "SICAR";
+                const partidasLabel = `${bloque.lineas.length} ${bloque.lineas.length === 1 ? "partida" : "partidas"}`;
+                return (
+                  <li key={bloque.vinculoId} className={proyectoCotizacionRowClass}>
+                    <span className={proyectoCotizacionRowIconClass} aria-hidden>
+                      <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-[#1B5CFF]/12 px-1.5 text-[11px] font-bold tabular-nums text-[#1244D1] dark:menu-dropdown-badge-active dark:text-[#4B7CFF]"
+                          aria-hidden
+                        >
+                          {bloque.orden}
+                        </span>
+                        <p className="truncate text-sm font-semibold tracking-tight text-[#09090B] dark:text-[#f8fafc]">
+                          {folio}
+                        </p>
+                        <span className={proyectoOrigenBadgeClass(bloque.cotizacion.origen)}>{origenLabel}</span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className={proyectoCotizacionMetaChipClass}>
+                          {formatProyectoFecha(bloque.cotizacion.fecha)}
+                        </span>
+                        {bloque.cotizacion.contacto ? (
+                          <span
+                            className={`${proyectoCotizacionMetaChipClass} max-w-[16rem] truncate`}
+                            title={bloque.cotizacion.contacto}
+                          >
+                            {bloque.cotizacion.contacto}
+                          </span>
+                        ) : null}
+                        <span className={proyectoCotizacionMetaChipClass}>{partidasLabel}</span>
+                      </div>
+                      {bloque.tiposTrabajo?.length ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-[#A1A1AA] dark:text-[#64748b]">
+                            {bloque.tiposTrabajo.length === 1 ? "Tipo:" : "Tipos:"}
+                          </span>
+                          {bloque.tiposTrabajo.map((t) => (
+                            <span key={t.id} className={proyectoTipoTrabajoTagClass}>
+                              {t.nombre}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
-                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {formatProyectoFecha(bloque.cotizacion.fecha)}
-                      {bloque.cotizacion.contacto ? ` · ${bloque.cotizacion.contacto}` : ""}
-                      {" · "}
-                      {bloque.lineas.length}{" "}
-                      {bloque.lineas.length === 1 ? "partida" : "partidas"}
-                    </p>
-                  </div>
-                  {!assignedTechnicianLocked ? (
-                    <button
-                      type="button"
-                      className={proyectoGhostIconBtnClass}
-                      onClick={() => handleQuitarCotizacion(bloque.vinculoId)}
-                      aria-label={`Quitar cotización ${bloque.orden}, folio ${displayCotizacionFolio(bloque.cotizacion.folio, bloque.cotizacion.origen)}`}
-                    >
-                      <TrashBinIcon className="h-4 w-4" aria-hidden />
-                    </button>
-                  ) : null}
-                </li>
-              ))}
+                    {!assignedTechnicianLocked ? (
+                      <button
+                        type="button"
+                        className={proyectoGhostIconBtnClass}
+                        onClick={() => handleQuitarCotizacion(bloque.vinculoId)}
+                        aria-label={`Quitar cotización ${bloque.orden}, folio ${folio}`}
+                      >
+                        <TrashBinIcon className="h-4 w-4" aria-hidden />
+                      </button>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
 
             {!assignedTechnicianLocked ? (
@@ -254,9 +268,24 @@ export function ProyectoClienteTab({
           </div>
         ) : (
           <div className={`${proyectoEmptyPanelClass} mt-0`}>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+            <div
+              className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[rgba(27,92,255,0.1)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]"
+              aria-hidden
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
+              {assignedTechnicianLocked ? "Sin cotizaciones vinculadas" : "Aún no hay cotizaciones"}
+            </p>
+            <p className="mt-1 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
               {assignedTechnicianLocked
-                ? "No hay cotizaciones vinculadas. Solo un administrador puede agregarlas."
+                ? "Solo un administrador puede agregarlas."
                 : "Vincula una o más cotizaciones para traer el presupuesto sin importes."}
             </p>
             {!assignedTechnicianLocked ? (

@@ -69,6 +69,8 @@ export type ProyectoCotizacionBloque = {
   vinculoId: string;
   orden: number;
   cotizacion: CotizacionResumen;
+  /** Tipos de trabajo detectados en esa cotización al vincularla (oficina, informativo). */
+  tiposTrabajo?: ProyectoTipoTrabajo[];
 };
 
 export interface ProyectoListItem {
@@ -113,6 +115,11 @@ export interface Proyecto extends ProyectoListItem {
   incidencias: string | null;
   requerimientos_adicionales: string | null;
   requiere_presupuesto_adicional: boolean;
+  /**
+   * Solo aplica cuando algún tipo de trabajo es "Alarmas": si el proyecto cuenta con
+   * monitoreo. `null` = aún no se ha elegido — no hay «No» por defecto.
+   */
+  monitoreo: boolean | null;
   cotizacion_adicional: CotizacionResumen | null;
   status_administrativo: ProyectoStatusAdministrativo;
   evidencias_urls: string[];
@@ -146,6 +153,7 @@ export interface ProyectoFieldPatch {
   incidencias?: string;
   requerimientos_adicionales?: string;
   requiere_presupuesto_adicional?: boolean;
+  monitoreo?: boolean | null;
   evidencias_urls?: string[];
   firma_cliente_url?: string;
   firma_tecnico_url?: string;

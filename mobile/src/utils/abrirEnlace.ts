@@ -16,3 +16,13 @@ export async function abrirEnlace(
     Alert.alert('No se pudo abrir', mensajeError);
   }
 }
+
+/**
+ * Algunas direcciones traen en realidad un enlace de Google Maps en vez de
+ * una dirección legible (dato así capturado desde el web). Mostrar la URL
+ * cruda se ve roto en la tarjeta; esto detecta el caso para renderizarlo
+ * como acción tocable en vez de texto.
+ */
+export function esEnlaceUbicacion(direccion: string): boolean {
+  return /^https?:\/\//i.test(direccion.trim());
+}

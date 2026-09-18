@@ -10,6 +10,7 @@ import {
   erpDangerBtnClass,
   erpDeleteModalClass,
   erpDeleteModalPanelClass,
+  erpModalSansStyle,
 } from "../OrdenesTrabajo/ordenTrabajoStyles";
 import {
   erpBreadcrumbLinkClass,
@@ -637,7 +638,7 @@ export default function ProyectosPage() {
                 type="button"
                 onClick={() => setSearchTerm("")}
                 aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/[0.06] sm:h-9 sm:rounded-lg"
+                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-h-11 min-w-11 items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/6 sm:h-9 sm:rounded-lg"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
                   <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -672,7 +673,7 @@ export default function ProyectosPage() {
                     Listado de proyectos
                   </h2>
                 </div>
-                <p className="mt-2 text-[13px] leading-[18px] text-[#52525B] dark:text-[#B7C1D1] sm:text-[14px] sm:leading-[20px]">
+                <p className="mt-2 text-[13px] leading-4.5 text-[#52525B] dark:text-[#B7C1D1] sm:text-[14px] sm:leading-5">
                   <span className="sm:hidden">Usa la barra de estado y los filtros.</span>
                   <span className="hidden sm:inline">
                     Usa la barra de estado y los filtros para acotar el listado. Agrupados por estado abajo.
@@ -730,34 +731,34 @@ export default function ProyectosPage() {
               </div>
             ) : (
               <div className={"hidden md:block " + erpTableWrapClass}>
-                <Table className="w-full min-w-[1240px] table-fixed border-collapse sm:min-w-0 xl:min-w-full">
+                <Table className="w-full min-w-310 table-fixed border-collapse sm:min-w-0 xl:min-w-full">
                   <TableHeader className={erpTableHeaderClass + " sticky top-0 z-10"}>
                     <TableRow>
-                      <TableCell isHeader scope="col" className="w-[96px] min-w-[88px] whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                      <TableCell isHeader scope="col" className="w-24 min-w-22 whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                         Folio
                       </TableCell>
-                      <TableCell isHeader scope="col" className="w-[18%] min-w-[160px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                      <TableCell isHeader scope="col" className="w-[18%] min-w-40 px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                         Cliente
                       </TableCell>
-                      <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                      <TableCell isHeader scope="col" className="w-35 min-w-32.5 px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                         Técnico
                       </TableCell>
-                      <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                      <TableCell isHeader scope="col" className="w-35 min-w-32.5 px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                         Auxiliar
                       </TableCell>
-                      <TableCell isHeader scope="col" className="w-[140px] min-w-[130px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                      <TableCell isHeader scope="col" className="w-35 min-w-32.5 px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                         Cotización
                       </TableCell>
-                      <TableCell isHeader scope="col" className="w-[150px] min-w-[140px] px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                      <TableCell isHeader scope="col" className="w-37.5 min-w-35 px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                         Equipos
                       </TableCell>
-                      <TableCell isHeader scope="col" className="w-[110px] min-w-[100px] whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
+                      <TableCell isHeader scope="col" className="w-27.5 min-w-25 whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
                         Estado
                       </TableCell>
-                      <TableCell isHeader scope="col" className="w-[100px] min-w-[96px] whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
+                      <TableCell isHeader scope="col" className="w-25 min-w-24 whitespace-nowrap px-3 py-2 text-left text-[#52525B] dark:text-[#B7C1D1]">
                         Fecha
                       </TableCell>
-                      <TableCell isHeader scope="col" className="w-[168px] min-w-[160px] whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
+                      <TableCell isHeader scope="col" className="w-42 min-w-40 whitespace-nowrap px-3 py-2 text-center text-[#52525B] dark:text-[#B7C1D1]">
                         Acciones
                       </TableCell>
                     </TableRow>
@@ -865,7 +866,7 @@ export default function ProyectosPage() {
                   <path d="M15 18l-6-6 6-6" />
                 </svg>
               </button>
-              <span className="min-w-0 flex-1 truncate text-center text-[12px] capitalize text-[#52525B] sm:min-w-[160px] sm:flex-none sm:text-[12px] dark:text-[#cbd5e1]">
+              <span className="min-w-0 flex-1 truncate text-center text-[12px] capitalize text-[#52525B] sm:min-w-40 sm:flex-none sm:text-[12px] dark:text-[#cbd5e1]">
                 {(() => {
                   const ym = parseYearMonth(selectedMonth);
                   if (!ym) return selectedMonth ? selectedMonth : "Todos los meses";
@@ -931,9 +932,9 @@ export default function ProyectosPage() {
           closeOnEscape={!deleting}
           showCloseButton={!deleting}
           ariaLabelledBy={deleteTitleId}
-          className={`${erpDeleteModalClass} z-[100000]`}
+          className={`${erpDeleteModalClass} z-100000`}
         >
-          <div className={erpDeleteModalPanelClass}>
+          <div className={erpDeleteModalPanelClass} style={erpModalSansStyle}>
             <div className="mb-5 flex flex-col items-center text-center">
               <span
                 className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-500/15 dark:text-rose-400 dark:ring-rose-500/20"
@@ -951,7 +952,7 @@ export default function ProyectosPage() {
               <h3 id={deleteTitleId} className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">
                 Eliminar proyecto
               </h3>
-              <p className="mt-2 max-w-[22rem] text-sm leading-relaxed text-[#57534e] dark:text-[#94a3b8]">
+              <p className="mt-2 max-w-88 text-sm leading-relaxed text-[#57534e] dark:text-[#94a3b8]">
                 {deleting ? (
                   "Por favor espera; esto puede tardar unos segundos."
                 ) : (
@@ -976,7 +977,7 @@ export default function ProyectosPage() {
             <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-center sm:gap-3">
               <button
                 type="button"
-                className={`${erpSecondaryBtnClass} sm:min-w-[8rem]`}
+                className={`${erpSecondaryBtnClass} sm:min-w-32`}
                 disabled={deleting}
                 onClick={() => setDeletingRow(null)}
               >
@@ -984,7 +985,7 @@ export default function ProyectosPage() {
               </button>
               <button
                 type="button"
-                className={`${erpDangerBtnClass} sm:min-w-[8rem]`}
+                className={`${erpDangerBtnClass} sm:min-w-32`}
                 disabled={deleting}
                 aria-busy={deleting || undefined}
                 onClick={() => void confirmDelete()}

@@ -21,6 +21,21 @@ export function emptyPersona(): ProyectoPersonaAsignada {
   return { id: null, nombre: "" };
 }
 
+/**
+ * Si alguno de los tipos de trabajo del proyecto es "Alarmas" (el nombre viene libre del
+ * catálogo de Servicios, sin un enum fijo — se compara sin distinguir mayúsculas/acentos).
+ */
+export function proyectoTieneTipoAlarmas(
+  tiposTrabajo: ReadonlyArray<{ nombre?: string | null }>
+): boolean {
+  return tiposTrabajo.some((t) =>
+    String(t?.nombre || "")
+      .trim()
+      .toUpperCase()
+      .includes("ALARMA")
+  );
+}
+
 /** Normaliza técnicos: un solo responsable si hay ≥1. */
 export function normalizeTecnicosAsignados(raw: unknown): ProyectoTecnicoAsignado[] {
   if (!Array.isArray(raw)) return [];
@@ -192,13 +207,15 @@ export function createCotizacionBloque(
   cotizacion: CotizacionResumen,
   lineas: PresupuestoLinea[],
   orden: number,
-  vinculoId = createVinculoId()
+  vinculoId = createVinculoId(),
+  tiposTrabajo?: ProyectoTipoTrabajo[]
 ): ProyectoCotizacionBloque {
   return {
     vinculoId,
     orden,
     cotizacion,
     lineas: prefixPresupuestoLineas(cotizacion.id, lineas),
+    ...(tiposTrabajo?.length ? { tiposTrabajo } : {}),
   };
 }
 
@@ -267,6 +284,7 @@ export function createEmptyProyectoDraft(): ProyectoDraft {
     requerimientosAdicionales: "",
     requierePresupuestoAdicional: false,
     cotizacionAdicional: null,
+    monitoreo: null,
     statusAdministrativo: "pendiente",
     fechaEnvioAdmin: "",
     evidenciasUrls: [],

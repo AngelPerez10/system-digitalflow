@@ -3,13 +3,12 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, radius, spacing, type, type ThemeColors } from '@/theme/tokens';
 import type { OrdenListItem } from '@/types/orden';
-import { abrirEnlace } from '@/utils/abrirEnlace';
+import { abrirEnlace, esEnlaceUbicacion } from '@/utils/abrirEnlace';
 import { formatFecha, formatHora } from '@/utils/fecha';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 import {
   accionLabel,
   clienteDisplay,
-  esEnlaceUbicacion,
   folioDisplay,
   prioridadLabel,
   prioridadTone,

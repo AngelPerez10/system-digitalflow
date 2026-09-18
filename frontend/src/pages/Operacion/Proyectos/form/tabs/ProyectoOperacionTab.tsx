@@ -12,13 +12,16 @@ import { ProyectoEvidenciasField } from "../fields/ProyectoEvidenciasField";
 import { ProyectoFormSection, proyectoSectionIconClass } from "../ProyectoFormSection";
 import { ProyectoNotaDiaFotosField } from "../fields/ProyectoNotaDiaFotosField";
 import { ProyectoTiposTrabajoField } from "../fields/ProyectoTiposTrabajoField";
-import { displayCotizacionFolio } from "../../shared/proyectoFormUtils";
+import { displayCotizacionFolio, proyectoTieneTipoAlarmas } from "../../shared/proyectoFormUtils";
 import type { CotizacionPickerTarget } from "../cotizaciones/useCotizacionPicker";
 import {
   formatProyectoFecha,
   proyectoAddDayBtnClass,
   proyectoAvanceRangeClass,
   proyectoAvanceValueClass,
+  proyectoEstadoBlockClass,
+  proyectoEstadoBlockMutedClass,
+  proyectoEstadoShellClass,
   proyectoFieldLabelClass,
   proyectoGhostIconBtnClass,
   proyectoNotaCardClass,
@@ -27,9 +30,16 @@ import {
   proyectoNotaTextareaClass,
   proyectoOrigenBadgeClass,
   proyectoSectionHintClass,
+  proyectoSiNoChipClass,
   proyectoStatusChipClass,
+  proyectoStatusDotClass,
+  proyectoStatusTrackClass,
 } from "../../shared/proyectoPageStyles";
-import { NOTA_DIA_MIN_CHARS, proyectoRequiresNotaDiaMinLength } from "../../shared/proyectoOperacionValidation";
+import {
+  NOTA_DIA_MIN_CHARS,
+  PROYECTO_MONITOREO_FIELD_ID,
+  proyectoRequiresNotaDiaMinLength,
+} from "../../shared/proyectoOperacionValidation";
 import { pickTecnicoSignatureDisplayUrl } from "@/pages/Operacion/shared/tecnicoSignatureDisplay";
 import type {
   CotizacionResumen,
@@ -159,7 +169,7 @@ export type ProyectoOperacionTabProps = {
   fechaHasta: string;
   setFechaRangoStart: (v: string) => void;
   setFechaRangoEnd: (v: string) => void;
-  operacionErrors: { tipos: string; fechaAuth: string; fechaDesde: string };
+  operacionErrors: { tipos: string; fechaAuth: string; fechaDesde: string; monitoreo: string };
   notaDiaErrors: Record<string, string>;
   diasRangoCount: number;
   fechasInicio: string[];
@@ -193,6 +203,12 @@ export type ProyectoOperacionTabProps = {
   setRequierePresupuestoAdicional: (v: boolean) => void;
   cotizacionAdicional: CotizacionResumen | null;
   setCotizacionAdicional: (v: CotizacionResumen | null) => void;
+  /**
+   * Solo aplica cuando algún tipo de trabajo es «Alarmas»: ¿el proyecto va a contar con
+   * monitoreo? `null` = aún no elegido (obliga a elegir Sí/No).
+   */
+  monitoreo: boolean | null;
+  setMonitoreo: (v: boolean) => void;
   openCotizacionPicker: (target: CotizacionPickerTarget) => void;
   evidenciasUrls: string[];
   setEvidenciasUrls: (urls: string[]) => void;
@@ -266,6 +282,8 @@ export function ProyectoOperacionTab({
   setRequierePresupuestoAdicional,
   cotizacionAdicional,
   setCotizacionAdicional,
+  monitoreo,
+  setMonitoreo,
   openCotizacionPicker,
   evidenciasUrls,
   setEvidenciasUrls,
@@ -282,6 +300,7 @@ export function ProyectoOperacionTab({
   const tecnicoResponsableNombre = tecnicoResponsable?.nombre?.trim() || "";
   const tecnicoResponsableId =
     tecnicoResponsable?.id != null ? Number(tecnicoResponsable.id) : null;
+  const esAlarmas = proyectoTieneTipoAlarmas(tiposTrabajo);
 
   return (
     <div id={panelId} role="tabpanel" aria-labelledby={labelledBy} className="space-y-5">
@@ -298,111 +317,181 @@ export function ProyectoOperacionTab({
         titleId="proyecto-sec-estado"
         eyebrow="Paso 3"
         title="Estado del proyecto"
-        hint="Define el tipo de trabajo y el status actual."
+        hint="Tipo de trabajo y status operativo actual."
         icon={iconStatus}
+        card={false}
       >
-        <div>
-          <ProyectoTiposTrabajoField
-            value={tiposTrabajo}
-            onChange={setTiposTrabajo}
-            servicios={servicios}
-            disabled={assignedTechnicianLocked}
-            placeholder="Buscar servicio…"
-            required
-            error={operacionErrors.tipos}
-          />
-          {catalogError ? (
-            <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400" role="alert">
-              {catalogError}
-            </p>
-          ) : null}
-        </div>
-
-        <div>
-          <p id="proyecto-status-label" className={proyectoFieldLabelClass}>
-            Status operativo
-          </p>
-          <p className="mb-2 text-[12px] leading-5 text-[#6E6E77] dark:text-[#8EA0B8]">
-            Opciones: En proceso, Pausado o Cerrado
-            {isAdmin && editing ? " (Cancelado, solo administradores)" : ""}. No hay «Resuelto» (ese
-            status es de órdenes de servicio). Para cerrar hace falta bitácora completa
-            {bitacoraMinRequired ? ` (mín. ${NOTA_DIA_MIN_CHARS} caracteres por día)` : ""}.
-          </p>
-          <div
-            className="flex flex-wrap gap-2"
-            role="radiogroup"
-            aria-labelledby="proyecto-status-label"
-            aria-describedby={closeBlockedMessage ? "proyecto-close-blocked" : undefined}
-          >
-            {STATUS_OPTIONS.filter(
-              (opt) => !opt.adminOnly || (isAdmin && editing) || status === opt.value,
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                role="radio"
-                aria-checked={status === opt.value}
-                onClick={() => handleStatusChange(opt.value)}
-                className={proyectoStatusChipClass(status === opt.value, opt.tone)}
-              >
-                {opt.label}
-              </button>
-            ))}
+        <div className={proyectoEstadoShellClass}>
+          <div className={proyectoEstadoBlockClass}>
+            <ProyectoTiposTrabajoField
+              value={tiposTrabajo}
+              onChange={setTiposTrabajo}
+              servicios={servicios}
+              disabled={assignedTechnicianLocked}
+              placeholder="Buscar servicio…"
+              required
+              error={operacionErrors.tipos}
+            />
+            {catalogError ? (
+              <p className="text-[11px] text-rose-600 dark:text-rose-400" role="alert">
+                {catalogError}
+              </p>
+            ) : null}
           </div>
-          {closeBlockedMessage ? (
+
+          {esAlarmas ? (
             <div
-              id="proyecto-close-blocked"
-              tabIndex={-1}
-              role="alert"
-              className="mt-3 scroll-mt-24 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800 outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.22)] dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200"
+              className={`${proyectoEstadoBlockMutedClass} ${
+                operacionErrors.monitoreo
+                  ? "border-rose-200! bg-rose-50/50! dark:border-rose-500/30! dark:bg-rose-950/20!"
+                  : ""
+              }`}
             >
-              <p className="font-semibold tracking-[-0.01em]">No se pudo cambiar a Cerrado</p>
-              <p className="mt-1 leading-5">{closeBlockedMessage}</p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p id="proyecto-monitoreo-label" className={`${proyectoFieldLabelClass} mb-0 sm:mb-0`}>
+                    ¿Cuenta con monitoreo? <span className="text-rose-600">*</span>
+                  </p>
+                </div>
+                <div
+                  className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:min-w-56"
+                  role="radiogroup"
+                  aria-labelledby="proyecto-monitoreo-label"
+                  aria-required="true"
+                  aria-describedby={operacionErrors.monitoreo ? "proyecto-monitoreo-error" : undefined}
+                >
+                  <button
+                    id={PROYECTO_MONITOREO_FIELD_ID}
+                    type="button"
+                    role="radio"
+                    aria-checked={monitoreo === true}
+                    onClick={() => setMonitoreo(true)}
+                    className={proyectoSiNoChipClass(monitoreo === true, "si")}
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Sí
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={monitoreo === false}
+                    onClick={() => setMonitoreo(false)}
+                    className={proyectoSiNoChipClass(monitoreo === false, "no")}
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    No
+                  </button>
+                </div>
+              </div>
+              {operacionErrors.monitoreo ? (
+                <p
+                  id="proyecto-monitoreo-error"
+                  className="text-[11px] text-rose-600 dark:text-rose-400"
+                  role="alert"
+                >
+                  {operacionErrors.monitoreo}
+                </p>
+              ) : null}
             </div>
           ) : null}
+
+          <div className={proyectoEstadoBlockClass}>
+            <div>
+              <p id="proyecto-status-label" className={proyectoFieldLabelClass}>
+                Status operativo
+              </p>
+              <p className="mb-3 text-[12px] leading-snug text-[#6E6E77] dark:text-[#8EA0B8]">
+                En proceso, Pausado o Cerrado
+                {isAdmin && editing ? " · Cancelado solo admin" : ""}.
+                {bitacoraMinRequired
+                  ? ` Cerrar exige bitácora (mín. ${NOTA_DIA_MIN_CHARS} caracteres por día).`
+                  : " Cerrar exige bitácora completa."}
+              </p>
+              <div
+                className={proyectoStatusTrackClass}
+                role="radiogroup"
+                aria-labelledby="proyecto-status-label"
+                aria-describedby={closeBlockedMessage ? "proyecto-close-blocked" : undefined}
+              >
+                {STATUS_OPTIONS.filter(
+                  (opt) => !opt.adminOnly || (isAdmin && editing) || status === opt.value,
+                ).map((opt) => {
+                  const active = status === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => handleStatusChange(opt.value)}
+                      className={proyectoStatusChipClass(active, opt.tone)}
+                    >
+                      <span className={proyectoStatusDotClass(opt.tone, active)} aria-hidden />
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {closeBlockedMessage ? (
+                <div
+                  id="proyecto-close-blocked"
+                  tabIndex={-1}
+                  role="alert"
+                  className="mt-3 scroll-mt-24 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800 outline-none focus-visible:ring-4 focus-visible:ring-[rgba(194,43,43,0.22)] dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200"
+                >
+                  <p className="font-semibold tracking-[-0.01em]">No se pudo cambiar a Cerrado</p>
+                  <p className="mt-1 leading-5">{closeBlockedMessage}</p>
+                </div>
+              ) : null}
+            </div>
+
+            {status === "pausado" ? (
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3.5 dark:border-amber-500/25 dark:bg-amber-500/5">
+                <label htmlFor={motivoId} className={proyectoFieldLabelClass}>
+                  Motivo de la pausa <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  id={motivoId}
+                  type="text"
+                  value={motivoPausa}
+                  onChange={(e) => setMotivoPausa(e.target.value)}
+                  placeholder="¿Por qué está pausado el proyecto?"
+                  className={erpInputLikeClass}
+                  required
+                  aria-required="true"
+                  aria-invalid={status === "pausado" && !motivoPausa.trim()}
+                />
+              </div>
+            ) : null}
+
+            {status === "cancelado" ? (
+              <div className="rounded-xl border border-rose-200/80 bg-rose-50/60 p-3.5 dark:border-rose-500/25 dark:bg-rose-500/5">
+                <label htmlFor="proyecto-motivo-cancelacion" className={proyectoFieldLabelClass}>
+                  Motivo de cancelación <span className="text-rose-600">*</span>
+                </label>
+                <HeroInput
+                  id="proyecto-motivo-cancelacion"
+                  aria-label="Motivo de cancelación"
+                  type="text"
+                  value={motivoCancelacion}
+                  onChange={(e) => setMotivoCancelacion(e.target.value)}
+                  placeholder="¿Por qué se cancela el proyecto?"
+                  className={erpInputLikeClass}
+                  required
+                  aria-required="true"
+                  aria-invalid={status === "cancelado" && !motivoCancelacion.trim()}
+                />
+                <p className="mt-1.5 text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Obligatorio al marcar Cancelado. Solo el administrador puede cancelar.
+                </p>
+              </div>
+            ) : null}
+          </div>
         </div>
-
-        {status === "pausado" ? (
-          <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-3 dark:border-amber-500/25 dark:bg-amber-500/5">
-            <label htmlFor={motivoId} className={proyectoFieldLabelClass}>
-              Motivo de la pausa <span className="text-rose-600">*</span>
-            </label>
-            <input
-              id={motivoId}
-              type="text"
-              value={motivoPausa}
-              onChange={(e) => setMotivoPausa(e.target.value)}
-              placeholder="¿Por qué está pausado el proyecto?"
-              className={erpInputLikeClass}
-              required
-              aria-required="true"
-              aria-invalid={status === "pausado" && !motivoPausa.trim()}
-            />
-          </div>
-        ) : null}
-
-        {status === "cancelado" ? (
-          <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-3 dark:border-rose-500/25 dark:bg-rose-500/5">
-            <label htmlFor="proyecto-motivo-cancelacion" className={proyectoFieldLabelClass}>
-              Motivo de cancelación <span className="text-rose-600">*</span>
-            </label>
-            <HeroInput
-              id="proyecto-motivo-cancelacion"
-              aria-label="Motivo de cancelación"
-              type="text"
-              value={motivoCancelacion}
-              onChange={(e) => setMotivoCancelacion(e.target.value)}
-              placeholder="¿Por qué se cancela el proyecto?"
-              className={erpInputLikeClass}
-              required
-              aria-required="true"
-              aria-invalid={status === "cancelado" && !motivoCancelacion.trim()}
-            />
-            <p className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
-              Obligatorio al marcar Cancelado. Solo el administrador puede cancelar.
-            </p>
-          </div>
-        ) : null}
       </ProyectoFormSection>
 
       <ProyectoFormSection

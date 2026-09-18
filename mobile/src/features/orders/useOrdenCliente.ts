@@ -1,7 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { toUserMessage } from '@/api/errors';
+import { useCallback } from 'react';
 import { getOrdenCliente } from '@/api/portalClienteApi';
+import { useEntityDetail } from '@/hooks/useEntityDetail';
 import type { Orden, OrdenCalificacion } from '@/types/orden';
 
 export interface UseOrdenClienteResult {
@@ -18,50 +17,25 @@ export interface UseOrdenClienteResult {
  * es la única cosa que el cliente aporta al expediente.
  */
 export function useOrdenCliente(id: number | null): UseOrdenClienteResult {
-  const [orden, setOrden] = useState<Orden | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const peticionActiva = useRef<AbortController | null>(null);
-
-  const cargar = useCallback(async () => {
-    if (id === null) {
-      setError('Orden no válida.');
-      setCargando(false);
-      return;
-    }
-    peticionActiva.current?.abort();
-    const controller = new AbortController();
-    peticionActiva.current = controller;
-    setCargando(true);
-    setError(null);
-    try {
-      const data = await getOrdenCliente(id, controller.signal);
-      if (controller.signal.aborted) return;
-      setOrden(data);
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(toUserMessage(err));
-    } finally {
-      if (!controller.signal.aborted) setCargando(false);
-    }
-  }, [id]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void cargar();
-      return () => peticionActiva.current?.abort();
-    }, [cargar]),
+  const fetcher = useCallback(
+    (ordenId: number, signal: AbortSignal) => getOrdenCliente(ordenId, signal),
+    [],
   );
+  const { data, cargando, error, recargar, aplicar } = useEntityDetail<Orden>({
+    id,
+    fetcher,
+    idInvalidoMensaje: 'Orden no válida.',
+  });
 
   return {
-    orden,
+    orden: data,
     cargando,
     error,
-    recargar: useCallback(() => void cargar(), [cargar]),
-    aplicarCalificacion: useCallback((calificacion: OrdenCalificacion) => {
-      setOrden((actual) =>
-        actual ? { ...actual, calificacion, puede_calificar: false } : actual,
-      );
-    }, []),
+    recargar,
+    aplicarCalificacion: useCallback(
+      (calificacion: OrdenCalificacion) =>
+        aplicar((actual) => (actual ? { ...actual, calificacion, puede_calificar: false } : actual)),
+      [aplicar],
+    ),
   };
 }

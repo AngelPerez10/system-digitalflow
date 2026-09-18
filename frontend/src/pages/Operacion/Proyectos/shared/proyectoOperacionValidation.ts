@@ -1,12 +1,17 @@
+import { proyectoTieneTipoAlarmas } from "./proyectoFormUtils";
+
 export type ProyectoOperacionRequiredErrors = {
   tipos: string;
   fechaAuth: string;
   fechaDesde: string;
+  monitoreo: string;
 };
 
 export const PROYECTO_TIPOS_TRABAJO_FIELD_ID = "proyecto-tipos-trabajo";
 export const PROYECTO_FECHA_AUTORIZACION_FIELD_ID = "proyecto-fecha-autorizacion";
 export const PROYECTO_FECHA_DESDE_FIELD_ID = "proyecto-fecha-inicio-desde";
+/** Primer control enfocable del toggle Sí/No, para llevar el foco ahí si falta elegir. */
+export const PROYECTO_MONITOREO_FIELD_ID = "proyecto-monitoreo-si-btn";
 
 /** Mínimo de caracteres (trim) por jornada en la bitácora. */
 export const NOTA_DIA_MIN_CHARS = 150;
@@ -19,33 +24,45 @@ const EMPTY_ERRORS: ProyectoOperacionRequiredErrors = {
   tipos: "",
   fechaAuth: "",
   fechaDesde: "",
+  monitoreo: "",
 };
 
 /** Campos de Operación que deben ir llenos para avanzar o guardar. */
 export function validateProyectoOperacionRequired(input: {
-  tiposTrabajo: ReadonlyArray<{ id?: number | null }>;
+  tiposTrabajo: ReadonlyArray<{ id?: number | null; nombre?: string | null }>;
   fechaAutorizacion: string;
   fechaDesde: string;
+  /** `null` = aún no elegido. Solo se exige cuando algún tipo de trabajo es "Alarmas". */
+  monitoreo: boolean | null;
 }): { ok: true; errors: ProyectoOperacionRequiredErrors } | {
   ok: false;
   errors: ProyectoOperacionRequiredErrors;
   firstFieldId: string;
 } {
+  const requiereMonitoreo = proyectoTieneTipoAlarmas(
+    input.tiposTrabajo.map((t) => ({ id: t.id ?? null, nombre: t.nombre || "" }))
+  );
   const errors: ProyectoOperacionRequiredErrors = {
     tipos: input.tiposTrabajo.some((t) => t?.id != null) ? "" : "Selecciona al menos un tipo de trabajo.",
     fechaAuth: String(input.fechaAutorizacion || "").trim()
       ? ""
       : "Indica la fecha de autorización.",
     fechaDesde: String(input.fechaDesde || "").trim() ? "" : "Indica la fecha de inicio (Desde).",
+    monitoreo:
+      requiereMonitoreo && input.monitoreo == null
+        ? "Indica si el proyecto cuenta con monitoreo."
+        : "",
   };
-  if (!errors.tipos && !errors.fechaAuth && !errors.fechaDesde) {
+  if (!errors.tipos && !errors.fechaAuth && !errors.fechaDesde && !errors.monitoreo) {
     return { ok: true, errors: EMPTY_ERRORS };
   }
   const firstFieldId = errors.tipos
     ? PROYECTO_TIPOS_TRABAJO_FIELD_ID
     : errors.fechaAuth
       ? PROYECTO_FECHA_AUTORIZACION_FIELD_ID
-      : PROYECTO_FECHA_DESDE_FIELD_ID;
+      : errors.fechaDesde
+        ? PROYECTO_FECHA_DESDE_FIELD_ID
+        : PROYECTO_MONITOREO_FIELD_ID;
   return { ok: false, errors, firstFieldId };
 }
 

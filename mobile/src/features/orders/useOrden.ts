@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { toUserMessage } from '@/api/errors';
+import { useCallback } from 'react';
 import { getOrden } from '@/api/ordenesApi';
+import { useEntityDetail } from '@/hooks/useEntityDetail';
 import type { Orden } from '@/types/orden';
 
 export interface UseOrdenResult {
@@ -15,56 +14,12 @@ export interface UseOrdenResult {
 
 /** Detalle completo: obligatorio antes de editar (el listado hace defer de fotos/firmas). */
 export function useOrden(id: number | null): UseOrdenResult {
-  const [orden, setOrden] = useState<Orden | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const peticionActiva = useRef<AbortController | null>(null);
+  const fetcher = useCallback((ordenId: number, signal: AbortSignal) => getOrden(ordenId, signal), []);
+  const { data, cargando, error, recargar, aplicar } = useEntityDetail<Orden>({
+    id,
+    fetcher,
+    idInvalidoMensaje: 'Orden no válida.',
+  });
 
-  const cargar = useCallback(async () => {
-    if (id === null) {
-      setError('Orden no válida.');
-      setCargando(false);
-      return;
-    }
-    peticionActiva.current?.abort();
-    const controller = new AbortController();
-    peticionActiva.current = controller;
-    setCargando(true);
-    setError(null);
-    try {
-      const data = await getOrden(id, controller.signal);
-      if (controller.signal.aborted) return;
-      setOrden(data);
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(toUserMessage(err));
-    } finally {
-      if (!controller.signal.aborted) setCargando(false);
-    }
-  }, [id]);
-
-  // `useFocusEffect` no es el disparador confiable de la primera carga en
-  // todas las plataformas (en la vista web el evento de foco puede no llegar
-  // al montar la pantalla); este efecto normal garantiza que la petición
-  // siempre sale, sin depender de eso.
-  useEffect(() => {
-    void cargar();
-    return () => peticionActiva.current?.abort();
-  }, [cargar]);
-
-  // Recarga también al volver de la edición: el detalle nunca queda viejo.
-  useFocusEffect(
-    useCallback(() => {
-      void cargar();
-      return () => peticionActiva.current?.abort();
-    }, [cargar]),
-  );
-
-  return {
-    orden,
-    cargando,
-    error,
-    recargar: useCallback(() => void cargar(), [cargar]),
-    aplicarOrden: useCallback((next: Orden) => setOrden(next), []),
-  };
+  return { orden: data, cargando, error, recargar, aplicarOrden: aplicar };
 }

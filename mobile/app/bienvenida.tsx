@@ -10,7 +10,7 @@ import { BrandMark } from '@/components/Brand';
 import { RolSelectorCard } from '@/components/RolSelectorCard';
 import { LoadingState } from '@/components/StateViews';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { IconBuilding, IconWrench } from '@/features/orders/components/icons';
+import { IconBuilding, IconWrench } from '@/components/icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, font, spacing, type } from '@/theme/tokens';
 import { useReducedMotion } from '@/utils/useReducedMotion';

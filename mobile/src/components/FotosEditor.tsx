@@ -12,10 +12,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { toUserMessage } from '@/api/errors';
 import { uploadOrdenImage } from '@/api/ordenesApi';
 import { useVisorFotos } from '@/components/VisorFotos';
-import { comprimirFotoParaSubida } from '@/features/orders/comprimirFoto';
+import { comprimirFotoParaSubida } from '@/utils/comprimirFoto';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
-import { IconCamera } from './icons';
+import { IconCamera } from '@/components/icons';
 
 interface Props {
   urls: string[];

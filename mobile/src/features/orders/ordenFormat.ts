@@ -145,15 +145,6 @@ export function clienteDisplay(orden: Pick<OrdenListItem, 'cliente_nombre' | 'cl
   return orden.cliente_nombre?.trim() || orden.cliente?.trim() || 'Sin cliente';
 }
 
-/**
- * Algunas órdenes traen en `direccion` un enlace de Google Maps en vez de una
- * dirección legible (dato así capturado desde el web). Mostrar la URL cruda
- * se ve roto en la tarjeta; esto detecta el caso para renderizarlo distinto.
- */
-export function esEnlaceUbicacion(direccion: string): boolean {
-  return /^https?:\/\//i.test(direccion.trim());
-}
-
 /** Búsqueda local sobre los campos que el técnico reconoce a simple vista. */
 export function coincideBusqueda(orden: OrdenListItem, termino: string): boolean {
   const q = termino.trim().toLowerCase();

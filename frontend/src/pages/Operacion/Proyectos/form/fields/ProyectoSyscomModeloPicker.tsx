@@ -8,6 +8,7 @@ import {
   sectionLabelOrangeClass as erpSectionLabelClass,
   erpSubheadingClass,
 } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import { erpModalSansStyle } from "../../../OrdenesTrabajo/ordenTrabajoStyles";
 import { fetchProductosManualesCatalogo } from "@/pages/Ventas/Cotizacion/shared/cotizacionApi";
 import type { ProductoManualCatalogo } from "@/pages/Ventas/Cotizacion/shared/cotizacionFormTypes";
 import {
@@ -290,6 +291,7 @@ export function ProyectoSyscomModeloPicker({
       ariaLabelledBy={titleId}
       className={proyectoPickerModalClass}
     >
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden" style={erpModalSansStyle}>
       <header className={proyectoPickerModalHeaderClass}>
         <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#1B5CFF]" aria-hidden />
         <div className="flex min-w-0 items-start gap-3">
@@ -335,7 +337,7 @@ export function ProyectoSyscomModeloPicker({
                 id={`${tabsId}-${tab.id}`}
                 aria-selected={selected}
                 tabIndex={selected ? 0 : -1}
-                className={`min-h-9 flex-1 rounded-lg px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 sm:flex-none sm:min-w-[5.5rem] ${
+                className={`min-h-9 flex-1 rounded-lg px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 sm:flex-none sm:min-w-22 ${
                   selected
                     ? "bg-white text-[#1244D1] shadow-sm dark:bg-[#1e293b] dark:text-[#4B7CFF]"
                     : "text-[#52525B] hover:bg-white/70 dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/50"
@@ -456,6 +458,7 @@ export function ProyectoSyscomModeloPicker({
             Cancelar
           </button>
         </div>
+      </div>
       </div>
     </Modal>
   );

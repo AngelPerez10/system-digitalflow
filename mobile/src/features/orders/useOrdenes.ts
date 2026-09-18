@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { toUserMessage } from '@/api/errors';
+import { useCallback, useMemo, useState } from 'react';
 import { listOrdenes } from '@/api/ordenesApi';
+import { useEntityList } from '@/hooks/useEntityList';
 import type { OrdenListItem } from '@/types/orden';
 import { mesActual } from '@/utils/fecha';
 import { agruparPorStatus, contarPorStatus, type OrdenSection } from './agrupar';
@@ -28,50 +27,15 @@ export interface UseOrdenesResult {
 export function useOrdenes(): UseOrdenesResult {
   const [mes, setMes] = useState(() => mesActual());
   const [busqueda, setBusqueda] = useState('');
-  const [ordenes, setOrdenes] = useState<OrdenListItem[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const peticionActiva = useRef<AbortController | null>(null);
 
-  const cargar = useCallback(
-    async (modo: 'inicial' | 'refresco') => {
-      peticionActiva.current?.abort();
-      const controller = new AbortController();
-      peticionActiva.current = controller;
-
-      if (modo === 'refresco') setRefrescando(true);
-      else setCargando(true);
-      setError(null);
-
-      try {
-        const data = await listOrdenes({ mes, signal: controller.signal });
-        if (controller.signal.aborted) return;
-        setOrdenes(data);
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        setError(toUserMessage(err));
-      } finally {
-        if (!controller.signal.aborted) {
-          setCargando(false);
-          setRefrescando(false);
-        }
-      }
-    },
-    [mes],
-  );
-
-  // Recarga al entrar y al volver del detalle/edición: la lista refleja el guardado.
-  useFocusEffect(
-    useCallback(() => {
-      void cargar('inicial');
-      return () => peticionActiva.current?.abort();
-    }, [cargar]),
-  );
+  const fetcher = useCallback((signal: AbortSignal) => listOrdenes({ mes, signal }), [mes]);
+  const { items, cargando, refrescando, error, recargar } = useEntityList<OrdenListItem>({
+    fetcher,
+  });
 
   const filtradas = useMemo(
-    () => ordenes.filter((orden) => coincideBusqueda(orden, busqueda)),
-    [ordenes, busqueda],
+    () => items.filter((orden) => coincideBusqueda(orden, busqueda)),
+    [items, busqueda],
   );
 
   return {
@@ -85,6 +49,6 @@ export function useOrdenes(): UseOrdenesResult {
     cargando,
     refrescando,
     error,
-    recargar: useCallback(() => void cargar('refresco'), [cargar]),
+    recargar,
   };
 }

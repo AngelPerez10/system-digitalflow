@@ -31,6 +31,17 @@ export function CotizacionesResumen({ bloques }: { bloques: ProyectoCotizacionBl
               {bloque.cotizacion.cliente || 'Sin cliente'}
               {bloque.cotizacion.fecha ? ` · ${bloque.cotizacion.fecha}` : ''}
             </Text>
+            {bloque.tiposTrabajo?.length ? (
+              <View style={styles.tipos}>
+                {bloque.tiposTrabajo.map((t) => (
+                  <View key={t.id} style={[styles.tipoPill, { borderColor: colors.line, backgroundColor: colors.surface }]}>
+                    <Text style={[styles.tipoTexto, { color: colors.inkSubtle }]} numberOfLines={1}>
+                      {t.nombre}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
         </View>
       ))}
@@ -59,5 +70,8 @@ const styles = StyleSheet.create({
   textos: { flex: 1, minWidth: 0, gap: 1 },
   folio: { ...type.bodyMedium, fontSize: 14 },
   detalle: { ...type.caption },
+  tipos: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 3 },
+  tipoPill: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.xs, paddingVertical: 2 },
+  tipoTexto: { ...type.caption, fontSize: 10 },
   vacio: { ...type.body },
 });

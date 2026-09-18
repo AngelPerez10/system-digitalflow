@@ -22,10 +22,11 @@ import { Colapsable } from '@/components/Colapsable';
 import { ErrorState, InlineError } from '@/components/StateViews';
 import { SubmitButton, type SubmitPhase } from '@/components/SubmitButton';
 import { TextField } from '@/components/TextField';
-import { DateTimeField } from '@/features/orders/components/DateTimeField';
-import { FotosEditor } from '@/features/orders/components/FotosEditor';
-import { SeccionCard } from '@/features/orders/components/SeccionCard';
-import { SignaturePad } from '@/features/orders/components/SignaturePad';
+import { DateTimeField } from '@/components/DateTimeField';
+import { FotosEditor } from '@/components/FotosEditor';
+import { SeccionCard } from '@/components/SeccionCard';
+import { SignaturePad } from '@/components/SignaturePad';
+import { SiNoSegment } from '@/components/SiNoSegment';
 import { CotizacionesResumen } from '@/features/proyectos/components/CotizacionesResumen';
 import { EditarProyectoHero } from '@/features/proyectos/components/EditarProyectoHero';
 import { EquiposProyectoEditor } from '@/features/proyectos/components/EquiposProyectoEditor';
@@ -34,6 +35,7 @@ import { NotasPorDiaEditor } from '@/features/proyectos/components/NotasPorDiaEd
 import { PorcentajeAvance } from '@/features/proyectos/components/PorcentajeAvance';
 import { EditarProyectoSkeleton } from '@/features/proyectos/components/ProyectoSkeletons';
 import { ProyectoStatusSegment } from '@/features/proyectos/components/ProyectoStatusSegment';
+import { TiposTrabajoField } from '@/features/proyectos/components/TiposTrabajoField';
 import {
   MOTIVO_CANCELACION_MAX,
   MOTIVO_PAUSA_MAX,
@@ -46,7 +48,7 @@ import {
   type EditarProyectoErrors,
   type EditarProyectoFormState,
 } from '@/features/proyectos/editarProyectoForm';
-import { folioDisplay, statusSolid } from '@/features/proyectos/proyectoFormat';
+import { folioDisplay, proyectoTieneTipoAlarmas, statusSolid } from '@/features/proyectos/proyectoFormat';
 import { useProyecto } from '@/features/proyectos/useProyecto';
 import { useTheme } from '@/theme/ThemeProvider';
 import { MOTION, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
@@ -116,6 +118,7 @@ export default function EditarProyectoScreen() {
   if (!form) return <EditarProyectoSkeleton />;
 
   const folio = folioDisplay(proyecto);
+  const esAlarmas = proyectoTieneTipoAlarmas(proyecto.tipos_trabajo);
 
   const actualizar = <K extends keyof EditarProyectoFormState>(campo: K, valor: EditarProyectoFormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [campo]: valor } : prev));
@@ -182,11 +185,26 @@ export default function EditarProyectoScreen() {
 
             <Animated.View style={entrance(1)}>
               <SeccionCard titulo="Estatus" tono={tono}>
-                <ProyectoStatusSegment
-                  value={form.status}
-                  permiteCancelar={isAdmin(user)}
-                  onChange={(status) => actualizar('status', status)}
-                />
+                <TiposTrabajoField tiposTrabajo={proyecto.tipos_trabajo} label="Tipo de trabajo" />
+                {esAlarmas ? (
+                  <SiNoSegment
+                    label="¿Cuenta con monitoreo?"
+                    value={form.monitoreo}
+                    onChange={(valor) => actualizar('monitoreo', valor)}
+                    disabled={guardando}
+                    required
+                    error={errores.monitoreo}
+                  />
+                ) : null}
+
+                <View style={[styles.divisorGrupo, { borderTopColor: colors.line }]}>
+                  <ProyectoStatusSegment
+                    value={form.status}
+                    permiteCancelar={isAdmin(user)}
+                    onChange={(status) => actualizar('status', status)}
+                  />
+                </View>
+
                 <Colapsable abierto={form.status === 'pausado'}>
                   <View style={styles.campoColapsado}>
                     <TextField

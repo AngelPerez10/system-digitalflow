@@ -106,6 +106,7 @@ export function useProyectoFormState({
     tipos: "",
     fechaAuth: "",
     fechaDesde: "",
+    monitoreo: "",
   });
   const [notaDiaErrors, setNotaDiaErrors] = useState<Record<string, string>>({});
 
@@ -178,6 +179,7 @@ export function useProyectoFormState({
     initialDraft.requierePresupuestoAdicional
   );
   const [cotizacionAdicional, setCotizacionAdicional] = useState(initialDraft.cotizacionAdicional);
+  const [monitoreo, setMonitoreo] = useState(initialDraft.monitoreo);
   const [statusAdministrativo, setStatusAdministrativo] = useState(initialDraft.statusAdministrativo);
   const [fechaEnvioAdmin, setFechaEnvioAdmin] = useState(initialDraft.fechaEnvioAdmin);
   const [evidenciasUrls, setEvidenciasUrls] = useState(initialDraft.evidenciasUrls);
@@ -308,6 +310,7 @@ export function useProyectoFormState({
     setRequerimientosAdicionales(initialDraft.requerimientosAdicionales);
     setRequierePresupuestoAdicional(initialDraft.requierePresupuestoAdicional);
     setCotizacionAdicional(initialDraft.cotizacionAdicional);
+    setMonitoreo(initialDraft.monitoreo);
     setStatusAdministrativo(initialDraft.statusAdministrativo);
     setFechaEnvioAdmin(initialDraft.fechaEnvioAdmin);
     setEvidenciasUrls(initialDraft.evidenciasUrls ?? []);
@@ -505,6 +508,7 @@ export function useProyectoFormState({
       requerimientosAdicionales: requerimientosAdicionales.trim(),
       requierePresupuestoAdicional,
       cotizacionAdicional,
+      monitoreo,
       statusAdministrativo,
       fechaEnvioAdmin,
       evidenciasUrls,
@@ -528,6 +532,7 @@ export function useProyectoFormState({
     horaLlegada,
     horaSalida,
     incidencias,
+    monitoreo,
     motivoPausa,
     motivoCancelacion,
     notasPorDia,
@@ -772,6 +777,7 @@ export function useProyectoFormState({
           tiposTrabajo,
           fechaAutorizacion,
           fechaDesde,
+          monitoreo,
         });
         setOperacionErrors(check.errors);
         if (!check.ok) {
@@ -797,7 +803,7 @@ export function useProyectoFormState({
       if (fromPointer) window.setTimeout(apply, 0);
       else apply();
     },
-    [cliente, tiposTrabajo, fechaAutorizacion, fechaDesde]
+    [cliente, tiposTrabajo, fechaAutorizacion, fechaDesde, monitoreo]
   );
 
   const goToPrevTab = useCallback(() => {
@@ -856,6 +862,7 @@ export function useProyectoFormState({
       tiposTrabajo,
       fechaAutorizacion,
       fechaDesde,
+      monitoreo,
     });
     setOperacionErrors(operacionCheck.errors);
     if (!operacionCheck.ok) {
@@ -988,6 +995,8 @@ export function useProyectoFormState({
     setRequierePresupuestoAdicional,
     cotizacionAdicional,
     setCotizacionAdicional,
+    monitoreo,
+    setMonitoreo,
     statusAdministrativo,
     setStatusAdministrativo,
     fechaEnvioAdmin,

@@ -8,7 +8,7 @@ import { useSession } from '@/auth/SessionProvider';
 import { BarraCarga } from '@/components/BarraCarga';
 import { EmptyState, InlineError } from '@/components/StateViews';
 import { TextField } from '@/components/TextField';
-import { MesSelector } from '@/features/orders/components/MesSelector';
+import { MesSelector } from '@/components/MesSelector';
 import { ProyectoCard } from '@/features/proyectos/components/ProyectoCard';
 import { ProyectoEstadoConteo } from '@/features/proyectos/components/ProyectoEstadoConteo';
 import { ProyectosSkeletonList } from '@/features/proyectos/components/ProyectoCardSkeleton';

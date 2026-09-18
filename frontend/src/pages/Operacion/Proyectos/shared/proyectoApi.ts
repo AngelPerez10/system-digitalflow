@@ -70,6 +70,8 @@ export type ApiProyecto = {
   incidencias: string;
   requerimientos_adicionales: string;
   requiere_presupuesto_adicional: boolean;
+  /** `null`/ausente = aún no elegido; el backend ya no usa `False` como default implícito. */
+  monitoreo?: boolean | null;
   status_administrativo?: ProyectoStatusAdministrativo | string | null;
   fecha_envio_admin?: string | null;
   evidencias_urls: string[];
@@ -188,6 +190,7 @@ function draftFromApi(api: ApiProyecto): ProyectoDraft {
     requerimientosAdicionales: String(api.requerimientos_adicionales || ""),
     requierePresupuestoAdicional: Boolean(api.requiere_presupuesto_adicional),
     cotizacionAdicional: api.cotizacion_adicional ?? null,
+    monitoreo: api.monitoreo == null ? null : Boolean(api.monitoreo),
     statusAdministrativo: normalizeStatusAdministrativo(api.status_administrativo),
     fechaEnvioAdmin: api.fecha_envio_admin ? String(api.fecha_envio_admin).slice(0, 10) : "",
     evidenciasUrls: Array.isArray(api.evidencias_urls) ? api.evidencias_urls : [],
@@ -319,6 +322,7 @@ export function draftToApiPayload(
     incidencias: draft.incidencias.trim(),
     requerimientos_adicionales: draft.requerimientosAdicionales.trim(),
     requiere_presupuesto_adicional: Boolean(draft.requierePresupuestoAdicional),
+    monitoreo: draft.monitoreo,
     evidencias_urls: draft.evidenciasUrls,
     firma_cliente_url: draft.firmaClienteUrl || "",
     firma_tecnico_url: draft.firmaTecnicoUrl || "",

@@ -34,8 +34,8 @@ export function Colapsable({ abierto, children }: Props) {
     }
     const animacion = Animated.timing(progreso, {
       toValue: destino,
-      duration: 260,
-      easing: Easing.out(Easing.cubic),
+      duration: abierto ? 280 : 200,
+      easing: abierto ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
       useNativeDriver: false,
     });
     animacion.start();

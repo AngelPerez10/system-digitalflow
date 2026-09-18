@@ -4,11 +4,10 @@ import { AppButton } from '@/components/AppButton';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, radius, spacing, type } from '@/theme/tokens';
 import type { OrdenListItem } from '@/types/orden';
-import { abrirEnlace } from '@/utils/abrirEnlace';
+import { abrirEnlace, esEnlaceUbicacion } from '@/utils/abrirEnlace';
 import { formatFecha } from '@/utils/fecha';
 import {
   clienteDisplay,
-  esEnlaceUbicacion,
   folioDisplay,
   prioridadLabel,
   prioridadTone,

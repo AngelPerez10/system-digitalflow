@@ -5,7 +5,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, type } from '@/theme/tokens';
 import type { ProyectoEquipoLinea } from '@/types/proyecto';
 import { agruparEquiposPorProducto } from '../proyectoFormat';
-import { IconAlerta, IconBox } from '@/features/orders/components/icons';
+import { IconAlerta, IconBox } from '@/components/icons';
 
 /** Píldora de estado — el texto cambia con el estado, no solo el color: un
  *  "Entregado" atenuado todavía dice "Entregado" y se presta a confusión. */

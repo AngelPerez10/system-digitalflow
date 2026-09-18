@@ -3,7 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, font, radius, spacing, type } from '@/theme/tokens';
 import { useReducedMotion } from '@/utils/useReducedMotion';
-import { IconFlecha, IconVisto } from '@/features/orders/components/icons';
+import { IconFlecha, IconVisto } from '@/components/icons';
 
 interface Props {
   titulo: string;

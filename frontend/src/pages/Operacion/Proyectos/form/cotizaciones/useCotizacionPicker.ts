@@ -147,9 +147,16 @@ export function useCotizacionPicker({
       return;
     }
 
+    const tiposIncoming = tiposFromLoadResult(result.tiposTrabajo, servicios);
     const next = reindexCotizacionBloques([
       ...cotizaciones,
-      createCotizacionBloque(result.resumen, result.lineas, cotizaciones.length + 1),
+      createCotizacionBloque(
+        result.resumen,
+        result.lineas,
+        cotizaciones.length + 1,
+        undefined,
+        tiposIncoming
+      ),
     ]);
     setCotizaciones(next);
     setEquipos((prevEq) => buildEquiposFromCotizaciones(next, prevEq));
@@ -157,7 +164,6 @@ export function useCotizacionPicker({
       setCliente(result.clienteNombre);
       setClienteId(result.clienteId);
     }
-    const tiposIncoming = tiposFromLoadResult(result.tiposTrabajo, servicios);
     if (tiposIncoming.length && onMergeTiposTrabajo) {
       onMergeTiposTrabajo(tiposIncoming);
     }

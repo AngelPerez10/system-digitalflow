@@ -5,7 +5,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 import type { EquipoEstadoInstalacion, ProyectoEquipoLinea } from '@/types/proyecto';
 import { agruparEquiposPorProducto } from '../proyectoFormat';
-import { IconBox } from '@/features/orders/components/icons';
+import { IconBox } from '@/components/icons';
 
 interface Props {
   equipos: ProyectoEquipoLinea[];

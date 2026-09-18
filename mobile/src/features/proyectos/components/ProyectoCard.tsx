@@ -14,7 +14,7 @@ import {
   statusTone,
   tecnicoResponsableDisplay,
 } from '../proyectoFormat';
-import { IconCalendar, IconFlecha, IconNote, IconPerson } from '@/features/orders/components/icons';
+import { IconCalendar, IconFlecha, IconNote, IconPerson } from '@/components/icons';
 import { colorPorAvance } from './PorcentajeAvance';
 import { ProyectoStatusIcon } from './ProyectoStatusIcon';
 

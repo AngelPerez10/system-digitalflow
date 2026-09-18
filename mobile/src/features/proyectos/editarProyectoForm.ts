@@ -6,6 +6,7 @@ import type {
   ProyectoStatus,
 } from '@/types/proyecto';
 import { esFechaValida, esHoraValida } from '@/utils/fecha';
+import { proyectoTieneTipoAlarmas } from './proyectoFormat';
 
 /** Estado del formulario de campo (todo lo que el técnico puede tocar). */
 export interface EditarProyectoFormState {
@@ -24,6 +25,11 @@ export interface EditarProyectoFormState {
   incidencias: string;
   requerimientos_adicionales: string;
   requiere_presupuesto_adicional: boolean;
+  /**
+   * Solo aplica cuando algún tipo de trabajo es "Alarmas" (ver `proyectoTieneTipoAlarmas`).
+   * `null` = aún no se ha elegido — no hay «No» por defecto, hay que elegir para poder cerrar.
+   */
+  monitoreo: boolean | null;
   evidencias_urls: string[];
   firma_cliente_url: string;
   firma_tecnico_url: string;
@@ -57,6 +63,7 @@ export function formStateFromProyecto(proyecto: Proyecto): EditarProyectoFormSta
     incidencias: proyecto.incidencias ?? '',
     requerimientos_adicionales: proyecto.requerimientos_adicionales ?? '',
     requiere_presupuesto_adicional: proyecto.requiere_presupuesto_adicional,
+    monitoreo: proyecto.monitoreo,
     evidencias_urls: [...proyecto.evidencias_urls],
     firma_cliente_url: proyecto.firma_cliente_url ?? '',
     firma_tecnico_url: proyecto.firma_tecnico_url ?? '',
@@ -72,6 +79,10 @@ export function validarForm(
   proyectoOriginal: Proyecto,
 ): EditarProyectoErrors {
   const errors: EditarProyectoErrors = {};
+
+  if (proyectoTieneTipoAlarmas(proyectoOriginal.tipos_trabajo) && state.monitoreo == null) {
+    errors.monitoreo = 'Indica si el proyecto cuenta con monitoreo.';
+  }
 
   if (state.status === 'pausado' && !state.motivo_pausa.trim()) {
     errors.motivo_pausa = 'Indique por qué se pausó el proyecto.';
@@ -215,6 +226,9 @@ export function construirPatch(original: Proyecto, state: EditarProyectoFormStat
   }
   if (state.requiere_presupuesto_adicional !== base.requiere_presupuesto_adicional) {
     patch.requiere_presupuesto_adicional = state.requiere_presupuesto_adicional;
+  }
+  if (state.monitoreo !== base.monitoreo) {
+    patch.monitoreo = state.monitoreo;
   }
   if (!mismoArregloStrings(state.evidencias_urls, base.evidencias_urls)) {
     patch.evidencias_urls = [...state.evidencias_urls];

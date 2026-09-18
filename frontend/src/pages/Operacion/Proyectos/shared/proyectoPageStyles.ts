@@ -1,6 +1,14 @@
 /** Tokens visuales del módulo Proyectos (modal y badges).
  *  Mismo lenguaje que Órdenes / Cotizaciones / Pólizas: azul eléctrico #1B5CFF. */
 
+/**
+ * Título de página sobre tarjeta clara (p. ej. Vista PDF).
+ * No reutilizar `erpHeroHeadingClass` de ordenServicioStyles: ese va en banda marina oscura (`text-white`).
+ */
+export const proyectoPdfPageHeroHeadingClass =
+  "text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-[#09090B] dark:text-[#F8FAFC] sm:text-[32px] sm:tracking-[-1.1px]";
+
+
 export const proyectoOrdenCardClass =
   "space-y-3 rounded-xl border border-[#E7E7EA] bg-white p-3 shadow-sm dark:border-[#273244] dark:bg-[#111827]/60 sm:space-y-4 sm:p-4";
 
@@ -88,6 +96,10 @@ export const proyectoOrigenBadgeClass = (origen: "digitalflow" | "sicar") =>
     ? "inline-flex rounded-full border border-[#BFD3FF] bg-[#F1F5FF] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1B5CFF] dark:border-[#4B7CFF]/40 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]"
     : "inline-flex rounded-full border border-sky-200/80 bg-sky-50/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-800 dark:border-sky-700/50 dark:bg-sky-950/40 dark:text-sky-300";
 
+/** Etiqueta de un tipo de trabajo detectado en una cotización (puede haber varias por cotización). */
+export const proyectoTipoTrabajoTagClass =
+  "inline-flex rounded-full border border-[#E7E7EA] bg-[#FAFAFA] px-2 py-0.5 text-[10px] font-semibold text-[#52525B] dark:border-[#334155] dark:bg-[#111827] dark:text-[#B7C1D1]";
+
 export const proyectoFieldLabelClass =
   "mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1] sm:mb-1.5";
 
@@ -118,9 +130,9 @@ export const proyectoStatusChipClass = (
   tone: "proceso" | "pausado" | "cerrado" | "cancelado",
 ) => {
   const base =
-    "inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] sm:flex-none sm:min-w-[7.5rem]";
+    "inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border px-3.5 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] sm:flex-none sm:min-w-[7.75rem]";
   if (!active) {
-    return `${base} border-[#E7E7EA] bg-white text-[#52525B] hover:border-[#1B5CFF]/35 hover:bg-[#F1F5FF]/50 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#B7C1D1] dark:hover:bg-[#243048]/50`;
+    return `${base} border-transparent bg-white text-[#52525B] shadow-sm hover:bg-[#F1F5FF]/80 hover:text-[#1244D1] dark:border-transparent dark:bg-[#111827] dark:text-[#B7C1D1] dark:hover:bg-[#1B5CFF]/10 dark:hover:text-[#4B7CFF]`;
   }
   switch (tone) {
     case "pausado":
@@ -134,24 +146,94 @@ export const proyectoStatusChipClass = (
   }
 };
 
+/**
+ * Chip de un toggle Sí/No (radiogroup de 2 opciones, p. ej. «¿Cuenta con monitoreo?»).
+ * `tone` da a "Sí" un acento distinto de "No" cuando ambos están disponibles a la vez,
+ * para que el estado activo se reconozca sin leer el texto del botón.
+ */
+export const proyectoSiNoChipClass = (active: boolean, tone: "si" | "no" = "si") => {
+  const base =
+    "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)]";
+  if (!active) {
+    return `${base} border-[#E7E7EA] bg-white text-[#52525B] hover:border-[#1B5CFF]/35 hover:bg-[#F1F5FF]/50 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#B7C1D1] dark:hover:bg-[#243048]/50`;
+  }
+  if (tone === "no") {
+    return `${base} border-rose-300 bg-rose-50 text-rose-900 shadow-sm dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-200`;
+  }
+  return `${base} border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200`;
+};
+
 export const proyectoGhostIconBtnClass =
   "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-transparent text-[#A1A1AA] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:text-[#64748b] dark:hover:border-rose-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-300";
 
 export const proyectoAddDayBtnClass =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#E7E7EA] bg-white px-3 text-xs font-semibold text-[#52525B] shadow-sm transition hover:border-[#1B5CFF]/40 hover:bg-[#F1F5FF]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.25)] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#F8FAFC] dark:hover:border-[#4B7CFF]/40 dark:hover:bg-[#243048]/50";
 
-/** Acciones de cotizaciones: zona de alta + enlace de limpieza (sin barra de botones). */
-export const proyectoCotizacionMetaRowClass =
-  "flex flex-wrap items-center justify-between gap-x-3 gap-y-1";
+/** Shell de «Estado del proyecto» (tipo + monitoreo + status). */
+export const proyectoEstadoShellClass =
+  "overflow-hidden rounded-xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#0f172a]/40";
+
+export const proyectoEstadoBlockClass =
+  "space-y-3 border-b border-[#E7E7EA] px-3.5 py-4 last:border-b-0 dark:border-[#273244] sm:px-4";
+
+export const proyectoEstadoBlockMutedClass =
+  "space-y-3 border-b border-[#E7E7EA] bg-[#FAFAFA]/70 px-3.5 py-4 last:border-b-0 dark:border-[#273244] dark:bg-[#111827]/35 sm:px-4";
+
+export const proyectoStatusTrackClass =
+  "flex flex-wrap gap-2 rounded-xl border border-[#E7E7EA] bg-[#FAFAFA]/90 p-1.5 dark:border-[#273244] dark:bg-[#0f172a]/60";
+
+export const proyectoStatusDotClass = (
+  tone: "proceso" | "pausado" | "cerrado" | "cancelado",
+  active: boolean,
+) => {
+  const base = "h-2 w-2 shrink-0 rounded-full";
+  if (!active) return `${base} bg-[#D3D3D8] dark:bg-[#475569]`;
+  switch (tone) {
+    case "pausado":
+      return `${base} bg-amber-500`;
+    case "cerrado":
+      return `${base} bg-emerald-500`;
+    case "cancelado":
+      return `${base} bg-rose-500`;
+    default:
+      return `${base} bg-[#1B5CFF]`;
+  }
+};
+
+/** Lista de cotizaciones vinculadas (bloque Cliente). */
+export const proyectoCotizacionListShellClass =
+  "overflow-hidden rounded-xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#0f172a]/40";
+
+export const proyectoCotizacionListHeaderClass =
+  "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-[#E7E7EA] bg-gradient-to-r from-[#F8FAFF] via-white to-[#FAFAFA] px-3.5 py-3 dark:border-[#273244] dark:from-[#1B5CFF]/10 dark:via-[#111827] dark:to-[#0f172a]";
+
+export const proyectoCotizacionCountChipClass =
+  "inline-flex items-center gap-1.5 rounded-full border border-[#BFD3FF] bg-[#F1F5FF] px-2.5 py-1 text-[11px] font-semibold text-[#1244D1] dark:border-[#4B7CFF]/40 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]";
 
 export const proyectoCotizacionClearLinkClass =
-  "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:text-rose-300 dark:hover:bg-rose-950/40";
+  "inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:text-rose-300 dark:hover:bg-rose-950/40";
+
+export const proyectoCotizacionListClass =
+  "divide-y divide-[#E7E7EA] dark:divide-[#273244]";
+
+export const proyectoCotizacionRowClass =
+  "group flex items-start gap-3 px-3.5 py-3.5 transition-colors hover:bg-[#F8FAFF]/80 dark:hover:bg-[rgba(27,92,255,0.06)] sm:items-center sm:gap-4";
+
+export const proyectoCotizacionRowIconClass =
+  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(27,92,255,0.1)] text-[#1B5CFF] ring-1 ring-[#BFD3FF]/60 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] dark:ring-[#4B7CFF]/25";
+
+export const proyectoCotizacionMetaChipClass =
+  "inline-flex items-center rounded-md bg-[#F4F4F5] px-2 py-0.5 text-[11px] font-medium text-[#52525B] dark:bg-[#1e293b] dark:text-[#B7C1D1]";
 
 export const proyectoCotizacionAddZoneClass =
-  "group flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-dashed border-[#D3D3D8] bg-gradient-to-b from-white to-[#FAFAFA] px-4 py-3.5 text-sm font-semibold text-[#52525B] transition hover:border-[#1B5CFF] hover:from-[#F1F5FF] hover:to-[#E8F0FF] hover:text-[#1244D1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.35)] active:scale-[0.99] dark:border-[#3A4661] dark:from-[#0f172a]/50 dark:to-[#111827]/40 dark:text-[#F8FAFC] dark:hover:border-[#4B7CFF] dark:hover:from-[#1e293b]/50 dark:hover:to-[#1e293b]/30 dark:hover:text-[#4B7CFF]";
+  "group flex min-h-12 w-full items-center justify-center gap-2.5 border-t border-dashed border-[#D3D3D8] bg-[#FAFAFA]/80 px-4 py-3.5 text-sm font-semibold text-[#52525B] transition hover:border-[#1B5CFF]/50 hover:bg-[#F1F5FF]/70 hover:text-[#1244D1] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgba(27,92,255,0.35)] dark:border-[#3A4661] dark:bg-[#0f172a]/30 dark:text-[#F8FAFC] dark:hover:border-[#4B7CFF]/50 dark:hover:bg-[#1B5CFF]/10 dark:hover:text-[#4B7CFF]";
 
 export const proyectoCotizacionAddZoneIconClass =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[rgba(27,92,255,0.12)] text-[#1B5CFF] transition group-hover:bg-[#1B5CFF] group-hover:text-white dark:bg-[rgba(75,124,255,0.18)] dark:text-[#4B7CFF] dark:group-hover:bg-[#4B7CFF] dark:group-hover:text-white";
+
+/** @deprecated Preferir `proyectoCotizacionListHeaderClass` + shell. */
+export const proyectoCotizacionMetaRowClass =
+  "flex flex-wrap items-center justify-between gap-x-3 gap-y-1";
 
 /** Bitácora: tarjeta de nota por jornada */
 export const proyectoNotaCardClass =

@@ -195,20 +195,27 @@ La autorización siempre la decide el servidor (`OrdenesPermission`, `edit_scope
 ```
 mobile/
   app/                    Rutas (Expo Router)
-    login.tsx
-    (app)/_layout.tsx     Guard: sesión + permiso `ordenes.view`
-    (app)/ordenes/…       Listado, detalle y edición
+    login.tsx / login-cliente.tsx
+    (app)/_layout.tsx     Guard: sesión + permisos — pantallas del técnico
+    (app)/ordenes/…       Listado, detalle y edición de órdenes
+    (app)/proyectos/…     Listado, detalle y edición de proyectos
+    cliente/              Portal cliente (layout propio)
   src/
     api/                  Cliente HTTP, endpoints tipados y parsers
     auth/                 SecureStore, sesión y espejo de permisos
-    components/           UI reutilizable
-    features/orders/      Lógica de órdenes (agrupación, formulario, hooks)
+    components/           UI reutilizable sin dominio (botones, campos, íconos)
+    hooks/                Primitivas de datos reutilizables (useEntityList/Detail)
+    features/orders/      Lógica de órdenes (agrupación, formulario, hooks, componentes propios)
+    features/proyectos/   Lógica de proyectos (mismo patrón)
+    notifications/        Push
     theme/                Tokens de marca DigitalFlow
     types/                Espejo de los contratos del backend
     utils/
 ```
 
-Regla de capas: **UI → hooks → api client**. Sin `fetch` suelto en pantallas.
+Regla de capas: **UI → hooks → api client**. Sin `fetch` suelto en pantallas. Ver
+[`ARCHITECTURE.md`](./ARCHITECTURE.md) para las reglas de límites entre features y la guía
+para agregar vistas nuevas.
 
 ## Compilar el APK (EAS)
 
