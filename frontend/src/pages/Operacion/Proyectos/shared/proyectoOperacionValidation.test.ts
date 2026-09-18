@@ -3,6 +3,7 @@ import {
   NOTA_DIA_MIN_CHARS,
   PROYECTO_FECHA_AUTORIZACION_FIELD_ID,
   PROYECTO_FECHA_DESDE_FIELD_ID,
+  PROYECTO_MONITOREO_FIELD_ID,
   PROYECTO_TIPOS_TRABAJO_FIELD_ID,
   proyectoNotaDiaFieldId,
   validateNotasPorDiaMinLength,
@@ -15,6 +16,7 @@ describe("validateProyectoOperacionRequired", () => {
       tiposTrabajo: [{ id: 1 }],
       fechaAutorizacion: "2026-08-11",
       fechaDesde: "2026-08-12",
+      monitoreo: null,
     });
     expect(result.ok).toBe(true);
   });
@@ -24,6 +26,7 @@ describe("validateProyectoOperacionRequired", () => {
       tiposTrabajo: [],
       fechaAutorizacion: "",
       fechaDesde: "",
+      monitoreo: null,
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -37,6 +40,7 @@ describe("validateProyectoOperacionRequired", () => {
       tiposTrabajo: [{ id: 3 }],
       fechaAutorizacion: "  ",
       fechaDesde: "2026-08-12",
+      monitoreo: null,
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -49,11 +53,36 @@ describe("validateProyectoOperacionRequired", () => {
       tiposTrabajo: [{ id: 3 }],
       fechaAutorizacion: "2026-08-11",
       fechaDesde: "",
+      monitoreo: null,
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.firstFieldId).toBe(PROYECTO_FECHA_DESDE_FIELD_ID);
     }
+  });
+
+  it("exige monitoreo cuando el tipo es Alarmas y aún no se eligió", () => {
+    const result = validateProyectoOperacionRequired({
+      tiposTrabajo: [{ id: 9, nombre: "Alarmas" }],
+      fechaAutorizacion: "2026-08-11",
+      fechaDesde: "2026-08-12",
+      monitoreo: null,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.firstFieldId).toBe(PROYECTO_MONITOREO_FIELD_ID);
+      expect(result.errors.monitoreo).toMatch(/monitoreo/i);
+    }
+  });
+
+  it("acepta Alarmas cuando monitoreo ya está elegido", () => {
+    const result = validateProyectoOperacionRequired({
+      tiposTrabajo: [{ id: 9, nombre: "Alarmas" }],
+      fechaAutorizacion: "2026-08-11",
+      fechaDesde: "2026-08-12",
+      monitoreo: false,
+    });
+    expect(result.ok).toBe(true);
   });
 });
 

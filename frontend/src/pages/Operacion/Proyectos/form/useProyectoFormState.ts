@@ -324,7 +324,7 @@ export function useProyectoFormState({
     setCloseBlockedMessage("");
     setClienteStepError("");
     setHoraSalidaError("");
-    setOperacionErrors({ tipos: "", fechaAuth: "", fechaDesde: "" });
+    setOperacionErrors({ tipos: "", fechaAuth: "", fechaDesde: "", monitoreo: "" });
     setNotaDiaErrors({});
     setInstalacionDraft(emptyInstalacionDraft());
     resetPicker();
