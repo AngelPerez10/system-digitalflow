@@ -307,6 +307,21 @@ def _pdf_response_from_html(html: str, filename: str, *, wants_html: bool = Fals
     return response
 
 
+def _orden_pdf_filename(orden) -> str:
+    """Nombre de archivo con folio de negocio (ODT-5686), no el pk interno."""
+    folio = resolve_document_folio(
+        FOLIO_SERIE_ODT,
+        getattr(orden, "folio", None),
+        getattr(orden, "idx", None),
+        empty="",
+    )
+    if not folio:
+        folio = str(getattr(orden, "id", "") or "orden")
+    # Content-Disposition: sin rutas ni comillas.
+    safe = re.sub(r'[\\/:*?"<>|]+', "-", str(folio).strip()) or "orden"
+    return f"Orden_{safe}.pdf"
+
+
 MESES_ES_PDF = (
     '',
     'enero',
@@ -2151,7 +2166,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
     def pdf(self, request, pk=None):
         orden = self.get_object()
         html = self._generate_pdf_html(orden)
-        filename = f"Ordenes_Servicio_{orden.id}.pdf"
+        filename = _orden_pdf_filename(orden)
         wants_html = request_wants_html_preview(request)
         return _pdf_response_from_html(html, filename, wants_html=wants_html)
 
@@ -2229,7 +2244,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
         if not html:
             return Response({'detail': 'No se pudo generar el HTML del PDF.'}, status=500)
 
-        filename = f"Ordenes_Servicio_{orden.id}.pdf"
+        filename = _orden_pdf_filename(orden)
         try:
             pdf_bytes = render_html_to_pdf(
                 html, size='A4', landscape=False, timeout=45, prefer_local=True
