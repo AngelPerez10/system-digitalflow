@@ -61,6 +61,9 @@ class CotizacionesSmokeTests(APITestCase):
         self.assertEqual(response.data["results"][0]["cliente"], "Junio reciente")
         self.assertIn("month_stats", response.data)
         self.assertEqual(float(response.data["month_stats"]["total"]), 200.0)
+        self.assertEqual(int(response.data["month_stats"]["total_count"]), 1)
+        self.assertEqual(int(response.data["month_stats"]["autorizadas_count"]), 0)
+        self.assertEqual(int(response.data["month_stats"]["pendientes_count"]), 1)
 
     def test_list_cotizaciones_search_ignores_month(self):
         self._create_cotizacion(cliente="Cliente único XYZ", fecha="2026-05-15", total=150)

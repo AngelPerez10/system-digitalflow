@@ -48,6 +48,8 @@ type MonthStats = {
   autorizadas: number;
   pendientes: number;
   canceladas: number;
+  autorizadasCount: number;
+  pendientesCount: number;
 };
 
 type PermissionScope = { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean };
@@ -318,6 +320,8 @@ export default function CotizacionesPage() {
           autorizadas: Number(ms.autorizadas ?? 0) || 0,
           pendientes: Number(ms.pendientes ?? 0) || 0,
           canceladas: Number(ms.canceladas ?? 0) || 0,
+          autorizadasCount: Number(ms.autorizadas_count ?? 0) || 0,
+          pendientesCount: Number(ms.pendientes_count ?? 0) || 0,
         });
       }
     } catch {
@@ -478,7 +482,10 @@ export default function CotizacionesPage() {
         autorizadas: fmt(monthStats.autorizadas),
         pendientes: fmt(monthStats.pendientes),
         canceladas: fmt(monthStats.canceladas),
-        tasaCierre: computeTasaCierreMensual(monthStats.autorizadas, monthStats.pendientes),
+        tasaCierre: computeTasaCierreMensual(
+          monthStats.autorizadasCount,
+          monthStats.pendientesCount,
+        ),
       };
     }
     return {

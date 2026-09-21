@@ -58,24 +58,20 @@ def _parse_year_month(value: str) -> tuple[int, int] | None:
 
 def _aggregate_month_stats(queryset):
     """Totales por status para el mes filtrado (misma regla que el listado en frontend)."""
-    total = float(queryset.aggregate(t=Sum("total"))["t"] or 0)
-    autorizadas = float(
-        queryset.filter(status="AUTORIZADA").aggregate(t=Sum("total"))["t"] or 0
-    )
-    canceladas = float(
-        queryset.filter(status="CANCELADA").aggregate(t=Sum("total"))["t"] or 0
-    )
-    pendientes = float(
-        queryset.filter(
-            Q(status="PENDIENTE") | Q(status="") | Q(status__isnull=True)
-        ).aggregate(t=Sum("total"))["t"]
-        or 0
+    autorizadas_qs = queryset.filter(status="AUTORIZADA")
+    canceladas_qs = queryset.filter(status="CANCELADA")
+    pendientes_qs = queryset.filter(
+        Q(status="PENDIENTE") | Q(status="") | Q(status__isnull=True)
     )
     return {
-        "total": total,
-        "autorizadas": autorizadas,
-        "pendientes": pendientes,
-        "canceladas": canceladas,
+        "total": float(queryset.aggregate(t=Sum("total"))["t"] or 0),
+        "autorizadas": float(autorizadas_qs.aggregate(t=Sum("total"))["t"] or 0),
+        "pendientes": float(pendientes_qs.aggregate(t=Sum("total"))["t"] or 0),
+        "canceladas": float(canceladas_qs.aggregate(t=Sum("total"))["t"] or 0),
+        "autorizadas_count": autorizadas_qs.count(),
+        "pendientes_count": pendientes_qs.count(),
+        "canceladas_count": canceladas_qs.count(),
+        "total_count": queryset.count(),
     }
 
 

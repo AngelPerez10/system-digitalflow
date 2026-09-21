@@ -197,11 +197,11 @@ export type CotizacionStats = {
   autorizadas: string;
   pendientes: string;
   canceladas: string;
-  /** 0–100; null si no hay montos autorizados ni pendientes en el mes. */
+  /** 0–100; null si no hay cotizaciones autorizadas ni pendientes en el mes. */
   tasaCierre: number | null;
 };
 
-/** Autorizadas ÷ (Autorizadas + Pendientes); ignora canceladas. */
+/** Autorizadas ÷ (Autorizadas + Pendientes) por conteo; ignora canceladas. */
 export function computeTasaCierreMensual(
   autorizadas: number,
   pendientes: number,
@@ -357,7 +357,7 @@ export function CotizacionPageHeader({ stats }: { stats?: CotizacionStats }) {
                   aria-valuemin={0}
                   aria-valuemax={100}
                   {...(tasa == null
-                    ? { "aria-valuetext": "Sin montos autorizados ni pendientes en el mes" }
+                    ? { "aria-valuetext": "Sin cotizaciones autorizadas ni pendientes en el mes" }
                     : {
                         "aria-valuenow": Math.round(tasa * 10) / 10,
                         "aria-valuetext": `${tasaLabel.replace("%", "").trim()} por ciento, ${visual.nivelLabel.toLowerCase()}`,

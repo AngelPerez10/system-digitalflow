@@ -2,22 +2,20 @@ import { describe, expect, it } from "vitest";
 import { computeTasaCierreMensual, tasaCierreVisual } from "../CotizacionesViewParts";
 
 describe("computeTasaCierreMensual", () => {
-  it("calcula autorizadas / (autorizadas + pendientes)", () => {
-    expect(computeTasaCierreMensual(84301.82, 76047.33)).toBeCloseTo(
-      (84301.82 / (84301.82 + 76047.33)) * 100,
-      5,
-    );
+  it("calcula autorizadas / (autorizadas + pendientes) por conteo", () => {
+    expect(computeTasaCierreMensual(26, 49)).toBeCloseTo((26 / (26 + 49)) * 100, 5);
+    expect(computeTasaCierreMensual(10, 11)).toBeCloseTo((10 / 21) * 100, 5);
   });
 
   it("devuelve 100 cuando solo hay autorizadas", () => {
-    expect(computeTasaCierreMensual(1500, 0)).toBe(100);
+    expect(computeTasaCierreMensual(15, 0)).toBe(100);
   });
 
   it("devuelve 0 cuando solo hay pendientes", () => {
-    expect(computeTasaCierreMensual(0, 500)).toBe(0);
+    expect(computeTasaCierreMensual(0, 5)).toBe(0);
   });
 
-  it("devuelve null si no hay montos en juego", () => {
+  it("devuelve null si no hay cotizaciones en juego", () => {
     expect(computeTasaCierreMensual(0, 0)).toBeNull();
   });
 
