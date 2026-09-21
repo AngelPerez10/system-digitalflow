@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from django.db import models as django_models
 from django.db.models import Prefetch, Q, Sum
 from django.http import HttpResponse
+from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -772,6 +773,31 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             },
             status=200,
         )
+
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='marcar-enviada',
+    )
+    def marcar_enviada(self, request, pk=None):
+        """Marca la cotización como enviada fuera del sistema (WhatsApp, en persona, etc.)."""
+        cotizacion = self.get_object()
+        body = request.data if isinstance(request.data, dict) else {}
+        comentario = str(body.get('comentario') or '').strip()
+        if not comentario:
+            return Response(
+                {'detail': 'Indique un comentario para registrar el envío.'},
+                status=400,
+            )
+
+        enviado_por = request.user if getattr(request.user, 'is_authenticated', False) else None
+        cotizacion.enviado_por = enviado_por
+        cotizacion.enviado_en = timezone.now()
+        cotizacion.enviado_comentario = comentario
+        cotizacion.save(update_fields=['enviado_por', 'enviado_en', 'enviado_comentario'])
+
+        serializer = self.get_serializer(cotizacion)
+        return Response(serializer.data, status=200)
 
     @action(detail=True, methods=['get'], url_path='excel')
     def excel(self, request, pk=None):

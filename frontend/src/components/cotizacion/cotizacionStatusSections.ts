@@ -10,6 +10,10 @@ export type CotizacionRow = {
   fechaCreacion?: string;
   /** ISO datetime from API (`fecha_actualizacion`). */
   fechaActualizacion?: string;
+  enviadoPor?: string;
+  /** ISO datetime from API (`enviado_en`). */
+  enviadoEn?: string;
+  enviadoComentario?: string;
   cliente: string;
   clienteTelefono?: string;
   contacto: string;

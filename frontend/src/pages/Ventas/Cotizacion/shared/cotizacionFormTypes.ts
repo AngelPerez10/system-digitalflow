@@ -116,6 +116,11 @@ export type ApiCotizacion = {
   terminos: string;
   pdf_opciones?: CotizacionPdfOpciones;
   categorias_productos?: CotizacionCategoria[];
+  enviado_por?: number | null;
+  enviado_por_username?: string;
+  enviado_por_full_name?: string;
+  enviado_en?: string | null;
+  enviado_comentario?: string;
   items: ApiCotizacionItem[];
 };
 

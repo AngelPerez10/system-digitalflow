@@ -45,6 +45,9 @@ import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 import CotizacionEnviarPdfModal, {
   type CotizacionEnviarPdfTarget,
 } from "@/pages/Ventas/Cotizacion/form/CotizacionEnviarPdfModal";
+import CotizacionMarcarEnviadaModal, {
+  type CotizacionMarcarEnviadaTarget,
+} from "@/pages/Ventas/Cotizacion/form/CotizacionMarcarEnviadaModal";
 import { CotizacionExportOverlay } from "@/pages/Ventas/Cotizacion/form/CotizacionExportOverlay";
 import { CotizacionClearModal } from "@/pages/Ventas/Cotizacion/form/CotizacionClearModal";
 import { CotizacionCloneModal } from "@/pages/Ventas/Cotizacion/form/CotizacionCloneModal";
@@ -145,6 +148,12 @@ export default function NuevaCotizacionPage() {
   const [loadingProgress, setLoadingProgress] = useState(8);
   const [enviarCorreoSaving, setEnviarCorreoSaving] = useState(false);
   const [enviarPdfTarget, setEnviarPdfTarget] = useState<CotizacionEnviarPdfTarget | null>(null);
+  const [marcarEnviadaTarget, setMarcarEnviadaTarget] = useState<CotizacionMarcarEnviadaTarget | null>(null);
+  const [enviadoInfo, setEnviadoInfo] = useState<{
+    por: string;
+    en?: string;
+    comentario?: string;
+  } | null>(null);
 
   const [cloneModalOpen, setCloneModalOpen] = useState(false);
   const [clearFormModalOpen, setClearFormModalOpen] = useState(false);
@@ -573,6 +582,18 @@ export default function NuevaCotizacionPage() {
       setMedioContacto(String(data.medio_contacto || ""));
       setTipoTrabajo(normalizeTipoTrabajoIds(data.tipo_trabajo));
       setStatus(String(data.status || "PENDIENTE"));
+      {
+        const enviadoPor = String(data.enviado_por_full_name || data.enviado_por_username || "").trim();
+        setEnviadoInfo(
+          enviadoPor
+            ? {
+                por: enviadoPor,
+                en: String(data.enviado_en || "").trim() || undefined,
+                comentario: String(data.enviado_comentario || "").trim() || undefined,
+              }
+            : null
+        );
+      }
       setDescuentoClientePct(clampPct(toNumber(data.descuento_cliente_pct, 0)));
       setDescuentoClienteTouched(true);
       setAnticipoPct(
@@ -1861,6 +1882,7 @@ export default function NuevaCotizacionPage() {
     setTipoTrabajo([]);
     setTipoTrabajoTouched(false);
     setStatus('PENDIENTE');
+    setEnviadoInfo(null);
 
     setCantidad(1);
     setConceptoNombre("");
@@ -2037,6 +2059,24 @@ export default function NuevaCotizacionPage() {
     }
   };
 
+  const handleAbrirMarcarEnviada = () => {
+    const cotizacionPk = String(editingCotizacionId || activeCotizacionId || "").trim();
+    if (!cotizacionPk) {
+      setAlert({
+        show: true,
+        variant: "warning",
+        title: "Guarda la cotización",
+        message: "Para marcarla como enviada, primero guarda la cotización.",
+      });
+      return;
+    }
+    setMarcarEnviadaTarget({
+      id: Number(cotizacionPk),
+      idx: editingCotizacionIdx ?? undefined,
+      cliente: resolveClienteNombre() || undefined,
+    });
+  };
+
   return (
     <div className={cotPageCanvasClass} style={cotSansStyle}>
       <div className={cotPageInnerClass}>
@@ -2059,6 +2099,30 @@ export default function NuevaCotizacionPage() {
           }}
           onError={(message) => {
             setAlert({ show: true, variant: "error", title: "Correo", message });
+          }}
+        />
+
+        <CotizacionMarcarEnviadaModal
+          open={marcarEnviadaTarget != null}
+          cotizacion={marcarEnviadaTarget}
+          onClose={() => setMarcarEnviadaTarget(null)}
+          onMarked={(data) => {
+            setMarcarEnviadaTarget(null);
+            const por = String(data.enviado_por_full_name || data.enviado_por_username || "").trim();
+            setEnviadoInfo(
+              por
+                ? { por, en: data.enviado_en, comentario: data.enviado_comentario }
+                : enviadoInfo
+            );
+            setAlert({
+              show: true,
+              variant: "success",
+              title: "Cotización marcada como enviada",
+              message: "Se registró quién la marcó y cuándo.",
+            });
+          }}
+          onError={(message) => {
+            setAlert({ show: true, variant: "error", title: "Marcar como enviada", message });
           }}
         />
 
@@ -2729,6 +2793,49 @@ export default function NuevaCotizacionPage() {
                         ))}
                       </select>
                     </div>
+
+                    {status === "PENDIENTE" && (
+                      <div>
+                        <Label className={labelPageClass}>Seguimiento con el cliente</Label>
+                        {enviadoInfo ? (
+                          <button
+                            type="button"
+                            onClick={handleAbrirMarcarEnviada}
+                            title={`Enviada por ${enviadoInfo.por}${
+                              enviadoInfo.en
+                                ? ` el ${new Date(enviadoInfo.en).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })}`
+                                : ""
+                            }${enviadoInfo.comentario ? ` — "${enviadoInfo.comentario}"` : ""}`}
+                            className="flex min-h-11 w-full items-center gap-2 rounded-[10px] border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.06)] px-3 py-2.5 text-left transition-colors hover:bg-[rgba(27,92,255,0.1)] dark:border-[#4B7CFF]/30 dark:bg-[rgba(75,124,255,0.1)] dark:hover:bg-[rgba(75,124,255,0.16)]"
+                          >
+                            <svg className="h-4 w-4 shrink-0 text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                            <span className="min-w-0 truncate text-xs font-medium text-[#1B5CFF] dark:text-[#4B7CFF]">
+                              Enviada por {enviadoInfo.por}
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={!String(editingCotizacionId || activeCotizacionId || "").trim()}
+                            onClick={handleAbrirMarcarEnviada}
+                            className={`${secondaryActionBtnClass} !w-full`}
+                            title={
+                              !String(editingCotizacionId || activeCotizacionId || "").trim()
+                                ? "Guarda la cotización para marcarla como enviada"
+                                : "Márcala cuando se la envíes al cliente y quedes en espera de su respuesta"
+                            }
+                          >
+                            <svg className="h-4 w-4 shrink-0 text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                              <path d="M22 2L11 13" />
+                              <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                            </svg>
+                            Marcar como enviada
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </ComponentCard>
                 </section>

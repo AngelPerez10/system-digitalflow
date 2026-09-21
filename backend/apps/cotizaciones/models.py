@@ -99,6 +99,16 @@ class Cotizacion(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
+    enviado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cotizaciones_enviadas',
+    )
+    enviado_en = models.DateTimeField(null=True, blank=True)
+    enviado_comentario = models.TextField(blank=True, default='')
+
     def save(self, *args, **kwargs):
         if not self.idx:
             current_max = Cotizacion.objects.aggregate(m=Max('idx')).get('m')

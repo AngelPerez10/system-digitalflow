@@ -14,7 +14,7 @@ import {
 export type { CotizacionRow };
 
 /** Fecha y hora locales (es-MX) desde ISO; metadatos de auditoría en listados. */
-function formatIsoDateTime(iso: string | null | undefined): string {
+export function formatIsoDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
@@ -64,6 +64,33 @@ function CotizacionRegistroCell({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function EnviadaBadge({
+  enviadoPor,
+  onView,
+}: {
+  enviadoPor?: string;
+  onView?: () => void;
+}) {
+  if (!enviadoPor) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onView?.();
+      }}
+      className="inline-flex items-center gap-1 rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[10px] font-medium text-[#1B5CFF] transition-colors hover:bg-[rgba(27,92,255,0.14)] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] dark:hover:bg-[rgba(75,124,255,0.22)]"
+      title="Ver detalle del envío"
+    >
+      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M22 2L11 13" />
+        <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+      </svg>
+      Enviada
+    </button>
   );
 }
 
@@ -190,6 +217,8 @@ export type CotizacionRowActions = {
   onEdit: (r: CotizacionRow) => void;
   onDelete: (r: CotizacionRow) => void;
   onDownloadExcel?: (r: CotizacionRow) => void;
+  onMarkEnviada?: (r: CotizacionRow) => void;
+  onViewEnviada?: (r: CotizacionRow) => void;
 };
 
 export type CotizacionStats = {
@@ -455,6 +484,10 @@ export function CotizacionesMobileList({
                               ? "Pendiente"
                               : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
                           </span>
+                          <EnviadaBadge
+                            enviadoPor={r.enviadoPor}
+                            onView={() => actions.onViewEnviada?.(r)}
+                          />
                         </div>
                         <p className="mt-2 truncate text-sm font-semibold text-[#09090B] dark:text-white">{r.cliente}</p>
                         {r.clienteTelefono && r.clienteTelefono !== "—" ? (
@@ -530,6 +563,21 @@ export function CotizacionesMobileList({
                           <path d="M14 2v6h6" />
                         </svg>
                       </button>
+                      {actions.onMarkEnviada && !r.enviadoPor && (
+                        <button
+                          type="button"
+                          disabled={excelLoading}
+                          onClick={() => actions.onMarkEnviada!(r)}
+                          className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:hover:text-[#4B7CFF]"
+                          title="Marcar como enviada"
+                          aria-label="Marcar como enviada"
+                        >
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <path d="M22 2L11 13" />
+                            <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         type="button"
                         disabled={excelLoading}
@@ -632,11 +680,17 @@ export function CotizacionesTable({
                         </span>
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-2 py-2 align-top sm:px-3">
-                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${statusChipClass(r.status)}`}>
-                          {statusUpper === "PENDIENTE"
-                            ? "Pendiente"
-                            : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${statusChipClass(r.status)}`}>
+                            {statusUpper === "PENDIENTE"
+                              ? "Pendiente"
+                              : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
+                          </span>
+                          <EnviadaBadge
+                            enviadoPor={r.enviadoPor}
+                            onView={() => actions.onViewEnviada?.(r)}
+                          />
+                        </div>
                       </TableCell>
                       <TableCell className="w-45 min-w-45 px-2 py-2 align-top sm:px-3">
                         <CotizacionRegistroCell
@@ -718,6 +772,21 @@ export function CotizacionesTable({
                               <path d="M14 2v6h6" />
                             </svg>
                           </button>
+                          {actions.onMarkEnviada && !r.enviadoPor && (
+                            <button
+                              type="button"
+                              disabled={excelLoading}
+                              onClick={() => actions.onMarkEnviada!(r)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#E7E7EA] bg-white transition hover:border-[#4B7CFF] hover:text-[#1B5CFF] disabled:opacity-50 dark:border-white/10 dark:bg-[#111827] dark:hover:border-[#1B5CFF]"
+                              title="Marcar como enviada"
+                              aria-label="Marcar como enviada"
+                            >
+                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M22 2L11 13" />
+                                <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                              </svg>
+                            </button>
+                          )}
                           <button
                             type="button"
                             disabled={excelLoading}

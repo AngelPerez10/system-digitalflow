@@ -9,6 +9,7 @@ import {
   CotizacionesMobileList,
   CotizacionesTable,
   computeTasaCierreMensual,
+  formatIsoDateTime,
   type CotizacionRow,
 } from "@/components/cotizacion/CotizacionesViewParts";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
@@ -30,6 +31,10 @@ import {
 } from "./shared/cotizacionFormStyles";
 import { CotizacionExportOverlay } from "./form/CotizacionExportOverlay";
 import CotizacionesStatusSegmentFilter from "./list/CotizacionesStatusSegmentFilter";
+import CotizacionMarcarEnviadaModal, {
+  type CotizacionMarcarEnviadaTarget,
+} from "./form/CotizacionMarcarEnviadaModal";
+import CotizacionViewModal from "./shared/CotizacionViewModal";
 
 const searchInputClass =
   "min-h-[44px] w-full rounded-[10px] border border-[#E7E7EA] bg-white py-2 pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:min-h-[44px] sm:pl-11";
@@ -164,6 +169,8 @@ export default function CotizacionesPage() {
 
   const [rows, setRows] = useState<CotizacionRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [marcarEnviadaTarget, setMarcarEnviadaTarget] = useState<CotizacionMarcarEnviadaTarget | null>(null);
+  const [enviadaViewRow, setEnviadaViewRow] = useState<CotizacionRow | null>(null);
 
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("");
   const [filterTipoTrabajo, setFilterTipoTrabajo] = useState("");
@@ -291,6 +298,7 @@ export default function CotizacionesPage() {
       const mapped: CotizacionRow[] = (list || []).map((x: Record<string, unknown>) => {
         const creado = String(x?.creado_por_full_name || x?.creado_por_username || x?.creadaPor || "—");
         const editado = String(x?.actualizado_por_full_name || x?.actualizado_por_username || x?.editadaPor || "—");
+        const enviado = String(x?.enviado_por_full_name || x?.enviado_por_username || "").trim();
         return {
           id: Number(x?.id || 0),
           idx: Number(x?.idx || 0),
@@ -301,6 +309,9 @@ export default function CotizacionesPage() {
           editadaPor: editado,
           fechaCreacion: String(x?.fecha_creacion || "").trim() || undefined,
           fechaActualizacion: String(x?.fecha_actualizacion || "").trim() || undefined,
+          enviadoPor: enviado || undefined,
+          enviadoEn: String(x?.enviado_en || "").trim() || undefined,
+          enviadoComentario: String(x?.enviado_comentario || "").trim() || undefined,
           cliente: String(x?.cliente || x?.cliente_nombre || "—"),
           clienteTelefono: String(x?.cliente_telefono || "—"),
           contacto: String(x?.contacto || "—"),
@@ -634,11 +645,21 @@ export default function CotizacionesPage() {
     }
   };
 
+  const handleMarkEnviada = (r: CotizacionRow) => {
+    setMarcarEnviadaTarget({ id: r.id, idx: r.idx, cliente: r.cliente });
+  };
+
+  const handleViewEnviada = (r: CotizacionRow) => {
+    setEnviadaViewRow(r);
+  };
+
   const rowActions = {
     onOpenPdf: handleOpenPdf,
     onEdit: handleEditRow,
     onDelete: handleAskDelete,
     onDownloadExcel: handleDownloadExcel,
+    onMarkEnviada: handleMarkEnviada,
+    onViewEnviada: handleViewEnviada,
   };
 
   return (
@@ -1143,6 +1164,85 @@ export default function CotizacionesPage() {
             </Modal>
           )}
 
+          <CotizacionMarcarEnviadaModal
+            open={marcarEnviadaTarget != null}
+            cotizacion={marcarEnviadaTarget}
+            onClose={() => setMarcarEnviadaTarget(null)}
+            onMarked={(data) => {
+              const targetId = marcarEnviadaTarget?.id;
+              setMarcarEnviadaTarget(null);
+              if (targetId != null) {
+                const por = String(data.enviado_por_full_name || data.enviado_por_username || "").trim();
+                setRows((prev) =>
+                  prev.map((row) =>
+                    row.id === targetId
+                      ? {
+                          ...row,
+                          enviadoPor: por || row.enviadoPor,
+                          enviadoEn: data.enviado_en || row.enviadoEn,
+                          enviadoComentario: data.enviado_comentario ?? row.enviadoComentario,
+                        }
+                      : row
+                  )
+                );
+              }
+              setAlert({
+                show: true,
+                variant: "success",
+                title: "Cotización marcada como enviada",
+                message: "Se registró quién la marcó y cuándo.",
+              });
+              window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3500);
+            }}
+            onError={(message) => {
+              setAlert({ show: true, variant: "error", title: "Marcar como enviada", message });
+              window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3500);
+            }}
+          />
+
+          <CotizacionViewModal
+            open={enviadaViewRow != null}
+            onClose={() => setEnviadaViewRow(null)}
+            title="Detalle del envío"
+            subtitle={enviadaViewRow ? `Folio ${formatDocumentFolio(FOLIO_SERIE.cotizacion, enviadaViewRow.idx)} · ${enviadaViewRow.cliente}` : undefined}
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <path d="M22 2L11 13" />
+                <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+              </svg>
+            }
+          >
+            {enviadaViewRow ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8ea0b8]">
+                      Enviada por
+                    </p>
+                    <p className="mt-0.5 font-medium text-[#09090B] dark:text-[#f8fafc]">
+                      {enviadaViewRow.enviadoPor || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8ea0b8]">
+                      Fecha
+                    </p>
+                    <p className="mt-0.5 font-medium text-[#09090B] dark:text-[#f8fafc]">
+                      {formatIsoDateTime(enviadaViewRow.enviadoEn)}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8ea0b8]">
+                    Comentario
+                  </p>
+                  <pre className="mt-1 whitespace-pre-wrap wrap-break-word rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 font-sans leading-relaxed dark:border-[#273244] dark:bg-[#0f172a]/40">
+                    {enviadaViewRow.enviadoComentario || "—"}
+                  </pre>
+                </div>
+              </div>
+            ) : null}
+          </CotizacionViewModal>
         </>
       )}
       </div>

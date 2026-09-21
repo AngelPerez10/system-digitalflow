@@ -183,6 +183,18 @@ export const modalBodyClass =
 export const modalFooterClass =
   "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:px-6";
 
+/** Modal de vista (detalle de solo lectura, p. ej. "Enviada" de una cotización). */
+export const cotViewModalClass = "max-w-2xl w-[92vw]";
+
+export const cotViewModalPanelClass =
+  "overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]";
+
+export const cotViewModalHeaderClass =
+  "flex items-center gap-3 border-b border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#111827]";
+
+export const cotViewModalFooterClass =
+  "border-t border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 text-right dark:border-[#273244] dark:bg-[#111827]";
+
 /* --------------------------------------------------------------------------
    Alertas — mismo tono y estructura que InlineAlert de Tareas / Productos
    -------------------------------------------------------------------------- */

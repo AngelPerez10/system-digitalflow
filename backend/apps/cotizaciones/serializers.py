@@ -81,6 +81,8 @@ class CotizacionSerializer(serializers.ModelSerializer):
     creado_por_full_name = serializers.SerializerMethodField()
     actualizado_por_username = serializers.CharField(source='actualizado_por.username', read_only=True)
     actualizado_por_full_name = serializers.SerializerMethodField()
+    enviado_por_username = serializers.CharField(source='enviado_por.username', read_only=True)
+    enviado_por_full_name = serializers.SerializerMethodField()
 
     items = CotizacionItemSerializer(many=True, required=False)
     tipo_trabajo = CotizacionTipoTrabajoField(many=True, required=False, allow_empty=True)
@@ -193,6 +195,15 @@ class CotizacionSerializer(serializers.ModelSerializer):
             return obj.actualizado_por.username or obj.actualizado_por.email
         return None
 
+    def get_enviado_por_full_name(self, obj):
+        if obj.enviado_por:
+            first = obj.enviado_por.first_name
+            last = obj.enviado_por.last_name
+            if first or last:
+                return f"{first} {last}".strip()
+            return obj.enviado_por.username or obj.enviado_por.email
+        return None
+
     class Meta:
         model = Cotizacion
         fields = [
@@ -229,6 +240,11 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'actualizado_por_full_name',
             'fecha_creacion',
             'fecha_actualizacion',
+            'enviado_por',
+            'enviado_por_username',
+            'enviado_por_full_name',
+            'enviado_en',
+            'enviado_comentario',
             'items',
         ]
         read_only_fields = [
@@ -244,6 +260,11 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'actualizado_por_full_name',
             'fecha_creacion',
             'fecha_actualizacion',
+            'enviado_por',
+            'enviado_por_username',
+            'enviado_por_full_name',
+            'enviado_en',
+            'enviado_comentario',
         ]
 
     @transaction.atomic
