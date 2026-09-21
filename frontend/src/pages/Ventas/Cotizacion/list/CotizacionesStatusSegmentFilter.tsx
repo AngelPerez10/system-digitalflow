@@ -126,11 +126,11 @@ export default function CotizacionesStatusSegmentFilter({
   return (
     <div className="relative w-full min-w-0 max-w-full overflow-hidden">
       <div
-        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-5 bg-gradient-to-r from-[#FAFAFA] to-transparent dark:from-[#0f172a] sm:w-6"
+        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-5 bg-linear-to-r from-[#FAFAFA] to-transparent dark:from-[#0f172a] sm:w-6"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-[#FAFAFA] to-transparent dark:from-[#0f172a] sm:w-8"
+        className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-linear-to-l from-[#FAFAFA] to-transparent dark:from-[#0f172a] sm:w-8"
         aria-hidden="true"
       />
 
@@ -139,7 +139,7 @@ export default function CotizacionesStatusSegmentFilter({
         role="tablist"
         aria-label="Filtrar por estado"
         aria-orientation="horizontal"
-        className="flex w-full min-w-0 max-w-full gap-1 overflow-x-auto overscroll-x-contain scroll-smooth rounded-[12px] border border-[#E7E7EA] bg-[#FAFAFA] p-1 [-ms-overflow-style:none] [scrollbar-width:none] dark:border-[#273244] dark:bg-[#0f172a] [&::-webkit-scrollbar]:hidden"
+        className="flex w-full min-w-0 max-w-full gap-1 overflow-x-auto overscroll-x-contain scroll-smooth rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] p-1 touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] dark:border-[#273244] dark:bg-[#0f172a] [&::-webkit-scrollbar]:hidden"
       >
         {STATUS_SEGMENTS.map((seg, index) => {
           const active = filterStatus === seg.value;
@@ -162,10 +162,10 @@ export default function CotizacionesStatusSegmentFilter({
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${seg.dotClass}`} aria-hidden />
               {seg.label}
               <span
-                className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] tabular-nums ${
+                className={`inline-flex min-w-5 items-center justify-center rounded-full px-1 text-[10px] tabular-nums ${
                   active
                     ? "bg-black/10 dark:bg-white/15"
-                    : "bg-black/[0.05] text-[#6E6E77] dark:bg-white/10 dark:text-[#8EA0B8]"
+                    : "bg-black/5 text-[#6E6E77] dark:bg-white/10 dark:text-[#8EA0B8]"
                 }`}
               >
                 {count}

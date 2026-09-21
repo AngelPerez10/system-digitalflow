@@ -94,37 +94,58 @@ function CotizacionRegistroCell({
   editadaPor,
   fechaCreacion,
   fechaActualizacion,
+  layout = "stack",
 }: {
   creadaPor: string;
   editadaPor: string;
   fechaCreacion?: string;
   fechaActualizacion?: string;
+  /** `grid` = dos columnas (móvil); `stack` = una columna (tabla). */
+  layout?: "stack" | "grid";
 }) {
   const creadaEn = formatIsoDateTime(fechaCreacion);
   const editadaEn = formatIsoDateTime(fechaActualizacion);
+  const isGrid = layout === "grid";
+
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
-      <div className="min-w-0">
-        <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">Creada por</div>
-        <div className="truncate font-medium text-[#09090B] dark:text-white" title={creadaPor}>
+    <div
+      className={
+        isGrid
+          ? "grid min-w-0 grid-cols-2 gap-2 text-[12px] text-[#52525B] dark:text-[#B7C1D1]"
+          : "flex min-w-0 flex-col gap-1.5 text-[12px] text-[#52525B] dark:text-[#B7C1D1]"
+      }
+    >
+      <div className={`min-w-0 ${isGrid ? "rounded-[10px] bg-[#FAFAFA] px-2.5 py-2 dark:bg-[#0f172a]/60" : ""}`}>
+        <div className="text-[10px] font-semibold uppercase tracking-[0.08em] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
+          Creada por
+        </div>
+        <div className="mt-0.5 truncate font-medium text-[#09090B] dark:text-white" title={creadaPor}>
           {creadaPor}
         </div>
         {fechaCreacion ? (
-          <time className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]" dateTime={fechaCreacion}>
+          <time className="mt-0.5 block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]" dateTime={fechaCreacion}>
             {creadaEn}
           </time>
         ) : (
-          <span className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">—</span>
+          <span className="mt-0.5 block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">—</span>
         )}
       </div>
-      <div className="min-w-0 border-t border-[#EDEDED] pt-1.5 dark:border-[#273244]">
-        <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">Editada por</div>
-        <div className="truncate font-medium text-[#09090B] dark:text-white" title={editadaPor}>
+      <div
+        className={`min-w-0 ${
+          isGrid
+            ? "rounded-[10px] bg-[#FAFAFA] px-2.5 py-2 dark:bg-[#0f172a]/60"
+            : "border-t border-[#EDEDED] pt-1.5 dark:border-[#273244]"
+        }`}
+      >
+        <div className="text-[10px] font-semibold uppercase tracking-[0.08em] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
+          Editada por
+        </div>
+        <div className="mt-0.5 truncate font-medium text-[#09090B] dark:text-white" title={editadaPor}>
           {editadaPor}
         </div>
         {fechaActualizacion ? (
           <time
-            className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
+            className="mt-0.5 block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
             dateTime={fechaActualizacion}
           >
             {editadaEn}
@@ -184,9 +205,12 @@ function GarantiaBadge({ esGarantia }: { esGarantia?: boolean }) {
 function CotizacionClienteCell({
   row,
   dense = false,
+  wrapName = false,
 }: {
   row: CotizacionRow;
   dense?: boolean;
+  /** En móvil permite 2 líneas en lugar de truncar a una. */
+  wrapName?: boolean;
 }) {
   const telefono = row.clienteTelefono && row.clienteTelefono !== "—" ? row.clienteTelefono : "";
   const telHref = buildTelHref(telefono);
@@ -196,9 +220,9 @@ function CotizacionClienteCell({
   return (
     <div className="min-w-0">
       <p
-        className={`truncate font-semibold text-[#09090B] dark:text-[#F8FAFC] ${
-          dense ? "text-[12px] leading-snug" : "text-sm leading-snug"
-        }`}
+        className={`font-semibold text-[#09090B] dark:text-[#F8FAFC] ${
+          wrapName ? "line-clamp-2 wrap-break-word" : "truncate"
+        } ${dense ? "text-[12px] leading-snug" : "text-sm leading-snug"}`}
         title={row.cliente}
       >
         {row.cliente || "—"}
@@ -207,13 +231,14 @@ function CotizacionClienteCell({
         telHref ? (
           <a
             href={telHref}
-            className="mt-0.5 block truncate text-[11px] tabular-nums text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]"
+            className="mt-1 inline-flex min-h-9 max-w-full items-center truncate text-[13px] tabular-nums text-[#1B5CFF] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:text-[#4B7CFF]"
             title={`Llamar a ${telefono}`}
+            aria-label={`Llamar a ${telefono}`}
           >
             {telefono}
           </a>
         ) : (
-          <span className="mt-0.5 block truncate text-[11px] tabular-nums text-[#1B5CFF] dark:text-[#4B7CFF]">
+          <span className="mt-1 inline-flex min-h-9 max-w-full items-center truncate text-[13px] tabular-nums text-[#1B5CFF] dark:text-[#4B7CFF]">
             {telefono}
           </span>
         )
@@ -416,18 +441,22 @@ export function CotizacionPageHeader({ stats }: { stats?: CotizacionStats }) {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Ventas</p>
-              <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">
+              <h1 className="mt-1 text-[24px] font-bold leading-[1.15] tracking-[-0.8px] text-white sm:text-[32px] sm:tracking-[-1.1px]">
                 Cotizaciones
               </h1>
-              <p className="mt-1.5 max-w-[62ch] text-[15px] leading-5.5 tracking-[-0.1px] text-white/70">
+              <p className="mt-1.5 max-w-[62ch] text-[13px] leading-5 tracking-[-0.1px] text-white/70 sm:text-[15px] sm:leading-5.5">
                 Consulta el historial, filtra por cliente o folio, abre el PDF y administra el estado de cada cotización.
               </p>
             </div>
           </div>
 
           {stats ? (
-            <div className="flex w-full shrink-0 flex-col items-end gap-6 lg:mt-0.5 lg:w-auto">
-              <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Resumen del periodo">
+            <div className="flex w-full shrink-0 flex-col gap-4 sm:gap-5 lg:mt-0.5 lg:w-auto lg:items-end lg:gap-6">
+              <div
+                className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:gap-2"
+                role="group"
+                aria-label="Resumen del periodo"
+              >
                 {(
                   [
                     { label: "Total", value: stats.total, gold: false },
@@ -436,13 +465,16 @@ export function CotizacionPageHeader({ stats }: { stats?: CotizacionStats }) {
                     { label: "Canceladas", value: stats.canceladas, gold: false },
                   ] as const
                 ).map((item) => (
-                  <div key={item.label} className="inline-flex h-13 items-center gap-3 rounded-3xl bg-white/10 px-4">
+                  <div
+                    key={item.label}
+                    className="inline-flex min-h-12 items-center gap-2.5 rounded-2xl bg-white/10 px-3 py-2 sm:h-13 sm:min-h-0 sm:gap-3 sm:rounded-3xl sm:px-4 sm:py-0"
+                  >
                     <span
-                      className={`inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-white/10 ${
+                      className={`inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-white/10 sm:size-8 ${
                         item.gold ? "text-[#E6A23C]" : "text-white/80"
                       }`}
                     >
-                      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                      <svg viewBox="0 0 24 24" className="size-3.5 sm:size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                         {item.label === "Autorizadas" ? (
                           <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                         ) : item.label === "Canceladas" ? (
@@ -458,14 +490,14 @@ export function CotizacionPageHeader({ stats }: { stats?: CotizacionStats }) {
                       </svg>
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-white/55">{item.label}</p>
-                      <p className="text-[18px] font-semibold tabular-nums leading-none text-white">{item.value}</p>
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-white/55 sm:text-[10px]">{item.label}</p>
+                      <p className="truncate text-[15px] font-semibold tabular-nums leading-none text-white sm:text-[18px]">{item.value}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="ml-auto flex w-[min(100%,42rem)] items-center gap-2.5">
+              <div className="flex w-full items-center gap-2.5 lg:ml-auto lg:w-[min(100%,42rem)]">
                 <p
                   id="cotizacion-tasa-cierre-label"
                   className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.08em] text-white/50"
@@ -542,11 +574,11 @@ export function CotizacionesMobileList({
   }
 
   return (
-    <div className="space-y-5 lg:hidden">
+    <div className="space-y-4 lg:hidden">
       {sections.map((section) => {
         const headingId = `cotizaciones-mobile-${section.key.toLowerCase()}`;
         return (
-          <section key={section.key} aria-labelledby={headingId} className="space-y-3">
+          <section key={section.key} aria-labelledby={headingId} className="space-y-2.5">
             <CotizacionStatusSectionHeader
               statusKey={section.key}
               label={section.label}
@@ -554,106 +586,135 @@ export function CotizacionesMobileList({
               headingId={headingId}
               as="h2"
             />
-            <ul className="space-y-3">
+            <ul className="space-y-3" aria-label={`Cotizaciones ${section.label.toLowerCase()}`}>
               {section.rows.map((r) => {
+                const folioLabel = formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx);
                 return (
-                  <li
-                    key={r.id}
-                    className="rounded-3xl border border-[#E7E7EA] bg-white p-4 shadow-[0_6px_20px_-14px_rgba(9,9,11,0.14)] dark:border-[#273244] dark:bg-[#111827]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <CotizacionFolioBadge idx={r.idx} />
-                          <CotizacionStatusChip status={r.status} />
-                          <EnviadaBadge
-                            enviadoPor={r.enviadoPor}
-                            onView={() => actions.onViewEnviada?.(r)}
-                          />
-                          <GarantiaBadge esGarantia={r.esGarantia} />
-                        </div>
-                        <div className="mt-2">
-                          <CotizacionClienteCell row={r} />
-                        </div>
-                        <p className="mt-1.5 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">{formatDMY(r.fecha)}</p>
-                        <div className="mt-2">
-                          <CotizacionMedioChip label={normalizeMedioLabel(r.medioContacto)} />
+                  <li key={r.id}>
+                    <article
+                      className="rounded-2xl border border-[#E7E7EA] bg-white p-3.5 shadow-[0_6px_20px_-14px_rgba(9,9,11,0.18)] dark:border-[#273244] dark:bg-[#111827] sm:rounded-3xl sm:p-4"
+                      aria-label={`Cotización ${folioLabel}, ${r.cliente || "sin cliente"}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <CotizacionFolioBadge idx={r.idx} />
+                        <div className="shrink-0 text-right">
+                          <p className="text-lg font-bold tabular-nums leading-none tracking-[-0.4px] text-[#09090B] dark:text-[#F8FAFC]">
+                            {r.monto}
+                          </p>
+                          {r.esGarantia ? (
+                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#6E6E77] dark:text-[#8ea0b8]">
+                              Sin costo
+                            </p>
+                          ) : null}
                         </div>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-sm font-semibold tabular-nums text-[#09090B] dark:text-white">{r.monto}</p>
-                        {r.esGarantia && (
-                          <p className="text-[10px] font-medium text-[#6E6E77] dark:text-[#8ea0b8]">Sin costo</p>
-                        )}
+
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        <CotizacionStatusChip status={r.status} />
+                        <EnviadaBadge
+                          enviadoPor={r.enviadoPor}
+                          onView={() => actions.onViewEnviada?.(r)}
+                        />
+                        <GarantiaBadge esGarantia={r.esGarantia} />
                       </div>
-                    </div>
-                    <div className="mt-3 min-w-0 rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] p-2.5 dark:border-[#273244] dark:bg-[#1B2539]">
-                      <CotizacionRegistroCell
-                        creadaPor={r.creadaPor}
-                        editadaPor={r.editadaPor}
-                        fechaCreacion={r.fechaCreacion}
-                        fechaActualizacion={r.fechaActualizacion}
-                      />
-                    </div>
-                    <div className="mt-3 flex items-center justify-end gap-2 border-t border-[#E7E7EA] pt-3 dark:border-[#273244]">
-                      <button
-                        type="button"
-                        disabled={excelLoading}
-                        onClick={() => actions.onEdit(r)}
-                        className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-[#1B5CFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a]"
-                        title="Editar"
-                        aria-label="Editar"
+
+                      <div className="mt-3 min-w-0">
+                        <CotizacionClienteCell row={r} wrapName />
+                      </div>
+
+                      <dl className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="min-w-0 rounded-[10px] bg-[#FAFAFA] px-2.5 py-2 dark:bg-[#1B2539]">
+                          <dt className="text-[10px] font-semibold uppercase tracking-widest text-[#6E6E77] dark:text-[#8EA0B8]">
+                            Fecha
+                          </dt>
+                          <dd className="mt-0.5 text-sm font-medium tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                            {formatDMY(r.fecha)}
+                          </dd>
+                        </div>
+                        <div className="min-w-0 rounded-[10px] bg-[#FAFAFA] px-2.5 py-2 dark:bg-[#1B2539]">
+                          <dt className="text-[10px] font-semibold uppercase tracking-widest text-[#6E6E77] dark:text-[#8EA0B8]">
+                            Medio
+                          </dt>
+                          <dd className="mt-0.5">
+                            <CotizacionMedioChip label={normalizeMedioLabel(r.medioContacto)} />
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <div className="mt-2.5 min-w-0">
+                        <CotizacionRegistroCell
+                          creadaPor={r.creadaPor}
+                          editadaPor={r.editadaPor}
+                          fechaCreacion={r.fechaCreacion}
+                          fechaActualizacion={r.fechaActualizacion}
+                          layout="grid"
+                        />
+                      </div>
+
+                      <div
+                        className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-[#EDEDED] pt-3 dark:border-[#273244]"
+                        role="group"
+                        aria-label={`Acciones de ${folioLabel}`}
                       >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      {actions.onDownloadExcel && (
                         <button
                           type="button"
                           disabled={excelLoading}
-                          onClick={() => actions.onDownloadExcel!(r)}
-                          className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-emerald-400 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a]"
-                          title="Excel"
-                          aria-label="Descargar Excel"
+                          onClick={() => actions.onEdit(r)}
+                          className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
+                          title="Editar"
+                          aria-label={`Editar cotización ${folioLabel}`}
                         >
-                          <CotizacionExcelIcon className="h-4 w-4" />
+                          <PencilIcon className="h-4 w-4" aria-hidden />
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={excelLoading}
-                        onClick={() => actions.onOpenPdf(r.id)}
-                        className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:hover:text-[#4B7CFF]"
-                        title="PDF"
-                        aria-label="Ver PDF"
-                      >
-                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          <path d="M14 2v6h6" />
-                        </svg>
-                      </button>
-                      {actions.onEnviarPdf && canEnviarPdfPorCorreo(r.status) && (
+                        {actions.onDownloadExcel ? (
+                          <button
+                            type="button"
+                            disabled={excelLoading}
+                            onClick={() => actions.onDownloadExcel!(r)}
+                            className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:border-emerald-400 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
+                            title="Excel"
+                            aria-label={`Descargar Excel de ${folioLabel}`}
+                          >
+                            <CotizacionExcelIcon className="h-4 w-4" />
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           disabled={excelLoading}
-                          onClick={() => actions.onEnviarPdf!(r)}
-                          className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-sky-400 hover:text-sky-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:hover:text-sky-400"
-                          title="Enviar PDF por correo"
-                          aria-label="Enviar PDF por correo"
+                          onClick={() => actions.onOpenPdf(r.id)}
+                          className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:text-[#4B7CFF]"
+                          title="PDF"
+                          aria-label={`Ver PDF de ${folioLabel}`}
                         >
-                          <MailIcon className="h-4 w-4" aria-hidden />
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <path d="M14 2v6h6" />
+                          </svg>
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={excelLoading}
-                        onClick={() => actions.onDelete(r)}
-                        className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-rose-400 hover:text-rose-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a]"
-                        title="Eliminar"
-                        aria-label="Eliminar"
-                      >
-                        <TrashBinIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                        {actions.onEnviarPdf && canEnviarPdfPorCorreo(r.status) ? (
+                          <button
+                            type="button"
+                            disabled={excelLoading}
+                            onClick={() => actions.onEnviarPdf!(r)}
+                            className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:border-sky-400 hover:text-sky-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb] dark:hover:text-sky-400"
+                            title="Enviar PDF por correo"
+                            aria-label={`Enviar PDF por correo de ${folioLabel}`}
+                          >
+                            <MailIcon className="h-4 w-4" aria-hidden />
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={excelLoading}
+                          onClick={() => actions.onDelete(r)}
+                          className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:border-rose-400 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]"
+                          title="Eliminar"
+                          aria-label={`Eliminar cotización ${folioLabel}`}
+                        >
+                          <TrashBinIcon className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
+                    </article>
                   </li>
                 );
               })}

@@ -84,7 +84,7 @@ const filterControlActiveClass = "border-[#1B5CFF]! bg-[rgba(27,92,255,0.05)] da
 const filterDateClass = `${filterControlClass} tabular-nums cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 dark:[&::-webkit-calendar-picker-indicator]:invert`;
 
 const filterMenuBtnClass =
-  "inline-flex h-10 items-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-3.5 text-[13px] font-semibold text-[#09090B] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.15)] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048]";
+  "inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[13px] font-semibold text-[#09090B] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.15)] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048] sm:h-10 sm:min-h-0 sm:px-3.5";
 
 /** Abre el calendario nativo al hacer clic/enfocar (Chrome no lo abre solo al pulsar el campo). */
 const openDatePicker = (e: SyntheticEvent<HTMLInputElement>) => {
@@ -718,15 +718,17 @@ export default function CotizacionesPage() {
                 id="cotizaciones-search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por folio, cliente, contacto o usuario…"
+                placeholder="Buscar folio, cliente…"
                 className={searchInputClass}
+                autoComplete="off"
+                enterKeyHint="search"
               />
               {searchTerm && (
                 <button
                   type="button"
                   onClick={clearSearch}
                   aria-label="Limpiar búsqueda"
-                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-w-11 items-center justify-center rounded-lg text-[#6E6E77] hover:bg-black/4 hover:text-[#09090B] dark:text-[#8ea0b8] dark:hover:bg-white/6 dark:hover:text-white"
+                  className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-9 min-h-11 min-w-11 items-center justify-center rounded-lg text-[#6E6E77] hover:bg-black/4 hover:text-[#09090B] dark:text-[#8ea0b8] dark:hover:bg-white/6 dark:hover:text-white"
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
                     <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -745,7 +747,7 @@ export default function CotizacionesPage() {
                 }
                 navigate("/cotizacion/nueva");
               }}
-              className={`${primaryActionInlineBtnClass} shrink-0 lg:shrink-0`}
+              className={`${primaryActionInlineBtnClass} shrink-0 touch-manipulation`}
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -757,7 +759,7 @@ export default function CotizacionesPage() {
           <section className={`${cardShellClass} overflow-visible!`} aria-labelledby="cotizaciones-listado-heading">
             <div className="border-b border-[#E7E7EA] dark:border-[#273244]">
               {/* Fila 1 — cabecera del listado */}
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 pt-5 sm:px-6">
+              <div className="flex flex-col gap-3 px-3 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-4 sm:gap-y-3 sm:px-6 sm:pt-5">
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]">
                     <svg viewBox="0 0 24 24" className="size-4.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
@@ -772,19 +774,19 @@ export default function CotizacionesPage() {
                     >
                       Listado de cotizaciones
                     </h2>
-                    <p className="mt-0.5 truncate text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                    <p className="mt-0.5 line-clamp-2 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8] sm:truncate sm:text-[13px]">
                       {isSearching
                         ? `Resultados para «${searchDebounced}»`
                         : "Agrupadas por estado: pendientes, autorizadas y canceladas"}
                     </p>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2.5">
+                <div className="flex shrink-0 items-center justify-between gap-2.5 sm:justify-end">
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-[24px] font-semibold leading-none tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                    <span className="text-[22px] font-semibold leading-none tabular-nums text-[#09090B] dark:text-[#F8FAFC] sm:text-[24px]">
                       {filteredRows.length.toLocaleString("es-MX")}
                     </span>
-                    <span className="text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                    <span className="text-[12px] text-[#6E6E77] dark:text-[#8EA0B8] sm:text-[13px]">
                       {filteredRows.length !== totalCount
                         ? `de ${totalCount.toLocaleString("es-MX")}`
                         : filteredRows.length === 1
@@ -799,7 +801,12 @@ export default function CotizacionesPage() {
                       onClick={() => setFiltersMenuOpen((o) => !o)}
                       aria-haspopup="dialog"
                       aria-expanded={filtersMenuOpen}
-                      className={`${filterMenuBtnClass} ${
+                      aria-label={
+                        hasSecondaryFilters
+                          ? `Filtros (${secondaryFilterCount} activos)`
+                          : "Abrir filtros"
+                      }
+                      className={`${filterMenuBtnClass} touch-manipulation ${
                         filtersMenuOpen || hasSecondaryFilters
                           ? "border-[#1B5CFF]! text-[#1B5CFF] dark:border-[#4B7CFF]! dark:text-[#4B7CFF]"
                           : ""
@@ -830,7 +837,7 @@ export default function CotizacionesPage() {
                       role="dialog"
                       aria-label="Filtros de cotizaciones"
                       aria-hidden={!filtersMenuOpen}
-                      className={`absolute right-0 z-30 mt-2 w-[min(92vw,20rem)] origin-top-right rounded-[14px] border border-[#E7E7EA] bg-white p-4 shadow-[0_18px_44px_-12px_rgba(9,9,11,0.28)] transition-[opacity,transform,visibility] duration-200 ease-out will-change-transform motion-reduce:transition-none dark:border-[#273244] dark:bg-[#111827] ${
+                      className={`absolute right-0 z-30 mt-2 w-[min(calc(100vw-1.5rem),20rem)] origin-top-right rounded-[14px] border border-[#E7E7EA] bg-white p-4 shadow-[0_18px_44px_-12px_rgba(9,9,11,0.28)] transition-[opacity,transform,visibility] duration-200 ease-out will-change-transform motion-reduce:transition-none dark:border-[#273244] dark:bg-[#111827] ${
                         filtersMenuOpen
                           ? "translate-y-0 scale-100 opacity-100"
                           : "pointer-events-none invisible -translate-y-1.5 scale-95 opacity-0 duration-150 ease-in"
@@ -842,7 +849,7 @@ export default function CotizacionesPage() {
                             type="button"
                             onClick={() => setFiltersMenuOpen(false)}
                             aria-label="Cerrar filtros"
-                            className="inline-flex size-7 items-center justify-center rounded-lg text-[#6E6E77] transition-colors hover:bg-black/4 hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/6 dark:hover:text-white"
+                            className="inline-flex size-11 items-center justify-center rounded-lg text-[#6E6E77] transition-colors hover:bg-black/4 hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/6 dark:hover:text-white sm:size-7"
                           >
                             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
                               <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -969,7 +976,7 @@ export default function CotizacionesPage() {
                 </div>
 
               {/* Fila 2 — estado: rail horizontal (mismo patrón responsivo que Inventario) */}
-              <div className="min-w-0 max-w-full overflow-hidden px-4 pb-4 pt-3 sm:px-6">
+              <div className="min-w-0 max-w-full overflow-hidden px-3 pb-4 pt-3 sm:px-6">
                 <CotizacionesStatusSegmentFilter
                   filterStatus={filterStatus}
                   setFilterStatus={setFilterStatus}
