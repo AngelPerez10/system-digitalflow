@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeTasaCierreMensual, tasaCierreVisual } from "../CotizacionesViewParts";
+import { computeTasaCierreMensual, tasaCierreVisual } from "../cotizacionListUtils";
 
 describe("computeTasaCierreMensual", () => {
   it("calcula autorizadas / (autorizadas + pendientes) por conteo", () => {

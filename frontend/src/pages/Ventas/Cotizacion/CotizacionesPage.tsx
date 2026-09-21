@@ -8,10 +8,12 @@ import {
   CotizacionPageHeader,
   CotizacionesMobileList,
   CotizacionesTable,
-  computeTasaCierreMensual,
-  formatIsoDateTime,
   type CotizacionRow,
 } from "@/components/cotizacion/CotizacionesViewParts";
+import {
+  computeTasaCierreMensual,
+  formatIsoDateTime,
+} from "@/components/cotizacion/cotizacionListUtils";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 import {
   COTIZACION_LIST_SEARCH_PARAM,

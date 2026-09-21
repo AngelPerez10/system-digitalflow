@@ -90,7 +90,7 @@ function GarantiaCheckbox({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50/80 px-3 py-3 transition-colors hover:bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/[0.08] dark:hover:bg-amber-500/[0.12] sm:px-4">
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50/80 px-3 py-3 transition-colors hover:bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/8 dark:hover:bg-amber-500/12 sm:px-4">
       <input
         type="checkbox"
         checked={checked}
@@ -197,7 +197,7 @@ export function CotizacionPdfOptionsPanel({
             {lines.map((line) => (
               <li
                 key={line.id}
-                className="rounded-xl border border-[#E7E7EA] bg-[#ffffff] p-3 dark:border-[#273244] dark:bg-[#111827]/60 sm:p-4"
+                className="rounded-xl border border-[#E7E7EA] bg-white p-3 dark:border-[#273244] dark:bg-[#111827]/60 sm:p-4"
               >
                 <div className="text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
                   {line.producto_nombre || "Sin nombre"}
@@ -210,7 +210,7 @@ export function CotizacionPdfOptionsPanel({
                   <textarea
                     value={descripcionesCortas[line.id] || ""}
                     onChange={(e) => onDescripcionCortaChange(line.id, e.target.value.slice(0, 500))}
-                    className={`${textareaLikeClassName} mt-2 min-h-[4.5rem] rounded-lg`}
+                    className={`${textareaLikeClassName} mt-2 min-h-18 rounded-lg`}
                     rows={2}
                     placeholder="Ej. Kit IP 4 cámaras de 4 megapixel"
                   />

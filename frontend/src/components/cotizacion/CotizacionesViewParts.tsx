@@ -24,6 +24,7 @@ import {
   type CotizacionRow,
   type CotizacionStatusSectionKey,
 } from "./cotizacionStatusSections";
+import { formatIsoDateTime, tasaCierreVisual } from "./cotizacionListUtils";
 
 export type { CotizacionRow };
 
@@ -86,14 +87,6 @@ function CotizacionStatusChip({ status }: { status: string }) {
       {label}
     </span>
   );
-}
-
-/** Fecha y hora locales (es-MX) desde ISO; metadatos de auditoría en listados. */
-export function formatIsoDateTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
 }
 
 function CotizacionRegistroCell({
@@ -195,8 +188,8 @@ function CotizacionClienteCell({
   row: CotizacionRow;
   dense?: boolean;
 }) {
-  const wa = buildWhatsappUrl(row);
   const telefono = row.clienteTelefono && row.clienteTelefono !== "—" ? row.clienteTelefono : "";
+  const telHref = buildTelHref(telefono);
   const tipo = String(row.tipoTrabajo || "").trim();
   const hasTipo = Boolean(tipo && tipo !== "—");
 
@@ -211,22 +204,19 @@ function CotizacionClienteCell({
         {row.cliente || "—"}
       </p>
       {telefono ? (
-        <a
-          href={wa || undefined}
-          target="_blank"
-          rel="noreferrer"
-          className={`mt-0.5 block truncate text-[11px] tabular-nums ${
-            wa
-              ? "text-[#6E6E77] hover:text-[#16a34a] hover:underline dark:text-[#8ea0b8]"
-              : "cursor-default text-[#6E6E77] dark:text-[#8ea0b8]"
-          }`}
-          onClick={(e) => {
-            if (!wa) e.preventDefault();
-          }}
-          title={wa ? `Abrir WhatsApp: ${telefono}` : telefono}
-        >
-          {telefono}
-        </a>
+        telHref ? (
+          <a
+            href={telHref}
+            className="mt-0.5 block truncate text-[11px] tabular-nums text-[#1B5CFF] hover:underline dark:text-[#4B7CFF]"
+            title={`Llamar a ${telefono}`}
+          >
+            {telefono}
+          </a>
+        ) : (
+          <span className="mt-0.5 block truncate text-[11px] tabular-nums text-[#1B5CFF] dark:text-[#4B7CFF]">
+            {telefono}
+          </span>
+        )
       ) : null}
       {hasTipo ? (
         <p
@@ -339,31 +329,12 @@ function CotizacionExcelIcon({ className }: { className?: string }) {
   );
 }
 
-const normalizePhoneForWhatsapp = (raw?: string) => {
+const buildTelHref = (raw?: string) => {
   const digits = String(raw || "").replace(/\D/g, "");
   if (!digits) return "";
-  if (digits.startsWith("52")) return digits;
-  if (digits.length === 10) return `52${digits}`;
-  return digits;
-};
-
-const buildWhatsappMessage = (row: CotizacionRow) => {
-  const numero = formatDocumentFolio(FOLIO_SERIE.cotizacion, row.idx || row.id);
-  const tipo = String(row.tipoTrabajo || "Sin tipo").trim();
-  return `Hola estimado(a), espero se encuentre muy bien.
-
-Le doy seguimiento a la cotización No. ${numero} del sistema: "${tipo}", para saber si pudo revisar la propuesta y conocer si le gustaría avanzar con el proyecto.
-
-Quedo a atento para resolver cualquier duda o realizar los ajustes necesarios para adaptar la solución a sus necesidades y presupuesto.
-
-Gracias y saludos!`;
-};
-
-const buildWhatsappUrl = (row: CotizacionRow) => {
-  const phone = normalizePhoneForWhatsapp(row.clienteTelefono);
-  if (!phone) return "";
-  const text = encodeURIComponent(buildWhatsappMessage(row));
-  return `https://wa.me/${phone}?text=${text}`;
+  const withCountry =
+    digits.startsWith("52") ? digits : digits.length === 10 ? `52${digits}` : digits;
+  return `tel:+${withCountry}`;
 };
 
 function canEnviarPdfPorCorreo(status: string): boolean {
@@ -388,43 +359,6 @@ export type CotizacionStats = {
   /** 0–100; null si no hay cotizaciones autorizadas ni pendientes en el mes. */
   tasaCierre: number | null;
 };
-
-/** Autorizadas ÷ (Autorizadas + Pendientes) por conteo; ignora canceladas. */
-export function computeTasaCierreMensual(
-  autorizadas: number,
-  pendientes: number,
-): number | null {
-  const a = Number.isFinite(autorizadas) ? Math.max(0, autorizadas) : 0;
-  const p = Number.isFinite(pendientes) ? Math.max(0, pendientes) : 0;
-  const denom = a + p;
-  if (denom <= 0) return null;
-  return Math.min(100, Math.max(0, (a / denom) * 100));
-}
-
-/** Color + nivel textual (no solo color) según el %. Rojo / ámbar / verde por umbral. */
-export function tasaCierreVisual(tasa: number | null): {
-  color: string;
-  nivel: "sin-datos" | "baja" | "media" | "alta";
-  nivelLabel: string;
-} {
-  if (tasa == null) {
-    return {
-      color: "rgba(255,255,255,0.35)",
-      nivel: "sin-datos",
-      nivelLabel: "Sin datos",
-    };
-  }
-  const nivel = tasa < 40 ? "baja" : tasa < 70 ? "media" : "alta";
-  const nivelLabel = nivel === "baja" ? "Baja" : nivel === "media" ? "Media" : "Alta";
-  // Colores fijos por nivel. Media en ámbar: legible sobre el header azul oscuro.
-  const color =
-    nivel === "baja"
-      ? "rgb(248 113 113)" // rose-400
-      : nivel === "media"
-        ? "rgb(251 191 36)" // amber-400
-        : "rgb(74 222 128)"; // green-400
-  return { color, nivel, nivelLabel };
-}
 
 function formatTasaCierrePct(tasa: number | null): string {
   if (tasa == null) return "—";

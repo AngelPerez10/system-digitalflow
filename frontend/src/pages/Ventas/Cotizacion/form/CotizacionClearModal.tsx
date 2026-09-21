@@ -24,7 +24,7 @@ export function CotizacionClearModal({ open, onClose, onConfirm }: CotizacionCle
       onClose={onClose}
       closeOnBackdropClick={false}
       showCloseButton={false}
-      className="w-full max-w-md overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827] mx-4 sm:mx-auto"
+      className="w-full max-w-md overflow-hidden rounded-4xl border border-[#E7E7EA] bg-white shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827]! mx-4 sm:mx-auto"
       ariaLabelledBy={titleId}
     >
       <div className="bg-white p-6 dark:bg-[#111827]">
@@ -49,7 +49,7 @@ export function CotizacionClearModal({ open, onClose, onConfirm }: CotizacionCle
             >
               ¿Limpiar formulario?
             </h3>
-            <p className="mt-1 text-[14px] leading-[20px] text-[#52525B] dark:text-[#B7C1D1]">
+            <p className="mt-1 text-[14px] leading-5 text-[#52525B] dark:text-[#B7C1D1]">
               Se eliminarán todos los datos capturados. Esta acción no se puede deshacer.
             </p>
           </div>
