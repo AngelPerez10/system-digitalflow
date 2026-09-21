@@ -32,18 +32,10 @@ describe("tasaCierreVisual", () => {
     expect(tasaCierreVisual(85).nivel).toBe("alta");
   });
 
-  it("cambia el matiz con el porcentaje (rojo → azul → verde)", () => {
-    const low = tasaCierreVisual(10).color;
-    const mid = tasaCierreVisual(50).color;
-    const high = tasaCierreVisual(95).color;
-    expect(low).toMatch(/^hsl\(\d+ 72% 62%\)$/);
-    expect(mid).toMatch(/^hsl\(\d+ 72% 62%\)$/);
-    expect(high).toMatch(/^hsl\(\d+ 72% 62%\)$/);
-    const hue = (c: string) => Number(c.match(/hsl\((\d+)/)?.[1] ?? -1);
-    expect(hue(low)).toBeLessThan(80);
-    expect(hue(mid)).toBeGreaterThan(180);
-    expect(hue(high)).toBeLessThan(hue(mid));
-    expect(hue(high)).toBeGreaterThan(120);
+  it("usa rojo en baja, ámbar en media y verde en alta", () => {
+    expect(tasaCierreVisual(20).color).toBe("rgb(248 113 113)");
+    expect(tasaCierreVisual(52.6).color).toBe("rgb(251 191 36)");
+    expect(tasaCierreVisual(85).color).toBe("rgb(74 222 128)");
   });
 
   it("sin datos usa color neutro", () => {

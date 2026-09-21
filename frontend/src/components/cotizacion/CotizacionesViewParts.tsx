@@ -213,7 +213,7 @@ export function computeTasaCierreMensual(
   return Math.min(100, Math.max(0, (a / denom) * 100));
 }
 
-/** Color + nivel textual (no solo color) según el %. Rojo → azul → verde (sin dorado). */
+/** Color + nivel textual (no solo color) según el %. Rojo / ámbar / verde por umbral. */
 export function tasaCierreVisual(tasa: number | null): {
   color: string;
   nivel: "sin-datos" | "baja" | "media" | "alta";
@@ -226,16 +226,16 @@ export function tasaCierreVisual(tasa: number | null): {
       nivelLabel: "Sin datos",
     };
   }
-  const t = Math.min(1, Math.max(0, tasa / 100));
-  // 0% rojo (0) → 50% azul (210) → 100% verde (145)
-  const hue = t <= 0.5 ? t * 2 * 210 : 210 - (t - 0.5) * 2 * 65;
   const nivel = tasa < 40 ? "baja" : tasa < 70 ? "media" : "alta";
   const nivelLabel = nivel === "baja" ? "Baja" : nivel === "media" ? "Media" : "Alta";
-  return {
-    color: `hsl(${Math.round(hue)} 72% 62%)`,
-    nivel,
-    nivelLabel,
-  };
+  // Colores fijos por nivel. Media en ámbar: legible sobre el header azul oscuro.
+  const color =
+    nivel === "baja"
+      ? "rgb(248 113 113)" // rose-400
+      : nivel === "media"
+        ? "rgb(251 191 36)" // amber-400
+        : "rgb(74 222 128)"; // green-400
+  return { color, nivel, nivelLabel };
 }
 
 function formatTasaCierrePct(tasa: number | null): string {
