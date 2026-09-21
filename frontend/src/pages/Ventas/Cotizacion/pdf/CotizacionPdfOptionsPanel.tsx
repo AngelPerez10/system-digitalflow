@@ -16,6 +16,11 @@ type Props = {
   descripcionesCortas: Record<string, string>;
   onDescripcionCortaChange: (conceptoId: string, value: string) => void;
   lines: PdfLine[];
+  /**
+   * Solo en alta (o si ya venía marcada). En edición de una cotización
+   * normal no se ofrece marcar garantía a posteriori.
+   */
+  showGarantiaOption?: boolean;
 };
 
 type OpcionKey = keyof CotizacionPdfOpciones;
@@ -77,12 +82,38 @@ function PdfOptionCheckbox({
   );
 }
 
+function GarantiaCheckbox({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50/80 px-3 py-3 transition-colors hover:bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/[0.08] dark:hover:bg-amber-500/[0.12] sm:px-4">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-amber-400 text-amber-600 focus:ring-amber-400/30 dark:border-amber-500/50 dark:bg-[#111827]"
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-amber-900 dark:text-amber-200">Es garantía</span>
+        <span className="mt-0.5 block text-xs text-amber-800/80 dark:text-amber-200/70">
+          Reposición sin costo: en el PDF, precios e importes salen en $0 y se agrega una marca de agua «GARANTÍA».
+        </span>
+      </span>
+    </label>
+  );
+}
+
 export function CotizacionPdfOptionsPanel({
   opciones,
   onOpcionesChange,
   descripcionesCortas,
   onDescripcionCortaChange,
   lines,
+  showGarantiaOption = true,
 }: Props) {
   const simplificarSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -130,6 +161,12 @@ export function CotizacionPdfOptionsPanel({
       compact
     >
       <div className="grid grid-cols-1 gap-2.5">
+        {showGarantiaOption ? (
+          <GarantiaCheckbox
+            checked={opciones.es_garantia}
+            onChange={(v) => setOpcion("es_garantia", v)}
+          />
+        ) : null}
         <PdfOptionCheckbox
           checked={ocultarPreciosLineaActivo}
           label={OCULTAR_PRECIOS_LINEA.label}

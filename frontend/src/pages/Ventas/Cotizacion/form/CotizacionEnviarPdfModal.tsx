@@ -24,12 +24,19 @@ export type CotizacionEnviarPdfTarget = {
   status?: string;
 };
 
+export type CotizacionEnvioRegistrado = {
+  enviado_por_username?: string;
+  enviado_por_full_name?: string;
+  enviado_en?: string;
+  enviado_comentario?: string;
+};
+
 type Props = {
   open: boolean;
   cotizacion: CotizacionEnviarPdfTarget | null;
   initialCorreo?: string;
   onClose: () => void;
-  onSent?: (correo: string) => void;
+  onSent?: (correo: string, envio?: CotizacionEnvioRegistrado) => void;
   onError?: (message: string) => void;
 };
 
@@ -181,7 +188,7 @@ export default function CotizacionEnviarPdfModal({
         body: JSON.stringify({ correo: to }),
       });
       const data = (await resp.json().catch(() => null)) as
-        | { detail?: string; correo?: string }
+        | ({ detail?: string; correo?: string } & CotizacionEnvioRegistrado)
         | null;
       if (!resp.ok) {
         const msg =
@@ -191,7 +198,7 @@ export default function CotizacionEnviarPdfModal({
         onError?.(msg);
         return;
       }
-      onSent?.(String(data?.correo || to));
+      onSent?.(String(data?.correo || to), data || undefined);
       onClose();
     } catch {
       const msg = "Error de red al enviar el PDF por correo.";

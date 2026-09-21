@@ -79,6 +79,7 @@ import {
   inputLikeClassName,
   labelPageClass,
   numberInputClass,
+  numberInputWithSpinnersClass,
   primaryActionBtnClass,
   primaryActionInlineBtnClass,
   secondaryActionBtnClass,
@@ -232,9 +233,7 @@ export default function NuevaCotizacionPage() {
   const {
     catalogoConceptos,
     catalogoManualProductos,
-    catalogoConceptosError,
     catalogoManualError,
-    loadingCatalogoConceptos,
     servicios,
   } = useCotizacionCatalogos(canCotizacionesView);
 
@@ -975,42 +974,10 @@ export default function NuevaCotizacionPage() {
     setSyscomOpen(false);
   };
 
-  const filteredCatalogoConceptos = useMemo(() => {
-    const q = productoSearch.trim().toLowerCase();
-    const qCompact = q.replace(/\s+/g, "");
-    if (!q) return [];
-    return catalogoConceptos
-      .filter((c) => {
-        const folio = c.folio.toLowerCase();
-        const folioCompact = folio.replace(/\s+/g, "");
-        return (
-          folio.startsWith(q) ||
-          folioCompact.startsWith(qCompact) ||
-          folio.includes(q) ||
-          c.concepto.toLowerCase().includes(q) ||
-          String(c.precio1).toLowerCase().includes(q)
-        );
-      })
-      .slice(0, 8);
-  }, [catalogoConceptos, productoSearch]);
-
   const resolveCatalogoDescripcion = (c: CatalogoConcepto) => {
     const catalogDesc = String(c.descripcion || "").trim();
     if (catalogDesc) return catalogDesc;
     return `Folio: ${c.folio}`;
-  };
-
-  const selectCatalogoConcepto = (c: CatalogoConcepto) => {
-    setSelectedSyscomProducto(null);
-    setSelectedCatalogoConcepto(c);
-    setSelectedManualProducto(null);
-    setConceptoNombre(String(c.concepto || ""));
-    setProductoSearch(String(c.concepto || ""));
-    setConceptoDescripcion((prev) => (String(prev || "").trim() ? prev : resolveCatalogoDescripcion(c)));
-    setCantidad((q) => (toNumber(q, 0) > 0 ? q : 1));
-    setUnidad((u) => (u.trim() ? u : "SERV"));
-    setPrecioLista(Math.max(0, toNumber(c.precio1, 0)));
-    setSyscomOpen(false);
   };
 
   const filteredManualProductos = useMemo(() => {
@@ -1045,38 +1012,25 @@ export default function NuevaCotizacionPage() {
     () =>
       syscomOpen &&
       (loadingSyscom ||
-        loadingCatalogoConceptos ||
         syscomProductos.length > 0 ||
-        filteredCatalogoConceptos.length > 0 ||
         filteredManualProductos.length > 0 ||
         !!syscomError ||
-        !!catalogoConceptosError ||
         !!catalogoManualError ||
         productoSearch.trim().length >= 2),
     [
       syscomOpen,
       loadingSyscom,
-      loadingCatalogoConceptos,
       syscomProductos.length,
-      filteredCatalogoConceptos.length,
       filteredManualProductos.length,
       syscomError,
-      catalogoConceptosError,
       catalogoManualError,
       productoSearch,
     ]
   );
 
-  const combinedConceptoOptions = useMemo(
+  /** Solo productos (manual / SYSCOM / TVC). Los conceptos van en el campo Concepto. */
+  const combinedProductoOptions = useMemo(
     () => [
-      ...filteredCatalogoConceptos.map((c) => ({
-        key: `catalogo-${c.id}`,
-        source: "catalogo" as const,
-        title: c.concepto || "-",
-        subtitle: `Folio: ${c.folio}`,
-        price: toNumber(c.precio1, 0),
-        onSelect: () => selectCatalogoConcepto(c),
-      })),
       ...filteredManualProductos.map((p) => ({
         key: `manual-${p.id}`,
         source: "manual" as const,
@@ -1094,7 +1048,7 @@ export default function NuevaCotizacionPage() {
         onSelect: () => selectSyscomProducto(p),
       })),
     ],
-    [filteredCatalogoConceptos, filteredManualProductos, syscomProductos, syscomTipoCambio]
+    [filteredManualProductos, syscomProductos, syscomTipoCambio]
   );
 
   useLayoutEffect(() => {
@@ -1544,6 +1498,8 @@ export default function NuevaCotizacionPage() {
       try {
         void fetchApi(`/api/cotizaciones/${targetId}/`, {
           method: "PUT",
+          // Sin Content-Type DRF responde 415 y el último guardado se pierde en silencio.
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(buildCotizacionPayload()),
           keepalive: true,
         });
@@ -1559,7 +1515,7 @@ export default function NuevaCotizacionPage() {
     () => (editingConceptoId ? conceptos.find((x) => x.id === editingConceptoId) || null : null),
     [conceptos, editingConceptoId]
   );
-  const hasProductoSeleccionado = !!selectedSyscomProducto || !!selectedManualProducto || !!selectedCatalogoConcepto;
+  const hasProductoSeleccionado = !!selectedSyscomProducto || !!selectedManualProducto;
   const bloquearConceptoInput = hasProductoSeleccionado || String(productoSearch || "").trim().length > 0;
   const bloquearProductoInput = String(conceptoNombre || "").trim().length > 0;
   const nombreConceptoResuelto = String(
@@ -1860,6 +1816,28 @@ export default function NuevaCotizacionPage() {
     };
   }, [conceptos, effectiveDescuentoClientePct]);
 
+  /**
+   * Vista de garantía: los precios se muestran en $0 en la app (tabla de
+   * conceptos y resumen) para que coincidan con el PDF. Los datos reales
+   * (precio_lista, subtotal, total) NO se tocan — se siguen guardando
+   * normales en `buildCotizacionPayload`, que lee de `conceptos`, no de aquí.
+   */
+  const displayComputed = useMemo(() => {
+    if (!pdfOpciones.es_garantia) return computed;
+    return {
+      ...computed,
+      lines: computed.lines.map((l) => ({ ...l, pu: 0, importe: 0, importeCobrado: 0 })),
+      subtotalLineas: 0,
+      descuentoLineas: 0,
+      descuentoCliente: 0,
+      subtotal: 0,
+      total: 0,
+      totalConIva: 0,
+      subtotalSinIva: 0,
+      ivaDesglose: 0,
+    };
+  }, [computed, pdfOpciones.es_garantia]);
+
   /** Cliente, tipo de trabajo y al menos un concepto; contacto es opcional (medio solo si hay contacto). */
   const canGuardarCotizacion = useMemo(() => {
     if (!clienteId) return false;
@@ -2074,6 +2052,9 @@ export default function NuevaCotizacionPage() {
       id: Number(cotizacionPk),
       idx: editingCotizacionIdx ?? undefined,
       cliente: resolveClienteNombre() || undefined,
+      comentario: enviadoInfo?.comentario,
+      enviadoPor: enviadoInfo?.por,
+      enviadoEn: enviadoInfo?.en,
     });
   };
 
@@ -2088,8 +2069,16 @@ export default function NuevaCotizacionPage() {
           open={enviarPdfTarget != null}
           cotizacion={enviarPdfTarget}
           onClose={() => setEnviarPdfTarget(null)}
-          onSent={(correo) => {
+          onSent={(correo, envio) => {
             setEnviarPdfTarget(null);
+            const por = String(envio?.enviado_por_full_name || envio?.enviado_por_username || "").trim();
+            if (por) {
+              setEnviadoInfo({
+                por,
+                en: String(envio?.enviado_en || "").trim() || undefined,
+                comentario: String(envio?.enviado_comentario || "").trim() || undefined,
+              });
+            }
             setAlert({
               show: true,
               variant: "success",
@@ -2178,7 +2167,7 @@ export default function NuevaCotizacionPage() {
             <div
               ref={syscomPopRef}
               role="listbox"
-              aria-label="Resultados de conceptos"
+              aria-label="Resultados de productos"
               style={{
                 position: "fixed",
                 zIndex: 2147483646,
@@ -2187,24 +2176,13 @@ export default function NuevaCotizacionPage() {
                 maxHeight: syscomPopPos.maxHeight,
                 ...(syscomPopPos.top != null ? { top: syscomPopPos.top } : { bottom: syscomPopPos.bottom }),
               }}
-              className="flex flex-col overflow-hidden rounded-2xl border border-[#E7E7EA]/90 bg-white/98 shadow-2xl shadow-gray-900/20 ring-1 ring-black/[0.06] backdrop-blur-md dark:border-white/[0.12] dark:bg-[#111827]/98 dark:shadow-black/50 dark:ring-white/[0.08]"
+              className="flex flex-col overflow-hidden rounded-2xl border border-[#E7E7EA]/90 bg-white/98 shadow-2xl shadow-gray-900/20 ring-1 ring-black/6 backdrop-blur-md dark:border-white/12 dark:bg-[#111827]/98 dark:shadow-black/50 dark:ring-white/8"
             >
-              <div className="shrink-0 border-b border-[#EDEDED] dark:border-[#273244]/90 bg-gradient-to-r from-[#F1F5FF]/95 to-transparent px-3 py-2 dark:border-white/[0.06] dark:from-[#1B5CFF]/50 dark:to-transparent">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:text-[#4B7CFF]">Resultados combinados</p>
-                <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">Conceptos internos, manuales, Syscom y TVC</p>
+              <div className="shrink-0 border-b border-[#EDEDED] bg-linear-to-r from-[#F1F5FF]/95 to-transparent px-3 py-2 dark:border-white/6 dark:from-[#1B5CFF]/50 dark:to-transparent">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:text-[#4B7CFF]">Productos</p>
+                <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">Manuales, Syscom y TVC</p>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-1.5 custom-scrollbar">
-                {loadingCatalogoConceptos && (
-                  <div className="mb-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
-                    <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[#1B5CFF] border-t-transparent" aria-hidden />
-                    Cargando conceptos...
-                  </div>
-                )}
-                {!loadingCatalogoConceptos && !!catalogoConceptosError && (
-                  <div className="mb-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-                    {catalogoConceptosError}
-                  </div>
-                )}
                 {!!catalogoManualError && (
                   <div className="mb-1 rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
                     {catalogoManualError}
@@ -2219,19 +2197,18 @@ export default function NuevaCotizacionPage() {
                 {!loadingSyscom && !!syscomError && (
                   <div className="mb-1 rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                     {syscomError}
-                    {combinedConceptoOptions.length > 0
-                      ? " Puedes seguir eligiendo conceptos o productos manuales."
+                    {combinedProductoOptions.length > 0
+                      ? " Puedes seguir eligiendo productos manuales."
                       : ""}
                   </div>
                 )}
-                {!loadingCatalogoConceptos &&
-                  combinedConceptoOptions.map((opt) => (
+                {combinedProductoOptions.map((opt) => (
                     <button
                       key={opt.key}
                       type="button"
                       role="option"
                       onClick={opt.onSelect}
-                      className="group mb-1 flex w-full rounded-xl px-2 py-2 text-left transition-colors last:mb-0 hover:bg-[#1B5CFF]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-white/[0.06]"
+                      className="group mb-1 flex w-full rounded-xl px-2 py-2 text-left transition-colors last:mb-0 hover:bg-[#1B5CFF]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-white/6"
                     >
                       <div className="flex w-full items-center justify-between gap-2">
                         <div className="min-w-0">
@@ -2239,10 +2216,8 @@ export default function NuevaCotizacionPage() {
                             {opt.title}
                           </p>
                           <p className="mt-0.5 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
-                            <span className="mr-1 rounded bg-[#EDEDED] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/[0.08]">
-                              {opt.source === "catalogo"
-                                ? "Concepto"
-                                : opt.source === "manual"
+                            <span className="mr-1 rounded bg-[#EDEDED] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/8">
+                              {opt.source === "manual"
                                   ? "Manual"
                                   : opt.source === "tvc"
                                     ? "TVC"
@@ -2258,9 +2233,8 @@ export default function NuevaCotizacionPage() {
                     </button>
                   ))}
                 {!loadingSyscom &&
-                  !loadingCatalogoConceptos &&
                   !catalogoManualError &&
-                  combinedConceptoOptions.length === 0 &&
+                  combinedProductoOptions.length === 0 &&
                   productoSearch.trim().length >= 2 && (
                   <div className="rounded-lg px-3 py-4 text-center text-xs text-[#6E6E77] dark:text-[#8ea0b8]">Sin resultados en catálogos</div>
                 )}
@@ -2288,7 +2262,7 @@ export default function NuevaCotizacionPage() {
             >
               <Link
                 to="/"
-                className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+                className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
               >
                 Inicio
               </Link>
@@ -2297,7 +2271,7 @@ export default function NuevaCotizacionPage() {
               </span>
               <Link
                 to="/cotizacion"
-                className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+                className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
               >
                 Cotizaciones
               </Link>
@@ -2349,7 +2323,7 @@ export default function NuevaCotizacionPage() {
                       </span>
                       <span className={heroChipClass}>
                         Total
-                        <span className="font-semibold tabular-nums text-white">{formatMoney(computed.total)}</span>
+                        <span className="font-semibold tabular-nums text-white">{formatMoney(displayComputed.total)}</span>
                         <span className="text-[10px] uppercase text-white/55">MXN</span>
                       </span>
                     </div>
@@ -2359,7 +2333,7 @@ export default function NuevaCotizacionPage() {
                   <button
                     type="button"
                     onClick={() => goToCotizacionList()}
-                    className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[10px] border border-white/20 bg-white/10 px-4 text-sm font-medium text-white transition-colors hover:bg-white/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-white/20 bg-white/10 px-4 text-sm font-medium text-white transition-colors hover:bg-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:w-auto"
                     aria-label="Regresar a cotizaciones"
                   >
                     <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2388,7 +2362,7 @@ export default function NuevaCotizacionPage() {
                   title="Información de contacto"
                   desc="Busca por nombre o teléfono y completa contacto, descuento y estado."
                   className={`${cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")} ${
-                    clienteOpen || tipoTrabajoOpen ? "relative z-[200]" : ""
+                    clienteOpen || tipoTrabajoOpen ? "relative z-200" : ""
                   }`}
                   compact
                 >
@@ -2398,7 +2372,7 @@ export default function NuevaCotizacionPage() {
                         Cliente
                         <span className="text-[#C22B2B] dark:text-[#F87171]"> *</span>
                       </Label>
-                      <div className={`relative ${clienteOpen ? "z-[100]" : "z-0"}`}>
+                      <div className={`relative ${clienteOpen ? "z-100" : "z-0"}`}>
                         <div className="relative">
                           <svg className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A1A1AA]' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'><circle cx='11' cy='11' r='7' /><path d='m20 20-2-2' /></svg>
                           <input
@@ -2419,20 +2393,20 @@ export default function NuevaCotizacionPage() {
                                 type="button"
                                 onClick={() => selectCliente(null)}
                                 aria-label="Limpiar cliente"
-                                className="inline-flex h-8 min-w-[32px] items-center justify-center rounded-md text-[#A1A1AA] transition hover:bg-[#E7E7EA]/60 hover:text-[#52525B] dark:hover:bg-white/[0.06] dark:hover:text-[#D3D3D8] sm:h-9 sm:min-w-[36px] sm:rounded-lg"
+                                className="inline-flex h-8 min-w-8 items-center justify-center rounded-md text-[#A1A1AA] transition hover:bg-[#E7E7EA]/60 hover:text-[#52525B] dark:hover:bg-white/6 dark:hover:text-[#D3D3D8] sm:h-9 sm:min-w-9 sm:rounded-lg"
                               >
                                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
                                   <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
                                 </svg>
                               </button>
                             )}
-                            <button type="button" onClick={() => setClienteOpen((o) => !o)} className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:bg-[#243048]">
+                            <button type="button" onClick={() => setClienteOpen((o) => !o)} className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#8EA0B8] dark:hover:bg-[#243048]">
                               <svg className={`w-3.5 h-3.5 transition-transform ${clienteOpen ? 'rotate-180' : ''}`} viewBox='0 0 20 20' fill='none'><path d='M5.25 7.5 10 12.25 14.75 7.5' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' /></svg>
                             </button>
                           </div>
                         </div>
                         {clienteOpen && (
-                          <div className="absolute left-0 right-0 top-full z-[110] mt-1 max-h-64 w-full overflow-auto divide-y divide-[#EDEDED] rounded-xl border border-[#E7E7EA] bg-[#ffffff] shadow-xl ring-1 ring-black/5 backdrop-blur-sm custom-scrollbar dark:divide-[#273244] dark:border-[#273244] dark:bg-[#111827]/95 dark:ring-white/10">
+                          <div className="absolute left-0 right-0 top-full z-110 mt-1 max-h-64 w-full overflow-auto divide-y divide-[#EDEDED] rounded-xl border border-[#E7E7EA] bg-white shadow-xl ring-1 ring-black/5 backdrop-blur-sm custom-scrollbar dark:divide-[#273244] dark:border-[#273244] dark:bg-[#111827]/95 dark:ring-white/10">
                             <button type='button' onClick={() => selectCliente(null)} className={`w-full text-left px-3 py-2 text-[11px] hover:bg-[#1B5CFF]/10 dark:hover:bg-[#243048] dark:text-white ${!clienteId ? 'bg-[#1B5CFF]/10 dark:bg-[#0f172a]/50 font-medium text-[#1B5CFF] dark:text-white' : ''}`}>Selecciona cliente</button>
                             {filteredClientes.map(c => (
                               <button key={c.id} type='button' onClick={() => selectCliente(c)} className='w-full text-left px-3 py-2 hover:bg-[#FAFAFA] dark:hover:bg-[#243048] text-[#52525B] dark:text-[#e5e7eb] transition'>
@@ -2619,7 +2593,7 @@ export default function NuevaCotizacionPage() {
                         Tipo de Trabajo
                         <span className="text-[#C22B2B] dark:text-[#F87171]"> *</span>
                       </Label>
-                      <div ref={tipoTrabajoRef} className={`relative ${tipoTrabajoOpen ? "z-[100]" : "z-0"}`}>
+                      <div ref={tipoTrabajoRef} className={`relative ${tipoTrabajoOpen ? "z-100" : "z-0"}`}>
                         <button
                           id="tipo-trabajo-trigger"
                           type="button"
@@ -2670,7 +2644,7 @@ export default function NuevaCotizacionPage() {
 
                         {tipoTrabajoOpen && servicios.length > 0 && (
                           <div
-                            className="absolute left-0 right-0 top-full z-[110] mt-1 max-h-64 w-full overflow-hidden rounded-xl border border-[#E7E7EA] bg-[#ffffff] shadow-xl ring-1 ring-black/5 dark:border-[#273244] dark:bg-[#111827]/95 dark:ring-white/10"
+                            className="absolute left-0 right-0 top-full z-110 mt-1 max-h-64 w-full overflow-hidden rounded-xl border border-[#E7E7EA] bg-white shadow-xl ring-1 ring-black/5 dark:border-[#273244] dark:bg-[#111827]/95 dark:ring-white/10"
                             role="listbox"
                             aria-label="Servicios disponibles"
                             aria-multiselectable
@@ -2720,7 +2694,7 @@ export default function NuevaCotizacionPage() {
                                       className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors sm:px-4 sm:py-3 ${
                                         checked
                                           ? "bg-[#EAF1FF]/90 dark:bg-[#1B5CFF]/10"
-                                          : "hover:bg-[#1B5CFF]/[0.04] dark:hover:bg-white/[0.03]"
+                                          : "hover:bg-[#1B5CFF]/4 dark:hover:bg-white/3"
                                       }`}
                                     >
                                       <input
@@ -2820,7 +2794,7 @@ export default function NuevaCotizacionPage() {
                             type="button"
                             disabled={!String(editingCotizacionId || activeCotizacionId || "").trim()}
                             onClick={handleAbrirMarcarEnviada}
-                            className={`${secondaryActionBtnClass} !w-full`}
+                            className={`${secondaryActionBtnClass} w-full!`}
                             title={
                               !String(editingCotizacionId || activeCotizacionId || "").trim()
                                 ? "Guarda la cotización para marcarla como enviada"
@@ -2857,14 +2831,14 @@ export default function NuevaCotizacionPage() {
                   title="Agregar productos o servicios"
                   desc="Arma una línea: primero qué vendes, luego precio y descuento."
                   className={`${cardShellClass.replace(/^overflow-hidden\b/, "overflow-visible")} ${
-                    conceptoOpen || syscomOpen ? "relative z-[200]" : ""
+                    conceptoOpen || syscomOpen ? "relative z-200" : ""
                   }`}
                   compact
                   actions={
                     <button
                       type="button"
                       onClick={clearConceptoForm}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E7E7EA] bg-[#ffffff] text-[#6E6E77] transition-colors hover:border-[#BBD0FF] hover:bg-[#F1F5FF] hover:text-[#1B5CFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#8EA0B8] dark:hover:border-[#4B7CFF]/40 dark:hover:bg-[#4B7CFF]/10 dark:hover:text-[#4B7CFF]"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white text-[#6E6E77] transition-colors hover:border-[#BBD0FF] hover:bg-[#F1F5FF] hover:text-[#1B5CFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#8EA0B8] dark:hover:border-[#4B7CFF]/40 dark:hover:bg-[#4B7CFF]/10 dark:hover:text-[#4B7CFF]"
                       aria-label="Limpiar sección de producto"
                       title="Limpiar"
                     >
@@ -2910,13 +2884,13 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     <fieldset
-                      className={`relative overflow-visible rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-3.5 dark:border-[#273244] dark:bg-[#1B2539] sm:p-4 ${
+                      className={`relative overflow-visible rounded-3xl border border-[#E7E7EA] bg-[#FAFAFA] p-3.5 dark:border-[#273244] dark:bg-[#1B2539] sm:p-4 ${
                         conceptoOpen ? "z-30" : "z-10"
                       }`}
                     >
                       <legend className="sr-only">Qué vendes</legend>
                       <div className="mb-3 flex items-center gap-2">
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-[#1B5CFF]/15 text-[11px] font-bold tabular-nums text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]" aria-hidden>
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-[#1B5CFF]/15 text-[11px] font-bold tabular-nums text-[#1244D1] dark:menu-dropdown-badge-active dark:text-[#4B7CFF]" aria-hidden>
                           1
                         </span>
                         <div>
@@ -2928,7 +2902,7 @@ export default function NuevaCotizacionPage() {
                         <div className="sm:col-span-2">
                           <Label className={labelPageClass}>Cant.</Label>
                           <input
-                            className={`${numberInputClass} min-h-[46px] text-center text-base font-semibold`}
+                            className={`${numberInputWithSpinnersClass} min-h-11.5 text-center text-base font-semibold`}
                             type="number"
                             inputMode="numeric"
                             value={String(cantidad)}
@@ -2942,9 +2916,9 @@ export default function NuevaCotizacionPage() {
 
                         <div className="sm:col-span-5">
                           <Label className={labelPageClass}>Concepto</Label>
-                          <div className={`relative ${conceptoOpen ? "z-[100]" : "z-0"}`} ref={conceptoRef}>
+                          <div className={`relative ${conceptoOpen ? "z-100" : "z-0"}`} ref={conceptoRef}>
                             <input
-                              className={`${inputLikeClassName} min-h-[46px] text-sm sm:text-base ${bloquearConceptoInput ? "opacity-60" : ""}`}
+                              className={`${inputLikeClassName} min-h-11.5 text-sm sm:text-base ${bloquearConceptoInput ? "opacity-60" : ""}`}
                               value={conceptoOpen ? conceptoSearch : conceptoNombre}
                               disabled={bloquearConceptoInput}
                               onFocus={() => {
@@ -2965,7 +2939,7 @@ export default function NuevaCotizacionPage() {
                               <div
                                 id="cotizacion-concepto-sugerencias"
                                 role="listbox"
-                                className="absolute left-0 right-0 top-full z-[120] mt-1.5 max-h-64 w-full overflow-auto rounded-xl border border-[#E7E7EA] bg-[#ffffff] shadow-[0_18px_40px_-20px_rgba(9,9,11,0.35)] ring-1 ring-black/5 dark:border-[#273244] dark:bg-[#111827]/95 dark:ring-white/10"
+                                className="absolute left-0 right-0 top-full z-120 mt-1.5 max-h-64 w-full overflow-auto rounded-xl border border-[#E7E7EA] bg-white shadow-[0_18px_40px_-20px_rgba(9,9,11,0.35)] ring-1 ring-black/5 dark:border-[#273244] dark:bg-[#111827]/95 dark:ring-white/10"
                               >
                                 <button
                                   type="button"
@@ -2974,7 +2948,7 @@ export default function NuevaCotizacionPage() {
                                     handleConceptoInputChange(conceptoSearch);
                                     setConceptoOpen(false);
                                   }}
-                                  className="w-full border-b border-[#E7E7EA]/80 px-3 py-2.5 text-left text-sm text-[#52525B] transition-colors hover:bg-[#F1F5FF] dark:border-[#273244] dark:text-[#cbd5e1] dark:hover:bg-white/[0.06]"
+                                  className="w-full border-b border-[#E7E7EA]/80 px-3 py-2.5 text-left text-sm text-[#52525B] transition-colors hover:bg-[#F1F5FF] dark:border-[#273244] dark:text-[#cbd5e1] dark:hover:bg-white/6"
                                 >
                                   Usar: <span className="font-medium text-[#09090B] dark:text-[#f8fafc]">{conceptoSearch.trim() || "Concepto personalizado"}</span>
                                 </button>
@@ -2993,7 +2967,7 @@ export default function NuevaCotizacionPage() {
                                         handleConceptoInputChange(String(c.concepto || ""));
                                         setConceptoOpen(false);
                                       }}
-                                      className="w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-[#F1F5FF] dark:hover:bg-white/[0.06]"
+                                      className="w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-[#F1F5FF] dark:hover:bg-white/6"
                                     >
                                       <div className="font-medium text-[#09090B] dark:text-[#f8fafc]">{c.concepto || "Sin nombre"}</div>
                                       <div className="text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
@@ -3009,14 +2983,14 @@ export default function NuevaCotizacionPage() {
                         <div className="sm:col-span-5">
                           <Label className={labelPageClass}>Producto</Label>
                           <div ref={syscomInputWrapRef} className="relative">
-                            <span className="pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]" aria-hidden>
+                            <span className="pointer-events-none absolute left-3 top-1/2 z-1 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]" aria-hidden>
                               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                 <circle cx="11" cy="11" r="7" />
                                 <path d="M20 20l-3-3" />
                               </svg>
                             </span>
                             <input
-                              className={`${inputLikeClassName} min-h-[46px] pl-9 text-sm sm:text-base ${bloquearProductoInput ? "opacity-60" : ""}`}
+                              className={`${inputLikeClassName} min-h-11.5 pl-9 text-sm sm:text-base ${bloquearProductoInput ? "opacity-60" : ""}`}
                               value={productoSearch}
                               disabled={bloquearProductoInput}
                               onFocus={() => {
@@ -3036,7 +3010,7 @@ export default function NuevaCotizacionPage() {
                       </div>
                     </fieldset>
 
-                    <fieldset className="relative z-0 rounded-2xl border border-[#E7E7EA]/90 bg-[#ffffff]/70 p-3.5 dark:border-[#273244] dark:bg-[#0f172a]/35 sm:p-4">
+                    <fieldset className="relative z-0 rounded-2xl border border-[#E7E7EA]/90 bg-white/70 p-3.5 dark:border-[#273244] dark:bg-[#0f172a]/35 sm:p-4">
                       <legend className="sr-only">Precio y condiciones</legend>
                       <div className="mb-3 flex items-center gap-2">
                         <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-[#09090B]/8 text-[11px] font-bold tabular-nums text-[#52525B] dark:bg-white/10 dark:text-[#cbd5e1]" aria-hidden>
@@ -3088,7 +3062,7 @@ export default function NuevaCotizacionPage() {
                         </div>
 
                         {canMarcarSinIva && (
-                          <div className="sm:col-span-3 flex min-h-[46px] items-center rounded-xl border border-[#E7E7EA]/80 bg-[#FAFAFA]/80 px-3.5 py-2.5 dark:border-[#273244] dark:bg-[#111827]/50 sm:mt-6">
+                          <div className="sm:col-span-3 flex min-h-11.5 items-center rounded-xl border border-[#E7E7EA]/80 bg-[#FAFAFA]/80 px-3.5 py-2.5 dark:border-[#273244] dark:bg-[#111827]/50 sm:mt-6">
                             <Switch
                               label="Sin IVA"
                               checked={sinIva}
@@ -3119,13 +3093,13 @@ export default function NuevaCotizacionPage() {
 
                     <div className={`relative z-0 ${summaryHeroClass}`}>
                       <div
-                        className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#1B5CFF]/15 blur-2xl dark:bg-[#1B5CFF]/20"
+                        className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#1B5CFF]/15 blur-2xl dark:menu-dropdown-badge-active"
                         aria-hidden
                       />
                       <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="grid flex-1 grid-cols-2 gap-4 sm:max-w-md">
                           <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#1B5CFF]/80 dark:text-[#4B7CFF]/80 sm:text-[11px]">
+                            <div className="text-[10px] font-semibold uppercase tracking-widest text-[#1B5CFF]/80 dark:text-[#4B7CFF]/80 sm:text-[11px]">
                               Unitario{preview.sinIvaEfectivo ? " (sin IVA)" : " base"}
                             </div>
                             <div className="mt-1 text-lg font-semibold tabular-nums tracking-tight text-[#09090B] dark:text-[#f8fafc] sm:text-xl">
@@ -3133,7 +3107,7 @@ export default function NuevaCotizacionPage() {
                             </div>
                           </div>
                           <div className="sm:text-right">
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#1B5CFF]/80 dark:text-[#4B7CFF]/80 sm:text-[11px]">
+                            <div className="text-[10px] font-semibold uppercase tracking-widest text-[#1B5CFF]/80 dark:text-[#4B7CFF]/80 sm:text-[11px]">
                               Importe de línea
                             </div>
                             <div className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-[#1B5CFF] dark:text-[#4B7CFF] sm:text-2xl">
@@ -3148,7 +3122,7 @@ export default function NuevaCotizacionPage() {
                           type="button"
                           onClick={addConcepto}
                           disabled={!canAddConcepto}
-                          className={`${primaryActionInlineBtnClass} shrink-0 sm:min-w-[11rem]`}
+                          className={`${primaryActionInlineBtnClass} shrink-0 sm:min-w-44`}
                         >
                           {editingConceptoId ? (
                             <>
@@ -3184,7 +3158,7 @@ export default function NuevaCotizacionPage() {
                   <div className={tableWrapClass}>
                     <div className="p-1 sm:p-2">
                       <CotizacionConceptosTable
-                        lines={computed.lines}
+                        lines={displayComputed.lines}
                         categorias={categorias}
                         onReorderProducts={handleReorderProducts}
                         onReorderCategorias={handleReorderCategorias}
@@ -3272,49 +3246,49 @@ export default function NuevaCotizacionPage() {
                           </span>
                         </div>
                         <div className="mt-1.5 text-[2rem] font-semibold leading-none tabular-nums tracking-tight text-[#09090B] dark:text-[#f8fafc] sm:text-[2.25rem]">
-                          {formatMoney(computed.total)}
+                          {formatMoney(displayComputed.total)}
                         </div>
 
                         <dl className="mt-4 space-y-2 rounded-xl border border-[#1B5CFF]/12 bg-white/55 p-3 dark:border-[#1B5CFF]/20 dark:bg-[#0f172a]/40">
-                          {computed.descuentoLineas >= 0.01 && (
+                          {displayComputed.descuentoLineas >= 0.01 && (
                             <div className="flex items-center justify-between">
                               <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Descuento conceptos</dt>
-                              <dd className="text-xs font-medium tabular-nums text-[#C22B2B] dark:text-[#F87171] sm:text-sm">-{formatMoney(computed.descuentoLineas)}</dd>
+                              <dd className="text-xs font-medium tabular-nums text-[#C22B2B] dark:text-[#F87171] sm:text-sm">-{formatMoney(displayComputed.descuentoLineas)}</dd>
                             </div>
                           )}
                           {!!toNumber(computed.descClientePct, 0) && (
                             <>
                               <div className="flex items-center justify-between">
                                 <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Importe conceptos</dt>
-                                <dd className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.subtotalLineas)}</dd>
+                                <dd className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(displayComputed.subtotalLineas)}</dd>
                               </div>
                               <div className="flex items-center justify-between">
                                 <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Descuento cliente ({clampPct(toNumber(computed.descClientePct, 0)).toFixed(2)}%)</dt>
-                                <dd className="text-xs font-medium tabular-nums text-[#C22B2B] dark:text-[#F87171] sm:text-sm">-{formatMoney(computed.descuentoCliente)}</dd>
+                                <dd className="text-xs font-medium tabular-nums text-[#C22B2B] dark:text-[#F87171] sm:text-sm">-{formatMoney(displayComputed.descuentoCliente)}</dd>
                               </div>
                             </>
                           )}
-                          {(computed.descuentoLineas >= 0.01 || !!toNumber(computed.descClientePct, 0)) && (
-                            <div className="my-1 h-px bg-[#1B5CFF]/10 dark:bg-[#1B5CFF]/20" aria-hidden />
+                          {(displayComputed.descuentoLineas >= 0.01 || !!toNumber(computed.descClientePct, 0)) && (
+                            <div className="my-1 h-px bg-[#1B5CFF]/10 dark:menu-dropdown-badge-active" aria-hidden />
                           )}
                           <div className="flex items-center justify-between">
                             <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">Subtotal</dt>
-                            <dd className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.subtotalSinIva)}</dd>
+                            <dd className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(displayComputed.subtotalSinIva)}</dd>
                           </div>
                           <div className="flex items-center justify-between">
                             <dt className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] sm:text-xs">IVA (16%)</dt>
-                            <dd className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(computed.ivaDesglose)}</dd>
+                            <dd className="text-xs font-medium tabular-nums text-[#09090B] dark:text-[#f8fafc] sm:text-sm">{formatMoney(displayComputed.ivaDesglose)}</dd>
                           </div>
                           <div className="flex items-center justify-between border-t border-[#1B5CFF]/15 pt-2 dark:border-[#1B5CFF]/20">
                             <dt className="text-[11px] font-semibold text-[#52525B] dark:text-[#B7C1D1] sm:text-xs">Total con IVA</dt>
-                            <dd className="text-sm font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">{formatMoney(computed.totalConIva)}</dd>
+                            <dd className="text-sm font-semibold tabular-nums text-[#09090B] dark:text-[#f8fafc]">{formatMoney(displayComputed.totalConIva)}</dd>
                           </div>
                         </dl>
 
                         {(() => {
                           const pct = clampAnticipo(toNumber(anticipoPct, ANTICIPO_PCT_DEFAULT));
-                          const anticipoMonto = computed.totalConIva * (pct / 100);
-                          const saldoMonto = Math.max(0, computed.totalConIva - anticipoMonto);
+                          const anticipoMonto = displayComputed.totalConIva * (pct / 100);
+                          const saldoMonto = Math.max(0, displayComputed.totalConIva - anticipoMonto);
                           return (
                             <div className="mt-3 grid grid-cols-2 gap-2">
                               <div className="rounded-xl border border-[#1B5CFF]/25 bg-[#1B5CFF]/[0.07] p-2.5 dark:border-[#4B7CFF]/30 dark:bg-[#4B7CFF]/10">
@@ -3340,7 +3314,7 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     {!canGuardarCotizacion && (
-                      <div className="rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 dark:border-amber-500/25 dark:bg-amber-500/[0.08]">
+                      <div className="rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 dark:border-amber-500/25 dark:bg-amber-500/8">
                         <p className="text-xs font-semibold text-amber-950 dark:text-amber-100/95">Completa lo siguiente para guardar</p>
                         <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-xs text-amber-900/90 dark:text-amber-200/90">
                           {!clienteId && <li>Selecciona un cliente</li>}
@@ -3494,6 +3468,7 @@ export default function NuevaCotizacionPage() {
                       producto_nombre: c.producto_nombre,
                       producto_descripcion: c.producto_descripcion,
                     }))}
+                    showGarantiaOption={!isEditingRoute || pdfOpciones.es_garantia}
                   />
                 </section>
               </aside>

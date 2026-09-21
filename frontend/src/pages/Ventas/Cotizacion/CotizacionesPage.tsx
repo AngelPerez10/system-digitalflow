@@ -31,16 +31,13 @@ import {
 } from "./shared/cotizacionFormStyles";
 import { CotizacionExportOverlay } from "./form/CotizacionExportOverlay";
 import CotizacionesStatusSegmentFilter from "./list/CotizacionesStatusSegmentFilter";
-import CotizacionMarcarEnviadaModal, {
-  type CotizacionMarcarEnviadaTarget,
-} from "./form/CotizacionMarcarEnviadaModal";
+import CotizacionEnviarPdfModal, {
+  type CotizacionEnviarPdfTarget,
+} from "./form/CotizacionEnviarPdfModal";
 import CotizacionViewModal from "./shared/CotizacionViewModal";
 
 const searchInputClass =
   "min-h-[44px] w-full rounded-[10px] border border-[#E7E7EA] bg-white py-2 pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:min-h-[44px] sm:pl-11";
-
-const medioChipClass =
-  "border border-[#E7E7EA] bg-[#FAFAFA] text-[#52525B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#cbd5e1]";
 
 const monthNavBtnClass =
   "inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[#E7E7EA] bg-white text-[#52525B] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048]";
@@ -169,7 +166,7 @@ export default function CotizacionesPage() {
 
   const [rows, setRows] = useState<CotizacionRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [marcarEnviadaTarget, setMarcarEnviadaTarget] = useState<CotizacionMarcarEnviadaTarget | null>(null);
+  const [enviarPdfTarget, setEnviarPdfTarget] = useState<CotizacionEnviarPdfTarget | null>(null);
   const [enviadaViewRow, setEnviadaViewRow] = useState<CotizacionRow | null>(null);
 
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("");
@@ -299,6 +296,8 @@ export default function CotizacionesPage() {
         const creado = String(x?.creado_por_full_name || x?.creado_por_username || x?.creadaPor || "—");
         const editado = String(x?.actualizado_por_full_name || x?.actualizado_por_username || x?.editadaPor || "—");
         const enviado = String(x?.enviado_por_full_name || x?.enviado_por_username || "").trim();
+        const pdfOpts = x?.pdf_opciones as Record<string, unknown> | undefined;
+        const esGarantia = !!pdfOpts?.es_garantia;
         return {
           id: Number(x?.id || 0),
           idx: Number(x?.idx || 0),
@@ -312,12 +311,14 @@ export default function CotizacionesPage() {
           enviadoPor: enviado || undefined,
           enviadoEn: String(x?.enviado_en || "").trim() || undefined,
           enviadoComentario: String(x?.enviado_comentario || "").trim() || undefined,
+          esGarantia,
           cliente: String(x?.cliente || x?.cliente_nombre || "—"),
           clienteTelefono: String(x?.cliente_telefono || "—"),
           contacto: String(x?.contacto || "—"),
           tipoTrabajo: String(x?.tipo_trabajo_nombres || "").trim() || "—",
-          monto: formatMoney(Number(x?.total ?? 0)),
-          totalAmount: Number(x?.total ?? 0) || 0,
+          // Garantía: el monto se muestra en $0 en toda la app (igual que en el PDF); el total real sigue guardado en el backend.
+          monto: esGarantia ? formatMoney(0) : formatMoney(Number(x?.total ?? 0)),
+          totalAmount: esGarantia ? 0 : Number(x?.total ?? 0) || 0,
         };
       }).filter((x: CotizacionRow) => !!x.id);
 
@@ -441,6 +442,7 @@ export default function CotizacionesPage() {
     const s = String(raw || '').trim();
     if (!s) return '—';
     const map: Record<string, string> = {
+      CLIENTE: 'Cliente',
       BNI: 'BNI',
       REFERIDO: 'Referido',
       WEB: 'Web',
@@ -455,17 +457,6 @@ export default function CotizacionesPage() {
     };
     const key = s.toUpperCase().replace(/\s+/g, '_');
     return map[key] || s;
-  };
-
-  const statusChipClass = (raw: string) => {
-    const s = String(raw || '').trim().toUpperCase();
-    if (s === 'AUTORIZADA') {
-      return 'border border-emerald-200/80 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/[0.08] dark:text-emerald-200';
-    }
-    if (s === 'CANCELADA') {
-      return 'border border-rose-200/80 bg-rose-50/90 text-rose-800 dark:border-rose-500/25 dark:bg-rose-500/[0.08] dark:text-rose-200';
-    }
-    return 'border border-amber-200/80 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/[0.08] dark:text-amber-200';
   };
 
   useEffect(() => {
@@ -645,8 +636,13 @@ export default function CotizacionesPage() {
     }
   };
 
-  const handleMarkEnviada = (r: CotizacionRow) => {
-    setMarcarEnviadaTarget({ id: r.id, idx: r.idx, cliente: r.cliente });
+  const handleEnviarPdf = (r: CotizacionRow) => {
+    setEnviarPdfTarget({
+      id: r.id,
+      idx: r.idx,
+      cliente: r.cliente,
+      status: r.status,
+    });
   };
 
   const handleViewEnviada = (r: CotizacionRow) => {
@@ -658,7 +654,7 @@ export default function CotizacionesPage() {
     onEdit: handleEditRow,
     onDelete: handleAskDelete,
     onDownloadExcel: handleDownloadExcel,
-    onMarkEnviada: handleMarkEnviada,
+    onEnviarPdf: handleEnviarPdf,
     onViewEnviada: handleViewEnviada,
   };
 
@@ -1019,8 +1015,6 @@ export default function CotizacionesPage() {
                 loading={loading}
                 formatDMY={formatDMY}
                 normalizeMedioLabel={normalizeMedioLabel}
-                statusChipClass={statusChipClass}
-                medioChipClass={medioChipClass}
                 actions={rowActions}
                 excelLoading={excelLoading}
               />
@@ -1029,8 +1023,6 @@ export default function CotizacionesPage() {
                 loading={loading}
                 formatDMY={formatDMY}
                 normalizeMedioLabel={normalizeMedioLabel}
-                statusChipClass={statusChipClass}
-                medioChipClass={medioChipClass}
                 actions={rowActions}
                 excelLoading={excelLoading}
               />
@@ -1110,6 +1102,7 @@ export default function CotizacionesPage() {
               isOpen={showDeleteModal}
               onClose={handleCancelDelete}
               closeOnBackdropClick={false}
+              showCloseButton={false}
               className={`${modalSmallShellClass} mx-4 sm:mx-auto`}
               ariaLabelledBy={deleteModalTitleId}
             >
@@ -1128,7 +1121,7 @@ export default function CotizacionesPage() {
                       />
                     </svg>
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <h3
                       id={deleteModalTitleId}
                       className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]"
@@ -1164,23 +1157,24 @@ export default function CotizacionesPage() {
             </Modal>
           )}
 
-          <CotizacionMarcarEnviadaModal
-            open={marcarEnviadaTarget != null}
-            cotizacion={marcarEnviadaTarget}
-            onClose={() => setMarcarEnviadaTarget(null)}
-            onMarked={(data) => {
-              const targetId = marcarEnviadaTarget?.id;
-              setMarcarEnviadaTarget(null);
+          <CotizacionEnviarPdfModal
+            open={enviarPdfTarget != null}
+            cotizacion={enviarPdfTarget}
+            onClose={() => setEnviarPdfTarget(null)}
+            onSent={(correo, envio) => {
+              const targetId = enviarPdfTarget?.id;
+              setEnviarPdfTarget(null);
               if (targetId != null) {
-                const por = String(data.enviado_por_full_name || data.enviado_por_username || "").trim();
+                const por = String(envio?.enviado_por_full_name || envio?.enviado_por_username || "").trim();
                 setRows((prev) =>
                   prev.map((row) =>
                     row.id === targetId
                       ? {
                           ...row,
                           enviadoPor: por || row.enviadoPor,
-                          enviadoEn: data.enviado_en || row.enviadoEn,
-                          enviadoComentario: data.enviado_comentario ?? row.enviadoComentario,
+                          enviadoEn: envio?.enviado_en || row.enviadoEn,
+                          enviadoComentario:
+                            envio?.enviado_comentario ?? row.enviadoComentario,
                         }
                       : row
                   )
@@ -1189,13 +1183,13 @@ export default function CotizacionesPage() {
               setAlert({
                 show: true,
                 variant: "success",
-                title: "Cotización marcada como enviada",
-                message: "Se registró quién la marcó y cuándo.",
+                title: "Correo enviado",
+                message: `El PDF se envió a ${correo}.`,
               });
               window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3500);
             }}
             onError={(message) => {
-              setAlert({ show: true, variant: "error", title: "Marcar como enviada", message });
+              setAlert({ show: true, variant: "error", title: "Correo", message });
               window.setTimeout(() => setAlert((p) => ({ ...p, show: false })), 3500);
             }}
           />

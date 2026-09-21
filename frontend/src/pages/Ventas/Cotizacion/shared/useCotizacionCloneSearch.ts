@@ -26,15 +26,16 @@ export function useCotizacionCloneSearch({ canSearch, isOpen }: UseCotizacionClo
   }, [search]);
 
   useEffect(() => {
-    if (!isOpen || !canSearch) return;
-    if (debouncedSearch.length < 1) {
+    if (!isOpen || !canSearch) {
       setRows([]);
+      setIsLoading(false);
       return;
     }
 
     let cancelled = false;
     setIsLoading(true);
 
+    // Búsqueda vacía → últimas creadas; con texto → coincidencias.
     searchCotizacionesForClone(debouncedSearch)
       .then((nextRows) => {
         if (!cancelled) setRows(nextRows);

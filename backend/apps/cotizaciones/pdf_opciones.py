@@ -12,6 +12,8 @@ class CotizacionPdfOpciones:
     ocultar_totales: bool = False
     ocultar_detalle: bool = False
     simplificar_descripcion: bool = False
+    # Cotización de garantía: el PDF muestra precios en $0 y una marca de agua "GARANTÍA".
+    es_garantia: bool = False
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -37,6 +39,7 @@ def parse_pdf_opciones(raw: Any) -> CotizacionPdfOpciones:
         ocultar_totales=_as_bool(raw.get("ocultar_totales")),
         ocultar_detalle=_as_bool(raw.get("ocultar_detalle")),
         simplificar_descripcion=_as_bool(raw.get("simplificar_descripcion")),
+        es_garantia=_as_bool(raw.get("es_garantia")),
     )
 
 
@@ -53,6 +56,7 @@ def pdf_opciones_to_dict(opts: CotizacionPdfOpciones) -> dict[str, bool]:
         "ocultar_totales": opts.ocultar_totales,
         "ocultar_detalle": opts.ocultar_detalle,
         "simplificar_descripcion": opts.simplificar_descripcion,
+        "es_garantia": opts.es_garantia,
     }
 
 
@@ -68,4 +72,5 @@ def parse_pdf_opciones_from_query(query_params: Mapping[str, str]) -> Cotizacion
         ocultar_totales=_as_bool(query_params.get(f"{prefix}ocultar_totales")),
         ocultar_detalle=_as_bool(query_params.get(f"{prefix}ocultar_detalle")),
         simplificar_descripcion=_as_bool(query_params.get(f"{prefix}simplificar_descripcion")),
+        es_garantia=_as_bool(query_params.get(f"{prefix}es_garantia")),
     )

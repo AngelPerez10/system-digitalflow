@@ -59,18 +59,21 @@ export async function fetchCotizacionDetail(id: string | number): Promise<ApiCot
 }
 
 export async function searchCotizacionesForClone(search: string): Promise<CloneCotizacionRow[]> {
-  return searchCotizacionesLite(search, 60);
+  const trimmed = search.trim();
+  // Sin texto: últimas creadas (por folio/idx). Con búsqueda: más coincidencias.
+  return searchCotizacionesLite(trimmed, trimmed ? 60 : 25, "-idx");
 }
 
 /** Listado liviano para importar a factura CFDI (menos datos por petición). */
 export async function searchCotizacionesLite(
   search: string,
-  pageSize = 20
+  pageSize = 20,
+  ordering = "-fecha"
 ): Promise<CloneCotizacionRow[]> {
   const params = new URLSearchParams();
   if (search.trim()) params.set("search", search.trim());
   params.set("page_size", String(pageSize));
-  params.set("ordering", "-fecha");
+  params.set("ordering", ordering);
   const res = await fetchApi(`/api/cotizaciones/?${params.toString()}`);
   const data = (await res.json().catch(() => null)) as ApiListPayload | null;
   if (!res.ok || !data) return [];

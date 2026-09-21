@@ -14,6 +14,10 @@ export type CotizacionMarcarEnviadaTarget = {
   id: number;
   idx?: number;
   cliente?: string;
+  /** Nota ya registrada: se precarga para leerla y editarla sin perderla. */
+  comentario?: string;
+  enviadoPor?: string;
+  enviadoEn?: string;
 };
 
 type Props = {
@@ -56,15 +60,17 @@ export default function CotizacionMarcarEnviadaModal({
 
   useEffect(() => {
     if (!open) return;
-    setComentario("");
+    setComentario(String(cotizacion?.comentario || ""));
     setFieldError("");
-  }, [open, cotizacion?.id]);
+  }, [open, cotizacion?.id, cotizacion?.comentario]);
 
   const folio = formatDocumentFolio(
     FOLIO_SERIE.cotizacion,
     cotizacion?.idx != null && Number(cotizacion.idx) > 0 ? cotizacion.idx : cotizacion?.id
   );
   const clienteNombre = String(cotizacion?.cliente || "").trim() || "Sin cliente";
+  const registroPrevio = String(cotizacion?.enviadoPor || "").trim();
+  const registroPrevioFecha = String(cotizacion?.enviadoEn || "").trim();
 
   const handleClose = () => {
     if (saving) return;
@@ -126,7 +132,7 @@ export default function CotizacionMarcarEnviadaModal({
     >
       <div className={`${panelClass} relative overflow-hidden`} aria-busy={saving || undefined}>
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1B5CFF] via-[#4B7CFF] to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-[#1B5CFF] via-[#4B7CFF] to-transparent"
           aria-hidden="true"
         />
         <div className="relative space-y-5">
@@ -139,11 +145,12 @@ export default function CotizacionMarcarEnviadaModal({
                 {folio || "Cotización"}
               </p>
               <h2 id={titleId} className={`${erpSubheadingClass} mt-0.5`}>
-                Marcar como enviada
+                {registroPrevio ? "Seguimiento del envío" : "Marcar como enviada"}
               </h2>
               <p id={descId} className={`mt-1 text-xs ${erpBodyClass}`}>
-                Regístralo cuando ya le enviaste la cotización al cliente y estás en espera de su
-                respuesta, para que cualquier otro usuario sepa en qué quedó.
+                {registroPrevio
+                  ? "Revisa o actualiza la nota de seguimiento. Al guardar se registra tu nombre y la hora actual."
+                  : "Regístralo cuando ya le enviaste la cotización al cliente y estás en espera de su respuesta, para que cualquier otro usuario sepa en qué quedó."}
               </p>
             </div>
           </div>
@@ -155,6 +162,17 @@ export default function CotizacionMarcarEnviadaModal({
             <p className="truncate text-sm font-medium text-[#09090B] dark:text-[#f8fafc]" title={clienteNombre}>
               {clienteNombre}
             </p>
+            {registroPrevio ? (
+              <p className="mt-2 border-t border-[#E7E7EA] pt-2 text-xs text-[#52525B] dark:border-[#273244] dark:text-[#B7C1D1]">
+                Registro actual: {registroPrevio}
+                {registroPrevioFecha
+                  ? ` · ${new Date(registroPrevioFecha).toLocaleString("es-MX", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}`
+                  : ""}
+              </p>
+            ) : null}
           </div>
 
           <form
@@ -213,7 +231,7 @@ export default function CotizacionMarcarEnviadaModal({
                 ) : (
                   <>
                     {sendGlyph}
-                    Marcar como enviada
+                    {registroPrevio ? "Guardar seguimiento" : "Marcar como enviada"}
                   </>
                 )}
               </button>

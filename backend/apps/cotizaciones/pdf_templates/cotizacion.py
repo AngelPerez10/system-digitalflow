@@ -51,6 +51,9 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     # «Simplificar descripción» deja en el PDF solo la descripción corta: además
     # oculta la miniatura y el detalle largo (modelo / especificaciones del equipo).
     hide_images = opts.simplificar_descripcion
+    # Garantía: reposición sin costo. Los precios de línea y los totales se
+    # muestran en $0 y el PDF lleva una marca de agua "GARANTÍA".
+    es_garantia = bool(opts.es_garantia)
 
     def iter_items(obj):
         items = getattr(obj, 'items', None)
@@ -174,6 +177,11 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
                 )
             pu_desc = pu_base * (1 - (descuento / 100.0))
             importe = cantidad * pu_desc
+            if es_garantia:
+                pu_base = 0.0
+                precio_con_iva = 0.0
+                pu_desc = 0.0
+                importe = 0.0
             gross_subtotal_sin_iva += cantidad * pu_base
             net_subtotal_sin_iva += importe
             net_subtotal_con_iva += cantidad * precio_con_iva
@@ -269,8 +277,8 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     if show_importe:
         thead_price_cols += "<th style='width:100px; text-align:right;'>IMPORTE</th>"
 
-    subtotal = float(cotizacion.subtotal or 0)
-    total_guardado = float(cotizacion.total or 0)
+    subtotal = 0.0 if es_garantia else float(cotizacion.subtotal or 0)
+    total_guardado = 0.0 if es_garantia else float(cotizacion.total or 0)
 
     descuento_cliente_pct = 0.0
     try:
@@ -371,6 +379,8 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
         else ""
     )
 
+    watermark_html = "<div class='watermark'>GARANTÍA</div>" if es_garantia else ""
+
     html = f"""<!doctype html>
 <html lang='es'>
 <head>
@@ -381,6 +391,21 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
     @page {{ size: A4; margin: 12mm; }}
     * {{ box-sizing: border-box; }}
     body {{ font-family: Arial, Helvetica, sans-serif; color: #111827; margin: 0; }}
+    .watermark {{
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-32deg);
+      font-size: 96px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: rgba(107, 114, 128, 0.28);
+      white-space: nowrap;
+      z-index: 999;
+      pointer-events: none;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }}
     .top {{ display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }}
     .brand {{ display: flex; gap: 14px; align-items: flex-start; }}
     .logo {{ width: 240px; height: 130px; display: flex; align-items: center; }}
@@ -507,6 +532,7 @@ def generate_cotizacion_pdf_html(cotizacion, pdf_opciones: CotizacionPdfOpciones
   </style>
 </head>
 <body>
+  {watermark_html}
   <div class='pdf-page-quote'>
   <div class='top'>
     <div class='brand'>

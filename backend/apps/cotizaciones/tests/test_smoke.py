@@ -193,6 +193,12 @@ class CotizacionesEnviarPdfTests(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].from_email, "vendedor@example.com")
 
+        # El envío por correo queda registrado en el seguimiento al cliente.
+        self.cot_pendiente.refresh_from_db()
+        self.assertEqual(self.cot_pendiente.enviado_por_id, self.user.id)
+        self.assertIsNotNone(self.cot_pendiente.enviado_en)
+        self.assertIn("nuevo.cot@example.com", self.cot_pendiente.enviado_comentario)
+
     def test_enviar_pdf_autorizada_ok(self):
         from unittest.mock import patch
 

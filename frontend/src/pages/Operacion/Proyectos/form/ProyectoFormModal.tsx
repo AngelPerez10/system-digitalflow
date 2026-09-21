@@ -521,6 +521,7 @@ export default function ProyectoFormModal({
         onClose={() => setConfirmClearCotizaciones(false)}
         closeOnBackdropClick={false}
         closeOnEscape
+        showCloseButton={false}
         ariaLabelledBy={clearCotizacionesTitleId}
         className={`${erpDeleteModalClass} z-100000`}
       >

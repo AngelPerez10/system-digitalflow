@@ -764,12 +764,30 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             getattr(cotizacion, 'cliente_id', None),
             correo,
         )
+
+        # El envío por correo cuenta como envío al cliente: sin esto la cotización
+        # seguía apareciendo como «nunca enviada» en el seguimiento.
+        cotizacion.enviado_por = (
+            request.user if getattr(request.user, 'is_authenticated', False) else None
+        )
+        cotizacion.enviado_en = timezone.now()
+        if not (cotizacion.enviado_comentario or '').strip():
+            cotizacion.enviado_comentario = f'PDF enviado por correo a {correo}.'
+        cotizacion.save(
+            update_fields=['enviado_por', 'enviado_en', 'enviado_comentario']
+        )
+
+        data = self.get_serializer(cotizacion).data
         return Response(
             {
                 'ok': True,
                 'correo': correo,
                 'correo_guardado_en_cliente': correo_guardado,
                 'detail': f'PDF enviado a {correo}.',
+                'enviado_por_username': data.get('enviado_por_username'),
+                'enviado_por_full_name': data.get('enviado_por_full_name'),
+                'enviado_en': data.get('enviado_en'),
+                'enviado_comentario': data.get('enviado_comentario'),
             },
             status=200,
         )

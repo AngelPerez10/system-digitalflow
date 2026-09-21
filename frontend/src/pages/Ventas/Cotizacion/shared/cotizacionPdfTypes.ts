@@ -4,6 +4,8 @@ export type CotizacionPdfOpciones = {
   ocultar_totales: boolean;
   ocultar_detalle: boolean;
   simplificar_descripcion: boolean;
+  /** Cotización de garantía: el PDF muestra precios en $0 y marca de agua "GARANTÍA". */
+  es_garantia: boolean;
 };
 
 export const defaultPdfOpciones = (): CotizacionPdfOpciones => ({
@@ -12,6 +14,7 @@ export const defaultPdfOpciones = (): CotizacionPdfOpciones => ({
   ocultar_totales: false,
   ocultar_detalle: false,
   simplificar_descripcion: false,
+  es_garantia: false,
 });
 
 export function parsePdfOpcionesFromApi(raw: unknown): CotizacionPdfOpciones {
@@ -23,5 +26,6 @@ export function parsePdfOpcionesFromApi(raw: unknown): CotizacionPdfOpciones {
     ocultar_totales: !!o.ocultar_totales,
     ocultar_detalle: !!o.ocultar_detalle,
     simplificar_descripcion: !!o.simplificar_descripcion,
+    es_garantia: !!o.es_garantia,
   };
 }

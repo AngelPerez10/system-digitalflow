@@ -46,6 +46,9 @@ export type ApiProyecto = {
   status_changed_by?: number | null;
   status_changed_by_full_name?: string | null;
   status_changed_by_username?: string | null;
+  creado_por?: number | null;
+  creado_por_username?: string | null;
+  creado_por_full_name?: string | null;
   tipo_trabajo_id: number | null;
   tipo_trabajo_nombre: string;
   tipos_trabajo?: ProyectoTipoTrabajo[] | null;
@@ -85,8 +88,6 @@ export type ApiProyecto = {
   cotizacion_origen?: CotizacionOrigen | string;
   created_at?: string;
   updated_at?: string;
-  creado_por?: number | null;
-  creado_por_username?: string | null;
 };
 
 export type ProyectoApiError = {
@@ -152,8 +153,10 @@ function draftFromApi(api: ApiProyecto): ProyectoDraft {
     statusChangedAt: String(api.status_changed_at || ""),
     statusChangedByName: String(
       api.status_changed_by_full_name || api.status_changed_by_username || "",
-    ),
-    creadoPorName: String(api.creado_por_username || "").trim(),
+    ).trim(),
+    creadoPorName: String(
+      api.creado_por_full_name || api.creado_por_username || "",
+    ).trim(),
     createdAt: String(api.created_at || ""),
     fechaAutorizacion: api.fecha_autorizacion ? String(api.fecha_autorizacion) : "",
     quienAutorizo: String(api.quien_autorizo || ""),

@@ -323,8 +323,8 @@ function StatusAuditDetailModal({
                   </p>
                   <p id={descId} className={`mt-1 text-sm ${secondaryText}`}>
                     {detail.fromFallback
-                      ? "Quién registró la orden cuando aún no hay sello de status."
-                      : "Quién colocó el status actual de la orden."}
+                      ? "Quién registró el documento cuando aún no hay sello de status."
+                      : "Quién colocó el status actual del documento."}
                   </p>
                 </div>
               </div>

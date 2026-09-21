@@ -1,8 +1,22 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { PencilIcon, TrashBinIcon } from "@/icons";
+import { MailIcon, PencilIcon, TrashBinIcon } from "@/icons";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
+import {
+  cotEnviadaBadgeClass,
+  cotFolioBadgeClass,
+  cotFolioBadgeNumberClass,
+  cotFolioBadgePrefixClass,
+  cotGarantiaBadgeClass,
+  cotMedioChipClass,
+  cotStatusChipAutorizadaClass,
+  cotStatusChipCanceladaClass,
+  cotStatusChipPendienteClass,
+  cotStatusDotAutorizadaClass,
+  cotStatusDotCanceladaClass,
+  cotStatusDotPendienteClass,
+} from "@/pages/Ventas/Cotizacion/shared/cotizacionFormStyles";
 import {
   groupCotizacionesByStatus,
   getStatusSectionStyles,
@@ -12,6 +26,67 @@ import {
 } from "./cotizacionStatusSections";
 
 export type { CotizacionRow };
+
+function CotizacionFolioBadge({ idx }: { idx: number }) {
+  const folio = formatDocumentFolio(FOLIO_SERIE.cotizacion, idx);
+  const dash = folio.indexOf("-");
+  const prefix = dash > 0 ? folio.slice(0, dash) : "COT";
+  const number = dash > 0 ? folio.slice(dash + 1) : folio;
+  return (
+    <span className={cotFolioBadgeClass} title={`Folio ${folio}`} aria-label={`Folio ${folio}`}>
+      <span className={cotFolioBadgePrefixClass} aria-hidden="true">
+        {prefix}
+      </span>
+      <span className={cotFolioBadgeNumberClass} aria-hidden="true">
+        {number}
+      </span>
+    </span>
+  );
+}
+
+function CotizacionMedioChip({ label }: { label: string }) {
+  return (
+    <span className={cotMedioChipClass} title={`Medio: ${label}`}>
+      <span
+        className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#A1A1AA] dark:bg-[#64748B]"
+        aria-hidden="true"
+      />
+      {label}
+    </span>
+  );
+}
+
+function CotizacionStatusChip({ status }: { status: string }) {
+  const key = normalizeCotizacionStatus(status) || "PENDIENTE";
+  const label =
+    key === "PENDIENTE"
+      ? "Pendiente"
+      : key === "AUTORIZADA"
+        ? "Autorizada"
+        : key === "CANCELADA"
+          ? "Cancelada"
+          : String(status || "—").charAt(0).toUpperCase() + String(status || "—").slice(1).toLowerCase();
+
+  const chipClass =
+    key === "AUTORIZADA"
+      ? cotStatusChipAutorizadaClass
+      : key === "CANCELADA"
+        ? cotStatusChipCanceladaClass
+        : cotStatusChipPendienteClass;
+  const dotClass =
+    key === "AUTORIZADA"
+      ? cotStatusDotAutorizadaClass
+      : key === "CANCELADA"
+        ? cotStatusDotCanceladaClass
+        : cotStatusDotPendienteClass;
+
+  return (
+    <span className={chipClass} title={`Status: ${label}`}>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`} aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
 
 /** Fecha y hora locales (es-MX) desde ISO; metadatos de auditoría en listados. */
 export function formatIsoDateTime(iso: string | null | undefined): string {
@@ -82,15 +157,94 @@ function EnviadaBadge({
         e.stopPropagation();
         onView?.();
       }}
-      className="inline-flex items-center gap-1 rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[10px] font-medium text-[#1B5CFF] transition-colors hover:bg-[rgba(27,92,255,0.14)] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] dark:hover:bg-[rgba(75,124,255,0.22)]"
+      className={cotEnviadaBadgeClass}
       title="Ver detalle del envío"
+      aria-label={`Enviada por ${enviadoPor}. Ver detalle del envío`}
     >
-      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <path d="M22 2L11 13" />
-        <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+      <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+        <path d="M22 2L11 13" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       Enviada
     </button>
+  );
+}
+
+function GarantiaBadge({ esGarantia }: { esGarantia?: boolean }) {
+  if (!esGarantia) return null;
+  return (
+    <span
+      className={cotGarantiaBadgeClass}
+      title="Cotización de garantía: precios en $0"
+      aria-label="Garantía: precios en $0"
+    >
+      <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8.5 12.2 11 14.7l4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      Garantía
+    </span>
+  );
+}
+
+/** Cliente + teléfono + tipo de trabajo en una sola celda (jerarquía primaria / secundaria). */
+function CotizacionClienteCell({
+  row,
+  dense = false,
+}: {
+  row: CotizacionRow;
+  dense?: boolean;
+}) {
+  const wa = buildWhatsappUrl(row);
+  const telefono = row.clienteTelefono && row.clienteTelefono !== "—" ? row.clienteTelefono : "";
+  const tipo = String(row.tipoTrabajo || "").trim();
+  const hasTipo = Boolean(tipo && tipo !== "—");
+
+  return (
+    <div className="min-w-0">
+      <p
+        className={`truncate font-semibold text-[#09090B] dark:text-[#F8FAFC] ${
+          dense ? "text-[12px] leading-snug" : "text-sm leading-snug"
+        }`}
+        title={row.cliente}
+      >
+        {row.cliente || "—"}
+      </p>
+      {telefono ? (
+        <a
+          href={wa || undefined}
+          target="_blank"
+          rel="noreferrer"
+          className={`mt-0.5 block truncate text-[11px] tabular-nums ${
+            wa
+              ? "text-[#6E6E77] hover:text-[#16a34a] hover:underline dark:text-[#8ea0b8]"
+              : "cursor-default text-[#6E6E77] dark:text-[#8ea0b8]"
+          }`}
+          onClick={(e) => {
+            if (!wa) e.preventDefault();
+          }}
+          title={wa ? `Abrir WhatsApp: ${telefono}` : telefono}
+        >
+          {telefono}
+        </a>
+      ) : null}
+      {hasTipo ? (
+        <p
+          className="mt-1.5 line-clamp-2 border-t border-[#EDEDED] pt-1.5 text-[10px] font-medium uppercase tracking-[0.06em] leading-snug text-[#6E6E77] dark:border-[#273244] dark:text-[#8ea0b8] sm:text-[11px] sm:tracking-[0.04em]"
+          title={tipo}
+          aria-label={`Tipo de trabajo: ${tipo}`}
+        >
+          {tipo}
+        </p>
+      ) : (
+        <p
+          className="mt-1.5 border-t border-[#EDEDED] pt-1.5 text-[10px] text-[#A1A1AA] dark:border-[#273244] dark:text-[#64748b] sm:text-[11px]"
+          aria-label="Tipo de trabajo: sin tipo"
+        >
+          Sin tipo
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -212,12 +366,17 @@ const buildWhatsappUrl = (row: CotizacionRow) => {
   return `https://wa.me/${phone}?text=${text}`;
 };
 
+function canEnviarPdfPorCorreo(status: string): boolean {
+  const s = String(status || "").trim().toUpperCase();
+  return s === "PENDIENTE" || s === "AUTORIZADA";
+}
+
 export type CotizacionRowActions = {
   onOpenPdf: (id: number) => void;
   onEdit: (r: CotizacionRow) => void;
   onDelete: (r: CotizacionRow) => void;
   onDownloadExcel?: (r: CotizacionRow) => void;
-  onMarkEnviada?: (r: CotizacionRow) => void;
+  onEnviarPdf?: (r: CotizacionRow) => void;
   onViewEnviada?: (r: CotizacionRow) => void;
 };
 
@@ -426,8 +585,6 @@ type ListProps = {
   loading: boolean;
   formatDMY: (iso: string) => string;
   normalizeMedioLabel: (raw: string) => string;
-  statusChipClass: (raw: string) => string;
-  medioChipClass: string;
   actions: CotizacionRowActions;
   excelLoading?: boolean;
 };
@@ -437,8 +594,6 @@ export function CotizacionesMobileList({
   loading,
   formatDMY,
   normalizeMedioLabel,
-  statusChipClass,
-  medioChipClass,
   actions,
   excelLoading = false,
 }: ListProps) {
@@ -467,7 +622,6 @@ export function CotizacionesMobileList({
             />
             <ul className="space-y-3">
               {section.rows.map((r) => {
-                const statusUpper = normalizeCotizacionStatus(r.status) || "PENDIENTE";
                 return (
                   <li
                     key={r.id}
@@ -476,48 +630,28 @@ export function CotizacionesMobileList({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]">
-                            {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
-                          </span>
-                          <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${statusChipClass(r.status)}`}>
-                            {statusUpper === "PENDIENTE"
-                              ? "Pendiente"
-                              : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
-                          </span>
+                          <CotizacionFolioBadge idx={r.idx} />
+                          <CotizacionStatusChip status={r.status} />
                           <EnviadaBadge
                             enviadoPor={r.enviadoPor}
                             onView={() => actions.onViewEnviada?.(r)}
                           />
+                          <GarantiaBadge esGarantia={r.esGarantia} />
                         </div>
-                        <p className="mt-2 truncate text-sm font-semibold text-[#09090B] dark:text-white">{r.cliente}</p>
-                        {r.clienteTelefono && r.clienteTelefono !== "—" ? (
-                          <a
-                            href={buildWhatsappUrl(r) || undefined}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={`mt-0.5 text-xs text-[#6E6E77] dark:text-[#8ea0b8] ${
-                              buildWhatsappUrl(r)
-                                ? "inline-flex hover:text-[#16a34a] hover:underline"
-                                : "inline-flex cursor-default"
-                            }`}
-                            onClick={(e) => {
-                              if (!buildWhatsappUrl(r)) e.preventDefault();
-                            }}
-                          >
-                            {r.clienteTelefono}
-                          </a>
-                        ) : null}
-                        {r.tipoTrabajo && r.tipoTrabajo !== "—" ? (
-                          <p className="mt-1 line-clamp-2 text-xs text-[#52525B] dark:text-[#cbd5e1]" title={r.tipoTrabajo}>
-                            {r.tipoTrabajo}
-                          </p>
-                        ) : null}
-                        <p className="mt-0.5 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">{formatDMY(r.fecha)}</p>
-                        <span className={`mt-2 inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ${medioChipClass}`}>
-                          {normalizeMedioLabel(r.medioContacto)}
-                        </span>
+                        <div className="mt-2">
+                          <CotizacionClienteCell row={r} />
+                        </div>
+                        <p className="mt-1.5 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">{formatDMY(r.fecha)}</p>
+                        <div className="mt-2">
+                          <CotizacionMedioChip label={normalizeMedioLabel(r.medioContacto)} />
+                        </div>
                       </div>
-                      <p className="shrink-0 text-sm font-semibold tabular-nums text-[#09090B] dark:text-white">{r.monto}</p>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-semibold tabular-nums text-[#09090B] dark:text-white">{r.monto}</p>
+                        {r.esGarantia && (
+                          <p className="text-[10px] font-medium text-[#6E6E77] dark:text-[#8ea0b8]">Sin costo</p>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-3 min-w-0 rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] p-2.5 dark:border-[#273244] dark:bg-[#1B2539]">
                       <CotizacionRegistroCell
@@ -563,19 +697,16 @@ export function CotizacionesMobileList({
                           <path d="M14 2v6h6" />
                         </svg>
                       </button>
-                      {actions.onMarkEnviada && !r.enviadoPor && (
+                      {actions.onEnviarPdf && canEnviarPdfPorCorreo(r.status) && (
                         <button
                           type="button"
                           disabled={excelLoading}
-                          onClick={() => actions.onMarkEnviada!(r)}
-                          className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-[#1B5CFF] hover:text-[#1B5CFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:hover:text-[#4B7CFF]"
-                          title="Marcar como enviada"
-                          aria-label="Marcar como enviada"
+                          onClick={() => actions.onEnviarPdf!(r)}
+                          className="inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#E7E7EA] bg-white hover:border-sky-400 hover:text-sky-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] disabled:opacity-50 dark:border-[#273244] dark:bg-[#0f172a] dark:hover:text-sky-400"
+                          title="Enviar PDF por correo"
+                          aria-label="Enviar PDF por correo"
                         >
-                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                            <path d="M22 2L11 13" />
-                            <path d="M22 2l-7 20-4-9-9-4 20-7z" />
-                          </svg>
+                          <MailIcon className="h-4 w-4" aria-hidden />
                         </button>
                       )}
                       <button
@@ -605,8 +736,6 @@ export function CotizacionesTable({
   loading,
   formatDMY,
   normalizeMedioLabel,
-  statusChipClass,
-  medioChipClass,
   actions,
   excelLoading = false,
 }: ListProps) {
@@ -619,7 +748,7 @@ export function CotizacionesTable({
         Desliza horizontalmente para ver el listado completo
       </p>
       <div className="touch-pan-x overflow-x-auto overscroll-x-contain rounded-3xl border border-[#E7E7EA] bg-[#FAFAFA] [-webkit-overflow-scrolling:touch] dark:border-[#273244] dark:bg-[#1B2539]">
-        <Table className="w-full min-w-275 border-collapse">
+        <Table className="w-full min-w-240 border-collapse">
           <TableHeader className="sticky top-0 z-10 border-b border-[#E7E7EA] bg-white text-[11px] font-semibold text-[#09090B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC]">
             <TableRow>
               <TableCell isHeader scope="col" className="w-20 min-w-20 whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Folio</TableCell>
@@ -627,8 +756,7 @@ export function CotizacionesTable({
               <TableCell isHeader scope="col" className="min-w-30 max-w-40 px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Medio</TableCell>
               <TableCell isHeader scope="col" className="w-27 min-w-27 whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Status</TableCell>
               <TableCell isHeader scope="col" className="w-45 min-w-45 whitespace-nowrap px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Registro</TableCell>
-              <TableCell isHeader scope="col" className="min-w-40 px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Cliente</TableCell>
-              <TableCell isHeader scope="col" className="min-w-40 max-w-55 px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Tipo de trabajo</TableCell>
+              <TableCell isHeader scope="col" className="min-w-48 max-w-72 px-2 py-2 text-left text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Cliente</TableCell>
               <TableCell isHeader scope="col" className="w-33 min-w-33 whitespace-nowrap px-2 py-2 text-right text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Monto</TableCell>
               <TableCell isHeader scope="col" className="w-40 min-w-40 whitespace-nowrap px-2 py-2 text-center text-[#52525B] dark:text-[#B7C1D1] sm:px-3">Acciones</TableCell>
             </TableRow>
@@ -636,13 +764,13 @@ export function CotizacionesTable({
           <TableBody className="divide-y divide-[#EDEDED] text-[11px] text-[#52525B] dark:divide-[#273244] dark:text-[#e5e7eb] sm:text-[12px]">
             {loading ? (
               <TableRow>
-                <TableCell className="px-3 py-3 text-[#6E6E77]" colSpan={9}>
+                <TableCell className="px-3 py-3 text-[#6E6E77]" colSpan={8}>
                   Cargando…
                 </TableCell>
               </TableRow>
             ) : !rows.length ? (
               <TableRow>
-                <TableCell className="px-3 py-2" colSpan={9}>
+                <TableCell className="px-3 py-2" colSpan={8}>
                   <div className="py-8 text-center text-sm text-[#6E6E77] dark:text-[#8ea0b8]">No hay cotizaciones.</div>
                 </TableCell>
               </TableRow>
@@ -651,7 +779,7 @@ export function CotizacionesTable({
                 const headingId = `cotizaciones-table-${section.key.toLowerCase()}`;
                 const headerRow = (
                   <TableRow key={`${section.key}-header`} className="hover:bg-transparent dark:hover:bg-transparent">
-                    <TableCell isHeader scope="colgroup" colSpan={9} className="border-y-0 bg-transparent p-0 text-left">
+                    <TableCell isHeader scope="colgroup" colSpan={8} className="border-y-0 bg-transparent p-0 text-left">
                       <div className="px-2 py-2 sm:px-3">
                         <CotizacionStatusSectionHeader
                           statusKey={section.key}
@@ -665,31 +793,23 @@ export function CotizacionesTable({
                 );
 
                 const dataRows = section.rows.map((r) => {
-                  const statusUpper = normalizeCotizacionStatus(r.status) || "PENDIENTE";
                   return (
                     <TableRow key={r.id} className="align-top transition-colors hover:bg-[#FAFAFA]/80 dark:hover:bg-[#243048]/40">
                       <TableCell className="whitespace-nowrap px-2 py-2 align-top sm:px-3">
-                        <span className="inline-flex items-center justify-center rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF] sm:text-[11px]">
-                          {formatDocumentFolio(FOLIO_SERIE.cotizacion, r.idx)}
-                        </span>
+                        <CotizacionFolioBadge idx={r.idx} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-2 py-2 align-top sm:px-3">{formatDMY(r.fecha)}</TableCell>
                       <TableCell className="min-w-0 max-w-40 px-2 py-2 align-top sm:px-3">
-                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${medioChipClass}`}>
-                          {normalizeMedioLabel(r.medioContacto)}
-                        </span>
+                        <CotizacionMedioChip label={normalizeMedioLabel(r.medioContacto)} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-2 py-2 align-top sm:px-3">
-                        <div className="flex flex-wrap items-center gap-1">
-                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium sm:text-[11px] ${statusChipClass(r.status)}`}>
-                            {statusUpper === "PENDIENTE"
-                              ? "Pendiente"
-                              : String(r.status || "—").charAt(0).toUpperCase() + String(r.status || "—").slice(1).toLowerCase()}
-                          </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <CotizacionStatusChip status={r.status} />
                           <EnviadaBadge
                             enviadoPor={r.enviadoPor}
                             onView={() => actions.onViewEnviada?.(r)}
                           />
+                          <GarantiaBadge esGarantia={r.esGarantia} />
                         </div>
                       </TableCell>
                       <TableCell className="w-45 min-w-45 px-2 py-2 align-top sm:px-3">
@@ -700,40 +820,18 @@ export function CotizacionesTable({
                           fechaActualizacion={r.fechaActualizacion}
                         />
                       </TableCell>
-                      <TableCell className="min-w-40 max-w-70 px-2 py-2 align-top sm:px-3">
-                        <span className="block truncate font-medium sm:text-[12px]" title={r.cliente}>
-                          {r.cliente}
-                        </span>
-                        {r.clienteTelefono && r.clienteTelefono !== "—" ? (
-                          <a
-                            href={buildWhatsappUrl(r) || undefined}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={`mt-0.5 block text-[11px] text-[#6E6E77] dark:text-[#8ea0b8] ${
-                              buildWhatsappUrl(r)
-                                ? "hover:text-[#16a34a] hover:underline"
-                                : "cursor-default"
-                            }`}
-                            onClick={(e) => {
-                              if (!buildWhatsappUrl(r)) e.preventDefault();
-                            }}
-                          >
-                            {r.clienteTelefono}
-                          </a>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="min-w-35 max-w-55 px-2 py-2 align-top sm:px-3">
-                        <span
-                          className="block line-clamp-2 text-[11px] leading-snug text-[#52525B] dark:text-[#cbd5e1] sm:text-[12px]"
-                          title={r.tipoTrabajo}
-                        >
-                          {r.tipoTrabajo || "—"}
-                        </span>
+                      <TableCell className="min-w-48 max-w-72 px-2 py-2 align-top sm:px-3">
+                        <CotizacionClienteCell row={r} dense />
                       </TableCell>
                       <TableCell className="w-33 min-w-33 whitespace-nowrap px-2 py-2 text-right align-top sm:px-3">
                         <span className="inline-flex max-w-full justify-end rounded-md border border-[#E7E7EA] bg-[#FAFAFA] px-2 py-0.5 text-[11px] font-semibold tabular-nums dark:border-[#273244] dark:bg-[#0f172a] sm:text-[12px]">
                           {r.monto}
                         </span>
+                        {r.esGarantia && (
+                          <span className="mt-0.5 block text-[10px] font-medium text-[#6E6E77] dark:text-[#8ea0b8]">
+                            Sin costo
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="w-40 min-w-40 whitespace-nowrap px-2 py-2 text-center align-top sm:px-3">
                         <div className="inline-flex items-center gap-1 rounded-md bg-[#FAFAFA] px-1.5 py-1 dark:bg-white/10">
@@ -772,19 +870,16 @@ export function CotizacionesTable({
                               <path d="M14 2v6h6" />
                             </svg>
                           </button>
-                          {actions.onMarkEnviada && !r.enviadoPor && (
+                          {actions.onEnviarPdf && canEnviarPdfPorCorreo(r.status) && (
                             <button
                               type="button"
                               disabled={excelLoading}
-                              onClick={() => actions.onMarkEnviada!(r)}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#E7E7EA] bg-white transition hover:border-[#4B7CFF] hover:text-[#1B5CFF] disabled:opacity-50 dark:border-white/10 dark:bg-[#111827] dark:hover:border-[#1B5CFF]"
-                              title="Marcar como enviada"
-                              aria-label="Marcar como enviada"
+                              onClick={() => actions.onEnviarPdf!(r)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#E7E7EA] bg-white transition hover:border-sky-400 hover:text-sky-600 disabled:opacity-50 dark:border-white/10 dark:bg-[#111827] dark:hover:border-sky-500"
+                              title="Enviar PDF por correo"
+                              aria-label="Enviar PDF por correo"
                             >
-                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M22 2L11 13" />
-                                <path d="M22 2l-7 20-4-9-9-4 20-7z" />
-                              </svg>
+                              <MailIcon className="h-4 w-4" aria-hidden />
                             </button>
                           )}
                           <button

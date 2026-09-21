@@ -14,6 +14,8 @@ export type CotizacionRow = {
   /** ISO datetime from API (`enviado_en`). */
   enviadoEn?: string;
   enviadoComentario?: string;
+  /** true si es una cotización de garantía (precios en $0 en PDF). */
+  esGarantia?: boolean;
   cliente: string;
   clienteTelefono?: string;
   contacto: string;

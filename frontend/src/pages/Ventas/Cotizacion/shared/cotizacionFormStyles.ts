@@ -37,6 +37,9 @@ export const cloneModalSearchInputClass =
 /** Campo numérico: mismo tono que `inputLikeClassName`, cifras tabulares y sin flechas nativas. */
 export const numberInputClass = `${inputLikeClassName} tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`;
 
+/** Cantidad y similares: cifras tabulares con flechas nativas siempre visibles (Chromium las oculta al no hover). */
+export const numberInputWithSpinnersClass = `${inputLikeClassName} tabular-nums [appearance:auto] [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:h-[1.25em] [&::-webkit-inner-spin-button]:opacity-100 [&::-webkit-outer-spin-button]:opacity-100`;
+
 /** Override de borde/anillo para estado inválido (rojo de error del sistema). */
 export const inputInvalidClass =
   "!border-[#C22B2B] focus:!border-[#C22B2B] focus:!ring-[rgba(194,43,43,0.18)] dark:!border-[#F87171] dark:focus:!border-[#F87171]";
@@ -66,6 +69,46 @@ export const summaryHeroClass =
 
 export const tableWrapClass =
   "touch-pan-x overflow-x-auto overscroll-x-contain rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] [-webkit-overflow-scrolling:touch] dark:border-[#273244] dark:bg-[#1B2539]";
+
+/**
+ * Placa de folio (COT-#####): cápsula documental con prefijo + número.
+ * Claro = superficie blanca, barra azul y tipografía densa (contraste ≥ 4.5:1).
+ * Oscuro = slate elevado + texto claro; el acento no depende solo del color.
+ */
+export const cotFolioBadgeClass =
+  "inline-flex max-w-full shrink-0 items-stretch overflow-hidden whitespace-nowrap rounded-[9px] border border-[#D7E3FF] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:border-[#3A4A6B] dark:bg-[#151E32] dark:shadow-[0_1px_2px_rgba(0,0,0,0.35)]";
+
+export const cotFolioBadgePrefixClass =
+  "inline-flex items-center border-r border-[#D7E3FF] bg-[#EEF3FF] px-1.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1244D1] dark:border-[#3A4A6B] dark:bg-[#1B2A63] dark:text-[#9BB6FF] sm:px-2 sm:text-[10px]";
+
+export const cotFolioBadgeNumberClass =
+  "inline-flex items-center px-2 py-1 font-mono text-[11px] font-semibold tabular-nums leading-none tracking-[-0.02em] text-[#0B1220] dark:text-[#F1F5FF] sm:px-2.5 sm:text-[12px]";
+
+/** Base compartida de chips de listado (medio / status / flags). */
+export const cotChipBaseClass =
+  "inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-lg border px-2 py-1 text-[10px] font-semibold leading-none tracking-[-0.01em] sm:text-[11px]";
+
+/** Medio de contacto (CLIENTE, Web, …): neutro, tipográfico. */
+export const cotMedioChipClass = `${cotChipBaseClass} border-[#E2E5EC] bg-white text-[#3F3F46] shadow-[0_1px_1px_rgba(15,23,42,0.04)] dark:border-[#3A4661] dark:bg-[#151E32] dark:text-[#D6DEEA] dark:shadow-[0_1px_1px_rgba(0,0,0,0.25)]`;
+
+export const cotStatusChipPendienteClass = `${cotChipBaseClass} border-[#F0D7A3] bg-[#FFF8EB] text-[#8A5A10] dark:border-[rgba(230,162,60,0.35)] dark:bg-[rgba(230,162,60,0.12)] dark:text-[#F0C675]`;
+
+export const cotStatusChipAutorizadaClass = `${cotChipBaseClass} border-[#BFE6D4] bg-[#E9F8F0] text-[#04724D] dark:border-[#1E5A42] dark:bg-[#0F2A1C] dark:text-[#4ADE80]`;
+
+export const cotStatusChipCanceladaClass = `${cotChipBaseClass} border-[#F6CFCF] bg-[#FEF2F2] text-[#C22B2B] dark:border-[#7F1D1D] dark:bg-[#3F1518] dark:text-[#F87171]`;
+
+export const cotStatusDotPendienteClass = "bg-[#D97706] dark:bg-[#E6A23C]";
+export const cotStatusDotAutorizadaClass = "bg-[#04724D] dark:bg-[#4ADE80]";
+export const cotStatusDotCanceladaClass = "bg-[#C22B2B] dark:bg-[#F87171]";
+
+/**
+ * Flag de garantía: marca cian de «cubierto / sin costo».
+ * Hue libre entre Enviada (azul) y Autorizada (verde); no oro, no acero, no navy.
+ */
+export const cotGarantiaBadgeClass = `${cotChipBaseClass} border-[#9AD8E8] bg-[#E7F7FB] text-[#0E6B80] dark:border-[#1A5F70] dark:bg-[#0C2A32] dark:text-[#67E8F9]`;
+
+/** Chip accionable «Enviada»: azul eléctrico + foco visible. */
+export const cotEnviadaBadgeClass = `${cotChipBaseClass} border-[#BBD0FF] bg-[#EEF3FF] text-[#1244D1] transition-colors hover:border-[#8FB0FF] hover:bg-[#E0EAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:border-[#4B7CFF]/50 dark:bg-[#1B2A63] dark:text-[#9BB6FF] dark:hover:border-[#6B9AFF] dark:hover:bg-[#24356F] dark:focus-visible:ring-[#4B7CFF]/50 dark:focus-visible:ring-offset-[#111827]`;
 
 /* --------------------------------------------------------------------------
    Tipografía

@@ -23,6 +23,7 @@ export function CotizacionClearModal({ open, onClose, onConfirm }: CotizacionCle
       isOpen={open}
       onClose={onClose}
       closeOnBackdropClick={false}
+      showCloseButton={false}
       className="w-full max-w-md overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827] mx-4 sm:mx-auto"
       ariaLabelledBy={titleId}
     >
@@ -41,7 +42,7 @@ export function CotizacionClearModal({ open, onClose, onConfirm }: CotizacionCle
               />
             </svg>
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h3
               id={titleId}
               className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]"
