@@ -21,7 +21,7 @@ export type EditarOrdenErrors = Partial<Record<keyof EditarOrdenFormState, strin
 export const MOTIVO_PAUSA_MAX = 500;
 export const COMENTARIO_TECNICO_MAX = 4000;
 /** Mínimo obligatorio en edición de campo (mismo umbral que el ERP web). */
-export const COMENTARIO_TECNICO_MIN = 150;
+export const COMENTARIO_TECNICO_MIN = 100;
 
 export function formStateFromOrden(orden: Orden): EditarOrdenFormState {
   return {

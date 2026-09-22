@@ -3,7 +3,7 @@ export const FOTOS_EXTRA_OPTIONS = [0, 2, 3, 4, 5] as const;
 export type FotosExtraMax = (typeof FOTOS_EXTRA_OPTIONS)[number];
 
 /** Mínimo de caracteres en el comentario del técnico al guardar. */
-export const COMENTARIO_TECNICO_MIN_LENGTH = 150;
+export const COMENTARIO_TECNICO_MIN_LENGTH = 100;
 
 export type OrdenStatusAdministrativo = "pendiente" | "en_revision" | "enviado" | "cerrado";
 

@@ -106,12 +106,12 @@ describe('validarForm', () => {
     expect(hayErrores(errores)).toBe(false);
   });
 
-  it('exige comentario técnico de al menos 150 caracteres', () => {
+  it('exige comentario técnico de al menos 100 caracteres', () => {
     const corto = validarForm({
       ...formStateFromOrden(ordenBase),
       comentario_tecnico: 'corto',
     });
-    expect(corto.comentario_tecnico).toMatch(/150/);
+    expect(corto.comentario_tecnico).toMatch(/100/);
 
     const vacio = validarForm({
       ...formStateFromOrden(ordenBase),
