@@ -257,3 +257,82 @@ export function crearNotaDia(): ProyectoNotaDia {
     imagenesUrls: [],
   };
 }
+
+/**
+ * Cambios que el técnico de verdad hizo. `construirPatch` reenvía el motivo de
+ * pausa/cancelación sin cambios cuando el estatus lo exige (lo pide el
+ * backend); eso no cuenta como edición en la UI.
+ */
+export function contarCambios(original: Proyecto, patch: ProyectoFieldPatch): number {
+  const base = formStateFromProyecto(original);
+  return Object.keys(patch).filter((campo) => {
+    if (campo === 'motivo_pausa') return patch.motivo_pausa !== base.motivo_pausa.trim();
+    if (campo === 'motivo_cancelacion') return patch.motivo_cancelacion !== base.motivo_cancelacion.trim();
+    return true;
+  }).length;
+}
+
+/** Pasos del formulario de proyecto, en orden visual. */
+export const SECCIONES_PROYECTO = ['estatus', 'jornadas', 'equipos', 'bitacora', 'avance', 'evidencia'] as const;
+export type SeccionProyecto = (typeof SECCIONES_PROYECTO)[number] | 'extras';
+
+export const TITULO_SECCION_PROYECTO: Record<SeccionProyecto, string> = {
+  estatus: 'Estatus',
+  jornadas: 'Jornadas',
+  equipos: 'Equipos',
+  bitacora: 'Bitácora',
+  avance: 'Avance',
+  evidencia: 'Evidencia',
+  extras: 'Recursos e incidencias',
+};
+
+/** Qué pasos están completos — alimenta el avance del encabezado y las palomitas. */
+export function seccionesCompletasProyecto(
+  state: EditarProyectoFormState,
+  proyecto: Pick<Proyecto, 'tipos_trabajo'>,
+): Record<(typeof SECCIONES_PROYECTO)[number], boolean> {
+  const esAlarmas = proyectoTieneTipoAlarmas(proyecto.tipos_trabajo);
+  return {
+    estatus:
+      (state.status !== 'pausado' || state.motivo_pausa.trim().length > 0) &&
+      (state.status !== 'cancelado' || state.motivo_cancelacion.trim().length > 0) &&
+      (!esAlarmas || state.monitoreo !== null),
+    jornadas: state.fechas_inicio.some((f) => f.trim()) && state.hora_llegada.trim().length > 0,
+    equipos: state.equipos.every((e) => e.estadoInstalacion === 'instalado'),
+    bitacora: state.notas_por_dia.length > 0 && state.notas_por_dia.every((n) => n.nota.trim().length > 0),
+    avance: state.porcentaje_avance > 0,
+    evidencia:
+      state.evidencias_urls.length > 0 &&
+      state.firma_cliente_url.trim().length > 0 &&
+      state.firma_tecnico_url.trim().length > 0,
+  };
+}
+
+const SECCION_DE_CAMPO: Partial<Record<keyof EditarProyectoErrors, SeccionProyecto>> = {
+  status: 'estatus',
+  monitoreo: 'estatus',
+  motivo_pausa: 'estatus',
+  motivo_cancelacion: 'estatus',
+  fecha_autorizacion: 'jornadas',
+  fechas_inicio: 'jornadas',
+  hora_llegada: 'jornadas',
+  hora_salida: 'jornadas',
+  notas_por_dia: 'bitacora',
+  requerimientos_adicionales: 'extras',
+};
+
+const ORDEN_VISUAL: readonly SeccionProyecto[] = [...SECCIONES_PROYECTO, 'extras'];
+
+/** Primer paso (en orden visual) con un error de validación. */
+export function primeraSeccionConErrorProyecto(errors: EditarProyectoErrors): SeccionProyecto | null {
+  const conError = new Set(
+    (Object.keys(errors) as (keyof EditarProyectoErrors)[])
+      .filter((campo) => {
+        const v = errors[campo];
+        return typeof v === 'object' && v !== null ? Object.keys(v).length > 0 : Boolean(v);
+      })
+      .map((campo) => SECCION_DE_CAMPO[campo])
+      .filter(Boolean),
+  );
+  return ORDEN_VISUAL.find((s) => conError.has(s)) ?? null;
+}

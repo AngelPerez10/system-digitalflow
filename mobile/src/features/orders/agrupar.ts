@@ -1,5 +1,5 @@
 import type { OrdenListItem, OrdenStatus } from '@/types/orden';
-import { statusLabel } from './ordenFormat';
+import { normalizarPrioridad, statusLabel, type Prioridad } from './ordenFormat';
 
 /** Mismo orden que el listado web: Pendientes → Pausados → Resueltas. */
 export const ORDEN_STATUS_ORDER: readonly OrdenStatus[] = ['pendiente', 'pausado', 'resuelto'];
@@ -21,5 +21,22 @@ export function agruparPorStatus(ordenes: readonly OrdenListItem[]): OrdenSectio
 export function contarPorStatus(ordenes: readonly OrdenListItem[]): Record<OrdenStatus, number> {
   const counts: Record<OrdenStatus, number> = { pendiente: 0, pausado: 0, resuelto: 0 };
   for (const orden of ordenes) counts[orden.status] += 1;
+  return counts;
+}
+
+/** Filtro de estatus del listado: `'todas'` deja pasar las tres secciones. */
+export type FiltroStatus = OrdenStatus | 'todas';
+
+export function filtrarPorStatus(
+  secciones: readonly OrdenSection[],
+  filtro: FiltroStatus,
+): OrdenSection[] {
+  return filtro === 'todas' ? [...secciones] : secciones.filter((s) => s.key === filtro);
+}
+
+/** Conteo de la bolsa por prioridad (alta / media / baja), normalizando el string del backend. */
+export function contarPorPrioridad(ordenes: readonly OrdenListItem[]): Record<Prioridad, number> {
+  const counts: Record<Prioridad, number> = { alta: 0, media: 0, baja: 0 };
+  for (const orden of ordenes) counts[normalizarPrioridad(orden.prioridad_pool)] += 1;
   return counts;
 }

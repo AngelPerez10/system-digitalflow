@@ -158,3 +158,49 @@ export function coincideBusqueda(orden: OrdenListItem, termino: string): boolean
   ];
   return campos.some((campo) => campo.toLowerCase().includes(q));
 }
+
+function minutosDesdeEpoch(fecha: string | null, hora: string | null): number | null {
+  const f = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha ?? '');
+  const h = /^(\d{2}):(\d{2})/.exec(hora ?? '');
+  if (!f || !h) return null;
+  // UTC puro: solo interesa la diferencia, así no influyen zona horaria ni horario de verano.
+  return Date.UTC(Number(f[1]), Number(f[2]) - 1, Number(f[3]), Number(h[1]), Number(h[2])) / 60000;
+}
+
+/**
+ * Tiempo entre inicio y fin del servicio («2 h 30 min»). `null` si falta
+ * alguno de los cuatro datos o el fin no es posterior al inicio.
+ */
+export function duracionServicio(
+  orden: Pick<OrdenListItem, 'fecha_inicio' | 'hora_inicio' | 'fecha_finalizacion' | 'hora_termino'>,
+): string | null {
+  const inicio = minutosDesdeEpoch(orden.fecha_inicio, orden.hora_inicio);
+  const fin = minutosDesdeEpoch(orden.fecha_finalizacion, orden.hora_termino);
+  if (inicio == null || fin == null || fin <= inicio) return null;
+  const total = fin - inicio;
+  const dias = Math.floor(total / 1440);
+  const horas = Math.floor((total % 1440) / 60);
+  const minutos = total % 60;
+  const partes = [
+    dias ? `${dias} d` : null,
+    horas ? `${horas} h` : null,
+    minutos && !dias ? `${minutos} min` : null,
+  ].filter(Boolean);
+  return partes.length ? partes.join(' ') : null;
+}
+
+/**
+ * Tiempo relativo corto desde un ISO del backend («hace 5 min», «hace 3 h»,
+ * «hace 2 d»). `null` si falta o no se puede leer. Futuro cercano = «ahora».
+ */
+export function haceCuanto(iso: string | null | undefined, ahora: Date = new Date()): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const min = Math.floor((ahora.getTime() - t) / 60000);
+  if (min < 1) return 'ahora';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  return `hace ${Math.floor(h / 24)} d`;
+}

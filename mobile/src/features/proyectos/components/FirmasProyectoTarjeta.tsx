@@ -44,10 +44,10 @@ export function FirmasProyectoTarjeta({ firmaCliente, firmaTecnico }: Props) {
   return (
     <View style={styles.columna}>
       {firmaCliente ? (
-        <Firma label="Firma del cliente" url={firmaCliente} onPress={() => abrir(urls, urls.indexOf(firmaCliente))} />
+        <Firma label="Firma del cliente" url={firmaCliente} onPress={() => abrir(urls, urls.indexOf(firmaCliente), { lienzoClaro: true })} />
       ) : null}
       {firmaTecnico ? (
-        <Firma label="Firma del técnico" url={firmaTecnico} onPress={() => abrir(urls, urls.indexOf(firmaTecnico))} />
+        <Firma label="Firma del técnico" url={firmaTecnico} onPress={() => abrir(urls, urls.indexOf(firmaTecnico), { lienzoClaro: true })} />
       ) : null}
       {visor}
     </View>

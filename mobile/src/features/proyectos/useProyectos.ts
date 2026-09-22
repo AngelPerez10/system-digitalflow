@@ -3,7 +3,13 @@ import { listProyectos } from '@/api/proyectosApi';
 import { useEntityList } from '@/hooks/useEntityList';
 import type { ProyectoListItem } from '@/types/proyecto';
 import { mesActual } from '@/utils/fecha';
-import { agruparPorStatus, contarPorStatus, type ProyectoSection } from './agrupar';
+import {
+  agruparPorStatus,
+  contarPorStatus,
+  filtrarPorStatus,
+  type FiltroProyecto,
+  type ProyectoSection,
+} from './agrupar';
 import { coincideBusqueda, perteneceAlMes } from './proyectoFormat';
 
 export interface UseProyectosResult {
@@ -11,6 +17,8 @@ export interface UseProyectosResult {
   setMes: (mes: string) => void;
   busqueda: string;
   setBusqueda: (valor: string) => void;
+  filtro: FiltroProyecto;
+  setFiltro: (filtro: FiltroProyecto) => void;
   secciones: ProyectoSection[];
   total: number;
   conteos: ReturnType<typeof contarPorStatus>;
@@ -25,11 +33,12 @@ export interface UseProyectosResult {
  * por `own_only`, igual que en Órdenes) — aquí se pagina por mes en el
  * cliente, ya que `fechas_inicio` es un arreglo JSON y no un campo de fecha
  * indexable como el de Órdenes. Por defecto muestra el mes actual; el
- * `MesSelector` deja hojear proyectos pasados.
+ * encabezado de mes (`MesEncabezado`) deja hojear proyectos pasados.
  */
 export function useProyectos(): UseProyectosResult {
   const [mes, setMes] = useState(() => mesActual());
   const [busqueda, setBusqueda] = useState('');
+  const [filtro, setFiltro] = useState<FiltroProyecto>('todos');
 
   const fetcher = useCallback((signal: AbortSignal) => listProyectos(signal), []);
   const { items, cargando, refrescando, error, recargar } = useEntityList<ProyectoListItem>({
@@ -49,7 +58,9 @@ export function useProyectos(): UseProyectosResult {
     setMes,
     busqueda,
     setBusqueda,
-    secciones: useMemo(() => agruparPorStatus(filtrados), [filtrados]),
+    filtro,
+    setFiltro,
+    secciones: useMemo(() => filtrarPorStatus(agruparPorStatus(filtrados), filtro), [filtrados, filtro]),
     total: filtrados.length,
     conteos: useMemo(() => contarPorStatus(filtrados), [filtrados]),
     cargando,

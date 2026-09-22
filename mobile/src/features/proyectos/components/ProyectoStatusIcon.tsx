@@ -2,7 +2,7 @@ import React from 'react';
 import type { ProyectoStatus } from '@/types/proyecto';
 import { IconAlerta, IconPause, IconVisto, IconWrench } from '@/components/icons';
 
-/** Un glifo por estatus — misma idea que `STATUS_ICON` en `OrdenDetalleHero`. */
+/** Un glifo por estatus — misma idea que `STATUS_ICON` en `OrdenDetalleHeader`. */
 export function ProyectoStatusIcon({ status, color, size = 14 }: { status: ProyectoStatus; color: string; size?: number }) {
   switch (status) {
     case 'pausado':

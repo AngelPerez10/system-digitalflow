@@ -6,9 +6,10 @@ import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
 import { useSession } from '@/auth/SessionProvider';
 import { canViewModule } from '@/auth/permissions';
 import { AppButton } from '@/components/AppButton';
-import { AppNavbar, IconOrdenes, IconProyectos, type NavItem } from '@/components/AppNavbar';
+import { AppNavbar } from '@/components/AppNavbar';
 import { LoadingState } from '@/components/StateViews';
-import { PushProvider } from '@/notifications/PushProvider';
+import { construirMenu, MENU_APP } from '@/navigation/menuApp';
+import { PushProvider, usePush } from '@/notifications/PushProvider';
 import {
   animationDurationMs,
   pushAnimation,
@@ -22,7 +23,6 @@ import { useReducedMotion } from '@/utils/useReducedMotion';
 export default function AppLayout() {
   const { status, user, permissions, signOut } = useSession();
   const { colors } = useTheme();
-  const router = useRouter();
   const segments = useSegments();
   const reduced = useReducedMotion();
 
@@ -39,11 +39,11 @@ export default function AppLayout() {
   // en desarrollo y pueden quedar rezagados un instante tras crear una ruta
   // nueva — comparar como string evita que el tipo generado bloquee el build.
   const seccionListado = segments.length === 2 ? String(segments[1]) : null;
-  const mostrarNavbar = seccionListado === 'ordenes' || seccionListado === 'proyectos';
+  // Cualquier sección raíz del catálogo del menú lleva la barra global.
+  const mostrarNavbar = MENU_APP.some((e) => e.seccion !== undefined && e.seccion === seccionListado);
 
   const nombre = user ? nombreUsuarioDisplay(user) : undefined;
-  const puedeOrdenes = canViewModule(permissions, user, 'ordenes');
-  const puedeProyectos = canViewModule(permissions, user, 'proyectos');
+  const puedeAlgo = MENU_APP.some((e) => canViewModule(permissions, user, e.modulo));
 
   if (status === 'loading') return <LoadingState label="Restaurando sesión…" />;
   if (status === 'signedOut') return <Redirect href="/bienvenida" />;
@@ -56,7 +56,7 @@ export default function AppLayout() {
     return <Redirect href="/cliente" />;
   }
 
-  if (!puedeOrdenes && !puedeProyectos) {
+  if (!puedeAlgo) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]} edges={['bottom']}>
         <AppNavbar nombreUsuario={nombre} onCerrarSesion={() => void signOut()} />
@@ -75,33 +75,16 @@ export default function AppLayout() {
   const push = pushAnimation(reduced);
   const sheet = sheetAnimation(reduced);
 
-  const items: NavItem[] = [];
-  if (puedeOrdenes) {
-    items.push({
-      key: 'ordenes',
-      label: 'Mis órdenes',
-      hint: 'Abre el listado del mes',
-      icon: (color: string) => <IconOrdenes color={color} />,
-      active: seccionListado === 'ordenes',
-      onPress: () => router.replace('/ordenes'),
-    });
-  }
-  if (puedeProyectos) {
-    items.push({
-      key: 'proyectos',
-      label: 'Mis proyectos',
-      hint: 'Abre el listado de proyectos asignados',
-      icon: (color: string) => <IconProyectos color={color} />,
-      active: seccionListado === 'proyectos',
-      onPress: () => router.replace('/proyectos' as Href),
-    });
-  }
-
   return (
     <PushProvider>
       <View style={[styles.shell, { backgroundColor: colors.canvas }]}>
         {mostrarNavbar ? (
-          <AppNavbar nombreUsuario={nombre} items={items} onCerrarSesion={() => void signOut()} />
+          <NavbarApp
+            nombre={nombre}
+            seccionActual={seccionListado}
+            puedeVer={(modulo) => canViewModule(permissions, user, modulo)}
+            onCerrarSesion={() => void signOut()}
+          />
         ) : null}
         <Stack
           screenOptions={{
@@ -163,6 +146,32 @@ export default function AppLayout() {
       </View>
     </PushProvider>
   );
+}
+
+/**
+ * Navbar con el menú construido desde `MENU_APP`. Vive dentro de
+ * `PushProvider` para inyectar el contador de disponibles sin ver.
+ */
+function NavbarApp({
+  nombre,
+  seccionActual,
+  puedeVer,
+  onCerrarSesion,
+}: {
+  nombre?: string;
+  seccionActual: string | null;
+  puedeVer: (modulo: string) => boolean;
+  onCerrarSesion: () => void;
+}) {
+  const router = useRouter();
+  const { disponiblesSinVer } = usePush();
+  const items = construirMenu({
+    puedeVer,
+    seccionActual,
+    contadores: { disponibles: disponiblesSinVer },
+    navegar: (ruta: Href, modo) => (modo === 'push' ? router.push(ruta) : router.replace(ruta)),
+  });
+  return <AppNavbar nombreUsuario={nombre} items={items} onCerrarSesion={onCerrarSesion} />;
 }
 
 const styles = StyleSheet.create({

@@ -1,5 +1,5 @@
 import type { OrdenListItem, OrdenStatus } from '@/types/orden';
-import { agruparPorStatus, contarPorStatus } from '../agrupar';
+import { agruparPorStatus, contarPorPrioridad, contarPorStatus, filtrarPorStatus } from '../agrupar';
 import { coincideBusqueda, folioDisplay } from '../ordenFormat';
 
 function orden(id: number, status: OrdenStatus, extra: Partial<OrdenListItem> = {}): OrdenListItem {
@@ -76,5 +76,34 @@ describe('coincideBusqueda', () => {
 
   it('sin término devuelve todo', () => {
     expect(coincideBusqueda(orden(1, 'pendiente'), '   ')).toBe(true);
+  });
+});
+
+describe('filtrarPorStatus', () => {
+  const secciones = agruparPorStatus([orden(1, 'pendiente'), orden(2, 'pausado'), orden(3, 'resuelto')]);
+
+  it('deja todas las secciones con "todas"', () => {
+    expect(filtrarPorStatus(secciones, 'todas').map((s) => s.key)).toEqual(['pendiente', 'pausado', 'resuelto']);
+  });
+
+  it('deja solo la sección del estatus elegido', () => {
+    expect(filtrarPorStatus(secciones, 'pausado').map((s) => s.key)).toEqual(['pausado']);
+  });
+
+  it('regresa vacío si el estatus no tiene órdenes', () => {
+    expect(filtrarPorStatus(agruparPorStatus([orden(1, 'pendiente')]), 'resuelto')).toEqual([]);
+  });
+});
+
+describe('contarPorPrioridad', () => {
+  it('cuenta alta, media y baja; lo desconocido o vacío cae en media', () => {
+    const conteo = contarPorPrioridad([
+      orden(1, 'pendiente', { prioridad_pool: 'alta' }),
+      orden(2, 'pendiente', { prioridad_pool: 'ALTA' }),
+      orden(3, 'pendiente', { prioridad_pool: 'baja' }),
+      orden(4, 'pendiente', { prioridad_pool: null }),
+      orden(5, 'pendiente', { prioridad_pool: 'urgente' }),
+    ]);
+    expect(conteo).toEqual({ alta: 2, media: 2, baja: 1 });
   });
 });

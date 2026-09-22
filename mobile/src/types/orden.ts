@@ -94,4 +94,12 @@ export interface OrdenFieldPatch {
   /** Data URL, URL Cloudinary, o `""` para borrar. */
   firma_cliente_url?: string;
   equipos_inventario?: EquipoInventarioItem[];
+  /**
+   * Fuera de `LIMITED_ORDEN_EDIT_FIELDS`: solo se manda cuando el técnico
+   * tiene edición completa (dueño de la orden o «Ver todas las órdenes»),
+   * el único caso en que `editar.tsx` es alcanzable. Ver `edit_scope.py`.
+   */
+  direccion?: string;
+  /** Fuera de `LIMITED_ORDEN_EDIT_FIELDS` — mismo caso que `direccion`. */
+  nombre_cliente?: string;
 }

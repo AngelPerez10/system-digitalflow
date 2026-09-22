@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "mx.sertel.digitalflow.tecnico",
-      "versionCode": 4,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -53,6 +53,12 @@
       ],
       "expo-font",
       "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SertelPro necesita tu ubicación para colocarla en el mapa de la orden."
+        }
+      ],
       [
         "expo-notifications",
         {

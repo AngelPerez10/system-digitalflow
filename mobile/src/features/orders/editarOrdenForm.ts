@@ -14,6 +14,10 @@ export interface EditarOrdenFormState {
   /** URL https de Cloudinary, data URL pendiente de subir, o vacío. */
   firma_cliente_url: string;
   equipos_inventario: EquipoInventarioItem[];
+  /** Dirección o enlace de Google Maps (`?q=lat,lng`) del sitio del servicio. */
+  direccion: string;
+  /** Contacto en sitio (puede diferir del titular de la cuenta). */
+  nombre_cliente: string;
 }
 
 export type EditarOrdenErrors = Partial<Record<keyof EditarOrdenFormState, string>>;
@@ -35,6 +39,8 @@ export function formStateFromOrden(orden: Orden): EditarOrdenFormState {
     fotos_urls: [...orden.fotos_urls],
     firma_cliente_url: orden.firma_cliente_url ?? '',
     equipos_inventario: orden.equipos_inventario.map((equipo) => ({ ...equipo })),
+    direccion: orden.direccion ?? '',
+    nombre_cliente: orden.nombre_cliente ?? '',
   };
 }
 
@@ -144,9 +150,84 @@ export function construirPatch(original: Orden, state: EditarOrdenFormState): Or
     patch.equipos_inventario = equiposParaEscritura(state.equipos_inventario);
   }
 
+  if (state.direccion.trim() !== base.direccion.trim()) {
+    patch.direccion = state.direccion.trim();
+  }
+
+  if (state.nombre_cliente.trim() !== base.nombre_cliente.trim()) {
+    patch.nombre_cliente = state.nombre_cliente.trim();
+  }
+
   return patch;
 }
 
 export function tieneCambios(patch: OrdenFieldPatch): boolean {
   return Object.keys(patch).length > 0;
+}
+
+/**
+ * Campos que el usuario de verdad modificó. `construirPatch` reenvía
+ * `motivo_pausa` sin cambios cuando la orden sigue pausada (lo exige el
+ * backend), y eso no debe contarse como edición en la UI.
+ */
+export function contarCambios(original: Orden, patch: OrdenFieldPatch): number {
+  const base = formStateFromOrden(original);
+  return Object.keys(patch).filter(
+    (campo) => !(campo === 'motivo_pausa' && patch.motivo_pausa === base.motivo_pausa.trim()),
+  ).length;
+}
+
+export const SECCIONES_EDITAR = [
+  'estatus',
+  'cliente',
+  'trabajo',
+  'horario',
+  'equipos',
+  'evidencia',
+] as const;
+export type SeccionEditar = (typeof SECCIONES_EDITAR)[number];
+
+export const TITULO_SECCION: Record<SeccionEditar, string> = {
+  estatus: 'Estatus',
+  cliente: 'Cliente y sitio',
+  trabajo: 'Trabajo realizado',
+  horario: 'Horario',
+  equipos: 'Equipos',
+  evidencia: 'Evidencia',
+};
+
+/** Qué secciones del reporte están completas — alimenta el progreso del encabezado. */
+export function seccionesCompletas(state: EditarOrdenFormState): Record<SeccionEditar, boolean> {
+  const instalados = state.equipos_inventario.filter((e) => e.estadoInstalacion === 'instalado').length;
+  return {
+    estatus: state.status !== 'pausado' || state.motivo_pausa.trim().length > 0,
+    cliente: state.nombre_cliente.trim().length > 0 && state.direccion.trim().length > 0,
+    trabajo: state.comentario_tecnico.trim().length >= COMENTARIO_TECNICO_MIN,
+    horario: Boolean(state.fecha_inicio.trim() && state.hora_inicio.trim()),
+    equipos: instalados === state.equipos_inventario.length,
+    evidencia: state.fotos_urls.length > 0 && state.firma_cliente_url.trim().length > 0,
+  };
+}
+
+const SECCION_DE_CAMPO: Partial<Record<keyof EditarOrdenFormState, SeccionEditar>> = {
+  status: 'estatus',
+  motivo_pausa: 'estatus',
+  nombre_cliente: 'cliente',
+  direccion: 'cliente',
+  comentario_tecnico: 'trabajo',
+  fecha_inicio: 'horario',
+  hora_inicio: 'horario',
+  fecha_finalizacion: 'horario',
+  hora_termino: 'horario',
+};
+
+/** Primera sección (en orden visual) con un error de validación. */
+export function primeraSeccionConError(errors: EditarOrdenErrors): SeccionEditar | null {
+  const conError = new Set(
+    (Object.keys(errors) as (keyof EditarOrdenFormState)[])
+      .filter((campo) => errors[campo])
+      .map((campo) => SECCION_DE_CAMPO[campo])
+      .filter(Boolean),
+  );
+  return SECCIONES_EDITAR.find((s) => conError.has(s)) ?? null;
 }

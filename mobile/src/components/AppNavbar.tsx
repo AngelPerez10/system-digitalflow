@@ -5,12 +5,15 @@ import {
   Easing,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Line, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { inicialesUsuarioDisplay } from '@/auth/nombreUsuario';
 import { BrandMark } from '@/components/Brand';
 import { IconChevron, IconClose } from '@/components/icons';
@@ -19,20 +22,54 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { font, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 
-const DRAWER_WIDTH = Math.min(320, Dimensions.get('window').width * 0.86);
+const DRAWER_WIDTH = Math.min(340, Dimensions.get('window').width * 0.88);
 
 /** Abrir un poco más lento que cerrar — llegada confiada, salida rápida. */
-const MS_OPEN = 280;
+const MS_OPEN = 300;
 const MS_CLOSE = 200;
+
+/** Vidrio sobre marino (siempre oscuro en ambos temas). */
+const GLASS = 'rgba(255,255,255,0.08)';
+const GLASS_PRESSED = 'rgba(255,255,255,0.18)';
+const GLASS_LINE = 'rgba(255,255,255,0.14)';
 
 export interface NavItem {
   key: string;
   label: string;
   hint?: string;
   icon: (color: string) => React.ReactNode;
-  /** Resalta la fila como la sección actual (punto dorado + fondo). */
+  /** Resalta la fila como la sección actual. */
   active?: boolean;
+  /**
+   * Encabezado bajo el que se agrupa en el panel («Trabajo de campo»,
+   * «Inventario»…). Los grupos salen en el orden en que aparece su primer
+   * elemento; sin grupo cae en «Secciones».
+   */
+  grupo?: string;
+  /** Contador en la fila (p. ej. disponibles sin ver). 0 u omitido = nada. */
+  badge?: number;
   onPress: () => void;
+}
+
+/** A partir de cuántas vistas el panel muestra el buscador. */
+const BUSCADOR_DESDE = 7;
+const GRUPO_POR_DEFECTO = 'Secciones';
+
+/** Agrupa conservando el orden de aparición (función pura, exportada para pruebas). */
+export function agruparNavItems(items: NavItem[], filtro = ''): { grupo: string; items: NavItem[] }[] {
+  const termino = filtro.trim().toLowerCase();
+  const grupos: { grupo: string; items: NavItem[] }[] = [];
+  for (const item of items) {
+    if (termino && !`${item.label} ${item.hint ?? ''}`.toLowerCase().includes(termino)) continue;
+    const nombre = item.grupo ?? GRUPO_POR_DEFECTO;
+    let destino = grupos.find((g) => g.grupo === nombre);
+    if (!destino) {
+      destino = { grupo: nombre, items: [] };
+      grupos.push(destino);
+    }
+    destino.items.push(item);
+  }
+  return grupos;
 }
 
 interface Props {
@@ -56,11 +93,11 @@ interface Props {
   onCerrarSesion?: () => void;
 }
 
-function IconMenu({ color, size = 22 }: { color: string; size?: number }) {
+function IconMenu({ color, size = 18 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1={4} y1={7} x2={20} y2={7} stroke={color} strokeWidth={2} strokeLinecap="round" />
-      <Line x1={4} y1={12} x2={20} y2={12} stroke={color} strokeWidth={2} strokeLinecap="round" />
+      <Line x1={4} y1={12} x2={14} y2={12} stroke={color} strokeWidth={2} strokeLinecap="round" />
       <Line x1={4} y1={17} x2={20} y2={17} stroke={color} strokeWidth={2} strokeLinecap="round" />
     </Svg>
   );
@@ -94,7 +131,16 @@ export function IconProyectos({ color, size = 20 }: { color: string; size?: numb
   );
 }
 
-function IconSalir({ color, size = 20 }: { color: string; size?: number }) {
+function IconLupa({ color, size = 16 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={10.5} cy={10.5} r={6.5} stroke={color} strokeWidth={1.8} />
+      <Line x1={15.3} y1={15.3} x2={20} y2={20} stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function IconSalir({ color, size = 18 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -116,10 +162,11 @@ function IconSalir({ color, size = 20 }: { color: string; size?: number }) {
 }
 
 /**
- * Chrome de la app autenticada: barra superior fina con hamburguesa + drawer
- * lateral izquierdo (marca, acceso al listado, tema, cerrar sesión). Lo comparten
- * las vistas del técnico y el portal del cliente — el rol y el texto del acceso
- * directo llegan por props.
+ * Chrome de la app autenticada: marca a la izquierda y, a la derecha, el
+ * botón de cuenta (menú + iniciales) que abre un panel lateral derecho con el
+ * perfil, las secciones y, al pie, el cierre de sesión con el tema. Lo comparten las
+ * vistas del técnico y el portal del cliente — el rol y los accesos llegan
+ * por props.
  */
 export function AppNavbar({
   titulo = 'SertelPro',
@@ -142,6 +189,7 @@ export function AppNavbar({
 
   const nombreVisible = nombreUsuario?.trim() || rolLabel;
   const iniciales = inicialesUsuarioDisplay(nombreVisible);
+  const version = Constants.expoConfig?.version;
 
   const menuItems: NavItem[] =
     items ?? [
@@ -154,6 +202,11 @@ export function AppNavbar({
         onPress: () => onIrInicio?.(),
       },
     ];
+  const seccionActiva = menuItems.find((item) => item.active);
+  const [filtro, setFiltro] = useState('');
+  const conBuscador = menuItems.length >= BUSCADOR_DESDE;
+  const grupos = agruparNavItems(menuItems, filtro);
+  const pendientesTotal = menuItems.reduce((suma, item) => suma + (item.badge ?? 0), 0);
 
   const abrir = useCallback(() => {
     setDeseado(true);
@@ -162,6 +215,7 @@ export function AppNavbar({
 
   const cerrar = useCallback(() => {
     setDeseado(false);
+    setFiltro('');
   }, []);
 
   useEffect(() => {
@@ -175,16 +229,12 @@ export function AppNavbar({
       return;
     }
 
-    if (deseado) {
-      progreso.setValue(0);
-    }
+    if (deseado) progreso.setValue(0);
 
     const anim = Animated.timing(progreso, {
       toValue: deseado ? 1 : 0,
       duration: deseado ? MS_OPEN : MS_CLOSE,
-      easing: deseado
-        ? Easing.bezier(0.16, 1, 0.3, 1)
-        : Easing.bezier(0.4, 0, 1, 1),
+      easing: deseado ? Easing.bezier(0.16, 1, 0.3, 1) : Easing.bezier(0.4, 0, 1, 1),
       useNativeDriver: true,
     });
     animRef.current = anim;
@@ -197,85 +247,67 @@ export function AppNavbar({
     };
   }, [deseado, montado, progreso, reduced]);
 
-  const translateX = progreso.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-DRAWER_WIDTH - 8, 0],
-  });
-  const backdropOpacity = progreso.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-  const contenidoOpacity = progreso.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [0.4, 0.9, 1],
-  });
-  const contenidoShift = progreso.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-8, 0],
-  });
+  const translateX = progreso.interpolate({ inputRange: [0, 1], outputRange: [DRAWER_WIDTH + 8, 0] });
+  const contenidoOpacity = progreso.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0.7, 1] });
+  const contenidoShift = progreso.interpolate({ inputRange: [0, 1], outputRange: [16, 0] });
 
   const salir = () => {
     cerrar();
     onCerrarSesion?.();
   };
 
-  const backdropColor =
-    scheme === 'dark' ? 'rgba(0, 0, 0, 0.65)' : 'rgba(9, 9, 11, 0.42)';
+  const backdropColor = scheme === 'dark' ? 'rgba(0, 0, 0, 0.65)' : 'rgba(9, 9, 11, 0.45)';
 
   return (
     <>
-      <View
-        style={[
-          styles.bar,
-          {
-            paddingTop: insets.top,
-            backgroundColor: colors.navy,
-            borderBottomColor: colors.navy,
-          },
-        ]}
-        accessibilityRole="header"
-      >
+      <View style={[styles.bar, { paddingTop: insets.top, backgroundColor: colors.navy }]} accessibilityRole="header">
         <View style={styles.fila}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Abrir menú"
-            accessibilityHint="Abre el menú lateral"
-            accessibilityState={{ expanded: deseado }}
-            onPress={abrir}
-            style={({ pressed }) => [
-              styles.hamburguesa,
-              { backgroundColor: pressed ? 'rgba(255,255,255,0.12)' : 'transparent' },
-            ]}
+            accessibilityLabel={`${titulo}, ir al inicio`}
+            onPress={() => (menuItems[0] ? menuItems[0].onPress() : onIrInicio?.())}
+            style={({ pressed }) => [styles.marca, pressed ? { opacity: 0.75 } : null]}
           >
-            <IconMenu color={colors.onNavy} />
+            <BrandMark size={34} background={colors.gold} foreground={colors.onGold} />
+            <View style={styles.marcaTextos}>
+              <Text style={[styles.titulo, { color: colors.onNavy }]} numberOfLines={1}>
+                {titulo}
+              </Text>
+              {seccionActiva ? (
+                <Text style={[styles.seccion, { color: colors.onNavyMuted }]} numberOfLines={1}>
+                  {seccionActiva.label}
+                </Text>
+              ) : null}
+            </View>
           </Pressable>
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Ir al inicio"
-            onPress={() => (menuItems[0] ? menuItems[0].onPress() : onIrInicio?.())}
-            style={styles.marca}
+            accessibilityLabel={pendientesTotal > 0 ? `Abrir menú, ${pendientesTotal} avisos` : 'Abrir menú'}
+            accessibilityHint="Perfil, secciones, apariencia y cerrar sesión"
+            accessibilityState={{ expanded: deseado }}
+            onPress={abrir}
+            hitSlop={4}
+            style={({ pressed }) => [
+              styles.cuenta,
+              { backgroundColor: pressed ? GLASS_PRESSED : GLASS, borderColor: GLASS_LINE },
+            ]}
           >
-            <BrandMark size={22} background={colors.gold} foreground={colors.onGold} />
-            <Text style={[styles.titulo, { color: colors.onNavy }]} numberOfLines={1}>
-              {titulo}
-            </Text>
+            <IconMenu color={colors.onNavy} />
+            <View style={[styles.cuentaAvatar, { backgroundColor: colors.gold }]}>
+              <Text style={[styles.cuentaIniciales, { color: colors.onGold }]}>{iniciales}</Text>
+              {pendientesTotal > 0 ? (
+                <View style={[styles.cuentaAviso, { backgroundColor: colors.danger, borderColor: colors.navy }]} />
+              ) : null}
+            </View>
           </Pressable>
-
-          <View style={styles.hamburguesaFantasma} />
         </View>
       </View>
 
-      <Modal
-        visible={montado}
-        transparent
-        animationType="none"
-        onRequestClose={cerrar}
-        statusBarTranslucent
-      >
+      <Modal visible={montado} transparent animationType="none" onRequestClose={cerrar} statusBarTranslucent>
         <View style={styles.modalRoot} accessibilityViewIsModal>
           <Animated.View
-            style={[styles.backdrop, { backgroundColor: backdropColor, opacity: backdropOpacity }]}
+            style={[styles.backdrop, { backgroundColor: backdropColor, opacity: progreso }]}
             pointerEvents={deseado ? 'auto' : 'none'}
           >
             <Pressable
@@ -289,113 +321,149 @@ export function AppNavbar({
           <Animated.View
             style={[
               styles.drawer,
-              {
-                width: DRAWER_WIDTH,
-                backgroundColor: colors.surface,
-                borderRightColor: colors.line,
-                transform: [{ translateX }],
-              },
+              { width: DRAWER_WIDTH, backgroundColor: colors.canvas, transform: [{ translateX }] },
             ]}
           >
-            <Animated.View
-              style={[
-                styles.drawerInner,
-                {
-                  paddingTop: insets.top + spacing.md,
-                  paddingBottom: Math.max(insets.bottom, spacing.lg),
-                  opacity: contenidoOpacity,
-                  transform: [{ translateX: contenidoShift }],
-                },
-              ]}
-            >
+            {/* Perfil: bloque marino, la misma familia que las cabeceras. */}
+            <View style={[styles.perfil, { backgroundColor: colors.navy, paddingTop: insets.top + spacing.md }]}>
               <View style={styles.perfilFila}>
-                <View style={[styles.avatar, { backgroundColor: colors.navy }]}>
-                  <Text style={[styles.avatarTexto, { color: colors.onNavy }]}>{iniciales}</Text>
+                <View style={[styles.avatar, { backgroundColor: colors.gold }]}>
+                  <Text style={[styles.avatarTexto, { color: colors.onGold }]}>{iniciales}</Text>
                 </View>
                 <View style={styles.perfilTextos}>
                   <Text
-                    style={[styles.perfilNombre, { color: colors.ink }]}
+                    style={[styles.perfilNombre, { color: colors.onNavy }]}
                     numberOfLines={2}
                     accessibilityRole="header"
                   >
                     {nombreVisible}
                   </Text>
-                  <Text style={[styles.perfilRol, { color: colors.inkMuted }]}>{rolLabel}</Text>
-                  {numeroUsuario ? (
-                    <Text
-                      style={[styles.perfilId, { color: colors.inkSubtle }]}
-                      accessibilityLabel={`Número de usuario ${numeroUsuario}`}
-                    >
-                      Usuario {numeroUsuario}
-                    </Text>
-                  ) : null}
+                  <View style={styles.perfilMeta}>
+                    <View style={[styles.rolPill, { backgroundColor: GLASS, borderColor: GLASS_LINE }]}>
+                      <View style={[styles.rolPunto, { backgroundColor: colors.success }]} />
+                      <Text style={[styles.rolTexto, { color: colors.onNavy }]} numberOfLines={1}>
+                        {rolLabel}
+                      </Text>
+                    </View>
+                    {numeroUsuario ? (
+                      <Text
+                        style={[styles.perfilId, { color: colors.onNavyMuted }]}
+                        accessibilityLabel={`Número de usuario ${numeroUsuario}`}
+                      >
+                        Usuario {numeroUsuario}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Cerrar menú"
                   onPress={cerrar}
                   hitSlop={8}
-                  style={({ pressed }) => [
-                    styles.cerrar,
-                    { opacity: pressed ? 0.55 : 1 },
-                  ]}
+                  style={({ pressed }) => [styles.cerrar, { backgroundColor: pressed ? GLASS_PRESSED : GLASS }]}
                 >
-                  <IconClose color={colors.inkMuted} size={20} />
+                  <IconClose color={colors.onNavy} size={18} />
                 </Pressable>
               </View>
+            </View>
 
-              <View style={[styles.divisor, { backgroundColor: colors.line }]} />
+            <Animated.View
+              style={[
+                styles.cuerpo,
+                {
+                  paddingBottom: Math.max(insets.bottom, spacing.lg),
+                  opacity: contenidoOpacity,
+                  transform: [{ translateX: contenidoShift }],
+                },
+              ]}
+            >
+              <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.scrollContenido}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {conBuscador ? (
+                  <View style={[styles.buscador, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+                    <IconLupa color={colors.inkSubtle} />
+                    <TextInput
+                      value={filtro}
+                      onChangeText={setFiltro}
+                      placeholder="Buscar vista…"
+                      placeholderTextColor={colors.inkSubtle}
+                      accessibilityLabel="Buscar vista"
+                      autoCorrect={false}
+                      autoCapitalize="none"
+                      style={[styles.buscadorInput, { color: colors.ink }]}
+                    />
+                    {filtro ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Borrar búsqueda"
+                        onPress={() => setFiltro('')}
+                        hitSlop={8}
+                      >
+                        <IconClose color={colors.inkSubtle} size={14} />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ) : null}
 
-              {menuItems.map((item) => (
-                <Pressable
-                  key={item.key}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.label}
-                  accessibilityHint={item.hint}
-                  accessibilityState={{ selected: item.active }}
-                  onPress={() => {
-                    cerrar();
-                    item.onPress();
-                  }}
-                  style={({ pressed }) => [
-                    styles.filaMenu,
-                    item.active ? styles.filaActiva : null,
-                    { backgroundColor: pressed ? colors.surfaceSunken : item.active ? colors.goldSoftBg : 'transparent' },
-                  ]}
-                >
-                  {item.active ? <View style={[styles.marcadorActivo, { backgroundColor: colors.gold }]} /> : null}
-                  {item.icon(colors.navyText)}
-                  <Text style={[styles.filaTexto, { color: colors.ink }]}>{item.label}</Text>
-                  <IconChevron direction="right" color={colors.inkSubtle} size={16} />
-                </Pressable>
-              ))}
+                {grupos.map(({ grupo, items: filas }) => (
+                  <View key={grupo} style={styles.bloque}>
+                    <Text style={[styles.grupo, { color: colors.inkSubtle }]} accessibilityRole="header">
+                      {grupo}
+                    </Text>
+                    <View style={[styles.lista, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+                      {filas.map((item, i) => (
+                        <FilaMenu
+                          key={item.key}
+                          item={item}
+                          primera={i === 0}
+                          onPress={() => {
+                            cerrar();
+                            item.onPress();
+                          }}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ))}
+                {grupos.length === 0 ? (
+                  <Text style={[styles.sinResultados, { color: colors.inkSubtle }]}>
+                    Ninguna vista coincide con «{filtro}».
+                  </Text>
+                ) : null}
 
-              <View style={styles.spacer} />
+              </ScrollView>
 
-              <View style={[styles.divisor, { backgroundColor: colors.line }]} />
-
-              <View style={[styles.filaMenu, styles.filaEstatica]}>
-                <View style={styles.filaTextos}>
-                  <Text style={[styles.filaTexto, { color: colors.ink, flex: undefined }]}>Apariencia</Text>
-                  <Text style={[styles.filaSub, { color: colors.inkMuted }]}>Claro u oscuro</Text>
-                </View>
+              <View style={[styles.pieDrawer, { borderTopColor: colors.line }]}>
+                <View style={styles.pieFila}>
+                {onCerrarSesion ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Cerrar sesión"
+                    onPress={salir}
+                    style={({ pressed }) => [
+                      styles.salir,
+                      { borderColor: colors.dangerLine, backgroundColor: pressed ? colors.dangerBg : 'transparent' },
+                    ]}
+                  >
+                    <IconSalir color={colors.danger} />
+                    <Text style={[styles.salirTexto, { color: colors.danger }]}>Cerrar sesión</Text>
+                  </Pressable>
+                ) : (
+                  <View style={styles.flex} />
+                )}
+                {/* Apariencia: solo el ícono (luna / sol), sin fila propia. */}
                 <ThemeToggle />
+                </View>
+                {version ? (
+                  <Text style={[styles.version, { color: colors.inkSubtle }]}>
+                    {titulo} · v{version}
+                  </Text>
+                ) : null}
               </View>
-
-              {onCerrarSesion ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Cerrar sesión"
-                  onPress={salir}
-                  style={({ pressed }) => [
-                    styles.filaMenu,
-                    { backgroundColor: pressed ? colors.dangerBg : 'transparent' },
-                  ]}
-                >
-                  <IconSalir color={colors.danger} />
-                  <Text style={[styles.filaTexto, { color: colors.danger }]}>Cerrar sesión</Text>
-                </Pressable>
-              ) : null}
             </Animated.View>
           </Animated.View>
         </View>
@@ -404,150 +472,184 @@ export function AppNavbar({
   );
 }
 
+/** Fila compacta del panel: caben muchas vistas sin que el menú se vuelva una pared de tarjetas. */
+function FilaMenu({ item, primera, onPress }: { item: NavItem; primera: boolean; onPress: () => void }) {
+  const { colors } = useTheme();
+  const activo = Boolean(item.active);
+  const badge = item.badge ?? 0;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={badge > 0 ? `${item.label}, ${badge} nuevas` : item.label}
+      accessibilityHint={item.hint}
+      accessibilityState={{ selected: activo }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.filaMenu,
+        !primera ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line } : null,
+        { backgroundColor: activo ? colors.primaryRing : pressed ? colors.surfaceSunken : 'transparent' },
+      ]}
+    >
+      {activo ? <View style={[styles.marcador, { backgroundColor: colors.primary }]} /> : null}
+      <View style={[styles.itemIcono, { backgroundColor: activo ? colors.primary : colors.surfaceSunken }]}>
+        {item.icon(activo ? colors.onPrimary : colors.inkMuted)}
+      </View>
+      <View style={styles.itemTextos}>
+        <Text style={[styles.itemTexto, { color: activo ? colors.primary : colors.ink }]} numberOfLines={1}>
+          {item.label}
+        </Text>
+        {item.hint ? (
+          <Text style={[styles.itemSub, { color: colors.inkSubtle }]} numberOfLines={1}>
+            {item.hint}
+          </Text>
+        ) : null}
+      </View>
+      {badge > 0 ? (
+        <View style={[styles.badge, { backgroundColor: colors.gold }]}>
+          <Text style={[styles.badgeTexto, { color: colors.onGold }]}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      ) : activo ? null : (
+        <IconChevron direction="right" color={colors.inkSubtle} size={14} />
+      )}
+    </Pressable>
+  );
+}
+
+const AVATAR = 52;
+
 const styles = StyleSheet.create({
-  bar: {
-    zIndex: 20,
-  },
+  bar: { zIndex: 20 },
   fila: {
-    minHeight: TOUCH_TARGET + 4,
-    paddingHorizontal: spacing.md,
+    minHeight: TOUCH_TARGET + 8,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  hamburguesa: {
-    width: TOUCH_TARGET,
-    height: TOUCH_TARGET,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hamburguesaFantasma: {
-    width: TOUCH_TARGET,
-    height: TOUCH_TARGET,
-  },
-  marca: {
-    flex: 1,
+  marca: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: TOUCH_TARGET },
+  marcaTextos: { flex: 1, minWidth: 0 },
+  titulo: { fontFamily: font.bold, fontSize: 17, lineHeight: 21, letterSpacing: -0.4 },
+  seccion: { ...type.caption, fontSize: 11, lineHeight: 14 },
+  cuenta: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: spacing.sm,
-    minHeight: TOUCH_TARGET,
+    height: 42,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingLeft: spacing.md,
+    paddingRight: 4,
   },
-  titulo: {
-    fontFamily: font.semibold,
-    fontSize: 17,
-    lineHeight: 22,
-    letterSpacing: -0.4,
-  },
-  modalRoot: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  backdrop: {
+  cuentaAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  cuentaAviso: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+    top: -1,
+    right: -1,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
   },
+  cuentaIniciales: { fontFamily: font.bold, fontSize: 12, letterSpacing: -0.2 },
+  modalRoot: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
+  backdrop: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   drawer: {
     height: '100%',
-    borderRightWidth: StyleSheet.hairlineWidth,
+    borderTopLeftRadius: radius.card,
+    borderBottomLeftRadius: radius.card,
     overflow: 'hidden',
   },
-  drawerInner: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  perfilFila: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingBottom: spacing.lg,
-  },
+  perfil: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  perfilFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  perfilTextos: { flex: 1, minWidth: 0, gap: 6 },
+  avatar: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, alignItems: 'center', justifyContent: 'center' },
+  avatarTexto: { fontFamily: font.bold, fontSize: 18, letterSpacing: -0.4 },
   cerrar: {
     width: TOUCH_TARGET - 8,
     height: TOUCH_TARGET - 8,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatar: {
-    width: 44,
-    height: 44,
+  perfilNombre: { fontFamily: font.bold, fontSize: 17, lineHeight: 21, letterSpacing: -0.4 },
+  perfilMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm },
+  rolPill: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 3,
+  },
+  rolPunto: { width: 6, height: 6, borderRadius: 3 },
+  rolTexto: { ...type.caption, fontSize: 12, fontFamily: font.medium },
+  perfilId: { ...type.mono, fontSize: 12 },
+  cuerpo: { flex: 1 },
+  scroll: { flex: 1 },
+  scrollContenido: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.lg, gap: spacing.lg },
+  buscador: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 42,
+    borderWidth: 1,
     borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
   },
-  avatarTexto: {
+  buscadorInput: { flex: 1, ...type.body, fontSize: 14, paddingVertical: spacing.sm },
+  bloque: { gap: spacing.sm },
+  grupo: {
     fontFamily: font.semibold,
-    fontSize: 16,
-    letterSpacing: -0.2,
+    fontSize: 11,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    paddingHorizontal: spacing.xs,
   },
-  perfilTextos: {
-    flex: 1,
-    gap: 2,
-  },
-  perfilNombre: {
-    ...type.bodyMedium,
-    fontSize: 17,
-    letterSpacing: -0.3,
-  },
-  perfilRol: {
-    ...type.caption,
-    fontSize: 12,
-  },
-  perfilId: {
-    ...type.mono,
-    fontSize: 12,
-    marginTop: 1,
-  },
-  divisor: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: -spacing.lg,
-  },
+  lista: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
   filaMenu: {
-    minHeight: TOUCH_TARGET,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: spacing.md,
-    marginHorizontal: -spacing.sm,
-    paddingHorizontal: spacing.sm,
+    minHeight: TOUCH_TARGET + 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  marcador: { position: 'absolute', left: 0, top: spacing.sm, bottom: spacing.sm, width: 3, borderRadius: 2 },
+  itemIcono: { width: 34, height: 34, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  itemTextos: { flex: 1, minWidth: 0, gap: 1 },
+  itemTexto: { ...type.bodyMedium, fontFamily: font.semibold, fontSize: 14 },
+  itemSub: { ...type.caption, fontSize: 12 },
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeTexto: { fontFamily: font.bold, fontSize: 11, fontVariant: ['tabular-nums'] },
+  sinResultados: { ...type.caption, textAlign: 'center', paddingVertical: spacing.lg },
+  pieDrawer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  flex: { flex: 1 },
+  pieFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  salir: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: TOUCH_TARGET,
+    borderWidth: 1,
     borderRadius: radius.md,
   },
-  filaActiva: {
-    overflow: 'hidden',
-  },
-  marcadorActivo: {
-    position: 'absolute',
-    left: 0,
-    top: spacing.sm,
-    bottom: spacing.sm,
-    width: 3,
-    borderTopRightRadius: 3,
-    borderBottomRightRadius: 3,
-  },
-  filaEstatica: {
-    marginHorizontal: 0,
-    paddingHorizontal: 0,
-  },
-  filaTextos: {
-    flex: 1,
-    gap: 1,
-  },
-  filaTexto: {
-    ...type.bodyMedium,
-    flex: 1,
-  },
-  filaSub: {
-    ...type.caption,
-    fontSize: 12,
-  },
-  spacer: {
-    flex: 1,
-    minHeight: spacing.xl,
-  },
+  salirTexto: { ...type.button, fontFamily: font.semibold },
+  version: { ...type.mono, fontSize: 11, textAlign: 'center', marginTop: spacing.md },
 });

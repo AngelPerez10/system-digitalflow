@@ -180,3 +180,38 @@ export function coincideBusqueda(proyecto: ProyectoListItem, termino: string): b
   ];
   return campos.some((campo) => campo.toLowerCase().includes(q));
 }
+
+/**
+ * Personas del proyecto para la fila de avatares: responsable primero, luego
+ * el resto de técnicos y los auxiliares. `titulo` es el nombre a mostrar y
+ * `extra` cuántos más hay («Luis Díaz +2»).
+ */
+export function resumenEquipo(proyecto: Pick<ProyectoListItem, 'tecnicos' | 'auxiliares'>): {
+  nombres: string[];
+  titulo: string;
+  extra: number;
+} {
+  const tecnicos = [...proyecto.tecnicos].sort((a, b) => Number(b.responsable) - Number(a.responsable));
+  const nombres = [...tecnicos, ...proyecto.auxiliares].map((p) => p.nombre.trim()).filter(Boolean);
+  return {
+    nombres,
+    titulo: nombres[0] ?? 'Sin técnico asignado',
+    extra: Math.max(0, nombres.length - 1),
+  };
+}
+
+/**
+ * Días de trabajo del proyecto. `fechas_inicio` (el rango programado) y
+ * `notas_por_dia` (los días registrados en bitácora) se capturan por separado:
+ * un técnico puede agregar el día 3 a la bitácora sin extender el rango. Se
+ * toma el mayor para que el conteo nunca contradiga a la bitácora.
+ */
+export function diasDeTrabajo(proyecto: Pick<ProyectoListItem, 'fechas_inicio' | 'notas_por_dia'>): {
+  programados: number;
+  enBitacora: number;
+  total: number;
+} {
+  const programados = new Set(proyecto.fechas_inicio.map((f) => f.trim().slice(0, 10)).filter(Boolean)).size;
+  const enBitacora = proyecto.notas_por_dia.length;
+  return { programados, enBitacora, total: Math.max(programados, enBitacora) };
+}

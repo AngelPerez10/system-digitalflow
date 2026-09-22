@@ -4,10 +4,9 @@ import { SkeletonBar as Barra, SkeletonRegion } from '@/components/Skeleton';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, radius, spacing } from '@/theme/tokens';
 
-/** Silueta de `OrdenCard` (segunda generación) mientras llega el primer lote
- *  de órdenes — misma barra de acento, misma fila de insignias y el mismo
- *  recuadro de falla, para que la carga no se sienta más flaca que el
- *  contenido que la sustituye. */
+/** Silueta de `OrdenCard` mientras llega el primer lote: placa de color,
+ *  folio + cliente, nota, atajos y pie — la misma composición, para que la
+ *  carga no se sienta más flaca que el contenido que la sustituye. */
 export function OrdenCardSkeleton() {
   const { colors } = useTheme();
   return (
@@ -18,22 +17,21 @@ export function OrdenCardSkeleton() {
         elevationFor(colors, 'card'),
       ]}
     >
-      <View style={[styles.acento, { backgroundColor: colors.line }]} />
-      <View style={styles.contenido}>
-        <View style={styles.filaSuperior}>
-          <Barra width={72} height={18} radiusOverride={radius.sm} />
-          <Barra width={90} height={18} radiusOverride={radius.sm} />
+      <View style={styles.cabeza}>
+        <Barra width={42} height={42} radiusOverride={radius.md + 2} />
+        <View style={styles.titulos}>
+          <Barra width="45%" height={11} />
+          <Barra width="75%" height={16} />
         </View>
-        <Barra width="70%" height={16} />
-        <Barra width="100%" height={44} radiusOverride={radius.md} />
-        <View style={styles.cuerpo}>
-          <Barra width="85%" height={11} />
-          <Barra width="55%" height={11} />
-        </View>
-        <View style={[styles.footer, { borderTopColor: colors.line }]}>
-          <Barra width={90} height={11} />
-          <Barra width={100} height={30} radiusOverride={radius.md} />
-        </View>
+      </View>
+      <Barra width="90%" height={12} />
+      <View style={styles.atajos}>
+        <Barra width={130} height={34} radiusOverride={radius.pill} />
+        <Barra width={84} height={34} radiusOverride={radius.pill} />
+      </View>
+      <View style={[styles.pie, { borderTopColor: colors.line }]}>
+        <Barra width={96} height={11} />
+        <Barra width={90} height={28} radiusOverride={radius.pill} />
       </View>
     </View>
   );
@@ -51,21 +49,20 @@ export function OrdenesSkeletonList({ filas = 4 }: { filas?: number }) {
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
     borderWidth: 1,
-    borderRadius: radius.lg,
+    borderRadius: radius.card,
     marginBottom: spacing.md,
-    overflow: 'hidden',
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  acento: { width: 4 },
-  contenido: { flex: 1, padding: spacing.lg, gap: spacing.md },
-  filaSuperior: { flexDirection: 'row', justifyContent: 'space-between' },
-  cuerpo: { gap: spacing.sm },
-  footer: {
+  cabeza: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  titulos: { flex: 1, gap: spacing.sm },
+  atajos: { flexDirection: 'row', gap: spacing.sm },
+  pie: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: spacing.md,
   },
 });

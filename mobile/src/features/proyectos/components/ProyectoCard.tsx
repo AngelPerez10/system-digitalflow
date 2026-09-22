@@ -1,161 +1,268 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { inicialesUsuarioDisplay } from '@/auth/nombreUsuario';
+import { IconBox, IconCalendar, IconFlecha, IconNote, IconPause, IconVisto } from '@/components/icons';
 import { useTheme } from '@/theme/ThemeProvider';
-import { elevationFor, radius, spacing, type } from '@/theme/tokens';
+import { elevationFor, font, radius, spacing, type } from '@/theme/tokens';
 import type { ProyectoListItem } from '@/types/proyecto';
+import { formatFecha, hoyISO } from '@/utils/fecha';
 import { useReducedMotion } from '@/utils/useReducedMotion';
-import { formatFecha } from '@/utils/fecha';
 import {
   clienteDisplay,
+  diasDeTrabajo,
   folioDisplay,
   primeraFechaInicio,
+  resumenEquipo,
   statusLabel,
-  statusSolid,
   statusTone,
-  tecnicoResponsableDisplay,
 } from '../proyectoFormat';
-import { IconCalendar, IconFlecha, IconNote, IconPerson } from '@/components/icons';
-import { colorPorAvance } from './PorcentajeAvance';
+import { AnilloAvance } from './AnilloAvance';
 import { ProyectoStatusIcon } from './ProyectoStatusIcon';
 
 interface Props {
   proyecto: ProyectoListItem;
   onPress: (proyecto: ProyectoListItem) => void;
+  /** Posición en la lista: escalona la entrada de las primeras tarjetas. */
+  indice?: number;
 }
 
-/** Tarjeta de proyecto — mismo lenguaje visual que `OrdenCard`. */
-export function ProyectoCard({ proyecto, onPress }: Props) {
+/** Hasta tres avatares encimados con iniciales + el nombre principal. */
+function Equipo({ proyecto }: { proyecto: ProyectoListItem }) {
   const { colors } = useTheme();
-  const folio = folioDisplay(proyecto);
-  const cliente = clienteDisplay(proyecto);
-  const acento = statusSolid(proyecto.status, colors);
-  const tono = statusTone(proyecto.status, colors);
+  const { nombres, titulo, extra } = resumenEquipo(proyecto);
+  const visibles = nombres.slice(0, 3);
+  // Fondos con texto blanco legible en ambos temas.
+  const fondos = [colors.navy, colors.primary, colors.navyDeep];
+  return (
+    <View
+      style={styles.equipo}
+      accessible
+      accessibilityLabel={nombres.length ? `Equipo: ${nombres.join(', ')}` : 'Sin técnico asignado'}
+    >
+      {visibles.length > 0 ? (
+        <View style={styles.avatares}>
+          {visibles.map((nombre, i) => (
+            <View
+              key={`${nombre}-${i}`}
+              style={[
+                styles.avatar,
+                { backgroundColor: fondos[i % fondos.length], borderColor: colors.surface, marginLeft: i === 0 ? 0 : -8 },
+              ]}
+            >
+              <Text style={[styles.avatarTexto, { color: colors.onNavy }]}>{inicialesUsuarioDisplay(nombre, '?')}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <Text style={[styles.equipoTexto, { color: nombres.length ? colors.inkMuted : colors.inkSubtle }]} numberOfLines={1}>
+        {titulo}
+        {extra > 0 ? <Text style={{ color: colors.inkSubtle }}>{`  +${extra}`}</Text> : null}
+      </Text>
+    </View>
+  );
+}
+
+/** Una celda del bloque de métricas: valor, etiqueta y minibarra opcional. */
+function Metrica({
+  icon,
+  valor,
+  label,
+  fraccion,
+  color,
+}: {
+  icon: React.ReactNode;
+  valor: string;
+  label: string;
+  /** 0–1 para la minibarra; `undefined` = sin barra. */
+  fraccion?: number;
+  color?: string;
+}) {
+  const { colors } = useTheme();
+  const completa = fraccion === 1;
+  return (
+    <View style={styles.metrica} accessible accessibilityLabel={`${label}: ${valor}`}>
+      <View style={styles.metricaCabeza}>
+        {icon}
+        <Text style={[styles.metricaValor, { color: completa ? colors.statusResueltoText : colors.ink }]}>{valor}</Text>
+      </View>
+      <Text style={[styles.metricaLabel, { color: colors.inkSubtle }]} numberOfLines={1}>
+        {label}
+      </Text>
+      {fraccion !== undefined ? (
+        <View style={[styles.miniPista, { backgroundColor: colors.line }]}>
+          <View
+            style={[
+              styles.miniRelleno,
+              {
+                width: `${Math.round(fraccion * 100)}%`,
+                backgroundColor: completa ? colors.statusResueltoText : (color ?? colors.primary),
+              },
+            ]}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Tarjeta de proyecto. Arriba identidad (estatus en la placa, folio, tipo,
+ * cliente) y el anillo de avance; en medio el equipo y tres métricas
+ * (entregados, instalados, días de bitácora); abajo la fecha y la acción.
+ */
+export function ProyectoCard({ proyecto, onPress, indice = 0 }: Props) {
+  const { colors } = useTheme();
   const reduced = useReducedMotion();
   const escala = useRef(new Animated.Value(1)).current;
+  // Entrada: solo las primeras tarjetas se escalonan; el resto aparece ya.
+  const retraso = Math.min(indice, 5) * 60;
+  const entrada = useRef(new Animated.Value(reduced || indice > 5 ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (reduced || indice > 5) return;
+    Animated.timing(entrada, {
+      toValue: 1,
+      duration: 320,
+      delay: retraso,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+    // Solo al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const folio = folioDisplay(proyecto);
+  const cliente = clienteDisplay(proyecto);
+  const tono = statusTone(proyecto.status, colors);
   const fecha = primeraFechaInicio(proyecto);
-  const auxiliaresDisplay = proyecto.auxiliares.map((a) => a.nombre).join(', ');
-  const avanceTono = colorPorAvance(proyecto.porcentaje_avance, colors);
-  const notaDia1 = proyecto.notas_por_dia[0]?.nota.trim() || '';
+  const trabajaHoy = proyecto.fechas_inicio.includes(hoyISO()) && proyecto.status === 'en_proceso';
+  const jornadas = diasDeTrabajo(proyecto).total;
+  const diasBitacora = proyecto.notas_por_dia.filter((n) => n.nota.trim() || n.imagenesUrls.length > 0).length;
+  const total = proyecto.equipos_total;
+  const pausado = proyecto.status === 'pausado';
 
   const animarA = (destino: number) => {
     if (reduced) return;
     Animated.timing(escala, {
       toValue: destino,
-      duration: destino < 1 ? 90 : 140,
+      duration: destino < 1 ? 90 : 160,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   };
 
   return (
-    <Animated.View style={{ transform: [{ scale: escala }] }}>
+    <Animated.View
+      style={[
+        styles.envoltura,
+        {
+          opacity: entrada,
+          transform: [
+            { translateY: entrada.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+            { scale: escala },
+          ],
+        },
+      ]}
+    >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Proyecto ${folio}, ${cliente}`}
+        accessibilityLabel={`Proyecto ${folio}, ${cliente}, ${statusLabel(proyecto.status)}, avance ${proyecto.porcentaje_avance} por ciento`}
         accessibilityHint="Abre el detalle del proyecto"
         onPress={() => onPress(proyecto)}
-        onPressIn={() => animarA(0.985)}
+        onPressIn={() => animarA(0.98)}
         onPressOut={() => animarA(1)}
         style={({ pressed }) => [
           styles.card,
           {
-            backgroundColor: pressed ? colors.surfaceSunken : colors.surface,
-            borderColor: pressed ? colors.gold : colors.line,
+            backgroundColor: colors.surface,
+            borderColor: pressed ? tono.text : colors.line,
             ...elevationFor(colors, 'card'),
           },
         ]}
       >
-        <View style={[styles.acento, { backgroundColor: acento.bg }]} />
-
-        <View style={styles.contenido}>
-          <View style={styles.filaSuperior}>
-            <View style={styles.insignias}>
-              <Text style={[styles.folio, { color: colors.inkMuted, borderColor: colors.lineStrong }]}>{folio}</Text>
+        <View style={styles.cabeza}>
+          <View style={[styles.placa, { backgroundColor: tono.bg }]} importantForAccessibility="no">
+            <ProyectoStatusIcon status={proyecto.status} color={tono.text} size={18} />
+          </View>
+          <View style={styles.titulos}>
+            <View style={styles.metaFila}>
+              <Text style={[styles.folio, { color: colors.inkMuted }]} numberOfLines={1}>
+                {folio}
+              </Text>
               {proyecto.tipo_trabajo_nombre ? (
-                <View style={[styles.tipoChip, { backgroundColor: colors.surfaceSunken }]}>
-                  <Text style={[styles.tipoTexto, { color: colors.inkMuted }]} numberOfLines={1}>
+                <>
+                  <View style={[styles.separador, { backgroundColor: colors.lineStrong }]} />
+                  <Text style={[styles.tipo, { color: colors.inkSubtle }]} numberOfLines={1}>
                     {proyecto.tipo_trabajo_nombre}
                   </Text>
+                </>
+              ) : null}
+            </View>
+            <Text style={[styles.cliente, { color: colors.ink }]} numberOfLines={2}>
+              {cliente}
+            </Text>
+            <View style={styles.estatusFila}>
+              <View style={[styles.estatusPunto, { backgroundColor: tono.text }]} />
+              <Text style={[styles.estatusTexto, { color: tono.text }]}>{statusLabel(proyecto.status)}</Text>
+              {trabajaHoy ? (
+                <View style={[styles.hoy, { backgroundColor: colors.gold }]}>
+                  <Text style={[styles.hoyTexto, { color: colors.onGold }]}>Hoy</Text>
                 </View>
               ) : null}
             </View>
-            <View style={[styles.statusPill, { backgroundColor: tono.bg }]}>
-              <ProyectoStatusIcon status={proyecto.status} color={tono.text} size={11} />
-              <Text style={[styles.statusTexto, { color: tono.text }]}>{statusLabel(proyecto.status)}</Text>
-            </View>
           </View>
+          <AnilloAvance valor={proyecto.porcentaje_avance} retraso={retraso} />
+        </View>
 
-          <Text style={[styles.cliente, { color: colors.ink }]} numberOfLines={2}>
-            {cliente}
-          </Text>
-
-          <View style={styles.filasInfo}>
-            <View style={styles.filaDato}>
-              <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
-                <IconPerson color={colors.inkMuted} size={12} />
-              </View>
-              <Text style={[styles.filaTexto, { color: colors.inkMuted }]} numberOfLines={1}>
-                {tecnicoResponsableDisplay(proyecto)}
-              </Text>
-            </View>
-            {auxiliaresDisplay ? (
-              <View style={styles.filaDato}>
-                <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
-                  <IconPerson color={colors.inkSubtle} size={12} />
-                </View>
-                <Text style={[styles.filaTexto, { color: colors.inkSubtle }]} numberOfLines={1}>
-                  Auxiliar: {auxiliaresDisplay}
-                </Text>
-              </View>
-            ) : null}
+        {pausado && proyecto.motivo_pausa ? (
+          <View style={[styles.pausa, { backgroundColor: colors.statusPausadoBg }]}>
+            <IconPause color={colors.statusPausadoText} size={12} />
+            <Text style={[styles.pausaTexto, { color: colors.statusPausadoText }]} numberOfLines={2}>
+              {proyecto.motivo_pausa}
+            </Text>
           </View>
+        ) : null}
 
-          {proyecto.porcentaje_avance > 0 ? (
-            <View style={styles.avanceBloque}>
-              <View style={styles.avanceEncabezado}>
-                <Text style={[styles.avanceLabel, { color: colors.inkSubtle }]}>Avance</Text>
-                <Text style={[styles.avanceValor, { color: avanceTono.text }]}>{proyecto.porcentaje_avance}%</Text>
-              </View>
-              <View style={[styles.avancePista, { backgroundColor: colors.surfaceSunken }]}>
-                <View
-                  style={[styles.avanceBarra, { backgroundColor: avanceTono.bg, width: `${proyecto.porcentaje_avance}%` }]}
-                />
-              </View>
-            </View>
-          ) : null}
+        <Equipo proyecto={proyecto} />
 
-          {proyecto.equipos_total > 0 ? (
-            <View style={styles.progresoFila}>
-              <Text style={[styles.progresoTexto, { color: colors.inkSubtle }]}>
-                {proyecto.equipos_entregados}/{proyecto.equipos_total} entregados · {proyecto.equipos_instalados}/
-                {proyecto.equipos_total} instalados
-              </Text>
-            </View>
-          ) : null}
+        <View style={[styles.metricas, { backgroundColor: colors.surfaceSunken, borderColor: colors.line }]}>
+          <Metrica
+            icon={<IconBox color={colors.inkSubtle} size={12} />}
+            valor={total > 0 ? `${proyecto.equipos_entregados}/${total}` : '—'}
+            label="Entregados"
+            fraccion={total > 0 ? proyecto.equipos_entregados / total : undefined}
+            color={colors.primary}
+          />
+          <View style={[styles.metricaDivisor, { backgroundColor: colors.line }]} />
+          <Metrica
+            icon={<IconVisto color={colors.inkSubtle} size={12} />}
+            valor={total > 0 ? `${proyecto.equipos_instalados}/${total}` : '—'}
+            label="Instalados"
+            fraccion={total > 0 ? proyecto.equipos_instalados / total : undefined}
+            color={colors.success}
+          />
+          <View style={[styles.metricaDivisor, { backgroundColor: colors.line }]} />
+          <Metrica
+            icon={<IconNote color={colors.inkSubtle} size={12} />}
+            valor={`${diasBitacora}`}
+            label={diasBitacora === 1 ? 'Día bitácora' : 'Días bitácora'}
+          />
+        </View>
 
-          {notaDia1 ? (
-            <View style={[styles.bitacoraCaja, { backgroundColor: colors.surfaceSunken, borderColor: colors.line }]}>
-              <View style={styles.bitacoraEncabezado}>
-                <IconNote color={colors.inkSubtle} size={12} />
-                <Text style={[styles.bitacoraTitulo, { color: colors.inkMuted }]}>Día 1 de bitácora</Text>
-              </View>
-              <Text style={[styles.bitacoraTexto, { color: colors.inkSubtle }]} numberOfLines={2}>
-                {notaDia1}
-              </Text>
-            </View>
-          ) : null}
-
-          <View style={[styles.footer, { borderTopColor: colors.line }]}>
-            {fecha ? (
-              <View style={styles.fechaFila}>
-                <IconCalendar color={colors.inkSubtle} size={13} />
-                <Text style={[styles.fechaTexto, { color: colors.inkSubtle }]}>{formatFecha(fecha)}</Text>
-              </View>
-            ) : (
-              <View />
-            )}
-            <View style={[styles.accionBoton, { backgroundColor: colors.navy }]}>
-              <Text style={[styles.accionTexto, { color: colors.onNavy }]}>Ver proyecto</Text>
+        <View style={[styles.pie, { borderTopColor: colors.line }]}>
+          <View style={styles.cuando}>
+            <IconCalendar color={trabajaHoy ? colors.goldSoftText : colors.inkSubtle} size={13} />
+            <Text
+              style={[styles.cuandoTexto, { color: trabajaHoy ? colors.goldSoftText : colors.inkSubtle }]}
+              numberOfLines={1}
+            >
+              {fecha ? formatFecha(fecha) : 'Sin fecha'}
+              {jornadas > 1 ? ` · ${jornadas} días` : ''}
+            </Text>
+          </View>
+          <View style={styles.cta}>
+            <Text style={[styles.ctaTexto, { color: colors.navyText }]}>Ver proyecto</Text>
+            <View style={[styles.ctaFlecha, { backgroundColor: colors.navy }]}>
               <IconFlecha color={colors.onNavy} size={12} />
             </View>
           </View>
@@ -165,51 +272,70 @@ export function ProyectoCard({ proyecto, onPress }: Props) {
   );
 }
 
+const PLACA = 42;
+const AVATAR = 26;
+
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', borderWidth: 1, borderRadius: radius.card, marginBottom: spacing.md, overflow: 'hidden' },
-  acento: { width: 3 },
-  contenido: { flex: 1, padding: spacing.lg, gap: spacing.md },
-  filaSuperior: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.sm },
-  insignias: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs, flex: 1 },
-  folio: { ...type.mono, fontSize: 12, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 },
-  tipoChip: { borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 },
-  tipoTexto: { ...type.caption, fontSize: 11 },
-  statusPill: {
+  envoltura: { marginBottom: spacing.md },
+  card: { borderWidth: 1, borderRadius: radius.card, padding: spacing.lg, gap: spacing.md },
+  cabeza: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  placa: { width: PLACA, height: PLACA, borderRadius: radius.md + 2, alignItems: 'center', justifyContent: 'center' },
+  titulos: { flex: 1, minWidth: 0, gap: 2 },
+  metaFila: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  folio: { ...type.mono, fontSize: 12, flexShrink: 0 },
+  separador: { width: 3, height: 3, borderRadius: 2 },
+  tipo: { ...type.caption, fontSize: 12, flexShrink: 1 },
+  cliente: { fontFamily: font.semibold, fontSize: 16, lineHeight: 21, letterSpacing: -0.3 },
+  estatusFila: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  estatusPunto: { width: 6, height: 6, borderRadius: 3 },
+  estatusTexto: { ...type.caption, fontSize: 12, fontFamily: font.semibold },
+  hoy: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 1, marginLeft: 2 },
+  hoyTexto: { fontFamily: font.semibold, fontSize: 11, lineHeight: 15 },
+  pausa: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  statusTexto: { ...type.caption, fontSize: 11, fontFamily: type.label.fontFamily },
-  cliente: { ...type.bodyMedium, fontSize: 16, flexShrink: 1 },
-  filasInfo: { gap: spacing.sm },
-  filaDato: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  iconoPlaca: { width: 22, height: 22, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
-  filaTexto: { ...type.caption, flex: 1 },
-  progresoFila: { marginTop: -spacing.xs },
-  progresoTexto: { ...type.caption, fontSize: 11 },
-  avanceBloque: { gap: 4 },
-  avanceEncabezado: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  avanceLabel: { ...type.caption, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6 },
-  avanceValor: { ...type.label, fontSize: 12, fontVariant: ['tabular-nums'] },
-  avancePista: { height: 5, borderRadius: 3, overflow: 'hidden' },
-  avanceBarra: { height: '100%', borderRadius: 3 },
-  bitacoraCaja: { borderWidth: 1, borderRadius: radius.md, padding: spacing.sm, gap: 3 },
-  bitacoraEncabezado: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  bitacoraTitulo: { ...type.caption, fontSize: 11, fontFamily: type.label.fontFamily },
-  bitacoraTexto: { ...type.caption, fontSize: 12, lineHeight: 17 },
-  footer: {
+  pausaTexto: { ...type.caption, fontSize: 12, flex: 1, marginTop: -1 },
+  equipo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  avatares: { flexDirection: 'row' },
+  avatar: {
+    width: AVATAR,
+    height: AVATAR,
+    borderRadius: AVATAR / 2,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarTexto: { fontFamily: font.semibold, fontSize: 9, letterSpacing: -0.2 },
+  equipoTexto: { ...type.label, fontSize: 13, flex: 1 },
+  metricas: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: radius.md + 2,
+    paddingVertical: spacing.sm + 2,
+  },
+  metrica: { flex: 1, minWidth: 0, paddingHorizontal: spacing.md, gap: 2 },
+  metricaDivisor: { width: StyleSheet.hairlineWidth, marginVertical: 2 },
+  metricaCabeza: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metricaValor: { fontFamily: font.semibold, fontSize: 15, lineHeight: 19, fontVariant: ['tabular-nums'] },
+  metricaLabel: { ...type.caption, fontSize: 11, lineHeight: 14 },
+  miniPista: { height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 4 },
+  miniRelleno: { height: 3, borderRadius: 2 },
+  pie: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderTopWidth: 1,
-    paddingTop: spacing.md,
     gap: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.md,
   },
-  fechaFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexShrink: 1 },
-  fechaTexto: { ...type.mono, fontSize: 12 },
-  accionBoton: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  accionTexto: { ...type.label, fontSize: 12 },
+  cuando: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  cuandoTexto: { ...type.mono, fontSize: 12, flexShrink: 1 },
+  cta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  ctaTexto: { ...type.label, fontFamily: font.semibold, fontSize: 13 },
+  ctaFlecha: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
 });

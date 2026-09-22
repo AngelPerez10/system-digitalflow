@@ -17,6 +17,8 @@ export type ProyectoStatusAdministrativo = 'pendiente' | 'en_revision' | 'enviad
 export type ProyectoPersonaAsignada = {
   id: number | null;
   nombre: string;
+  /** Foto de perfil (solo lectura; la agrega el backend al serializar). */
+  avatar_url?: string | null;
 };
 
 export type ProyectoTecnicoAsignado = ProyectoPersonaAsignada & {

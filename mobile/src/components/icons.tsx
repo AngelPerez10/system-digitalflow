@@ -15,9 +15,7 @@ interface IconProps {
   color: string;
   size?: number;
 }
-
-/** Nace en `MesSelector`; se comparte porque el hero de detalle también
- *  necesita una flecha (volver), en blanco sobre navy. */
+/** Flecha genérica (encabezado de mes, volver en las cabeceras marinas, chevrons de fila). */
 export function IconChevron({ color, size = 18, direction }: IconProps & { direction: 'left' | 'right' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -266,6 +264,75 @@ export function IconFlecha({ color, size = 14 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M5 12h14M13 6l6 6-6 6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** Nace en `LocationMapModal` (botón «Usar esta ubicación»). */
+export function IconCheck({ color, size = 16 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4.5 12.5 9.5 17.5 19.5 6.5" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** Editar (lápiz). */
+export function IconEditar({ color, size = 16 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4Z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="m13.5 6.5 4 4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Ampliar / ver en grande (miniaturas de firma y fotos). */
+export function IconExpand({ color, size = 14 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14.5 4H20v5.5M9.5 20H4v-5.5M20 4l-6.5 6.5M4 20l6.5-6.5"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** Botón «usar mi ubicación» (GPS) en `LocationMapModal` — mismo símbolo que Google Maps. */
+export function IconLocateMe({ color, size = 16 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={3.2} stroke={color} strokeWidth={1.8} />
+      <Line x1={12} y1={2} x2={12} y2={5.5} stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Line x1={12} y1={18.5} x2={12} y2={22} stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Line x1={2} y1={12} x2={5.5} y2={12} stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Line x1={18.5} y1={12} x2={22} y2={12} stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Restablecer / reintentar. Nace en `LocationMapModal» (volver a la ubicación original). */
+export function IconRefresh({ color, size = 16 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 11.5A8 8 0 1 0 17.8 17"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M20 5.5v6h-6" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

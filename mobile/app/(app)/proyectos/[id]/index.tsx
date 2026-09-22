@@ -1,253 +1,466 @@
-import React from 'react';
-import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack, type Href } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/auth/SessionProvider';
 import { canEditModule } from '@/auth/permissions';
-import { AppButton } from '@/components/AppButton';
-import { ErrorState } from '@/components/StateViews';
-import { CampoDato } from '@/components/CampoDato';
 import { FotosGaleria } from '@/components/FotosGaleria';
-import { IconClipboard, IconComment, IconPerson, IconWrench } from '@/components/icons';
-import { SeccionCard } from '@/components/SeccionCard';
+import { IconAlerta, IconBox, IconCamera, IconEditar, IconSignature, IconVisto } from '@/components/icons';
+import { SegmentedTabs } from '@/components/SegmentedTabs';
+import { ErrorState } from '@/components/StateViews';
+import { BitacoraTimeline } from '@/features/proyectos/components/BitacoraTimeline';
 import { CotizacionesResumen } from '@/features/proyectos/components/CotizacionesResumen';
 import { EquiposProyectoLista } from '@/features/proyectos/components/EquiposProyectoLista';
+import { EquipoTrabajo } from '@/features/proyectos/components/EquipoTrabajo';
 import { FirmasProyectoTarjeta } from '@/features/proyectos/components/FirmasProyectoTarjeta';
-import { MonitoreoIndicador } from '@/features/proyectos/components/MonitoreoIndicador';
-import { NotasPorDiaLista } from '@/features/proyectos/components/NotasPorDiaLista';
-import { ProyectoDetalleHero } from '@/features/proyectos/components/ProyectoDetalleHero';
+import { JornadasCalendario } from '@/features/proyectos/components/JornadasCalendario';
+import { ProyectoDetalleHeader } from '@/features/proyectos/components/ProyectoDetalleHeader';
 import { DetalleProyectoSkeleton } from '@/features/proyectos/components/ProyectoSkeletons';
-import { TiposTrabajoField } from '@/features/proyectos/components/TiposTrabajoField';
-import { folioDisplay, proyectoTieneTipoAlarmas, statusLabel, statusSolid } from '@/features/proyectos/proyectoFormat';
+import { diasDeTrabajo, folioDisplay, proyectoTieneTipoAlarmas, statusLabel } from '@/features/proyectos/proyectoFormat';
 import { useProyecto } from '@/features/proyectos/useProyecto';
 import { useTheme } from '@/theme/ThemeProvider';
-import { spacing, type } from '@/theme/tokens';
-import { useEntrance } from '@/utils/useEntrance';
-import { formatFecha } from '@/utils/fecha';
+import { elevationFor, font, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
+import { formatFecha, formatHora } from '@/utils/fecha';
+import { useReducedMotion } from '@/utils/useReducedMotion';
 
-/** Misma placa que `PlacaFecha` del detalle de Órdenes: etiqueta chica arriba, dato grande, subdato debajo. */
-function Placa({ label, valor, subvalor }: { label: string; valor: string; subvalor?: string }) {
+type Pestana = 'resumen' | 'equipos' | 'bitacora' | 'evidencia';
+
+/** Grupo estilo «lista agrupada»: etiqueta chica afuera, tarjeta blanca adentro. */
+function Grupo({
+  titulo,
+  meta,
+  children,
+  compacto = false,
+}: {
+  titulo: string;
+  meta?: string;
+  children: React.ReactNode;
+  /** Sin padding vertical (para filas a ras de borde). */
+  compacto?: boolean;
+}) {
   const { colors } = useTheme();
-  const sinDato = valor === '—';
   return (
-    <View style={[styles.placa, { borderColor: colors.line, backgroundColor: colors.surface }]}>
-      <Text style={[styles.placaLabel, { color: colors.inkMuted }]}>{label}</Text>
-      <Text style={[styles.placaValor, { color: sinDato ? colors.inkSubtle : colors.ink }]} numberOfLines={2}>
-        {sinDato ? 'Sin programar' : valor}
-      </Text>
-      {subvalor ? <Text style={[styles.placaSub, { color: colors.inkSubtle }]}>{subvalor}</Text> : null}
+    <View style={styles.grupo}>
+      <View style={styles.grupoCabeza}>
+        <Text style={[styles.grupoTitulo, { color: colors.inkSubtle }]} accessibilityRole="header">
+          {titulo}
+        </Text>
+        {meta ? <Text style={[styles.grupoMeta, { color: colors.inkSubtle }]}>{meta}</Text> : null}
+      </View>
+      <View
+        style={[
+          styles.grupoTarjeta,
+          compacto ? styles.grupoCompacto : null,
+          { backgroundColor: colors.surface, borderColor: colors.line, ...elevationFor(colors, 'panel') },
+        ]}
+      >
+        {children}
+      </View>
     </View>
   );
 }
 
+/** Fila etiqueta → valor dentro de un grupo compacto. */
+function Fila({ label, valor, primera = false }: { label: string; valor: string; primera?: boolean }) {
+  const { colors } = useTheme();
+  const vacio = valor === '—';
+  return (
+    <View
+      style={[styles.fila, !primera ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line } : null]}
+      accessible
+      accessibilityLabel={`${label}: ${vacio ? 'sin dato' : valor}`}
+    >
+      <Text style={[styles.filaLabel, { color: colors.inkMuted }]}>{label}</Text>
+      <Text style={[styles.filaValor, { color: vacio ? colors.inkSubtle : colors.ink }]}>{vacio ? 'Sin dato' : valor}</Text>
+    </View>
+  );
+}
+
+/** Barra de piezas (entregadas / instaladas). */
+function BarraPiezas({
+  icon,
+  label,
+  hecho,
+  total,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  hecho: number;
+  total: number;
+  color: string;
+}) {
+  const { colors } = useTheme();
+  const completa = total > 0 && hecho >= total;
+  const pct = total > 0 ? Math.min(100, Math.round((hecho / total) * 100)) : 0;
+  return (
+    <View
+      style={styles.barra}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={label}
+      accessibilityValue={{ min: 0, max: total, now: hecho, text: `${hecho} de ${total}` }}
+    >
+      <View style={styles.barraCabeza}>
+        <View style={styles.barraLabelFila}>
+          {icon}
+          <Text style={[styles.barraLabel, { color: colors.inkMuted }]}>{label}</Text>
+        </View>
+        <Text style={[styles.barraValor, { color: completa ? colors.statusResueltoText : colors.ink }]}>
+          {hecho}
+          <Text style={{ color: colors.inkSubtle }}> / {total}</Text>
+        </Text>
+      </View>
+      <View style={[styles.barraPista, { backgroundColor: colors.surfaceSunken }]}>
+        <View style={[styles.barraRelleno, { width: `${pct}%`, backgroundColor: completa ? colors.statusResueltoText : color }]} />
+      </View>
+    </View>
+  );
+}
+
+/** Aparece suave al montar (cada cambio de pestaña remonta el contenido). */
+function Aparecer({ children }: { children: React.ReactNode }) {
+  const reduced = useReducedMotion();
+  const v = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduced) return;
+    Animated.timing(v, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [v, reduced]);
+  return (
+    <Animated.View
+      style={{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }], gap: spacing.xl }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+function Vacio({ icon, titulo, texto }: { icon: React.ReactNode; titulo: string; texto: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.vacio}>
+      <View style={[styles.vacioIcono, { backgroundColor: colors.surfaceSunken }]}>{icon}</View>
+      <Text style={[styles.vacioTitulo, { color: colors.ink }]}>{titulo}</Text>
+      <Text style={[styles.vacioTexto, { color: colors.inkSubtle }]}>{texto}</Text>
+    </View>
+  );
+}
+
+const piezasDe = (cantidad: number) => Math.max(1, cantidad || 1);
+
+/**
+ * Detalle del proyecto: cabecera editorial y cuatro pestañas (Resumen,
+ * Equipos, Bitácora, Evidencia) en lugar de una columna larga de secciones.
+ * Las pestañas se quedan pegadas arriba al desplazar; «Editar» vive fijo abajo.
+ */
 export default function DetalleProyectoScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const proyectoId = Number(id);
   const { proyecto, cargando, error, recargar } = useProyecto(Number.isFinite(proyectoId) ? proyectoId : null);
   const { user, permissions } = useSession();
-  const entrance = useEntrance(11);
-  const { colors, scheme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const [pestana, setPestana] = useState<Pestana>('resumen');
+  const scrollRef = useRef<ScrollView>(null);
 
   if (cargando) return <DetalleProyectoSkeleton />;
   if (error || !proyecto) return <ErrorState message={error ?? 'Proyecto no encontrado.'} onRetry={recargar} />;
 
   const puedeEditar = canEditModule(permissions, user, 'proyectos');
-  const tono = statusSolid(proyecto.status, colors).bg;
   const folio = folioDisplay(proyecto);
-  const hayFirmas = Boolean(proyecto.firma_cliente_url || proyecto.firma_tecnico_url);
-  const responsable = proyecto.tecnicos.find((t) => t.responsable) ?? proyecto.tecnicos[0];
-  const restoTecnicos = proyecto.tecnicos.filter((t) => t.id !== responsable?.id);
-  const diasTrabajo = proyecto.fechas_inicio.length;
-  const fechaInicioDisplay = diasTrabajo > 0 ? formatFecha(proyecto.fechas_inicio[0]!) : '—';
-  const fechaFinDisplay = diasTrabajo > 0 ? formatFecha(proyecto.fechas_inicio[diasTrabajo - 1]!) : '—';
-  const auxiliaresDisplay = proyecto.auxiliares.map((a) => a.nombre).join(', ');
-  const esAlarmas = proyectoTieneTipoAlarmas(proyecto.tipos_trabajo);
+  const dias = diasDeTrabajo(proyecto);
+  const piezas = proyecto.equipos.reduce((acc, e) => acc + piezasDe(e.cantidad), 0);
+  const entregadas = proyecto.equipos.filter((e) => e.equipoEntregado).reduce((acc, e) => acc + piezasDe(e.cantidad), 0);
+  const instaladas = proyecto.equipos
+    .filter((e) => e.estadoInstalacion === 'instalado')
+    .reduce((acc, e) => acc + piezasDe(e.cantidad), 0);
+  const notas = proyecto.notas_por_dia.filter((n) => n.nota.trim() || n.imagenesUrls.length > 0).length;
+  const firmas = [proyecto.firma_cliente_url, proyecto.firma_tecnico_url].filter(Boolean).length;
+  const evidencias = proyecto.evidencias_urls.length + firmas;
+  const personas = proyecto.tecnicos.length + proyecto.auxiliares.length;
+  const hayIncidencias = Boolean(
+    proyecto.incidencias || proyecto.requerimientos_adicionales || proyecto.requiere_presupuesto_adicional,
+  );
 
-  const hoja = {
-    backgroundColor: colors.surface,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: -10 },
-    shadowRadius: 24,
-    shadowOpacity: scheme === 'dark' ? 0.5 : 0.12,
-    elevation: 12,
+  const cambiarPestana = (p: Pestana) => {
+    setPestana(p);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
+  const esAlarmas = proyectoTieneTipoAlarmas(proyecto.tipos_trabajo);
+  const detalles = [
+    { label: 'Tipo de trabajo', valor: proyecto.tipos_trabajo.map((t) => t.nombre).join(', ') || '—' },
+    ...(esAlarmas
+      ? [
+          {
+            label: 'Monitoreo',
+            valor: proyecto.monitoreo === true ? 'Sí cuenta' : proyecto.monitoreo === false ? 'No cuenta' : 'Pendiente',
+          },
+        ]
+      : []),
+    { label: 'Autorizado', valor: proyecto.fecha_autorizacion ? formatFecha(proyecto.fecha_autorizacion) : '—' },
+    { label: 'Autorizó', valor: proyecto.quien_autorizo?.trim() || '—' },
+    ...(proyecto.vehiculo_asignado ? [{ label: 'Vehículo', valor: proyecto.vehiculo_asignado }] : []),
+    ...(proyecto.herramientas_generales ? [{ label: 'Herramientas', valor: proyecto.herramientas_generales }] : []),
+  ];
+
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface }]} edges={['bottom']}>
+    <View style={[styles.flex, { backgroundColor: colors.canvas }]}>
       <Stack.Screen options={{ title: `${folio} · ${statusLabel(proyecto.status)}`, headerShown: false }} />
       <StatusBar style="light" />
 
-      <Animated.View style={entrance(0)}>
-        <ProyectoDetalleHero proyecto={proyecto} onVolver={() => router.back()} />
-      </Animated.View>
+      <ProyectoDetalleHeader proyecto={proyecto} onVolver={() => router.back()} />
 
-      <View style={[styles.hoja, hoja]}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          accessibilityLabel={`Detalle del proyecto ${folio}`}
-        >
-          <Animated.View style={entrance(1)}>
-            <SeccionCard titulo="Tipo de trabajo" tono={tono}>
-              <TiposTrabajoField tiposTrabajo={proyecto.tipos_trabajo} />
-              {esAlarmas ? <MonitoreoIndicador value={proyecto.monitoreo} /> : null}
-            </SeccionCard>
-          </Animated.View>
+      <ScrollView
+        ref={scrollRef}
+        stickyHeaderIndices={[0]}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+        accessibilityLabel={`Detalle del proyecto ${folio}`}
+      >
+        <View style={[styles.tabsCaja, { backgroundColor: colors.canvas }]}>
+          <SegmentedTabs<Pestana>
+            accessibilityLabel="Secciones del proyecto"
+            value={pestana}
+            onChange={cambiarPestana}
+            tabs={[
+              { key: 'resumen', label: 'Resumen' },
+              { key: 'equipos', label: 'Equipos', badge: piezas },
+              { key: 'bitacora', label: 'Bitácora', badge: notas },
+              { key: 'evidencia', label: 'Evidencia', badge: evidencias },
+            ]}
+          />
+        </View>
 
-          <Animated.View style={entrance(2)}>
-            <SeccionCard titulo="Equipo de trabajo" tono={tono}>
-              <CampoDato
-                icon={<IconPerson color={colors.inkMuted} size={12} />}
-                label="Técnico responsable"
-                value={responsable?.nombre || 'Sin asignar'}
-              />
-              {restoTecnicos.length > 0 ? (
-                <CampoDato
-                  icon={<IconPerson color={colors.inkMuted} size={12} />}
-                  label="Otros técnicos"
-                  value={restoTecnicos.map((t) => t.nombre).join(', ')}
-                />
+        <View style={styles.contenido}>
+          {pestana === 'resumen' ? (
+            <Aparecer key="resumen">
+              {proyecto.status === 'pausado' && proyecto.motivo_pausa ? (
+                <View style={[styles.aviso, { backgroundColor: colors.statusPausadoBg }]}>
+                  <IconAlerta color={colors.statusPausadoText} size={15} />
+                  <View style={styles.avisoTextos}>
+                    <Text style={[styles.avisoTitulo, { color: colors.statusPausadoText }]}>Proyecto pausado</Text>
+                    <Text style={[styles.avisoTexto, { color: colors.ink }]}>{proyecto.motivo_pausa}</Text>
+                  </View>
+                </View>
               ) : null}
-              {proyecto.auxiliares.length > 0 ? (
-                <CampoDato
-                  icon={<IconPerson color={colors.inkMuted} size={12} />}
-                  label="Auxiliares"
-                  value={auxiliaresDisplay}
-                />
-              ) : null}
-              {proyecto.vehiculo_asignado ? (
-                <CampoDato
-                  icon={<IconWrench color={colors.inkMuted} size={12} />}
-                  label="Vehículo asignado"
-                  value={proyecto.vehiculo_asignado}
-                />
-              ) : null}
-              {proyecto.herramientas_generales ? (
-                <CampoDato
-                  icon={<IconWrench color={colors.inkMuted} size={12} />}
-                  label="Herramientas generales"
-                  value={proyecto.herramientas_generales}
-                />
-              ) : null}
-            </SeccionCard>
-          </Animated.View>
 
-          <Animated.View style={entrance(3)}>
-            <SeccionCard titulo="Programación" tono={tono}>
-              <Placa label="Fecha de autorización" valor={proyecto.fecha_autorizacion ? formatFecha(proyecto.fecha_autorizacion) : '—'} />
-              <View style={styles.placasFila}>
-                <Placa label="Hora de llegada" valor={proyecto.hora_llegada || '—'} />
-                <Placa label="Hora de salida" valor={proyecto.hora_salida || '—'} />
-              </View>
+              <Grupo titulo="Equipo de trabajo" meta={personas ? `${personas}` : undefined}>
+                <EquipoTrabajo proyecto={proyecto} />
+              </Grupo>
 
-              <View style={[styles.divisorGrupo, { borderTopColor: colors.line }]}>
-                <Text style={[styles.grupoLabel, { color: colors.inkMuted }]}>Periodo de trabajo</Text>
-              </View>
-              <View style={styles.placasFila}>
-                <Placa label="Fecha de inicio" valor={fechaInicioDisplay} />
-                <Placa label="Fecha de fin" valor={fechaFinDisplay} />
-              </View>
-            </SeccionCard>
-          </Animated.View>
-
-          <Animated.View style={entrance(4)}>
-            <SeccionCard titulo="Cotizaciones" tono={tono} conteo={proyecto.cotizaciones.length}>
-              <CotizacionesResumen bloques={proyecto.cotizaciones} />
-            </SeccionCard>
-          </Animated.View>
-
-          <Animated.View style={entrance(5)}>
-            <SeccionCard titulo="Equipos" tono={tono} conteo={proyecto.equipos.length}>
-              <EquiposProyectoLista equipos={proyecto.equipos} />
-            </SeccionCard>
-          </Animated.View>
-
-          <Animated.View style={entrance(6)}>
-            <SeccionCard titulo="Bitácora por jornada" tono={tono}>
-              <NotasPorDiaLista notas={proyecto.notas_por_dia} />
-            </SeccionCard>
-          </Animated.View>
-
-          {(proyecto.incidencias || proyecto.requerimientos_adicionales) ? (
-            <Animated.View style={entrance(7)}>
-              <SeccionCard titulo="Incidencias y requerimientos" tono={tono}>
-                {proyecto.incidencias ? (
-                  <CampoDato
-                    icon={<IconComment color={colors.inkMuted} size={12} />}
-                    label="Incidencias"
-                    value={proyecto.incidencias}
-                  />
-                ) : null}
-                {proyecto.requerimientos_adicionales ? (
-                  <CampoDato
-                    icon={<IconClipboard color={colors.inkMuted} size={12} />}
-                    label="Requerimientos adicionales"
-                    value={proyecto.requerimientos_adicionales}
-                  />
-                ) : null}
-                {proyecto.requiere_presupuesto_adicional && !proyecto.cotizacion_adicional ? (
-                  <Text style={[styles.aviso, { color: colors.danger }]}>
-                    Requiere presupuesto adicional — pendiente de vincular por oficina.
+              <Grupo
+                titulo="Jornadas"
+                meta={dias.total ? `${dias.total} ${dias.total === 1 ? 'día' : 'días'}` : undefined}
+              >
+                <JornadasCalendario fechas={proyecto.fechas_inicio} />
+                {dias.enBitacora !== dias.programados && dias.enBitacora > 0 ? (
+                  <Text style={[styles.nota, { color: colors.inkSubtle }]}>
+                    {dias.programados} {dias.programados === 1 ? 'día programado' : 'días programados'} ·{' '}
+                    {dias.enBitacora} {dias.enBitacora === 1 ? 'registrado' : 'registrados'} en bitácora
                   </Text>
                 ) : null}
-              </SeccionCard>
-            </Animated.View>
+                <View style={[styles.horario, { borderTopColor: colors.line }]}>
+                  <View style={styles.hora}>
+                    <Text style={[styles.horaLabel, { color: colors.inkSubtle }]}>Llegada</Text>
+                    <Text style={[styles.horaValor, { color: proyecto.hora_llegada ? colors.ink : colors.inkSubtle }]}>
+                      {proyecto.hora_llegada ? formatHora(proyecto.hora_llegada) : '—'}
+                    </Text>
+                  </View>
+                  <View style={[styles.horaDivisor, { backgroundColor: colors.line }]} />
+                  <View style={styles.hora}>
+                    <Text style={[styles.horaLabel, { color: colors.inkSubtle }]}>Salida</Text>
+                    <Text style={[styles.horaValor, { color: proyecto.hora_salida ? colors.ink : colors.inkSubtle }]}>
+                      {proyecto.hora_salida ? formatHora(proyecto.hora_salida) : '—'}
+                    </Text>
+                  </View>
+                </View>
+              </Grupo>
+
+              <Grupo titulo="Detalles" compacto>
+                {detalles.map((d, i) => (
+                  <Fila key={d.label} label={d.label} valor={d.valor} primera={i === 0} />
+                ))}
+              </Grupo>
+
+              <Grupo titulo="Cotizaciones" meta={proyecto.cotizaciones.length ? `${proyecto.cotizaciones.length}` : undefined}>
+                <CotizacionesResumen bloques={proyecto.cotizaciones} />
+              </Grupo>
+
+              {hayIncidencias ? (
+                <Grupo titulo="Incidencias y requerimientos">
+                  {proyecto.incidencias ? (
+                    <View style={styles.bloque}>
+                      <Text style={[styles.bloqueLabel, { color: colors.inkSubtle }]}>Incidencias</Text>
+                      <Text style={[styles.bloqueTexto, { color: colors.ink }]}>{proyecto.incidencias}</Text>
+                    </View>
+                  ) : null}
+                  {proyecto.requerimientos_adicionales ? (
+                    <View style={styles.bloque}>
+                      <Text style={[styles.bloqueLabel, { color: colors.inkSubtle }]}>Requerimientos adicionales</Text>
+                      <Text style={[styles.bloqueTexto, { color: colors.ink }]}>{proyecto.requerimientos_adicionales}</Text>
+                    </View>
+                  ) : null}
+                  {proyecto.requiere_presupuesto_adicional && !proyecto.cotizacion_adicional ? (
+                    <View style={[styles.presupuesto, { backgroundColor: colors.dangerBg }]}>
+                      <IconAlerta color={colors.danger} size={13} />
+                      <Text style={[styles.presupuestoTexto, { color: colors.danger }]}>
+                        Requiere presupuesto adicional — pendiente de vincular por oficina.
+                      </Text>
+                    </View>
+                  ) : null}
+                </Grupo>
+              ) : null}
+            </Aparecer>
           ) : null}
 
-          {proyecto.evidencias_urls.length > 0 ? (
-            <Animated.View style={entrance(8)}>
-              <SeccionCard titulo="Evidencias" tono={tono} conteo={proyecto.evidencias_urls.length}>
-                <FotosGaleria urls={proyecto.evidencias_urls} />
-              </SeccionCard>
-            </Animated.View>
+          {pestana === 'equipos' ? (
+            <Aparecer key="equipos">
+              {piezas > 0 ? (
+                <Grupo titulo="Progreso" meta={`${piezas} ${piezas === 1 ? 'pieza' : 'piezas'}`}>
+                  <BarraPiezas
+                    icon={<IconBox color={colors.inkSubtle} size={13} />}
+                    label="Entregados"
+                    hecho={entregadas}
+                    total={piezas}
+                    color={colors.primary}
+                  />
+                  <BarraPiezas
+                    icon={<IconVisto color={colors.inkSubtle} size={13} />}
+                    label="Instalados"
+                    hecho={instaladas}
+                    total={piezas}
+                    color={colors.success}
+                  />
+                </Grupo>
+              ) : null}
+              <Grupo titulo="Lista de equipos">
+                <EquiposProyectoLista equipos={proyecto.equipos} />
+              </Grupo>
+            </Aparecer>
           ) : null}
 
-          {hayFirmas ? (
-            <Animated.View style={entrance(9)}>
-              <SeccionCard titulo="Firmas" tono={tono}>
-                <FirmasProyectoTarjeta firmaCliente={proyecto.firma_cliente_url} firmaTecnico={proyecto.firma_tecnico_url} />
-              </SeccionCard>
-            </Animated.View>
+          {pestana === 'bitacora' ? (
+            <Aparecer key="bitacora">
+              <BitacoraTimeline notas={proyecto.notas_por_dia} fechas={proyecto.fechas_inicio} />
+            </Aparecer>
           ) : null}
 
-          <Animated.View style={[entrance(10), styles.accionesBloque]}>
-            {puedeEditar ? (
-              <AppButton
-                label="Editar proyecto"
-                onPress={() => router.push(`/proyectos/${proyecto.id}/editar` as Href)}
-                accessibilityHint="Abre el formulario de campo"
-              />
-            ) : (
-              <Text style={[styles.aviso, { color: colors.inkSubtle }]}>
-                Tu cuenta no tiene permiso para editar proyectos.
-              </Text>
-            )}
-          </Animated.View>
-        </ScrollView>
+          {pestana === 'evidencia' ? (
+            <Aparecer key="evidencia">
+              {evidencias === 0 ? (
+                <Vacio
+                  icon={<IconCamera color={colors.inkSubtle} size={20} />}
+                  titulo="Sin evidencia todavía"
+                  texto="Las fotos de evidencia y las firmas aparecen aquí al editar el proyecto."
+                />
+              ) : (
+                <>
+                  <Grupo
+                    titulo="Fotos"
+                    meta={proyecto.evidencias_urls.length ? `${proyecto.evidencias_urls.length}` : undefined}
+                  >
+                    {proyecto.evidencias_urls.length > 0 ? (
+                      <FotosGaleria urls={proyecto.evidencias_urls} />
+                    ) : (
+                      <Text style={[styles.sinDato, { color: colors.inkSubtle }]}>Sin fotos de evidencia.</Text>
+                    )}
+                  </Grupo>
+                  <Grupo titulo="Firmas" meta={firmas ? `${firmas} de 2` : undefined}>
+                    {firmas > 0 ? (
+                      <FirmasProyectoTarjeta firmaCliente={proyecto.firma_cliente_url} firmaTecnico={proyecto.firma_tecnico_url} />
+                    ) : (
+                      <View style={styles.sinFirmas}>
+                        <IconSignature color={colors.inkSubtle} size={15} />
+                        <Text style={[styles.sinDato, { color: colors.inkSubtle }]}>Aún no hay firmas.</Text>
+                      </View>
+                    )}
+                  </Grupo>
+                </>
+              )}
+            </Aparecer>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      <View
+        style={[
+          styles.barraInferior,
+          { backgroundColor: colors.surface, borderTopColor: colors.line, paddingBottom: Math.max(insets.bottom, spacing.md) },
+        ]}
+      >
+        {puedeEditar ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Editar proyecto"
+            accessibilityHint="Abre el formulario de campo"
+            onPress={() => router.push(`/proyectos/${proyecto.id}/editar` as Href)}
+            style={({ pressed }) => [styles.botonEditar, { backgroundColor: pressed ? colors.primaryPressed : colors.primary }]}
+          >
+            <IconEditar color={colors.onPrimary} size={16} />
+            <Text style={[styles.botonEditarTexto, { color: colors.onPrimary }]}>Editar proyecto</Text>
+          </Pressable>
+        ) : (
+          <Text style={[styles.sinPermiso, { color: colors.inkSubtle }]}>Tu cuenta no tiene permiso para editar proyectos.</Text>
+        )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  hoja: { flex: 1, marginTop: -20, borderTopLeftRadius: 26, borderTopRightRadius: 26, overflow: 'hidden' },
-  content: { padding: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.xxxl, gap: spacing.md },
-  accionesBloque: { marginTop: spacing.xs, gap: spacing.sm },
-  aviso: { ...type.caption, textAlign: 'center' },
-  placasFila: { flexDirection: 'row', gap: spacing.sm },
-  placa: { flex: 1, borderWidth: 1, borderRadius: 10, padding: spacing.md, gap: 2 },
-  placaLabel: { ...type.caption, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.8 },
-  placaValor: {
-    fontFamily: type.display.fontFamily,
-    fontSize: 17,
-    lineHeight: 22,
-    letterSpacing: -0.4,
-    fontVariant: ['tabular-nums'],
+  flex: { flex: 1 },
+  scroll: { paddingBottom: spacing.xxl },
+  tabsCaja: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  contenido: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  grupo: { gap: spacing.sm },
+  grupoCabeza: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: spacing.xs },
+  grupoTitulo: { fontFamily: font.semibold, fontSize: 11, letterSpacing: 1.1, textTransform: 'uppercase' },
+  grupoMeta: { ...type.mono, fontSize: 12 },
+  grupoTarjeta: { borderWidth: 1, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md, overflow: 'hidden' },
+  grupoCompacto: { paddingVertical: 0, paddingHorizontal: spacing.lg, gap: 0 },
+  fila: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.lg, paddingVertical: spacing.md },
+  filaLabel: { ...type.body, fontSize: 14 },
+  filaValor: { ...type.bodyMedium, fontSize: 14, flexShrink: 1, textAlign: 'right' },
+  horario: { flexDirection: 'row', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md },
+  hora: { flex: 1, alignItems: 'center', gap: 2 },
+  horaLabel: { fontFamily: font.semibold, fontSize: 10, letterSpacing: 0.9, textTransform: 'uppercase' },
+  horaValor: { fontFamily: font.semibold, fontSize: 18, lineHeight: 23, letterSpacing: -0.4, fontVariant: ['tabular-nums'] },
+  horaDivisor: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
+  aviso: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, borderRadius: radius.lg, padding: spacing.lg },
+  avisoTextos: { flex: 1, gap: 2 },
+  avisoTitulo: { ...type.label, fontFamily: font.semibold },
+  avisoTexto: { ...type.body, fontSize: 14, lineHeight: 20 },
+  bloque: { gap: 2 },
+  bloqueLabel: { ...type.caption, fontSize: 12 },
+  bloqueTexto: { ...type.body, lineHeight: 22 },
+  presupuesto: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, borderRadius: radius.md, padding: spacing.md },
+  presupuestoTexto: { ...type.caption, flex: 1, fontFamily: font.medium },
+  barra: { gap: 6 },
+  barraCabeza: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  barraLabelFila: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  barraLabel: { ...type.label, fontSize: 13 },
+  barraValor: { fontFamily: font.semibold, fontSize: 14, fontVariant: ['tabular-nums'] },
+  barraPista: { height: 8, borderRadius: 4, overflow: 'hidden' },
+  barraRelleno: { height: 8, borderRadius: 4 },
+  vacio: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.xs },
+  vacioIcono: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs },
+  vacioTitulo: { fontFamily: font.semibold, fontSize: 15 },
+  vacioTexto: { ...type.caption, textAlign: 'center', paddingHorizontal: spacing.xl },
+  sinDato: { ...type.caption },
+  nota: { ...type.caption, fontSize: 12 },
+  sinFirmas: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  barraInferior: { borderTopWidth: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  botonEditar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: TOUCH_TARGET,
+    borderRadius: radius.md,
   },
-  placaSub: { ...type.caption, fontSize: 11 },
-  divisorGrupo: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.sm, marginTop: spacing.xs },
-  grupoLabel: { ...type.label, fontSize: 13 },
+  botonEditarTexto: { ...type.button },
+  sinPermiso: { ...type.caption, textAlign: 'center', paddingVertical: spacing.sm },
 });

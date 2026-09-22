@@ -33,3 +33,14 @@ export function contarPorStatus(proyectos: readonly ProyectoListItem[]): Record<
   for (const proyecto of proyectos) counts[proyecto.status] += 1;
   return counts;
 }
+
+/** Filtro de estatus del listado: `'todos'` deja pasar todas las secciones. */
+export type FiltroProyecto = ProyectoStatus | 'todos';
+
+export function filtrarPorStatus(
+  secciones: readonly ProyectoSection[],
+  filtro: FiltroProyecto,
+): ProyectoSection[] {
+  return filtro === 'todos' ? [...secciones] : secciones.filter((s) => s.key === filtro);
+}
+

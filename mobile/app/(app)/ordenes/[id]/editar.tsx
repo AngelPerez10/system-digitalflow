@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
-  Easing,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,81 +12,60 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/auth/SessionProvider';
 import { isAdmin, ownsOrden } from '@/auth/permissions';
+import { inicialesUsuarioDisplay } from '@/auth/nombreUsuario';
 import { toUserMessage } from '@/api/errors';
 import { updateOrden } from '@/api/ordenesApi';
+import { Avatar } from '@/components/Avatar';
 import { BarraCarga } from '@/components/BarraCarga';
 import { Colapsable } from '@/components/Colapsable';
-import { ErrorState, InlineError } from '@/components/StateViews';
+import { HorarioOrdenEditor } from '@/components/DateTimeField';
+import { FormDivisor, FormSection, FormSubtitulo } from '@/components/FormSection';
+import { FotosEditor } from '@/components/FotosEditor';
+import { IconAlerta, IconCamera, IconSignature } from '@/components/icons';
+import { LocationMapModal } from '@/components/LocationMapModal';
+import { MinimoMeter } from '@/components/MinimoMeter';
+import { SignaturePad } from '@/components/SignaturePad';
+import { ErrorState } from '@/components/StateViews';
 import { SubmitButton, type SubmitPhase } from '@/components/SubmitButton';
 import { TextField } from '@/components/TextField';
-import { HorarioOrdenEditor } from '@/components/DateTimeField';
-import { EditarOrdenHero } from '@/features/orders/components/EditarOrdenHero';
+import { UbicacionField } from '@/components/UbicacionField';
+import { EditarHeader } from '@/components/EditarHeader';
 import { EquiposOrdenEditor } from '@/features/orders/components/EquiposOrdenEditor';
-import { FotosEditor } from '@/components/FotosEditor';
 import { EditarOrdenSkeleton } from '@/features/orders/components/OrdenSkeletons';
-import { SeccionCard } from '@/components/SeccionCard';
-import { SignaturePad } from '@/components/SignaturePad';
-import { StatusSegment } from '@/features/orders/components/StatusSegment';
-import { folioDisplay, statusSolid } from '@/features/orders/ordenFormat';
+import { StatusSelector } from '@/features/orders/components/StatusSelector';
+import { clienteDisplay, folioDisplay } from '@/features/orders/ordenFormat';
 import {
   COMENTARIO_TECNICO_MAX,
   COMENTARIO_TECNICO_MIN,
   construirPatch,
+  contarCambios,
   formStateFromOrden,
   hayErrores,
   MOTIVO_PAUSA_MAX,
-  tieneCambios,
+  primeraSeccionConError,
+  SECCIONES_EDITAR,
+  seccionesCompletas,
+  TITULO_SECCION,
   validarForm,
   type EditarOrdenErrors,
   type EditarOrdenFormState,
+  type SeccionEditar,
 } from '@/features/orders/editarOrdenForm';
 import { useOrden } from '@/features/orders/useOrden';
 import { useTheme } from '@/theme/ThemeProvider';
-import { MOTION, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
+import { MOTION, spacing, type } from '@/theme/tokens';
 import type { EstadoInstalacionEquipo } from '@/types/orden';
 import { useEntrance } from '@/utils/useEntrance';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 
 /**
- * Bitácora de campo hermana del detalle — mismo corte marino + hoja blanca y
- * mismas tarjetas de sección. Es el detalle en modo escritura.
+ * Reporte de cierre de la orden. Seis pasos numerados que se marcan solos
+ * al completarse; el encabezado resume el avance y lleva a lo pendiente, y
+ * la barra inferior fija mantiene «Guardar» siempre a mano.
  */
-
-function AvisoAnimado({ message }: { message: string }) {
-  const reduced = useReducedMotion();
-  const progreso = useRef(new Animated.Value(reduced ? 1 : 0)).current;
-
-  useEffect(() => {
-    if (reduced) return;
-    const animacion = Animated.timing(progreso, {
-      toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    });
-    animacion.start();
-    return () => animacion.stop();
-  }, [progreso, reduced]);
-
-  return (
-    <Animated.View
-      accessibilityRole="alert"
-      accessibilityLiveRegion="polite"
-      style={{
-        opacity: progreso,
-        transform: [
-          { translateY: progreso.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) },
-        ],
-      }}
-    >
-      <InlineError message={message} />
-    </Animated.View>
-  );
-}
-
 export default function EditarOrdenScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -96,15 +75,19 @@ export default function EditarOrdenScreen() {
   );
   const { user } = useSession();
   const reduced = useReducedMotion();
-  const { colors, scheme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
 
   const [form, setForm] = useState<EditarOrdenFormState | null>(null);
   const [formOrdenId, setFormOrdenId] = useState<number | null>(null);
   const [errores, setErrores] = useState<EditarOrdenErrors>({});
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [fase, setFase] = useState<SubmitPhase>('idle');
-  const entrance = useEntrance(8);
+  const [mapaAbierto, setMapaAbierto] = useState(false);
+  const entrance = useEntrance(SECCIONES_EDITAR.length);
   const scrollRef = useRef<ScrollView>(null);
+  const posiciones = useRef<Partial<Record<SeccionEditar, number>>>({});
+  const saliendo = useRef(false);
 
   if (orden && formOrdenId !== orden.id) {
     setFormOrdenId(orden.id);
@@ -112,30 +95,63 @@ export default function EditarOrdenScreen() {
   }
 
   const patch = useMemo(() => (orden && form ? construirPatch(orden, form) : {}), [orden, form]);
-  const dirty = tieneCambios(patch);
+  const nCambios = orden && form ? contarCambios(orden, patch) : 0;
+  const dirty = nCambios > 0;
   const guardando = fase !== 'idle';
-  const tono = form ? statusSolid(form.status, colors).bg : colors.navy;
+
+  const pedirSalida = useCallback(() => {
+    if (!dirty || guardando || saliendo.current) {
+      router.back();
+      return;
+    }
+    Alert.alert(
+      '¿Descartar cambios?',
+      `Tienes ${nCambios} ${nCambios === 1 ? 'cambio' : 'cambios'} sin guardar. Si sales ahora se perderán.`,
+      [
+        { text: 'Seguir editando', style: 'cancel' },
+        {
+          text: 'Descartar',
+          style: 'destructive',
+          onPress: () => {
+            saliendo.current = true;
+            router.back();
+          },
+        },
+      ],
+    );
+  }, [dirty, guardando, nCambios, router]);
 
   useEffect(() => {
-    if (errorGuardado) scrollRef.current?.scrollTo({ y: 0, animated: !reduced });
-  }, [errorGuardado, reduced]);
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!dirty || saliendo.current) return false;
+      pedirSalida();
+      return true;
+    });
+    return () => sub.remove();
+  }, [dirty, pedirSalida]);
 
   if (cargando || (!orden && !error)) return <EditarOrdenSkeleton />;
   if (error || !orden) return <ErrorState message={error ?? 'Orden no encontrada.'} onRetry={recargar} />;
   if (!form) return <EditarOrdenSkeleton />;
 
-  const folio = folioDisplay(orden);
+  const completas = seccionesCompletas(form);
+  const nCompletas = SECCIONES_EDITAR.filter((s) => completas[s]).length;
+  const siguiente = SECCIONES_EDITAR.find((s) => !completas[s]) ?? null;
   const puedeMarcarInstalacion = isAdmin(user) || ownsOrden(user, orden);
-  const resumenEquipos = {
+  const maxFotos = 5 + (orden.fotos_extra_max || 0);
+  const comentarioLen = form.comentario_tecnico.trim().length;
+  const equipos = {
     total: form.equipos_inventario.length,
     entregados: form.equipos_inventario.filter((e) => e.equipoEntregado).length,
     instalados: form.equipos_inventario.filter((e) => e.estadoInstalacion === 'instalado').length,
   };
 
-  const actualizar = <K extends keyof EditarOrdenFormState>(
-    campo: K,
-    valor: EditarOrdenFormState[K],
-  ) => {
+  const irASeccion = (seccion: SeccionEditar) => {
+    const y = posiciones.current[seccion] ?? 0;
+    scrollRef.current?.scrollTo({ y: Math.max(y - spacing.md, 0), animated: !reduced });
+  };
+
+  const actualizar = <K extends keyof EditarOrdenFormState>(campo: K, valor: EditarOrdenFormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [campo]: valor } : prev));
     setErrores((prev) => ({ ...prev, [campo]: undefined }));
     setErrorGuardado(null);
@@ -159,11 +175,12 @@ export default function EditarOrdenScreen() {
     const validacion = validarForm(form);
     setErrores(validacion);
     if (hayErrores(validacion)) {
-      setErrorGuardado('Revise los campos marcados e intente de nuevo.');
+      setErrorGuardado('Revisa los campos marcados en rojo.');
+      const seccion = primeraSeccionConError(validacion);
+      if (seccion) irASeccion(seccion);
       return;
     }
-
-    if (!tieneCambios(patch)) {
+    if (!dirty) {
       setErrorGuardado('No hay cambios por guardar.');
       return;
     }
@@ -174,6 +191,7 @@ export default function EditarOrdenScreen() {
       const actualizada = await updateOrden(orden.id, patch);
       aplicarOrden(actualizada);
       setFase('success');
+      saliendo.current = true;
       await new Promise((resolve) => setTimeout(resolve, reduced ? 0 : MOTION.success));
       router.back();
     } catch (err) {
@@ -182,83 +200,161 @@ export default function EditarOrdenScreen() {
     }
   };
 
-  const hoja = {
-    backgroundColor: colors.surface,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: -10 },
-    shadowRadius: 24,
-    shadowOpacity: scheme === 'dark' ? 0.5 : 0.12,
-    elevation: 12,
-  };
+  const seccion = (clave: SeccionEditar, indice: number, contenido: React.ReactNode) => (
+    <Animated.View
+      key={clave}
+      style={entrance(indice)}
+      onLayout={(e) => {
+        posiciones.current[clave] = e.nativeEvent.layout.y;
+      }}
+    >
+      {contenido}
+    </Animated.View>
+  );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface }]} edges={['bottom']}>
-      <Stack.Screen options={{ title: `Editar ${folio}`, headerShown: false }} />
+    <View style={[styles.flex, { backgroundColor: colors.canvas }]}>
+      <Stack.Screen options={{ title: `Editar ${folioDisplay(orden)}`, headerShown: false }} />
       <StatusBar style="light" />
 
-      <Animated.View style={entrance(0)}>
-        <EditarOrdenHero orden={orden} dirty={dirty} onVolver={() => router.back()} />
-      </Animated.View>
+      <EditarHeader
+        eyebrow="Editar orden"
+        folio={folioDisplay(orden)}
+        cliente={clienteDisplay(orden)}
+        volverLabel="Volver al detalle de la orden"
+        dirty={dirty}
+        completadas={nCompletas}
+        total={SECCIONES_EDITAR.length}
+        siguiente={siguiente ? TITULO_SECCION[siguiente] : null}
+        onVolver={pedirSalida}
+        onIrSiguiente={() => siguiente && irASeccion(siguiente)}
+      />
 
-      <View style={[styles.hoja, hoja]}>
-        <BarraCarga visible={fase === 'sending'} />
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={8}
-        >
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.flex}>
+          <BarraCarga visible={fase === 'sending'} />
           <ScrollView
             ref={scrollRef}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={styles.contenido}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
-            accessibilityLabel={`Formulario para editar la orden ${folio}`}
+            accessibilityLabel={`Formulario para editar la orden ${folioDisplay(orden)}`}
           >
-            {errorGuardado ? <AvisoAnimado key={errorGuardado} message={errorGuardado} /> : null}
+            {seccion(
+              'estatus',
+              0,
+              <FormSection
+                numero={1}
+                titulo={TITULO_SECCION.estatus}
+                descripcion="¿En qué punto está el servicio?"
+                completa={completas.estatus}
+              >
+                <View>
+                  <StatusSelector
+                    value={form.status}
+                    onChange={(status) => actualizar('status', status)}
+                    disabled={guardando}
+                  />
+                  <Colapsable abierto={form.status === 'pausado'}>
+                    <View style={[styles.colapsado, styles.sinMargenFinal]}>
+                      <TextField
+                        label="Motivo de la pausa"
+                        value={form.motivo_pausa}
+                        onChangeText={(valor) => actualizar('motivo_pausa', valor)}
+                        placeholder="¿Por qué se detuvo el servicio?"
+                        multiline
+                        maxLength={MOTIVO_PAUSA_MAX}
+                        error={errores.motivo_pausa}
+                        helper={`Obligatorio al pausar · ${form.motivo_pausa.length}/${MOTIVO_PAUSA_MAX}`}
+                        editable={!guardando}
+                      />
+                    </View>
+                  </Colapsable>
+                </View>
+              </FormSection>,
+            )}
 
-            <Animated.View style={entrance(1)}>
-              <SeccionCard titulo="Estatus" tono={tono}>
-                <StatusSegment value={form.status} onChange={(status) => actualizar('status', status)} />
-              </SeccionCard>
-            </Animated.View>
-
-            <Animated.View style={entrance(2)}>
-              <SeccionCard titulo="Comentario" tono={tono}>
-                <Colapsable abierto={form.status === 'pausado'}>
-                  <View style={styles.campoColapsado}>
-                    <TextField
-                      label="Motivo de la pausa"
-                      value={form.motivo_pausa}
-                      onChangeText={(valor) => actualizar('motivo_pausa', valor)}
-                      placeholder="Explique por qué se pausó la orden"
-                      multiline
-                      maxLength={MOTIVO_PAUSA_MAX}
-                      error={errores.motivo_pausa}
-                      helper={`Obligatorio. ${form.motivo_pausa.length}/${MOTIVO_PAUSA_MAX}`}
-                    />
-                  </View>
-                </Colapsable>
-                <TextField
-                  label="Comentario técnico"
-                  value={form.comentario_tecnico}
-                  onChangeText={(valor) => actualizar('comentario_tecnico', valor)}
-                  placeholder={`Qué se hizo en sitio (mínimo ${COMENTARIO_TECNICO_MIN} caracteres)`}
-                  multiline
-                  maxLength={COMENTARIO_TECNICO_MAX}
-                  error={errores.comentario_tecnico}
-                  helper={
-                    form.comentario_tecnico.trim().length < COMENTARIO_TECNICO_MIN
-                      ? `Obligatorio · ${form.comentario_tecnico.trim().length} / ${COMENTARIO_TECNICO_MIN} mínimo`
-                      : `Obligatorio · ${form.comentario_tecnico.trim().length} caracteres`
-                  }
-                  accessibilityHint={`Obligatorio. Mínimo ${COMENTARIO_TECNICO_MIN} caracteres.`}
+            {seccion(
+              'cliente',
+              1,
+              <FormSection
+                numero={2}
+                titulo={TITULO_SECCION.cliente}
+                descripcion="Quién recibe el servicio y dónde."
+                completa={completas.cliente}
+              >
+                <View style={styles.sinMargenFinal}>
+                  <TextField
+                    label="Nombre del cliente"
+                    value={form.nombre_cliente}
+                    onChangeText={(valor) => actualizar('nombre_cliente', valor)}
+                    placeholder="Nombre completo del cliente"
+                    leadingIcon={
+                      <Avatar
+                        iniciales={inicialesUsuarioDisplay(
+                          form.nombre_cliente || orden.cliente_nombre || orden.cliente || '',
+                          '?',
+                        )}
+                        size={28}
+                        fondo={colors.primaryRing}
+                        color={colors.primary}
+                      />
+                    }
+                    autoComplete="name"
+                    editable={!guardando}
+                    error={errores.nombre_cliente}
+                    helper="Puede ser distinto al titular de la cuenta."
+                  />
+                </View>
+                <FormDivisor />
+                <UbicacionField
+                  value={form.direccion}
+                  onChangeText={(valor) => actualizar('direccion', valor)}
+                  onSeleccionarMapa={() => setMapaAbierto(true)}
+                  disabled={guardando}
                 />
-              </SeccionCard>
-            </Animated.View>
+              </FormSection>,
+            )}
 
-            <Animated.View style={entrance(3)}>
-              <SeccionCard titulo="Horario" tono={tono}>
+            {seccion(
+              'trabajo',
+              2,
+              <FormSection
+                numero={3}
+                titulo={TITULO_SECCION.trabajo}
+                descripcion="Describe qué se hizo en sitio."
+                completa={completas.trabajo}
+              >
+                <View>
+                  <TextField
+                    label="Comentario técnico"
+                    value={form.comentario_tecnico}
+                    onChangeText={(valor) => actualizar('comentario_tecnico', valor)}
+                    placeholder="Diagnóstico, trabajo realizado, pendientes…"
+                    multiline
+                    maxLength={COMENTARIO_TECNICO_MAX}
+                    error={errores.comentario_tecnico}
+                    editable={!guardando}
+                    accessibilityHint={`Obligatorio. Mínimo ${COMENTARIO_TECNICO_MIN} caracteres.`}
+                  />
+                  <MinimoMeter actual={comentarioLen} minimo={COMENTARIO_TECNICO_MIN} />
+                </View>
+              </FormSection>,
+            )}
+
+            {seccion(
+              'horario',
+              3,
+              <FormSection
+                numero={4}
+                titulo={TITULO_SECCION.horario}
+                descripcion="Inicio y fin del servicio en campo."
+                completa={completas.horario}
+              >
                 <HorarioOrdenEditor
                   fechaInicio={form.fecha_inicio}
                   horaInicio={form.hora_inicio}
@@ -273,101 +369,134 @@ export default function EditarOrdenScreen() {
                   onFechaFinalizacion={(valor) => actualizar('fecha_finalizacion', valor)}
                   onHoraTermino={(valor) => actualizar('hora_termino', valor)}
                 />
-              </SeccionCard>
-            </Animated.View>
+              </FormSection>,
+            )}
 
-            <Animated.View style={entrance(4)}>
-              <SeccionCard titulo="Equipos de la orden" conteo={resumenEquipos.total}>
-                <Text style={[styles.subtitulo, { color: colors.inkMuted }]}>
-                  {resumenEquipos.entregados} entregados · {resumenEquipos.instalados} instalados
-                </Text>
+            {seccion(
+              'equipos',
+              4,
+              <FormSection
+                numero={5}
+                titulo={TITULO_SECCION.equipos}
+                descripcion={
+                  equipos.total > 0
+                    ? `${equipos.entregados} de ${equipos.total} entregados`
+                    : 'Esta orden no tiene equipos.'
+                }
+                meta={equipos.total > 0 ? `${equipos.instalados}/${equipos.total} instalados` : undefined}
+                completa={completas.equipos}
+              >
                 <EquiposOrdenEditor
                   equipos={form.equipos_inventario}
                   canMarkInstalacion={puedeMarcarInstalacion}
                   disabled={guardando}
                   onChangeInstalacion={actualizarInstalacion}
                 />
-              </SeccionCard>
-            </Animated.View>
+              </FormSection>,
+            )}
 
-            <Animated.View style={entrance(5)}>
-              <SeccionCard titulo="Fotos" tono={tono} conteo={form.fotos_urls.length}>
+            {seccion(
+              'evidencia',
+              5,
+              <FormSection
+                numero={6}
+                titulo={TITULO_SECCION.evidencia}
+                descripcion="Fotos del trabajo y firma de conformidad."
+                completa={completas.evidencia}
+              >
+                <FormSubtitulo
+                  icon={<IconCamera color={colors.inkMuted} size={14} />}
+                  texto="Fotos"
+                  meta={`${form.fotos_urls.length} / ${maxFotos}`}
+                />
                 <FotosEditor
                   urls={form.fotos_urls}
-                  maxFotos={5 + (orden.fotos_extra_max || 0)}
+                  maxFotos={maxFotos}
                   onChange={(urls) => actualizar('fotos_urls', urls)}
                   disabled={guardando}
                 />
-              </SeccionCard>
-            </Animated.View>
-
-            <Animated.View style={entrance(6)}>
-              <SeccionCard titulo="Firma del cliente" tono={tono}>
+                <FormDivisor />
+                <FormSubtitulo
+                  icon={<IconSignature color={colors.inkMuted} size={14} />}
+                  texto="Firma del cliente"
+                  meta={form.firma_cliente_url.trim() ? 'Capturada' : 'Pendiente'}
+                />
                 <SignaturePad
                   value={form.firma_cliente_url}
                   onChange={(url) => actualizar('firma_cliente_url', url)}
                   disabled={guardando}
                 />
-              </SeccionCard>
-            </Animated.View>
-
-            <Animated.View style={[entrance(7), styles.acciones]}>
-              <SubmitButton
-                label="Guardar cambios"
-                phase={fase}
-                disabled={!dirty}
-                onPress={() => void guardar()}
-                accessibilityHint={dirty ? 'Guarda los cambios en la orden' : 'No hay cambios por guardar'}
-                tint={colors.navy}
-                tintPressed={colors.navyDeep}
-                tintDisabled={colors.navyDisabled}
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Cancelar y volver al detalle"
-                disabled={guardando}
-                onPress={() => router.back()}
-                style={({ pressed }) => [
-                  styles.cancelar,
-                  pressed ? styles.cancelarPressed : null,
-                  guardando ? styles.cancelarInactivo : null,
-                ]}
-              >
-                <Text style={[styles.cancelarTexto, { color: colors.inkMuted }]}>Cancelar</Text>
-              </Pressable>
-            </Animated.View>
+              </FormSection>,
+            )}
           </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
-    </SafeAreaView>
+        </View>
+
+        <View
+          style={[
+            styles.barra,
+            {
+              backgroundColor: colors.surface,
+              borderTopColor: colors.line,
+              paddingBottom: Math.max(insets.bottom, spacing.md),
+            },
+          ]}
+        >
+          {errorGuardado ? (
+            <View style={styles.barraEstado} accessibilityRole="alert" accessibilityLiveRegion="polite">
+              <IconAlerta color={colors.danger} size={14} />
+              <Text style={[styles.barraTexto, { color: colors.danger }]} numberOfLines={2}>
+                {errorGuardado}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.barraEstado}>
+              <View style={[styles.punto, { backgroundColor: dirty ? colors.gold : colors.success }]} />
+              <Text style={[styles.barraTexto, { color: colors.inkMuted }]}>
+                {dirty ? `${nCambios} ${nCambios === 1 ? 'cambio' : 'cambios'} sin guardar` : 'Sin cambios pendientes'}
+              </Text>
+            </View>
+          )}
+          <SubmitButton
+            label="Guardar cambios"
+            phase={fase}
+            disabled={!dirty}
+            onPress={() => void guardar()}
+            accessibilityHint={dirty ? 'Guarda los cambios en la orden' : 'No hay cambios por guardar'}
+          />
+        </View>
+      </KeyboardAvoidingView>
+
+      <LocationMapModal
+        visible={mapaAbierto}
+        direccion={form.direccion}
+        onClose={() => setMapaAbierto(false)}
+        onConfirm={(mapsUrl) => {
+          actualizar('direccion', mapsUrl);
+          setMapaAbierto(false);
+        }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   flex: { flex: 1 },
-  hoja: {
-    flex: 1,
-    marginTop: -20,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    overflow: 'hidden',
-  },
-  content: {
-    paddingHorizontal: spacing.xl,
+  contenido: {
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xxxl,
-    gap: spacing.md,
+    paddingBottom: spacing.xxl,
+    gap: spacing.xxl,
   },
-  subtitulo: { ...type.caption, fontSize: 12, marginTop: -spacing.xs },
-  campoColapsado: { paddingBottom: spacing.sm },
-  acciones: { marginTop: spacing.sm, gap: spacing.sm },
-  cancelar: {
-    minHeight: TOUCH_TARGET,
-    alignItems: 'center',
-    justifyContent: 'center',
+  colapsado: { paddingTop: spacing.lg },
+  /** `TextField` trae su propio margen inferior; al final de una tarjeta sobra. */
+  sinMargenFinal: { marginBottom: -spacing.lg },
+  barra: {
+    borderTopWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
   },
-  cancelarPressed: { opacity: 0.55 },
-  cancelarInactivo: { opacity: 0.4 },
-  cancelarTexto: { ...type.bodyMedium },
+  barraEstado: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 18 },
+  punto: { width: 7, height: 7, borderRadius: 4 },
+  barraTexto: { ...type.caption, fontSize: 12, flex: 1 },
 });

@@ -1,230 +1,205 @@
 import React, { useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
-import { elevationFor, radius, spacing, type, type ThemeColors } from '@/theme/tokens';
+import { elevationFor, font, radius, spacing, type } from '@/theme/tokens';
 import type { OrdenListItem } from '@/types/orden';
 import { abrirEnlace, esEnlaceUbicacion } from '@/utils/abrirEnlace';
-import { formatFecha, formatHora } from '@/utils/fecha';
+import { formatFecha, formatHora, hoyISO } from '@/utils/fecha';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 import {
   accionLabel,
   clienteDisplay,
   folioDisplay,
+  normalizarPrioridad,
   prioridadLabel,
   prioridadTone,
   statusLabel,
-  statusSolid,
   statusTone,
   tipoOrdenLabel,
 } from '../ordenFormat';
-import { FallaBox } from './FallaBox';
-import {
-  IconCalendar,
-  IconFlecha,
-  IconPhone,
-  IconPin,
-  TipoOrdenIcon,
-} from './icons';
+import { IconAlerta, IconCalendar, IconFlecha, IconPause, IconPhone, IconPin, TipoOrdenIcon } from './icons';
 
 interface Props {
   orden: OrdenListItem;
   onPress: (orden: OrdenListItem) => void;
 }
 
-function FilaDato({
+/** Acción rápida dentro de la tarjeta (llamar / mapa): no abre el detalle. */
+function Atajo({
   icon,
-  children,
-  accessoryLabel: label,
-  colors,
+  label,
+  accessibilityLabel,
+  onPress,
 }: {
   icon: React.ReactNode;
-  children: string;
-  accessoryLabel?: string;
-  colors: ThemeColors;
+  label: string;
+  accessibilityLabel: string;
+  onPress: () => void;
 }) {
-  return (
-    <View style={styles.filaDato}>
-      <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>{icon}</View>
-      <Text style={[styles.filaTexto, { color: colors.inkMuted }]} numberOfLines={2}>
-        {children}
-        {label ? <Text style={{ color: colors.inkSubtle }}> {label}</Text> : null}
-      </Text>
-    </View>
-  );
-}
-
-function FilaUbicacion({ direccion, colors }: { direccion: string; colors: ThemeColors }) {
-  if (esEnlaceUbicacion(direccion)) {
-    return (
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel="Ver ubicación en el mapa"
-        onPress={() =>
-          void abrirEnlace(direccion, 'No se pudo abrir el mapa. Verifica que tengas una app de mapas instalada.')
-        }
-        style={styles.filaDato}
-        hitSlop={4}
-      >
-        <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
-          <IconPin color={colors.navyText} size={12} />
-        </View>
-        <Text style={[styles.enlaceUbicacion, { color: colors.navyText }]}>Ver ubicación en el mapa</Text>
-      </Pressable>
-    );
-  }
-  return (
-    <FilaDato icon={<IconPin color={colors.navyText} size={12} />} colors={colors}>
-      {direccion}
-    </FilaDato>
-  );
-}
-
-function FilaTelefono({
-  telefono,
-  contacto,
-  colors,
-}: {
-  telefono: string;
-  contacto: string | null;
-  colors: ThemeColors;
-}) {
+  const { colors } = useTheme();
   return (
     <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={`Llamar al ${telefono}`}
-      onPress={() => void abrirEnlace(`tel:${telefono}`, 'No se pudo iniciar la llamada.')}
-      style={styles.filaDato}
-      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      hitSlop={6}
+      style={({ pressed }) => [
+        styles.atajo,
+        { backgroundColor: pressed ? colors.line : colors.surfaceSunken, borderColor: colors.line },
+      ]}
     >
-      <View style={[styles.iconoPlaca, { backgroundColor: colors.surfaceSunken }]}>
-        <IconPhone color={colors.navyText} size={12} />
-      </View>
-      <Text style={[styles.filaTexto, { color: colors.inkMuted }]}>
-        <Text style={[styles.enlaceUbicacion, { color: colors.navyText }]}>{telefono}</Text>
-        {contacto ? <Text style={{ color: colors.inkSubtle }}> ({contacto})</Text> : null}
+      {icon}
+      <Text style={[styles.atajoTexto, { color: colors.ink }]} numberOfLines={1}>
+        {label}
       </Text>
     </Pressable>
   );
 }
 
 /**
- * Tarjeta de orden — barra de acento por estatus, folio, falla y CTA.
- * Colores del tema activo (claro / oscuro).
+ * Tarjeta del listado. La placa de color con el ícono del tipo de orden
+ * dice el estatus antes de leer nada; el cliente es lo más grande porque es
+ * como el técnico piensa en su día («voy con ACME»), no por folio.
  */
 export function OrdenCard({ orden, onPress }: Props) {
   const { colors } = useTheme();
-  const folio = folioDisplay(orden);
-  const cliente = clienteDisplay(orden);
-  const acento = statusSolid(orden.status, colors);
-  const tono = statusTone(orden.status, colors);
   const reduced = useReducedMotion();
   const escala = useRef(new Animated.Value(1)).current;
+  const folio = folioDisplay(orden);
+  const cliente = clienteDisplay(orden);
+  const tono = statusTone(orden.status, colors);
+  const prioridad = normalizarPrioridad(orden.prioridad_pool);
+  const prioTono = prioridadTone(orden.prioridad_pool, colors);
+  const esHoy = orden.fecha_inicio === hoyISO() && orden.status !== 'resuelto';
+  const pausada = orden.status === 'pausado';
 
   const animarA = (destino: number) => {
     if (reduced) return;
     Animated.timing(escala, {
       toValue: destino,
-      duration: destino < 1 ? 90 : 140,
+      duration: destino < 1 ? 90 : 160,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   };
 
-  const fechaTexto = [formatFecha(orden.fecha_inicio), formatHora(orden.hora_inicio)]
-    .filter((parte) => parte && parte !== '—')
-    .join(' · ');
+  const fecha = formatFecha(orden.fecha_inicio);
+  const hora = formatHora(orden.hora_inicio);
+  const cuando = [esHoy ? 'Hoy' : fecha, hora].filter((p) => p && p !== '—').join(' · ');
+
+  const nota = pausada && orden.motivo_pausa ? orden.motivo_pausa : orden.problematica;
+  const telefono = orden.telefono_cliente?.trim() || null;
+  const direccion = orden.direccion?.trim() || null;
+  const abrirMapa = () => {
+    if (!direccion) return;
+    const url = esEnlaceUbicacion(direccion)
+      ? direccion
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
+    void abrirEnlace(url, 'No se pudo abrir el mapa. Verifica que tengas una app de mapas instalada.');
+  };
 
   return (
-    <Animated.View style={{ transform: [{ scale: escala }] }}>
+    <Animated.View style={[styles.envoltura, { transform: [{ scale: escala }] }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Orden ${folio}, ${cliente}`}
+        accessibilityLabel={`Orden ${folio}, ${cliente}, ${statusLabel(orden.status)}${esHoy ? ', programada para hoy' : ''}`}
         accessibilityHint="Abre el detalle de la orden"
         onPress={() => onPress(orden)}
-        onPressIn={() => animarA(0.985)}
+        onPressIn={() => animarA(0.98)}
         onPressOut={() => animarA(1)}
         style={({ pressed }) => [
           styles.card,
           {
-            backgroundColor: pressed ? colors.surfaceSunken : colors.surface,
-            borderColor: pressed ? colors.gold : colors.line,
+            backgroundColor: colors.surface,
+            borderColor: pressed ? tono.text : colors.line,
             ...elevationFor(colors, 'card'),
           },
         ]}
       >
-        <View style={[styles.acento, { backgroundColor: acento.bg }]} />
+        <View style={styles.cabeza}>
+          <View style={[styles.placa, { backgroundColor: tono.bg }]} importantForAccessibility="no">
+            <TipoOrdenIcon tipo={orden.tipo_orden} color={tono.text} size={18} />
+          </View>
 
-        <View style={styles.contenido}>
-          <View style={styles.filaSuperior}>
-            <View style={styles.insignias}>
-              <Text
-                style={[
-                  styles.folio,
-                  { color: colors.inkMuted, borderColor: colors.lineStrong },
-                ]}
-              >
+          <View style={styles.titulos}>
+            <View style={styles.metaFila}>
+              <Text style={[styles.folio, { color: colors.inkMuted }]} numberOfLines={1}>
                 {folio}
               </Text>
-              <View style={[styles.tipoChip, { backgroundColor: colors.surfaceSunken }]}>
-                <TipoOrdenIcon tipo={orden.tipo_orden} color={colors.inkSubtle} size={11} />
-                <Text style={[styles.tipoTexto, { color: colors.inkMuted }]} numberOfLines={1}>
-                  {tipoOrdenLabel(orden.tipo_orden)}
-                </Text>
+              <View style={[styles.separador, { backgroundColor: colors.lineStrong }]} />
+              <Text style={[styles.tipo, { color: colors.inkSubtle }]} numberOfLines={1}>
+                {tipoOrdenLabel(orden.tipo_orden)}
+              </Text>
+            </View>
+            <Text style={[styles.cliente, { color: colors.ink }]} numberOfLines={2}>
+              {cliente}
+            </Text>
+          </View>
+
+          <View style={styles.insignias}>
+            {esHoy ? (
+              <View style={[styles.insignia, { backgroundColor: colors.gold }]}>
+                <Text style={[styles.insigniaTexto, { color: colors.onGold }]}>Hoy</Text>
               </View>
-              <View
-                style={[styles.tipoChip, { backgroundColor: prioridadTone(orden.prioridad_pool, colors).bg }]}
-              >
-                <Text
-                  style={[styles.tipoTexto, { color: prioridadTone(orden.prioridad_pool, colors).text }]}
-                  numberOfLines={1}
-                >
+            ) : null}
+            {prioridad !== 'baja' ? (
+              <View style={[styles.insignia, { backgroundColor: prioTono.bg }]}>
+                <View style={[styles.insigniaPunto, { backgroundColor: prioTono.text }]} />
+                <Text style={[styles.insigniaTexto, { color: prioTono.text }]}>
                   {prioridadLabel(orden.prioridad_pool)}
                 </Text>
               </View>
-            </View>
-            <View style={[styles.statusPill, { backgroundColor: tono.bg }]}>
-              <Text style={[styles.statusTexto, { color: tono.text }]}>{statusLabel(orden.status)}</Text>
-            </View>
+            ) : null}
           </View>
+        </View>
 
-          <Text style={[styles.cliente, { color: colors.ink }]} numberOfLines={2}>
-            {cliente}
-          </Text>
+        {nota ? (
+          <View style={styles.nota}>
+            {pausada ? (
+              <IconPause color={colors.statusPausadoText} size={13} />
+            ) : (
+              <IconAlerta color={colors.statusPendienteText} size={13} />
+            )}
+            <Text style={[styles.notaTexto, { color: colors.inkMuted }]} numberOfLines={2}>
+              {nota}
+            </Text>
+          </View>
+        ) : null}
 
-          {orden.problematica ? (
-            <FallaBox
-              titulo={orden.status === 'pausado' ? 'Motivo de la pausa' : 'Falla reportada'}
-              texto={
-                orden.status === 'pausado' && orden.motivo_pausa ? orden.motivo_pausa : orden.problematica
-              }
-              numberOfLines={3}
-            />
-          ) : null}
-
-          <View style={styles.filasInfo}>
-            {orden.direccion ? <FilaUbicacion direccion={orden.direccion} colors={colors} /> : null}
-            {orden.telefono_cliente ? (
-              <FilaTelefono
-                telefono={orden.telefono_cliente}
-                contacto={orden.nombre_cliente}
-                colors={colors}
+        {telefono || direccion ? (
+          <View style={styles.atajos}>
+            {direccion ? (
+              <Atajo
+                icon={<IconPin color={colors.primary} size={13} />}
+                label={esEnlaceUbicacion(direccion) ? 'Ver en el mapa' : direccion}
+                accessibilityLabel={`Abrir la ubicación en el mapa${esEnlaceUbicacion(direccion) ? '' : `: ${direccion}`}`}
+                onPress={abrirMapa}
+              />
+            ) : null}
+            {telefono ? (
+              <Atajo
+                icon={<IconPhone color={colors.success} size={13} />}
+                label="Llamar"
+                accessibilityLabel={`Llamar al ${telefono}`}
+                onPress={() => void abrirEnlace(`tel:${telefono}`, 'No se pudo iniciar la llamada.')}
               />
             ) : null}
           </View>
+        ) : null}
 
-          <View style={[styles.footer, { borderTopColor: colors.line }]}>
-            {fechaTexto ? (
-              <View style={styles.fechaFila}>
-                <IconCalendar color={colors.inkSubtle} size={13} />
-                <Text style={[styles.fechaTexto, { color: colors.inkSubtle }]}>{fechaTexto}</Text>
-              </View>
-            ) : (
-              <View />
-            )}
-            <View style={[styles.accionBoton, { backgroundColor: colors.navy }]}>
-              <Text style={[styles.accionTexto, { color: colors.onNavy }]}>
-                {accionLabel(orden.status)}
-              </Text>
+        <View style={[styles.pie, { borderTopColor: colors.line }]}>
+          <View style={styles.cuando}>
+            <IconCalendar color={esHoy ? colors.goldSoftText : colors.inkSubtle} size={13} />
+            <Text
+              style={[styles.cuandoTexto, { color: esHoy ? colors.goldSoftText : colors.inkSubtle }]}
+              numberOfLines={1}
+            >
+              {cuando || 'Sin programar'}
+            </Text>
+          </View>
+          <View style={styles.cta}>
+            <Text style={[styles.ctaTexto, { color: colors.navyText }]}>{accionLabel(orden.status)}</Text>
+            <View style={[styles.ctaFlecha, { backgroundColor: colors.navy }]}>
               <IconFlecha color={colors.onNavy} size={12} />
             </View>
           </View>
@@ -234,78 +209,66 @@ export function OrdenCard({ orden, onPress }: Props) {
   );
 }
 
+const PLACA = 42;
+
 const styles = StyleSheet.create({
+  envoltura: { marginBottom: spacing.md },
   card: {
-    flexDirection: 'row',
     borderWidth: 1,
     borderRadius: radius.card,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  acento: { width: 3 },
-  contenido: { flex: 1, padding: spacing.lg, gap: spacing.md },
-  filaSuperior: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  insignias: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-  },
-  folio: {
-    ...type.mono,
-    fontSize: 12,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  tipoChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  tipoTexto: { ...type.caption, fontSize: 11 },
-  statusPill: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
-  statusTexto: { ...type.caption, fontSize: 11, fontFamily: type.label.fontFamily },
-  cliente: { ...type.bodyMedium, fontSize: 16, flexShrink: 1 },
-  filasInfo: { gap: spacing.sm },
-  filaDato: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  iconoPlaca: {
-    width: 22,
-    height: 22,
-    borderRadius: radius.sm,
+  cabeza: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  placa: {
+    width: PLACA,
+    height: PLACA,
+    borderRadius: radius.md + 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 1,
   },
-  filaTexto: { ...type.caption, flex: 1, marginTop: 2 },
-  enlaceUbicacion: { ...type.label, fontSize: 13 },
-  footer: {
+  titulos: { flex: 1, minWidth: 0, gap: 2 },
+  metaFila: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  folio: { ...type.mono, fontSize: 12, flexShrink: 0 },
+  separador: { width: 3, height: 3, borderRadius: 2 },
+  tipo: { ...type.caption, fontSize: 12, flexShrink: 1 },
+  cliente: { fontFamily: font.semibold, fontSize: 16, lineHeight: 21, letterSpacing: -0.3 },
+  insignias: { alignItems: 'flex-end', gap: 4 },
+  insignia: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  insigniaPunto: { width: 5, height: 5, borderRadius: 3 },
+  insigniaTexto: { fontFamily: font.semibold, fontSize: 11, lineHeight: 15 },
+  nota: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingRight: spacing.xs },
+  notaTexto: { ...type.caption, flex: 1, marginTop: -2 },
+  atajos: { flexDirection: 'row', gap: spacing.sm },
+  atajo: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 34,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+  },
+  atajoTexto: { ...type.label, fontSize: 12, flexShrink: 1 },
+  pie: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderTopWidth: 1,
-    paddingTop: spacing.md,
     gap: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.md,
   },
-  fechaFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexShrink: 1 },
-  fechaTexto: { ...type.mono, fontSize: 12 },
-  accionBoton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  accionTexto: { ...type.label, fontSize: 12 },
+  cuando: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  cuandoTexto: { ...type.mono, fontSize: 12, flexShrink: 1 },
+  cta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  ctaTexto: { ...type.label, fontFamily: font.semibold, fontSize: 13 },
+  ctaFlecha: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
 });

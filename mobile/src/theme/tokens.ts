@@ -57,6 +57,12 @@ export type ThemeColors = {
   onGold: string;
   goldSoftBg: string;
   goldSoftText: string;
+  /**
+   * Acento rosa para secciones de solo lectura que necesitan distinguirse del
+   * resto de la paleta semántica (evidencia fotográfica). Nunca como acción.
+   */
+  roseBg: string;
+  roseText: string;
   /** Sombra de elevación (Android `elevation` / iOS shadowColor). */
   shadow: string;
   /** Fondo de la navbar (puede diferir ligeramente del canvas). */
@@ -100,6 +106,8 @@ export const lightColors: ThemeColors = {
   onGold: '#17235B',
   goldSoftBg: 'rgba(230, 162, 60, 0.14)',
   goldSoftText: '#9A6B15',
+  roseBg: '#FDEEF4',
+  roseText: '#B4235F',
   shadow: '#09090B',
   nav: '#FFFFFF',
 };
@@ -142,6 +150,8 @@ export const darkColors: ThemeColors = {
   onGold: '#17235B',
   goldSoftBg: 'rgba(230, 162, 60, 0.18)',
   goldSoftText: '#E6A23C',
+  roseBg: '#3A1426',
+  roseText: '#F9A8D4',
   shadow: '#000000',
   nav: '#0F0F14',
 };

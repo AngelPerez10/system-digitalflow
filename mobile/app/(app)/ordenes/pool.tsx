@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -8,13 +8,17 @@ import { tomarOrden } from '@/api/ordenesApi';
 import { AppButton } from '@/components/AppButton';
 import { BarraCarga } from '@/components/BarraCarga';
 import { IconChevron } from '@/components/icons';
+import { IconBox } from '@/features/orders/components/icons';
 import { EmptyState, InlineError } from '@/components/StateViews';
 import { OrdenesSkeletonList } from '@/features/orders/components/OrdenCardSkeleton';
 import { PoolOrdenCard } from '@/features/orders/components/PoolOrdenCard';
+import { contarPorPrioridad } from '@/features/orders/agrupar';
+import { normalizarPrioridad } from '@/features/orders/ordenFormat';
+import { PrioridadResumen, type FiltroPrioridad } from '@/features/orders/components/PrioridadResumen';
 import { useOrdenesPool } from '@/features/orders/useOrdenesPool';
 import { usePush } from '@/notifications/PushProvider';
 import { useTheme } from '@/theme/ThemeProvider';
-import { font, spacing, type } from '@/theme/tokens';
+import { font, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 import type { OrdenListItem } from '@/types/orden';
 
 /**
@@ -40,6 +44,12 @@ export default function PoolOrdenesScreen() {
   );
 
   const cargaInicial = cargando && ordenes.length === 0 && !error;
+  const [filtro, setFiltro] = useState<FiltroPrioridad>('todas');
+  const conteo = useMemo(() => contarPorPrioridad(ordenes), [ordenes]);
+  const visibles = useMemo(
+    () => (filtro === 'todas' ? ordenes : ordenes.filter((o) => normalizarPrioridad(o.prioridad_pool) === filtro)),
+    [ordenes, filtro],
+  );
 
   const onTomar = useCallback(
     (orden: OrdenListItem) => {
@@ -71,7 +81,7 @@ export default function PoolOrdenesScreen() {
   );
 
   const hoja = {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: -10 },
     shadowRadius: 24,
@@ -80,26 +90,41 @@ export default function PoolOrdenesScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]} edges={['bottom']}>
       <StatusBar style="light" />
 
-      <View style={[styles.hero, { backgroundColor: colors.navy, paddingTop: insets.top + spacing.sm }]}>
+      <View style={[styles.hero, { backgroundColor: colors.navy, paddingTop: insets.top + spacing.xs }]}>
         <BarraCarga visible={!cargaInicial && (cargando || refrescando)} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Volver a mis órdenes"
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={({ pressed }) => [styles.volver, pressed ? { opacity: 0.6 } : null]}
-        >
-          <IconChevron direction="left" color={colors.onNavy} size={16} />
-          <Text style={[styles.volverTexto, { color: colors.onNavy }]}>Mis órdenes</Text>
-        </Pressable>
-        <Text style={[styles.titulo, { color: colors.onNavy }]} accessibilityRole="header">
-          Órdenes disponibles
-        </Text>
+        <View style={styles.heroFila}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Volver a mis órdenes"
+            onPress={() => router.back()}
+            hitSlop={4}
+            style={({ pressed }) => [
+              styles.volver,
+              { backgroundColor: pressed ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)' },
+            ]}
+          >
+            <IconChevron direction="left" color={colors.onNavy} size={18} />
+          </Pressable>
+          <View style={styles.heroTitulos}>
+            <Text style={[styles.eyebrow, { color: colors.gold }]}>Bolsa de trabajo</Text>
+            <Text style={[styles.titulo, { color: colors.onNavy }]} accessibilityRole="header" numberOfLines={1}>
+              Órdenes disponibles
+            </Text>
+          </View>
+        </View>
+
+        <PrioridadResumen
+          total={ordenes.length}
+          conteo={conteo}
+          filtro={filtro}
+          onFiltro={setFiltro}
+          cargando={cargaInicial}
+        />
         <Text style={[styles.sub, { color: colors.onNavyMuted }]}>
-          Liberadas por otros técnicos · la toma el primero
+          Liberadas por otros técnicos. La primera persona que la toma se la queda.
         </Text>
       </View>
 
@@ -110,14 +135,19 @@ export default function PoolOrdenesScreen() {
           </View>
         ) : (
           <FlatList
-            data={ordenes}
+            data={visibles}
             keyExtractor={(item) => String(item.id)}
-            contentContainerStyle={[styles.lista, ordenes.length === 0 ? styles.listaVacia : null]}
+            contentContainerStyle={[styles.lista, visibles.length === 0 ? styles.listaVacia : null]}
             ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={error ? <InlineError message={error} /> : null}
             renderItem={({ item }) => (
-              <PoolOrdenCard orden={item} tomando={tomandoId === item.id} onTomar={onTomar} />
+              <PoolOrdenCard
+                orden={item}
+                tomando={tomandoId === item.id}
+                bloqueada={tomandoId !== null && tomandoId !== item.id}
+                onTomar={onTomar}
+              />
             )}
             ListEmptyComponent={
               error ? (
@@ -126,8 +156,17 @@ export default function PoolOrdenesScreen() {
                 </View>
               ) : (
                 <EmptyState
-                  title="No hay órdenes disponibles"
-                  description="Cuando un técnico libere una orden, aparecerá aquí. Desliza para actualizar."
+                  icon={
+                    <View style={[styles.vacioIcono, { backgroundColor: colors.goldSoftBg }]}>
+                      <IconBox color={colors.goldSoftText} size={24} />
+                    </View>
+                  }
+                  title={filtro === 'todas' ? 'No hay órdenes disponibles' : `Sin órdenes de prioridad ${filtro}`}
+                  description={
+                    filtro === 'todas'
+                      ? 'Cuando un técnico libere una orden, aparecerá aquí. Desliza para actualizar.'
+                      : 'Toca la prioridad activa arriba para ver todas.'
+                  }
                 />
               )
             }
@@ -148,16 +187,20 @@ export default function PoolOrdenesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  hero: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
+  hero: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl + 20, gap: spacing.md },
+  heroFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   volver: {
-    flexDirection: 'row',
+    width: TOUCH_TARGET - 6,
+    height: TOUCH_TARGET - 6,
+    borderRadius: radius.pill,
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
+    justifyContent: 'center',
   },
-  volverTexto: { ...type.label },
-  titulo: { fontFamily: font.bold, fontSize: 24, lineHeight: 28, letterSpacing: -0.7, marginTop: spacing.xs },
-  sub: { ...type.caption, fontSize: 12, marginTop: 2 },
+  heroTitulos: { flex: 1, minWidth: 0 },
+  eyebrow: { fontFamily: font.semibold, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase' },
+  titulo: { fontFamily: font.bold, fontSize: 22, lineHeight: 27, letterSpacing: -0.7 },
+  sub: { ...type.caption, fontSize: 12, lineHeight: 17 },
+  vacioIcono: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   hoja: {
     flex: 1,
     marginTop: -20,

@@ -53,13 +53,13 @@ export function FirmasTarjeta({ firmaCliente, firmaEncargado }: Props) {
   return (
     <View style={styles.columna}>
       {firmaCliente ? (
-        <Firma label="Firma del cliente" url={firmaCliente} onPress={() => abrir(urls, urls.indexOf(firmaCliente))} />
+        <Firma label="Firma del cliente" url={firmaCliente} onPress={() => abrir(urls, urls.indexOf(firmaCliente), { lienzoClaro: true })} />
       ) : null}
       {firmaEncargado ? (
         <Firma
           label="Firma del encargado"
           url={firmaEncargado}
-          onPress={() => abrir(urls, urls.indexOf(firmaEncargado))}
+          onPress={() => abrir(urls, urls.indexOf(firmaEncargado), { lienzoClaro: true })}
         />
       ) : null}
       {visor}

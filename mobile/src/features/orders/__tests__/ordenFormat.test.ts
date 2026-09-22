@@ -1,4 +1,10 @@
-import { agruparEquiposPorProducto, normalizarPrioridad, prioridadLabel } from '../ordenFormat';
+import {
+  agruparEquiposPorProducto,
+  duracionServicio,
+  haceCuanto,
+  normalizarPrioridad,
+  prioridadLabel,
+} from '../ordenFormat';
 import type { EquipoInventarioItem } from '@/types/orden';
 
 function crearEquipo(overrides: Partial<EquipoInventarioItem>): EquipoInventarioItem {
@@ -73,5 +79,46 @@ describe('normalizarPrioridad / prioridadLabel', () => {
   it('etiqueta legible', () => {
     expect(prioridadLabel('alta')).toBe('Alta');
     expect(prioridadLabel(null)).toBe('Media');
+  });
+});
+
+describe('duracionServicio', () => {
+  const base = { fecha_inicio: '2026-09-01', hora_inicio: '09:00:00', fecha_finalizacion: null, hora_termino: null };
+
+  it('devuelve null si falta el fin', () => {
+    expect(duracionServicio(base)).toBeNull();
+  });
+
+  it('formatea horas y minutos el mismo día', () => {
+    expect(duracionServicio({ ...base, fecha_finalizacion: '2026-09-01', hora_termino: '11:30' })).toBe('2 h 30 min');
+    expect(duracionServicio({ ...base, fecha_finalizacion: '2026-09-01', hora_termino: '09:45' })).toBe('45 min');
+  });
+
+  it('cruza días y omite los minutos cuando hay días', () => {
+    expect(duracionServicio({ ...base, fecha_finalizacion: '2026-09-02', hora_termino: '12:20' })).toBe('1 d 3 h');
+  });
+
+  it('devuelve null si el fin no es posterior al inicio', () => {
+    expect(duracionServicio({ ...base, fecha_finalizacion: '2026-09-01', hora_termino: '08:00' })).toBeNull();
+  });
+});
+
+describe('haceCuanto', () => {
+  const ahora = new Date('2026-09-22T12:00:00Z');
+
+  it('minutos, horas y días', () => {
+    expect(haceCuanto('2026-09-22T11:55:00Z', ahora)).toBe('hace 5 min');
+    expect(haceCuanto('2026-09-22T09:00:00Z', ahora)).toBe('hace 3 h');
+    expect(haceCuanto('2026-09-20T12:00:00Z', ahora)).toBe('hace 2 d');
+  });
+
+  it('«ahora» para menos de un minuto o fechas futuras', () => {
+    expect(haceCuanto('2026-09-22T11:59:40Z', ahora)).toBe('ahora');
+    expect(haceCuanto('2026-09-22T12:05:00Z', ahora)).toBe('ahora');
+  });
+
+  it('null si falta o es inválido', () => {
+    expect(haceCuanto(null, ahora)).toBeNull();
+    expect(haceCuanto('no es fecha', ahora)).toBeNull();
   });
 });

@@ -2,8 +2,11 @@ import type { Orden } from '@/types/orden';
 import {
   COMENTARIO_TECNICO_MIN,
   construirPatch,
+  contarCambios,
   formStateFromOrden,
   hayErrores,
+  primeraSeccionConError,
+  seccionesCompletas,
   tieneCambios,
   validarForm,
 } from '../editarOrdenForm';
@@ -204,6 +207,32 @@ describe('construirPatch', () => {
     ]);
   });
 
+  it('incluye direccion cuando cambia', () => {
+    const patch = construirPatch(ordenBase, {
+      ...formStateFromOrden(ordenBase),
+      direccion: 'https://www.google.com/maps?q=19.065300,-104.283100',
+    });
+    expect(patch.direccion).toBe('https://www.google.com/maps?q=19.065300,-104.283100');
+  });
+
+  it('no incluye direccion cuando no cambia', () => {
+    const patch = construirPatch(ordenBase, formStateFromOrden(ordenBase));
+    expect(patch.direccion).toBeUndefined();
+  });
+
+  it('incluye nombre_cliente cuando cambia', () => {
+    const patch = construirPatch(ordenBase, {
+      ...formStateFromOrden(ordenBase),
+      nombre_cliente: 'Juan Pérez',
+    });
+    expect(patch.nombre_cliente).toBe('Juan Pérez');
+  });
+
+  it('no incluye nombre_cliente cuando no cambia', () => {
+    const patch = construirPatch(ordenBase, formStateFromOrden(ordenBase));
+    expect(patch.nombre_cliente).toBeUndefined();
+  });
+
   it('nunca incluye campos fuera del alcance del técnico', () => {
     const patch = construirPatch(ordenBase, {
       ...formStateFromOrden(ordenBase),
@@ -224,5 +253,63 @@ describe('construirPatch', () => {
       'equipos_inventario',
     ];
     expect(Object.keys(patch).every((key) => permitidos.includes(key))).toBe(true);
+  });
+});
+
+describe('seccionesCompletas', () => {
+  it('marca incompletas las secciones sin datos', () => {
+    const s = seccionesCompletas(formStateFromOrden(ordenBase));
+    expect(s).toEqual({
+      estatus: true,
+      cliente: false,
+      trabajo: false,
+      horario: true,
+      equipos: true,
+      evidencia: false,
+    });
+  });
+
+  it('exige motivo cuando la orden está pausada', () => {
+    const form = { ...formStateFromOrden(ordenBase), status: 'pausado' as const };
+    expect(seccionesCompletas(form).estatus).toBe(false);
+    expect(seccionesCompletas({ ...form, motivo_pausa: 'Falta material' }).estatus).toBe(true);
+  });
+
+  it('completa todo con un reporte lleno', () => {
+    const s = seccionesCompletas({
+      ...formStateFromOrden(ordenBase),
+      nombre_cliente: 'Ana',
+      comentario_tecnico: comentarioValido,
+      fotos_urls: ['https://x/1.jpg'],
+      firma_cliente_url: 'https://x/f.png',
+    });
+    expect(Object.values(s).every(Boolean)).toBe(true);
+  });
+});
+
+describe('contarCambios', () => {
+  it('no cuenta el motivo de pausa reenviado sin cambios', () => {
+    const orden: Orden = { ...ordenBase, status: 'pausado', motivo_pausa: 'Falta material' };
+    const patch = construirPatch(orden, formStateFromOrden(orden));
+    expect(contarCambios(orden, patch)).toBe(0);
+  });
+
+  it('cuenta cada campo modificado', () => {
+    const patch = construirPatch(ordenBase, {
+      ...formStateFromOrden(ordenBase),
+      nombre_cliente: 'Ana',
+      comentario_tecnico: comentarioValido,
+    });
+    expect(contarCambios(ordenBase, patch)).toBe(2);
+  });
+});
+
+describe('primeraSeccionConError', () => {
+  it('devuelve la primera sección en orden visual', () => {
+    expect(
+      primeraSeccionConError({ comentario_tecnico: 'x', motivo_pausa: 'y' }),
+    ).toBe('estatus');
+    expect(primeraSeccionConError({ hora_inicio: 'x' })).toBe('horario');
+    expect(primeraSeccionConError({})).toBeNull();
   });
 });

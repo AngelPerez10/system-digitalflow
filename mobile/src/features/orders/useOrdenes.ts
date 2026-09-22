@@ -3,7 +3,13 @@ import { listOrdenes } from '@/api/ordenesApi';
 import { useEntityList } from '@/hooks/useEntityList';
 import type { OrdenListItem } from '@/types/orden';
 import { mesActual } from '@/utils/fecha';
-import { agruparPorStatus, contarPorStatus, type OrdenSection } from './agrupar';
+import {
+  agruparPorStatus,
+  contarPorStatus,
+  filtrarPorStatus,
+  type FiltroStatus,
+  type OrdenSection,
+} from './agrupar';
 import { coincideBusqueda } from './ordenFormat';
 
 export interface UseOrdenesResult {
@@ -11,8 +17,12 @@ export interface UseOrdenesResult {
   setMes: (mes: string) => void;
   busqueda: string;
   setBusqueda: (valor: string) => void;
+  filtro: FiltroStatus;
+  setFiltro: (filtro: FiltroStatus) => void;
   secciones: OrdenSection[];
+  /** Órdenes que pasan la búsqueda (antes del filtro de estatus). */
   total: number;
+  /** Conteo por estatus tras la búsqueda — alimenta los filtros. */
   conteos: ReturnType<typeof contarPorStatus>;
   cargando: boolean;
   refrescando: boolean;
@@ -27,6 +37,7 @@ export interface UseOrdenesResult {
 export function useOrdenes(): UseOrdenesResult {
   const [mes, setMes] = useState(() => mesActual());
   const [busqueda, setBusqueda] = useState('');
+  const [filtro, setFiltro] = useState<FiltroStatus>('todas');
 
   const fetcher = useCallback((signal: AbortSignal) => listOrdenes({ mes, signal }), [mes]);
   const { items, cargando, refrescando, error, recargar } = useEntityList<OrdenListItem>({
@@ -43,7 +54,9 @@ export function useOrdenes(): UseOrdenesResult {
     setMes,
     busqueda,
     setBusqueda,
-    secciones: useMemo(() => agruparPorStatus(filtradas), [filtradas]),
+    filtro,
+    setFiltro,
+    secciones: useMemo(() => filtrarPorStatus(agruparPorStatus(filtradas), filtro), [filtradas, filtro]),
     total: filtradas.length,
     conteos: useMemo(() => contarPorStatus(filtradas), [filtradas]),
     cargando,

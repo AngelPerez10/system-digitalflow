@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   Modal,
@@ -12,10 +11,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
+import { IconCheck, IconExpand, IconRefresh, IconSignature } from './icons';
+import { ModalFooter, ModalHeader, ModalPrimaryButton } from './ModalChrome';
+import { useVisorFotos } from './VisorFotos';
 
 /**
  * El lienzo de firma es blanco fijo al firmar (contraste del trazo). Al
@@ -28,8 +29,8 @@ const LIENZO_BG = '#FFFFFF';
 const TINTA_FIRMA = '#09090B';
 const LIENZO_TEXTO = '#71717A';
 const LIENZO_GUIA = '#D3D3D8';
-/** Pad landscape (cerca del 400×250 del ERP web) — evita el «marco de celular» en PDF. */
-const LIENZO_ASPECT = 2;
+/** Pad horizontal 400×250, igual que el del ERP web — evita el «marco de celular» en PDF. */
+const LIENZO_ASPECT = 1.6;
 
 interface Props {
   value: string;
@@ -109,6 +110,7 @@ function empujarPunto(trazo: Trazo, x: number, y: number) {
 export function SignaturePad({ value, onChange, disabled = false }: Props) {
   const { colors } = useTheme();
   const [abierto, setAbierto] = useState(false);
+  const { abrir, visor } = useVisorFotos();
   const hayFirma = Boolean(value.trim());
 
   const borrarFirma = () => {
@@ -125,14 +127,24 @@ export function SignaturePad({ value, onChange, disabled = false }: Props) {
   return (
     <View style={styles.wrap}>
       {hayFirma ? (
-        <View style={[styles.preview, { borderColor: colors.line, backgroundColor: colors.surfaceSunken }]}>
-          <Image
-            source={{ uri: value }}
-            style={styles.previewImg}
-            resizeMode="contain"
-            accessibilityLabel="Firma del cliente capturada"
-          />
-        </View>
+        // Fondo blanco fijo: la firma subida es tinta oscura sobre transparente
+        // y en modo oscuro se volvía invisible sobre `surfaceSunken`.
+        <Pressable
+          accessibilityRole="imagebutton"
+          accessibilityLabel="Firma del cliente capturada"
+          accessibilityHint="Abre la firma en grande"
+          onPress={() => abrir([value], 0, { lienzoClaro: true })}
+          style={({ pressed }) => [
+            styles.preview,
+            { borderColor: colors.line, backgroundColor: LIENZO_BG, opacity: pressed ? 0.85 : 1 },
+          ]}
+        >
+          <Image source={{ uri: value }} style={styles.previewImg} resizeMode="contain" />
+          <View style={styles.ampliar} pointerEvents="none">
+            <IconExpand color="#FFFFFF" size={11} />
+            <Text style={styles.ampliarTexto}>Ver en grande</Text>
+          </View>
+        </Pressable>
       ) : (
         <Pressable
           accessibilityRole="button"
@@ -142,13 +154,15 @@ export function SignaturePad({ value, onChange, disabled = false }: Props) {
           onPress={() => setAbierto(true)}
           style={({ pressed }) => [
             styles.ctaVacio,
-            { borderColor: colors.primaryRing, backgroundColor: colors.surfaceSunken },
-            pressed ? { backgroundColor: colors.line } : null,
+            { borderColor: colors.lineStrong, backgroundColor: pressed ? colors.surfaceSunken : colors.surface },
           ]}
         >
-          <Text style={[styles.ctaTitulo, { color: colors.primary }]}>Toca para firmar</Text>
-          <Text style={[styles.ctaSub, { color: colors.inkMuted }]}>
-            Lienzo horizontal · trazo fluido
+          <View style={[styles.ctaPlaca, { backgroundColor: colors.primaryRing }]}>
+            <IconSignature color={colors.primary} size={20} />
+          </View>
+          <Text style={[styles.ctaTitulo, { color: colors.ink }]}>Toca para firmar</Text>
+          <Text style={[styles.ctaSub, { color: colors.inkSubtle }]}>
+            El cliente firma con el dedo en pantalla completa
           </Text>
         </Pressable>
       )}
@@ -194,6 +208,7 @@ export function SignaturePad({ value, onChange, disabled = false }: Props) {
           setAbierto(false);
         }}
       />
+      {visor}
     </View>
   );
 }
@@ -207,8 +222,7 @@ function FirmaModal({
   onClose: () => void;
   onConfirm: (dataUrl: string) => void;
 }) {
-  const { colors, scheme } = useTheme();
-  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [pathsCerrados, setPathsCerrados] = useState<string[]>([]);
   const [pathVivo, setPathVivo] = useState('');
   const [capturando, setCapturando] = useState(false);
@@ -358,52 +372,30 @@ function FirmaModal({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <StatusBar
-        barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.canvas}
-      />
-      <View
-        style={[
-          styles.modal,
-          { backgroundColor: colors.canvas, paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, spacing.sm) },
-        ]}
-      >
-        <View style={styles.modalChrome}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Cerrar firma"
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.modalLink,
-              pressed ? { backgroundColor: colors.surfaceSunken } : null,
-            ]}
-          >
-            <Text style={[styles.modalLinkTexto, { color: colors.primary }]}>Cancelar</Text>
-          </Pressable>
-          <Text style={[styles.modalTitulo, { color: colors.ink }]} accessibilityRole="header">
-            Firma del cliente
+      <StatusBar barStyle="light-content" backgroundColor={colors.navy} />
+      <View style={[styles.modal, { backgroundColor: colors.canvas }]}>
+        <ModalHeader
+          eyebrow="Evidencia"
+          titulo="Firma del cliente"
+          cerrarLabel="Cerrar firma sin guardar"
+          onCerrar={onClose}
+          accion={{
+            icon: <IconRefresh color={colors.onNavy} size={14} />,
+            label: 'Limpiar',
+            onPress: limpiar,
+            disabled: !hayTrazo || capturando,
+          }}
+        />
+
+        <View style={styles.instruccion}>
+          <IconSignature color={colors.inkSubtle} size={15} />
+          <Text style={[styles.modalHint, { color: colors.inkMuted }]}>
+            Pide al cliente que firme dentro del recuadro
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Limpiar trazo"
-            disabled={!hayTrazo || capturando}
-            onPress={limpiar}
-            style={({ pressed }) => [
-              styles.modalLink,
-              pressed ? { backgroundColor: colors.surfaceSunken } : null,
-              !hayTrazo ? styles.botonInactivo : null,
-            ]}
-          >
-            <Text style={[styles.modalLinkTexto, { color: colors.primary }]}>Limpiar</Text>
-          </Pressable>
         </View>
 
-        <Text style={[styles.modalHint, { color: colors.inkMuted }]}>
-          Deslice el dedo con naturalidad — el trazo se suaviza solo
-        </Text>
-
         {/* Marco visual (borde) fuera del ref: el PNG no lleva «celular» ni guía. */}
-        <View style={[styles.lienzoMarco, { borderColor: colors.line }]}>
+        <View style={[styles.lienzoMarco, { borderColor: colors.lineStrong }]}>
           <View
             ref={lienzoRef}
             collapsable={false}
@@ -441,41 +433,42 @@ function FirmaModal({
                 Firme aquí
               </Text>
             ) : null}
-            {hayTrazo && !capturando ? (
-              <View style={styles.lineaGuia} pointerEvents="none" />
+            {/* Guía y «×» se ocultan un frame antes de la captura: no van en el PNG. */}
+            {!capturando ? (
+              <>
+                <View style={styles.lineaGuia} pointerEvents="none" />
+                <Text style={styles.marcaX} pointerEvents="none">
+                  ×
+                </Text>
+              </>
             ) : null}
           </View>
         </View>
 
+        <Text style={[styles.legal, { color: colors.inkSubtle }]}>
+          La firma se adjunta al reporte de la orden.
+        </Text>
+
         <View style={styles.modalSpacer} />
 
-        {error ? (
-          <Text
-            style={[styles.error, { color: colors.danger }]}
-            accessibilityRole="alert"
-            accessibilityLiveRegion="polite"
-          >
-            {error}
-          </Text>
-        ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Usar esta firma"
-          disabled={!hayTrazo || capturando}
-          onPress={() => void confirmar()}
-          style={({ pressed }) => [
-            styles.botonPri,
-            { backgroundColor: pressed ? colors.primaryPressed : colors.primary },
-            !hayTrazo || capturando ? styles.botonInactivo : null,
-          ]}
-        >
-          {capturando ? (
-            <ActivityIndicator color={colors.onPrimary} size="small" />
-          ) : (
-            <Text style={styles.botonPriTexto}>Usar esta firma</Text>
-          )}
-        </Pressable>
+        <ModalFooter>
+          {error ? (
+            <Text
+              style={[styles.error, { color: colors.danger }]}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+            >
+              {error}
+            </Text>
+          ) : null}
+          <ModalPrimaryButton
+            label="Usar esta firma"
+            icon={<IconCheck color={colors.onPrimary} size={17} />}
+            onPress={() => void confirmar()}
+            disabled={!hayTrazo}
+            loading={capturando}
+          />
+        </ModalFooter>
       </View>
     </Modal>
   );
@@ -493,15 +486,36 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     padding: spacing.lg,
   },
+  ctaPlaca: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
   ctaTitulo: { ...type.bodyMedium },
   ctaSub: { ...type.caption, textAlign: 'center' },
   preview: {
-    height: 148,
+    height: 160,
     borderWidth: 1,
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
   previewImg: { width: '100%', height: '100%' },
+  ampliar: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(9,9,11,0.62)',
+  },
+  ampliarTexto: { ...type.label, fontSize: 11, color: '#FFFFFF' },
   acciones: { flexDirection: 'row', gap: spacing.sm },
   botonSec: {
     flex: 1,
@@ -512,42 +526,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   botonSecTexto: { ...type.label },
-  botonInactivo: { opacity: 0.4 },
-  botonPri: {
-    minHeight: TOUCH_TARGET + 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-  },
-  botonPriTexto: { ...type.button, color: '#FFFFFF' },
   modal: { flex: 1 },
-  modalChrome: {
+  instruccion: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  modalTitulo: { ...type.bodyMedium },
-  modalLink: { minHeight: TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: spacing.sm },
-  modalLinkTexto: { ...type.label },
-  modalHint: {
-    ...type.caption,
-    textAlign: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.xl,
-    marginBottom: spacing.sm,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
   },
+  modalHint: { ...type.caption },
   lienzoMarco: {
     aspectRatio: LIENZO_ASPECT,
-    width: '100%',
-    maxHeight: 280,
-    alignSelf: 'center',
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    alignSelf: 'stretch',
+    maxHeight: 360,
+    marginHorizontal: spacing.lg,
     borderWidth: 1,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     overflow: 'hidden',
     backgroundColor: LIENZO_BG,
   },
@@ -568,16 +564,21 @@ const styles = StyleSheet.create({
   },
   lineaGuia: {
     position: 'absolute',
-    left: spacing.xl,
+    left: spacing.xl + spacing.lg,
     right: spacing.xl,
-    bottom: '28%',
-    height: StyleSheet.hairlineWidth,
+    bottom: '26%',
+    height: 1,
     backgroundColor: LIENZO_GUIA,
   },
-  error: {
-    ...type.caption,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xl,
+  marcaX: {
+    position: 'absolute',
+    left: spacing.xl,
+    bottom: '26%',
+    marginBottom: -4,
+    fontSize: 20,
+    lineHeight: 22,
+    color: LIENZO_TEXTO,
   },
+  legal: { ...type.caption, fontSize: 12, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
+  error: { ...type.caption, textAlign: 'center' },
 });
