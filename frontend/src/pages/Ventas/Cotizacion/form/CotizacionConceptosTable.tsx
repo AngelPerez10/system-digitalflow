@@ -268,7 +268,7 @@ export function CotizacionConceptosTable({
           "bg-white/60 dark:bg-[#0f172a]/30",
           "hover:bg-[#F1F5FF]/50 dark:hover:bg-[#243048]/50",
           isDragging ? "opacity-45" : "",
-          isDropTarget ? "bg-[#F1F5FF]/90 ring-2 ring-inset ring-[#1B5CFF]/40 dark:bg-[#1B5CFF]/20 dark:ring-[#1B5CFF]/35" : "",
+          isDropTarget ? "bg-[#F1F5FF]/90 ring-2 ring-inset ring-[#1B5CFF]/40 dark:menu-dropdown-badge-active dark:ring-[#1B5CFF]/35" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -277,7 +277,7 @@ export function CotizacionConceptosTable({
           <button
             type="button"
             ref={(el) => registerProductHandle(el, line)}
-            className="inline-flex h-10 w-10 cursor-grab touch-none items-center justify-center rounded-lg border border-transparent text-[#6E6E77] transition hover:border-[#E7E7EA] hover:bg-[#ffffff] hover:text-[#52525B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/30 active:cursor-grabbing dark:text-[#8ea0b8] dark:hover:border-[#273244] dark:hover:bg-[#243048] dark:hover:text-[#e5e7eb] sm:h-9 sm:w-9"
+            className="inline-flex h-10 w-10 cursor-grab touch-none items-center justify-center rounded-lg border border-transparent text-[#6E6E77] transition hover:border-[#E7E7EA] hover:bg-white hover:text-[#52525B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/30 active:cursor-grabbing dark:text-[#8ea0b8] dark:hover:border-[#273244] dark:hover:bg-[#243048] dark:hover:text-[#e5e7eb] sm:h-9 sm:w-9"
             aria-label={`Arrastrar concepto ${rowNum}: ${line.producto_nombre}`}
             title="Arrastrar para reordenar"
           >
@@ -312,14 +312,14 @@ export function CotizacionConceptosTable({
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium leading-snug text-[#09090B] dark:text-[#f8fafc]">{line.producto_nombre}</span>
               {line.sin_iva ? (
-                <span className="inline-flex shrink-0 rounded-full bg-[#1B5CFF]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]">
+                <span className="inline-flex shrink-0 rounded-full bg-[#1B5CFF]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1244D1] dark:menu-dropdown-badge-active dark:text-[#4B7CFF]">
                   Sin IVA
                 </span>
               ) : null}
             </div>
           </div>
         </td>
-        <td className="max-w-[14rem] px-2 py-2 align-middle">
+        <td className="max-w-56 px-2 py-2 align-middle">
           <p className="line-clamp-2 text-[#52525B] dark:text-[#8EA0B8]" title={line.producto_descripcion || undefined}>
             {line.producto_descripcion || "—"}
           </p>
@@ -378,7 +378,7 @@ export function CotizacionConceptosTable({
         className={[
           "transition-colors",
           "bg-[#FAFAFA]/60 dark:bg-[#0f172a]/20",
-          isDropTarget ? "bg-[#F1F5FF]/90 ring-2 ring-inset ring-[#1B5CFF]/40 dark:bg-[#1B5CFF]/20" : "",
+          isDropTarget ? "bg-[#F1F5FF]/90 ring-2 ring-inset ring-[#1B5CFF]/40 dark:menu-dropdown-badge-active" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -440,7 +440,7 @@ export function CotizacionConceptosTable({
 
             {editingCategoriaId === row.id && !isVirtual ? (
               <input
-                className="min-w-[10rem] flex-1 rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-sm font-semibold text-[#09090B] focus:border-[#1B5CFF] focus:outline-none focus:ring-2 focus:ring-[#1B5CFF]/20 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#f8fafc]"
+                className="min-w-40 flex-1 rounded-lg border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-sm font-semibold text-[#09090B] focus:border-[#1B5CFF] focus:outline-none focus:ring-2 focus:ring-[#1B5CFF]/20 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#f8fafc]"
                 value={editingCategoriaNombre}
                 onChange={(e) => setEditingCategoriaNombre(e.target.value)}
                 onBlur={() => commitEditCategoria(row.id)}
@@ -512,9 +512,9 @@ export function CotizacionConceptosTable({
         </div>
       ) : null}
 
-      <div className="mb-3 rounded-[12px] border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#1B2539] sm:p-3.5">
+      <div className="mb-3 rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#1B2539] sm:p-3.5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex min-w-0 items-center gap-2.5 sm:max-w-[13rem]">
+          <div className="flex min-w-0 items-center gap-2.5 sm:max-w-52">
             <span
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#1B5CFF]/20 bg-[#F1F5FF] text-[#1B5CFF] dark:border-[#1B5CFF]/25 dark:bg-[#1B5CFF]/25 dark:text-[#4B7CFF]"
               aria-hidden
@@ -544,7 +544,7 @@ export function CotizacionConceptosTable({
                 if (e.key === "Enter") handleAddCategoria();
               }}
               placeholder="Ej. Equipos, Instalación…"
-              className="h-9 min-w-0 flex-1 rounded-lg border border-[#E7E7EA] bg-white px-3 text-sm text-[#09090B] placeholder:text-[#A1A1AA] transition focus:border-[#1B5CFF] focus:outline-none focus:ring-2 focus:ring-[#1B5CFF]/20 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#f8fafc] sm:max-w-[14rem]"
+              className="h-9 min-w-0 flex-1 rounded-lg border border-[#E7E7EA] bg-white px-3 text-sm text-[#09090B] placeholder:text-[#A1A1AA] transition focus:border-[#1B5CFF] focus:outline-none focus:ring-2 focus:ring-[#1B5CFF]/20 dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#f8fafc] sm:max-w-56"
             />
             <button
               type="button"
@@ -568,7 +568,7 @@ export function CotizacionConceptosTable({
             {sortCategorias(categorias).map((cat) => (
               <span
                 key={cat.id}
-                className="inline-flex max-w-[10rem] items-center rounded-full border border-[#E7E7EA] bg-white/90 px-2.5 py-0.5 text-[11px] font-medium text-[#52525B] dark:border-[#273244] dark:bg-[#0f172a]/80 dark:text-[#cbd5e1]"
+                className="inline-flex max-w-40 items-center rounded-full border border-[#E7E7EA] bg-white/90 px-2.5 py-0.5 text-[11px] font-medium text-[#52525B] dark:border-[#273244] dark:bg-[#0f172a]/80 dark:text-[#cbd5e1]"
                 title={cat.nombre}
               >
                 <span className="truncate">{cat.nombre}</span>
@@ -578,7 +578,7 @@ export function CotizacionConceptosTable({
         ) : null}
       </div>
 
-      <Table className="min-w-[820px]">
+      <Table className="min-w-205">
         <TableHeader className={tableHeaderClass}>
           <TableRow>
             <TableCell isHeader className="w-11 px-1 py-2.5 text-center">
@@ -587,28 +587,28 @@ export function CotizacionConceptosTable({
             <TableCell isHeader className="w-10 px-2 py-2.5 text-center">
               #
             </TableCell>
-            <TableCell isHeader className="w-[4.5rem] px-2 py-2.5 text-right">
+            <TableCell isHeader className="w-18 px-2 py-2.5 text-right">
               Cant.
             </TableCell>
-            <TableCell isHeader className="w-[4.5rem] px-2 py-2.5 text-left">
+            <TableCell isHeader className="w-18 px-2 py-2.5 text-left">
               Unidad
             </TableCell>
-            <TableCell isHeader className="min-w-[10rem] px-2 py-2.5 text-left">
+            <TableCell isHeader className="min-w-40 px-2 py-2.5 text-left">
               Producto
             </TableCell>
-            <TableCell isHeader className="min-w-[12rem] px-2 py-2.5 text-left">
+            <TableCell isHeader className="min-w-48 px-2 py-2.5 text-left">
               Detalle
             </TableCell>
-            <TableCell isHeader className="w-[6.5rem] px-2 py-2.5 text-right">
+            <TableCell isHeader className="w-26 px-2 py-2.5 text-right">
               P. unit.
             </TableCell>
-            <TableCell isHeader className="w-[4.5rem] px-2 py-2.5 text-right">
+            <TableCell isHeader className="w-18 px-2 py-2.5 text-right">
               Desc.
             </TableCell>
-            <TableCell isHeader className="w-[6.5rem] px-2 py-2.5 text-right">
+            <TableCell isHeader className="w-26 px-2 py-2.5 text-right">
               Importe
             </TableCell>
-            <TableCell isHeader className="w-[5.5rem] px-2 py-2.5 text-center">
+            <TableCell isHeader className="w-22 px-2 py-2.5 text-center">
               <span className="sr-only">Acciones</span>
             </TableCell>
           </TableRow>

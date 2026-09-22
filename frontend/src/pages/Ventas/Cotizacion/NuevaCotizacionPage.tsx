@@ -51,6 +51,7 @@ import CotizacionMarcarEnviadaModal, {
 import { CotizacionExportOverlay } from "@/pages/Ventas/Cotizacion/form/CotizacionExportOverlay";
 import { CotizacionClearModal } from "@/pages/Ventas/Cotizacion/form/CotizacionClearModal";
 import { CotizacionCloneModal } from "@/pages/Ventas/Cotizacion/form/CotizacionCloneModal";
+import { CotizacionConfirmDeleteModal } from "@/pages/Ventas/Cotizacion/form/CotizacionConfirmDeleteModal";
 import { MailIcon } from "@/icons";
 import type {
   ApiCotizacion,
@@ -158,6 +159,12 @@ export default function NuevaCotizacionPage() {
 
   const [cloneModalOpen, setCloneModalOpen] = useState(false);
   const [clearFormModalOpen, setClearFormModalOpen] = useState(false);
+  const [conceptoToDelete, setConceptoToDelete] = useState<{ id: string; nombre: string } | null>(null);
+  const [categoriaToDelete, setCategoriaToDelete] = useState<{
+    id: string;
+    nombre: string;
+    productosCount: number;
+  } | null>(null);
   const {
     cloneListLoading,
     cloneRows,
@@ -1682,10 +1689,24 @@ export default function NuevaCotizacionPage() {
     setSyscomOpen(false);
   };
 
-  const removeConcepto = (id: string) => {
+  const askRemoveConcepto = useCallback(
+    (id: string) => {
+      const c = conceptos.find((x) => x.id === id);
+      if (!c) return;
+      setConceptoToDelete({
+        id,
+        nombre: String(c.producto_nombre || "").trim() || "este concepto",
+      });
+    },
+    [conceptos]
+  );
+
+  const confirmRemoveConcepto = useCallback(() => {
+    if (!conceptoToDelete) return;
+    const id = conceptoToDelete.id;
     setConceptos((prev) => prev.filter((c) => c.id !== id));
-    if (editingConceptoId === id) setEditingConceptoId(null);
-  };
+    setEditingConceptoId((prev) => (prev === id ? null : prev));
+  }, [conceptoToDelete]);
 
   const handleReorderProducts = useCallback((reorderedLines: CotizacionConceptoLine[]) => {
     setConceptos((prev) => {
@@ -1716,13 +1737,33 @@ export default function NuevaCotizacionPage() {
     setCategorias((prev) => prev.map((c) => (c.id === id ? { ...c, nombre: nombre.trim() } : c)));
   }, []);
 
-  const handleRemoveCategoria = useCallback((id: string) => {
-    setCategorias((prev) => prev.filter((c) => c.id !== id));
-    setConceptos((prev) =>
-      prev.map((c) => (c.categoria_id === id ? { ...c, categoria_id: undefined } : c))
+  const askRemoveCategoria = useCallback(
+    (id: string) => {
+      const cat = categorias.find((c) => c.id === id);
+      if (!cat) return;
+      const productosCount = conceptos.filter((c) => c.categoria_id === id).length;
+      setCategoriaToDelete({
+        id,
+        nombre: String(cat.nombre || "").trim() || "esta categoría",
+        productosCount,
+      });
+    },
+    [categorias, conceptos]
+  );
+
+  const confirmRemoveCategoria = useCallback(() => {
+    if (!categoriaToDelete) return;
+    const id = categoriaToDelete.id;
+    const removedIds = new Set(
+      conceptos.filter((c) => c.categoria_id === id).map((c) => c.id)
     );
+    setCategorias((prev) => prev.filter((c) => c.id !== id));
+    setConceptos((prev) => prev.filter((c) => c.categoria_id !== id));
+    if (editingConceptoId && removedIds.has(editingConceptoId)) {
+      setEditingConceptoId(null);
+    }
     setCategoriaIdParaAgregar((prev) => (prev === id ? "" : prev));
-  }, []);
+  }, [categoriaToDelete, conceptos, editingConceptoId]);
 
   const editConcepto = (id: string) => {
     const c = conceptos.find((x) => x.id === id);
@@ -2159,6 +2200,58 @@ export default function NuevaCotizacionPage() {
           open={clearFormModalOpen}
           onClose={() => setClearFormModalOpen(false)}
           onConfirm={resetAll}
+        />
+
+        <CotizacionConfirmDeleteModal
+          open={conceptoToDelete != null}
+          onClose={() => setConceptoToDelete(null)}
+          onConfirm={confirmRemoveConcepto}
+          title="¿Eliminar concepto?"
+          description={
+            conceptoToDelete ? (
+              <>
+                Se eliminará{" "}
+                <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                  {conceptoToDelete.nombre}
+                </span>{" "}
+                de la cotización. Esta acción no se puede deshacer.
+              </>
+            ) : null
+          }
+        />
+
+        <CotizacionConfirmDeleteModal
+          open={categoriaToDelete != null}
+          onClose={() => setCategoriaToDelete(null)}
+          onConfirm={confirmRemoveCategoria}
+          title="¿Eliminar categoría?"
+          description={
+            categoriaToDelete ? (
+              categoriaToDelete.productosCount > 0 ? (
+                <>
+                  Se eliminará la categoría{" "}
+                  <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                    {categoriaToDelete.nombre}
+                  </span>{" "}
+                  y{" "}
+                  <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                    {categoriaToDelete.productosCount === 1
+                      ? "1 producto"
+                      : `${categoriaToDelete.productosCount} productos`}
+                  </span>{" "}
+                  que contiene. Esta acción no se puede deshacer.
+                </>
+              ) : (
+                <>
+                  Se eliminará la categoría{" "}
+                  <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                    {categoriaToDelete.nombre}
+                  </span>
+                  . Esta acción no se puede deshacer.
+                </>
+              )
+            ) : null
+          }
         />
 
         {showSyscomPanel &&
@@ -3164,9 +3257,9 @@ export default function NuevaCotizacionPage() {
                         onReorderCategorias={handleReorderCategorias}
                         onAddCategoria={handleAddCategoria}
                         onUpdateCategoria={handleUpdateCategoria}
-                        onRemoveCategoria={handleRemoveCategoria}
+                        onRemoveCategoria={askRemoveCategoria}
                         onEdit={editConcepto}
-                        onRemove={removeConcepto}
+                        onRemove={askRemoveConcepto}
                       />
                     </div>
                   </div>

@@ -68,22 +68,40 @@ def _tvc_media_base() -> str:
     return (getattr(settings, 'TVC_MEDIA_BASE', '') or 'https://cdn.tvc.mx').rstrip('/')
 
 
-def _tvc_get(path: str, token: str, params: dict | list | None = None, timeout_seconds: int = 25):
+def _tvc_get(
+    path: str,
+    token: str,
+    params: dict | list | None = None,
+    timeout_seconds: int = 25,
+    retries: int = 2,
+):
+    """GET a TVC con reintentos cortos ante cortes de red (WinError 10054 / reset)."""
     base = _tvc_base_url()
     clean = path.lstrip('/')
     url = f'{base}/{clean}'
     if params:
         url += '?' + urllib.parse.urlencode(params, doseq=True)
-    r = requests.get(
-        url,
-        headers={
-            'Authorization': f'Bearer {token}',
-            'Accept': 'application/json',
-        },
-        timeout=timeout_seconds,
-    )
-    r.raise_for_status()
-    return r
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Accept': 'application/json',
+    }
+    last_exc: requests.RequestException | None = None
+    attempts = max(1, retries + 1)
+    for attempt in range(attempts):
+        try:
+            r = requests.get(url, headers=headers, timeout=timeout_seconds)
+            r.raise_for_status()
+            return r
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            last_exc = exc
+            if attempt + 1 >= attempts:
+                break
+            # Backoff corto: el host remoto a veces cierra el SSL mid-handshake.
+            time.sleep(0.35 * (attempt + 1))
+        except requests.RequestException:
+            raise
+    assert last_exc is not None
+    raise last_exc
 
 
 def _as_number(value) -> float | None:
@@ -266,7 +284,12 @@ def _fetch_index_page(token: str, page: int) -> tuple[list[dict], dict]:
 
 
 def _get_tvc_index(token: str) -> list[dict]:
-    """Regresa el índice cacheado; lo (re)construye si expiró."""
+    """Regresa el índice cacheado; lo (re)construye si expiró.
+
+    Descarga páginas con pocos workers y tolera fallos parciales: si TVC corta
+    una página (ConnectionReset), se registra y se sigue con el resto para no
+    tumbar la búsqueda de cotizaciones.
+    """
     now = time.monotonic()
     with _tvc_index_lock:
         if _tvc_index['rows'] and now - _tvc_index['ts'] < _TVC_INDEX_TTL_SECONDS:
@@ -275,12 +298,35 @@ def _get_tvc_index(token: str) -> list[dict]:
         first_rows, meta = _fetch_index_page(token, 1)
         last_page = int(meta.get('last_page') or 1)
         all_rows = list(first_rows)
+        failed_pages: list[int] = []
         if last_page > 1:
-            with ThreadPoolExecutor(max_workers=8) as ex:
-                for rows, _m in ex.map(
-                    lambda p: _fetch_index_page(token, p), range(2, last_page + 1)
-                ):
-                    all_rows.extend(rows)
+            # 8 workers seguidos provocaban ConnectionReset desde api.tvc.mx.
+            with ThreadPoolExecutor(max_workers=3) as ex:
+                futures = {
+                    ex.submit(_fetch_index_page, token, page): page
+                    for page in range(2, last_page + 1)
+                }
+                for fut, page in futures.items():
+                    try:
+                        rows, _m = fut.result()
+                        all_rows.extend(rows)
+                    except requests.RequestException as exc:
+                        failed_pages.append(page)
+                        logger.warning(
+                            'TVC index page %s falló tras reintentos: %s',
+                            page,
+                            exc,
+                        )
+        if failed_pages and not all_rows:
+            raise requests.ConnectionError(
+                f'TVC index vacío; fallaron páginas {failed_pages[:8]}'
+            )
+        if failed_pages:
+            logger.warning(
+                'TVC index parcial: %s filas; páginas fallidas=%s',
+                len(all_rows),
+                failed_pages[:12],
+            )
         _tvc_index['rows'] = all_rows
         _tvc_index['ts'] = time.monotonic()
         return all_rows
@@ -436,8 +482,12 @@ def _search_tvc_catalog(
     matched_ids: list[int] = []
     try:
         matched_ids = _search_tvc_index(token, busqueda, categoria_id, marca_id)
-    except requests.RequestException:
-        logger.exception('TVC index build error')
+    except requests.RequestException as exc:
+        # Ya hay fallback por modelo abajo; no spamear traceback completo en corte de red.
+        if isinstance(exc, (requests.ConnectionError, requests.Timeout)):
+            logger.warning('TVC index build error (red): %s', exc)
+        else:
+            logger.exception('TVC index build error')
 
     if matched_ids:
         # Traer detalle (precio/inventario/medios) solo de los que se van a mostrar.
