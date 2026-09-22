@@ -5,6 +5,7 @@ from rest_framework import serializers
 from apps.clientes.models import Cliente
 from apps.cotizaciones.models import Cotizacion
 from apps.ordenes.models import Orden
+from apps.users.models import UserPermissions
 
 from .asignados import (
     hydrate_auxiliares_from_legacy,
@@ -228,9 +229,29 @@ class ProyectoSerializer(serializers.ModelSerializer):
             getattr(instance, "auxiliar_id", None),
             getattr(instance, "auxiliar_nombre", "") or "",
         )
+        # Foto de perfil de cada persona del equipo (solo lectura: `normalize_*`
+        # la descarta al escribir). La app del técnico la muestra en el detalle.
+        avatares = self._avatares_equipo(ids_from_asignados(tecnicos) | ids_from_asignados(auxiliares))
+        for persona in (*tecnicos, *auxiliares):
+            persona["avatar_url"] = avatares.get(persona["id"], "")
         data["tecnicos"] = tecnicos
         data["auxiliares"] = auxiliares
         return data
+
+    def _avatares_equipo(self, ids: set[int]) -> dict[int, str]:
+        """
+        `{user_id: avatar_url}` con caché en el contexto del serializer: en un
+        listado (`many=True`) el contexto se comparte entre filas, así que cada
+        usuario se consulta una sola vez por petición.
+        """
+        cache = self.context.setdefault("_avatares_equipo", {}) if isinstance(self.context, dict) else {}
+        faltan = [uid for uid in ids if uid not in cache]
+        if faltan:
+            for uid, url in UserPermissions.objects.filter(user_id__in=faltan).values_list("user_id", "avatar_url"):
+                cache[uid] = (url or "").strip()
+            for uid in faltan:
+                cache.setdefault(uid, "")
+        return cache
 
     def validate_porcentaje_avance(self, value):
         if value is None:

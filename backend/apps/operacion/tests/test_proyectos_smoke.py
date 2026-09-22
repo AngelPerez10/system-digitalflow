@@ -465,6 +465,33 @@ class ProyectosSmokeTests(APITestCase):
         ids = [row["id"] for row in list_res.data]
         self.assertNotIn(proyecto_id, ids)
 
+    def test_equipo_incluye_avatar_url_de_solo_lectura(self):
+        tech = User.objects.create_user(username="tech_foto", password="test-pass-123")
+        aux = User.objects.create_user(username="aux_sin_foto", password="test-pass-123")
+        UserPermissions.objects.create(user=tech, avatar_url="https://cdn.example/tech.jpg")
+        create_res = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Con fotos",
+                "status": "en_proceso",
+                "tecnicos": [
+                    {"id": tech.id, "nombre": "tech_foto", "responsable": True, "avatar_url": "https://malicioso/x.jpg"}
+                ],
+                "auxiliares": [{"id": aux.id, "nombre": "aux_sin_foto"}],
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
+        self.assertEqual(create_res.data["tecnicos"][0]["avatar_url"], "https://cdn.example/tech.jpg")
+        self.assertEqual(create_res.data["auxiliares"][0]["avatar_url"], "")
+        # El valor enviado no se guarda: el JSON persistido solo lleva id/nombre/responsable.
+        guardado = Proyecto.objects.get(pk=create_res.data["id"]).tecnicos
+        self.assertNotIn("avatar_url", guardado[0])
+
+        list_res = self.client.get("/api/proyectos/")
+        fila = next(row for row in list_res.data if row["id"] == create_res.data["id"])
+        self.assertEqual(fila["tecnicos"][0]["avatar_url"], "https://cdn.example/tech.jpg")
+
     def test_assigned_technician_cannot_change_locked_fields(self):
         tech = User.objects.create_user(username="proy_tech", password="test-pass-123")
         UserPermissions.objects.create(
