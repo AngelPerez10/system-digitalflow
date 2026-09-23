@@ -423,9 +423,13 @@ export default function SignaturePad({
         </label>
       ) : null}
 
+      {/*
+        El pad es siempre blanco, también en modo oscuro: la tinta es negra (#141413)
+        y así la firma se ve igual que en el PDF impreso.
+      */}
       <div
-        className={`relative inline-block max-w-full touch-none rounded-lg border-2 bg-white dark:border-gray-700 dark:bg-gray-900 ${
-          disabled ? "border-gray-300 opacity-75 grayscale-[0.5]" : "border-gray-300"
+        className={`relative inline-block max-w-full touch-none rounded-xl border bg-white shadow-[inset_0_1px_2px_rgba(9,9,11,0.06)] [color-scheme:light] dark:bg-white ${
+          disabled ? "border-[#E4E4E7] dark:border-[#3A4661]" : "border-[#D4D4D8] dark:border-[#3A4661]"
         }`}
       >
         <canvas

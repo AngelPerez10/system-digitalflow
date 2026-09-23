@@ -315,15 +315,20 @@ body:has([data-slot="combo-box-trigger"][data-open]),
   scroll-margin-top: 80px;
 }
 
-/* Minimum target size for interactive elements (WCAG 2.2 2.5.8) */
-button,
-[role="button"],
-input[type="checkbox"] + label,
-input[type="radio"] + label,
-select,
-a[href]:not([tabindex="-1"]) {
-  min-height: 24px;
-  min-width: 24px;
+/* Minimum target size for interactive elements (WCAG 2.2 2.5.8).
+   En @layer base para que las utilidades de Tailwind (min-h-11, min-h-12…) puedan
+   subirlo: fuera de capa, esta regla ganaba a todas las utilidades y dejaba los
+   botones a 24 px de alto aunque pidieran más. */
+@layer base {
+  button,
+  [role="button"],
+  input[type="checkbox"] + label,
+  input[type="radio"] + label,
+  select,
+  a[href]:not([tabindex="-1"]) {
+    min-height: 24px;
+    min-width: 24px;
+  }
 }
 
 /* Native inputs (type=number, autofill, spinners) follow the app theme class,
