@@ -260,6 +260,8 @@ type CotConfirmDialogProps = {
   confirmLabel?: string;
   busyLabel?: string;
   cancelLabel?: string;
+  /** Clases extra del panel (p. ej. familia tipográfica de la vista). */
+  className?: string;
 };
 
 export function AppConfirmDialog({
@@ -274,6 +276,7 @@ export function AppConfirmDialog({
   confirmLabel = "Confirmar",
   busyLabel = "Procesando…",
   cancelLabel = "Cancelar",
+  className,
 }: CotConfirmDialogProps) {
   const titleId = useId();
   const descId = useId();
@@ -294,7 +297,7 @@ export function AppConfirmDialog({
   };
 
   return (
-    <AppModal open={open} onClose={onClose} busy={busy} labelledBy={titleId} describedBy={descId}>
+    <AppModal open={open} onClose={onClose} busy={busy} labelledBy={titleId} describedBy={descId} className={className}>
       <AppModalHeader
         icon={icon}
         tone={tone}

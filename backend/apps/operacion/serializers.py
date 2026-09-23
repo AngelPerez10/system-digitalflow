@@ -19,6 +19,11 @@ from .asignados import (
 )
 from .close_validation import validate_proyecto_cierre
 from .cotizacion_autorizacion import authorize_pending_digitalflow_cotizaciones
+from .cotizacion_unicidad import (
+    collect_proyecto_cotizacion_ids,
+    find_cotizacion_conflicts,
+    find_internal_duplicate_ids,
+)
 from .models import (
     POLIZA_TIPO_CCTV,
     POLIZA_TIPO_LABELS,
@@ -519,6 +524,57 @@ class ProyectoSerializer(serializers.ModelSerializer):
                     )
             if nota_errors:
                 raise serializers.ValidationError({"notas_por_dia": nota_errors})
+
+        # Cotización única: no reutilizar en otro proyecto (ni principal + adicional en el mismo).
+        if "cotizaciones" in attrs:
+            cotizaciones_eff = attrs.get("cotizaciones")
+        elif instance is not None:
+            cotizaciones_eff = getattr(instance, "cotizaciones", None)
+        else:
+            cotizaciones_eff = []
+        if "cotizacion_adicional" in attrs:
+            cotizacion_adicional_eff = attrs.get("cotizacion_adicional")
+        elif instance is not None:
+            cotizacion_adicional_eff = getattr(instance, "cotizacion_adicional", None)
+        else:
+            cotizacion_adicional_eff = None
+
+        dupes = find_internal_duplicate_ids(cotizaciones_eff, cotizacion_adicional_eff)
+        if dupes:
+            raise serializers.ValidationError(
+                {
+                    "cotizaciones": [
+                        "La misma cotización no puede ir como principal y adicional "
+                        f"(ni repetirse) en el mismo proyecto ({', '.join(dupes)})."
+                    ]
+                }
+            )
+
+        wanted_ids = collect_proyecto_cotizacion_ids(
+            cotizaciones_eff, cotizacion_adicional_eff
+        )
+        if wanted_ids:
+            exclude_pk = instance.pk if instance is not None else None
+            conflicts = find_cotizacion_conflicts(
+                wanted_ids, exclude_proyecto_id=exclude_pk
+            )
+            if conflicts:
+                field_errors: dict[str, list[str]] = {}
+                principal_ids = collect_proyecto_cotizacion_ids(cotizaciones_eff, None)
+                adicional_only = collect_proyecto_cotizacion_ids(
+                    None, cotizacion_adicional_eff
+                )
+                for cid, owner in conflicts.items():
+                    folio = owner.get("folio") or f"#{owner.get('id')}"
+                    msg = (
+                        f"La cotización {cid} ya está vinculada al proyecto {folio}."
+                    )
+                    if cid in principal_ids:
+                        field_errors.setdefault("cotizaciones", []).append(msg)
+                    if cid in adicional_only:
+                        field_errors.setdefault("cotizacion_adicional", []).append(msg)
+                if field_errors:
+                    raise serializers.ValidationError(field_errors)
 
         return attrs
 

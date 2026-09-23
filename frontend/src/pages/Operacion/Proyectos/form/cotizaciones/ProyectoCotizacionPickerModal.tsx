@@ -9,15 +9,16 @@ import {
 } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { erpModalSansStyle } from "../../../OrdenesTrabajo/ordenTrabajoStyles";
 import { displayCotizacionFolio } from "../../shared/proyectoFormUtils";
-import type { CotizacionOrigen, CotizacionResumen } from "../../shared/proyectoTypes";
+import type { CotizacionOrigen } from "../../shared/proyectoTypes";
 import {
   proyectoCotizacionOptionClass,
+  proyectoCotizacionOptionDisabledClass,
   proyectoEmptyPanelClass,
   proyectoPickerModalBodyClass,
   proyectoPickerModalClass,
   proyectoPickerModalHeaderClass,
 } from "../../shared/proyectoPageStyles";
-import type { CotizacionPickerTarget } from "./useCotizacionPicker";
+import type { CotizacionPickerRow, CotizacionPickerTarget } from "./useCotizacionPicker";
 
 export type ProyectoCotizacionPickerModalProps = {
   open: boolean;
@@ -27,13 +28,13 @@ export type ProyectoCotizacionPickerModalProps = {
   setPickerTab: (tab: CotizacionOrigen) => void;
   pickerSearch: string;
   setPickerSearch: (v: string) => void;
-  setPickerResults: (results: CotizacionResumen[]) => void;
+  setPickerResults: (results: import("../../shared/proyectoTypes").CotizacionResumen[]) => void;
   setPickerError: (v: string) => void;
   pickerLoading: boolean;
   pickerError: string;
-  cotizacionesFiltradas: CotizacionResumen[];
+  cotizacionesFiltradas: CotizacionPickerRow[];
   pickerLoadingId: string | null;
-  onSelect: (item: CotizacionResumen) => void | Promise<void>;
+  onSelect: (item: CotizacionPickerRow) => void | Promise<void>;
 };
 
 export function ProyectoCotizacionPickerModal({
@@ -84,7 +85,7 @@ export function ProyectoCotizacionPickerModal({
             <p className={`${erpBodyClass} mt-1 text-sm`}>
               {pickerTarget === "adicional"
                 ? "Selecciona la cotización que cubre el presupuesto o requerimientos adicionales."
-                : "Puedes vincular varias cotizaciones DigitalFlow o SICAR — el cliente se completa con la primera."}
+                : "Puedes vincular varias cotizaciones DigitalFlow o SICAR — el cliente se completa con la primera. Las ya usadas en otro proyecto aparecen bloqueadas."}
             </p>
           </div>
         </div>
@@ -92,9 +93,9 @@ export function ProyectoCotizacionPickerModal({
 
       <div className={proyectoPickerModalBodyClass}>
         <div
-          className="flex rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#334155] dark:bg-[#0f172a]"
           role="tablist"
           aria-label="Origen de cotización"
+          className="flex gap-1 rounded-xl bg-[#F4F4F5] p-1 dark:bg-[#0f172a]"
         >
           {(
             [
@@ -143,7 +144,7 @@ export function ProyectoCotizacionPickerModal({
             <li className={`${proyectoEmptyPanelClass} py-6`} role="status">
               Buscando cotizaciones…
             </li>
-          ) : pickerError ? (
+          ) : pickerError && cotizacionesFiltradas.length === 0 ? (
             <li className={`${proyectoEmptyPanelClass} py-6 text-rose-700 dark:text-rose-300`} role="alert">
               {pickerError}
             </li>
@@ -154,30 +155,70 @@ export function ProyectoCotizacionPickerModal({
                 : "Escribe folio o cliente para buscar, o espera el listado reciente."}
             </li>
           ) : (
-            cotizacionesFiltradas.map((item) => {
-              const busy = pickerLoadingId === item.id;
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    disabled={Boolean(pickerLoadingId)}
-                    aria-busy={busy}
-                    className={proyectoCotizacionOptionClass}
-                    onClick={() => void onSelect(item)}
-                  >
-                    <span className="text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
-                      {displayCotizacionFolio(item.folio, item.origen)} — {item.cliente}
-                      {busy ? " · Cargando…" : ""}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
-                      {item.fecha}
-                      {item.contacto ? ` · ${item.contacto}` : ""}
-                    </span>
-                  </button>
+            <>
+              {pickerError ? (
+                <li className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200" role="alert">
+                  {pickerError}
                 </li>
-              );
-            })
+              ) : null}
+              {cotizacionesFiltradas.map((item) => {
+                const busy = pickerLoadingId === item.id;
+                const folioLabel = displayCotizacionFolio(item.folio, item.origen);
+                const ocupada = Boolean(item.ocupadaPorFolio);
+                const bloqueadaPorPrincipal = Boolean(item.yaVinculada);
+                const disabled = ocupada || bloqueadaPorPrincipal || Boolean(pickerLoadingId);
+                const motivo = ocupada
+                  ? `En uso en ${item.ocupadaPorFolio}`
+                  : bloqueadaPorPrincipal
+                    ? "Ya vinculada como principal en este proyecto"
+                    : null;
+                const ariaLabel = motivo
+                  ? `Cotización ${folioLabel} no disponible: ${motivo}`
+                  : `Seleccionar cotización ${folioLabel}`;
+
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      disabled={disabled}
+                      aria-disabled={disabled || undefined}
+                      aria-busy={busy || undefined}
+                      aria-label={ariaLabel}
+                      className={
+                        ocupada || bloqueadaPorPrincipal
+                          ? proyectoCotizacionOptionDisabledClass
+                          : proyectoCotizacionOptionClass
+                      }
+                      onClick={() => {
+                        if (ocupada || bloqueadaPorPrincipal) return;
+                        void onSelect(item);
+                      }}
+                    >
+                      <span
+                        className={`text-sm font-semibold ${
+                          ocupada || bloqueadaPorPrincipal
+                            ? "text-[#6E6E77] dark:text-[#8ea0b8]"
+                            : "text-[#09090B] dark:text-[#f8fafc]"
+                        }`}
+                      >
+                        {folioLabel} — {item.cliente}
+                        {busy ? " · Cargando…" : ""}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
+                        {item.fecha}
+                        {item.contacto ? ` · ${item.contacto}` : ""}
+                      </span>
+                      {motivo ? (
+                        <span className="mt-1.5 block text-[11px] font-semibold text-[#9A6B15] dark:text-[#E6A23C]">
+                          {motivo}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </>
           )}
         </ul>
       </div>

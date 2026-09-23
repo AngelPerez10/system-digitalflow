@@ -78,6 +78,7 @@ export type UseProyectoFormStateArgs = {
 
 export function useProyectoFormState({
   open,
+  proyectoId,
   initialDraft,
   onSave,
 }: UseProyectoFormStateArgs) {
@@ -208,6 +209,7 @@ export function useProyectoFormState({
 
   const cotizacionPicker = useCotizacionPicker({
     open,
+    proyectoId,
     cotizaciones,
     setCotizaciones,
     equipos,

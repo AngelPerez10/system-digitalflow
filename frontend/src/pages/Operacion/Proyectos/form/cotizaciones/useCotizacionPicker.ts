@@ -13,11 +13,25 @@ import type {
   ProyectoTipoTrabajo,
 } from "../../shared/proyectoTypes";
 import { loadProyectoCotizacionDetalle, searchProyectoCotizaciones } from "./proyectoCotizacionSearch";
+import {
+  fetchCotizacionesOcupadas,
+  type CotizacionOcupadaInfo,
+} from "./proyectoCotizacionesOcupadas";
 
 export type CotizacionPickerTarget = "principal" | "adicional";
 
+export type CotizacionPickerRow = CotizacionResumen & {
+  /** Ya está en la lista principal de este borrador. */
+  yaVinculada?: boolean;
+  /** Ocupada por otro proyecto (no cancelado). */
+  ocupadaPorFolio?: string | null;
+  ocupadaEnProyectoId?: number | null;
+};
+
 export type UseCotizacionPickerArgs = {
   open: boolean;
+  /** Al editar, excluye este id del índice de ocupadas. */
+  proyectoId?: number | null;
   cotizaciones: ProyectoCotizacionBloque[];
   setCotizaciones: React.Dispatch<React.SetStateAction<ProyectoCotizacionBloque[]>>;
   equipos: ProyectoEquipoLinea[];
@@ -47,12 +61,14 @@ function tiposFromLoadResult(
 
 export function useCotizacionPicker({
   open,
+  proyectoId = null,
   cotizaciones,
   setCotizaciones,
   setEquipos,
   cliente,
   setCliente,
   setClienteId,
+  cotizacionAdicional,
   setCotizacionAdicional,
   setCloseBlockedMessage,
   onMergeTiposTrabajo,
@@ -67,18 +83,39 @@ export function useCotizacionPicker({
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState("");
   const [pickerLoadingId, setPickerLoadingId] = useState<string | null>(null);
+  const [ocupadasById, setOcupadasById] = useState<Record<string, CotizacionOcupadaInfo>>({});
 
   const cotizacionIdsVinculados = useMemo(
     () => new Set(cotizaciones.map((c) => c.cotizacion.id)),
     [cotizaciones]
   );
 
-  const cotizacionesFiltradas = useMemo(() => {
-    return pickerResults.filter((c) => {
-      if (pickerTarget === "principal" && cotizacionIdsVinculados.has(c.id)) return false;
-      return true;
-    });
-  }, [pickerResults, pickerTarget, cotizacionIdsVinculados]);
+  const adicionalId = cotizacionAdicional?.id ?? null;
+
+  const cotizacionesFiltradas = useMemo((): CotizacionPickerRow[] => {
+    const rows: CotizacionPickerRow[] = [];
+    for (const c of pickerResults) {
+      const yaVinculada = cotizacionIdsVinculados.has(c.id);
+      if (pickerTarget === "principal" && yaVinculada) {
+        continue;
+      }
+      const ocupada = ocupadasById[c.id];
+      const esAdicionalActual = pickerTarget === "adicional" && adicionalId === c.id;
+      rows.push({
+        ...c,
+        yaVinculada: pickerTarget === "adicional" ? yaVinculada : false,
+        ocupadaPorFolio: ocupada && !esAdicionalActual ? ocupada.folio : null,
+        ocupadaEnProyectoId: ocupada && !esAdicionalActual ? ocupada.id : null,
+      });
+    }
+    return rows;
+  }, [
+    pickerResults,
+    pickerTarget,
+    cotizacionIdsVinculados,
+    ocupadasById,
+    adicionalId,
+  ]);
 
   const resetPicker = useCallback(() => {
     setPickerOpen(false);
@@ -90,6 +127,22 @@ export function useCotizacionPicker({
     setPickerError("");
     setPickerLoadingId(null);
   }, []);
+
+  useEffect(() => {
+    if (!open || !pickerOpen) return;
+    let cancelled = false;
+    void (async () => {
+      const { byId, error } = await fetchCotizacionesOcupadas(proyectoId);
+      if (cancelled) return;
+      setOcupadasById(byId);
+      if (error) {
+        setPickerError((prev) => prev || error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, pickerOpen, proyectoId]);
 
   useEffect(() => {
     if (!open || !pickerOpen) return;
@@ -111,8 +164,20 @@ export function useCotizacionPicker({
     };
   }, [open, pickerOpen, pickerTab, pickerSearch]);
 
-  const handleCargarCotizacion = async (item: CotizacionResumen) => {
+  const handleCargarCotizacion = async (item: CotizacionPickerRow) => {
     if (pickerLoadingId) return;
+    if (item.ocupadaPorFolio) {
+      setPickerError(
+        `La cotización ya está vinculada al proyecto ${item.ocupadaPorFolio}.`
+      );
+      return;
+    }
+    if (pickerTarget === "adicional" && cotizacionIdsVinculados.has(item.id)) {
+      setPickerError(
+        "Esa cotización ya está vinculada como principal en este proyecto."
+      );
+      return;
+    }
 
     if (pickerTarget === "adicional") {
       setPickerLoadingId(item.id);

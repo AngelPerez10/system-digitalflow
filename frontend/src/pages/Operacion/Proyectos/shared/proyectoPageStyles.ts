@@ -106,6 +106,9 @@ export const proyectoFieldLabelClass =
 export const proyectoCotizacionOptionClass =
   "w-full rounded-xl border border-[#E7E7EA] bg-white px-4 py-3 text-left transition-colors hover:border-[#1B5CFF]/40 hover:bg-[#F1F5FF]/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.25)] dark:border-[#273244] dark:bg-[#111827] dark:hover:bg-[#243048]/60";
 
+export const proyectoCotizacionOptionDisabledClass =
+  "w-full cursor-not-allowed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 text-left opacity-80 dark:border-[#273244] dark:bg-[#0f172a]";
+
 export const proyectoSectionHintClass =
   "mt-0.5 text-[12px] leading-snug text-[#6E6E77] dark:text-[#8EA0B8]";
 

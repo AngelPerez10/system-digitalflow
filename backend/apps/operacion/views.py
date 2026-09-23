@@ -38,6 +38,7 @@ from .asignados import (
     filter_proyectos_visible_to_user,
     user_on_proyecto_team,
 )
+from .cotizacion_unicidad import build_ocupadas_index
 from .models import Proyecto, ProyectoInstalacion
 from .serializers import ProyectoInstalacionSerializer, ProyectoSerializer
 
@@ -383,6 +384,34 @@ class ProyectoViewSet(viewsets.ModelViewSet):
                 "correo_guardado_en_cliente": correo_guardado,
                 "detail": f"PDF enviado a {correo}.",
             },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path="cotizaciones-ocupadas")
+    def cotizaciones_ocupadas(self, request):
+        """IDs de cotización ya vinculados a un proyecto no cancelado.
+
+        Query: `exclude_proyecto_id` — al editar, excluye el proyecto actual.
+        """
+        raw_exclude = request.query_params.get("exclude_proyecto_id")
+        exclude_pk: int | None = None
+        if raw_exclude not in (None, ""):
+            try:
+                exclude_pk = int(raw_exclude)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "exclude_proyecto_id inválido."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if exclude_pk <= 0:
+                return Response(
+                    {"detail": "exclude_proyecto_id inválido."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        by_id = build_ocupadas_index(exclude_proyecto_id=exclude_pk)
+        return Response(
+            {"ids": sorted(by_id.keys()), "by_id": by_id},
             status=status.HTTP_200_OK,
         )
 
