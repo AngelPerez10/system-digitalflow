@@ -1,9 +1,9 @@
 import { useId } from "react";
-import { Modal } from "@/components/ui/modal";
+import { ChevronRight, Copy, Info, Search, SearchX, UserRound, Users, X } from "lucide-react";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 import { formatDMY, formatMoney } from "../shared/cotizacionFormUtils";
-import { cloneModalPanelClass, cloneModalSearchInputClass } from "../shared/cotizacionFormStyles";
 import type { Cliente, CloneCotizacionRow } from "../shared/cotizacionFormTypes";
+import { AppModal, AppModalHeader, AppSpinner } from "@/components/ui/modal-kit/ModalKit";
 
 export type CotizacionCloneModalProps = {
   open: boolean;
@@ -37,6 +37,24 @@ export type CotizacionCloneModalProps = {
   rows: CloneCotizacionRow[];
 };
 
+const searchInputClass =
+  "block min-h-11 w-full rounded-[10px] border border-[#E4E4E7] bg-white py-2 pl-10 pr-10 text-[15px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D4D4D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#0F172A] dark:text-[#F8FAFC] dark:placeholder:text-[#64748B] dark:focus:border-[#4B7CFF] [&::-webkit-search-cancel-button]:hidden";
+
+const MODOS = [
+  {
+    value: "mismo" as const,
+    label: "Mismo cliente",
+    hint: "Conserva cliente y contacto",
+    Icon: UserRound,
+  },
+  {
+    value: "otro" as const,
+    label: "Otro cliente",
+    hint: "Copia partidas y textos",
+    Icon: Users,
+  },
+];
+
 /**
  * Modal "Clonar desde existente". Presentacional: toda la lógica de negocio
  * (búsqueda, selección de cliente destino, `handleClonePick`) vive en el
@@ -63,134 +81,141 @@ export function CotizacionCloneModal({
   listLoading,
   rows,
 }: CotizacionCloneModalProps) {
-  const clienteModeId = useId();
+  const titleId = useId();
+  const descId = useId();
+  const modoId = useId();
   const picking = pickingId != null;
+  const faltaDestino = clienteMode === "otro" && !targetCliente;
+  const buscando = searchDebounced.length >= 1;
 
   return (
-    <Modal
-      isOpen={open}
+    <AppModal
+      open={open}
       onClose={onClose}
-      closeOnBackdropClick={!picking}
-      closeOnEscape={!picking}
-      ariaLabel="Clonar cotización"
-      className="mx-4 flex h-[min(94vh,880px)] w-[min(96vw,36rem)] flex-col overflow-hidden rounded-4xl border border-[#E7E7EA] p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827] sm:mx-auto sm:max-w-xl"
+      busy={picking}
+      size="lg"
+      labelledBy={titleId}
+      describedBy={descId}
+      className="h-[min(90vh,820px)]"
     >
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <header className="relative shrink-0 bg-[#17235B] px-6 py-5 pr-16 dark:bg-[#1B2A63]">
-          <div className="flex items-start gap-3.5">
-            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]" aria-hidden>
-              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 3h2a2 2 0 0 1 2 2v2M8 3H6a2 2 0 0 0-2 2v2" />
-                <path d="M8 21h8M12 17v4M9 17h6" />
-                <rect x="3" y="7" width="18" height="10" rx="2" />
-                <path d="M7 11h2M11 11h2M15 11h.01" />
-              </svg>
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Cotización</p>
-              <h3 className="mt-1 text-[20px] font-semibold leading-tight tracking-[-0.5px] text-white">Clonar desde existente</h3>
-              <p className="mt-1 text-[14px] leading-5 text-white/70">
-                Elija una de las últimas cotizaciones o busque por folio o cliente. Puede conservar ese cliente o clonar las líneas hacia otro.
-              </p>
-            </div>
-          </div>
-        </header>
+      <AppModalHeader
+        icon={<Copy className="size-5" strokeWidth={1.9} />}
+        tone="info"
+        eyebrow="Nueva cotización"
+        title="Clonar desde una existente"
+        titleId={titleId}
+        description="Copia partidas, textos y opciones de otra cotización para no empezar de cero."
+        descriptionId={descId}
+        onClose={onClose}
+        closeDisabled={picking}
+        divided
+      />
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden bg-white px-5 py-4 dark:bg-[#111827] sm:px-6">
-          <fieldset className={`${cloneModalPanelClass} shrink-0 p-3! sm:p-3.5!`} disabled={picking}>
-            <legend id={clienteModeId} className="mb-2 text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">
-              Cliente destino
+      <div className="flex min-h-0 flex-1 flex-col">
+        {/* Controles */}
+        <div className="shrink-0 space-y-4 px-6 pt-5">
+          <fieldset disabled={picking}>
+            <legend id={modoId} className="mb-2 text-[13px] font-medium text-[#3F3F46] dark:text-[#B7C1D1]">
+              ¿Para qué cliente?
             </legend>
-            <div role="radiogroup" aria-labelledby={clienteModeId} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <label
-                className={`flex min-h-11 cursor-pointer items-start gap-2.5 rounded-[10px] border px-3 py-2.5 transition-colors ${
-                  clienteMode === "mismo"
-                    ? "border-[#1B5CFF]/50 bg-[#F1F5FF] dark:border-[#1B5CFF]/35 dark:menu-dropdown-badge-active"
-                    : "border-[#E7E7EA] bg-white hover:border-[#BBD0FF] dark:border-[#273244] dark:bg-[#0f172a] dark:hover:border-[#4B7CFF]/40"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="clone-cliente-mode"
-                  className="mt-0.5 h-4 w-4 accent-[#1B5CFF]"
-                  checked={clienteMode === "mismo"}
-                  onChange={() => onClienteModeChange("mismo")}
-                />
-                <span>
-                  <span className="block text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">Mismo cliente</span>
-                  <span className="mt-0.5 block text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
-                    Conserva cliente y contacto de la cotización origen.
-                  </span>
-                </span>
-              </label>
-              <label
-                className={`flex min-h-11 cursor-pointer items-start gap-2.5 rounded-[10px] border px-3 py-2.5 transition-colors ${
-                  clienteMode === "otro"
-                    ? "border-[#1B5CFF]/50 bg-[#F1F5FF] dark:border-[#1B5CFF]/35 dark:menu-dropdown-badge-active"
-                    : "border-[#E7E7EA] bg-white hover:border-[#BBD0FF] dark:border-[#273244] dark:bg-[#0f172a] dark:hover:border-[#4B7CFF]/40"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="clone-cliente-mode"
-                  className="mt-0.5 h-4 w-4 accent-[#1B5CFF]"
-                  checked={clienteMode === "otro"}
-                  onChange={() => onClienteModeChange("otro")}
-                />
-                <span>
-                  <span className="block text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">Otro cliente</span>
-                  <span className="mt-0.5 block text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
-                    Copia conceptos y textos, pero asigna otro cliente.
-                  </span>
-                </span>
-              </label>
+            <div role="radiogroup" aria-labelledby={modoId} className="grid grid-cols-2 gap-2">
+              {MODOS.map(({ value, label, hint, Icon }) => {
+                const active = clienteMode === value;
+                return (
+                  <label
+                    key={value}
+                    className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition-colors has-focus-visible:ring-2 has-focus-visible:ring-[#1B5CFF]/40 ${
+                      active
+                        ? "border-[#1B5CFF] bg-[#F7F9FF] dark:border-[#4B7CFF] dark:bg-[#151E32]"
+                        : "border-[#E4E4E7] bg-white hover:border-[#D4D4D8] dark:border-[#273244] dark:bg-[#111827] dark:hover:border-[#3A4661]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="clone-cliente-mode"
+                      className="sr-only"
+                      checked={active}
+                      onChange={() => onClienteModeChange(value)}
+                    />
+                    <span
+                      className={`inline-flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                        active
+                          ? "bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
+                          : "bg-[#F4F4F5] text-[#71717A] dark:bg-[#1B2539] dark:text-[#8EA0B8]"
+                      }`}
+                      aria-hidden
+                    >
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{label}</span>
+                      <span className="block truncate text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{hint}</span>
+                    </span>
+                  </label>
+                );
+              })}
             </div>
 
             {clienteMode === "otro" && (
-              <div className="mt-3">
-                <label htmlFor="clone-cliente-search" className="mb-2 block text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">
-                  Buscar cliente destino
-                </label>
+              <div className="cot-fade mt-3">
                 {targetCliente ? (
-                  <div className="flex items-center justify-between gap-2 rounded-[10px] border border-[#1B5CFF]/30 bg-[#F1F5FF] px-3 py-2.5 dark:border-[#1B5CFF]/25 dark:menu-dropdown-badge-active">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">{targetCliente.nombre}</p>
-                      <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">Se usará su contacto principal, si tiene.</p>
+                  <div className="flex items-center gap-3 rounded-xl border border-[#BBD0FF] bg-[#F7F9FF] px-3.5 py-2.5 dark:border-[#3A4A6B] dark:bg-[#151E32]">
+                    <span
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#EEF3FF] text-[12px] font-semibold text-[#1244D1] dark:bg-[#1B2A63] dark:text-[#9BB6FF]"
+                      aria-hidden
+                    >
+                      {(targetCliente.nombre || "?").trim().slice(0, 1).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                        {targetCliente.nombre}
+                      </p>
+                      <p className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
+                        Se usará su contacto principal, si tiene.
+                      </p>
                     </div>
                     <button
                       type="button"
                       onClick={onClearTargetCliente}
-                      className="inline-flex min-h-9 shrink-0 items-center rounded-lg border border-[#BBD0FF] bg-white px-2.5 text-xs font-semibold text-[#1B5CFF] hover:bg-[#EAF1FF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/30 dark:border-[#4B7CFF]/40 dark:bg-[#111827] dark:text-[#4B7CFF]"
+                      className="inline-flex min-h-9 shrink-0 items-center rounded-lg px-3 text-[13px] font-semibold text-[#1B5CFF] transition-colors hover:bg-[#EEF3FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:text-[#9BB6FF] dark:hover:bg-[#1B2A63]"
                     >
                       Cambiar
                     </button>
                   </div>
                 ) : (
-                  <>
-                    <div className="relative">
-                      <input
-                        id="clone-cliente-search"
-                        type="search"
-                        value={clienteSearch}
-                        onChange={(e) => onClienteSearchChange(e.target.value)}
-                        placeholder="Nombre o teléfono del cliente…"
-                        className={cloneModalSearchInputClass}
-                        aria-describedby="clone-cliente-hint"
-                        autoComplete="off"
-                      />
-                    </div>
-                    <p id="clone-cliente-hint" className="mt-1.5 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
-                      Escribe el nombre o teléfono y elige un cliente de la lista.
-                    </p>
+                  <div className="relative">
+                    <label htmlFor="clone-cliente-search" className="sr-only">
+                      Buscar cliente destino
+                    </label>
+                    <Search
+                      className="pointer-events-none absolute left-3.5 top-[22px] size-4 -translate-y-1/2 text-[#A1A1AA]"
+                      aria-hidden
+                    />
+                    <input
+                      id="clone-cliente-search"
+                      type="search"
+                      value={clienteSearch}
+                      onChange={(e) => onClienteSearchChange(e.target.value)}
+                      placeholder="Busca el cliente destino por nombre o teléfono"
+                      className={searchInputClass}
+                      autoComplete="off"
+                    />
                     {(clienteLoading || clienteDebounced.length >= 1) && (
                       <div
-                        className="mt-2 max-h-40 overflow-y-auto rounded-[10px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#0f172a]"
+                        className="cot-pop custom-scrollbar mt-1.5 max-h-44 overflow-y-auto rounded-xl border border-[#E4E4E7] bg-white p-1 shadow-[0_12px_28px_-16px_rgba(9,9,11,0.3)] dark:border-[#273244] dark:bg-[#111827]"
                         role="status"
                         aria-live="polite"
                       >
-                        {clienteLoading && <p className="px-3 py-3 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">Buscando clientes…</p>}
+                        {clienteLoading && (
+                          <p className="flex items-center gap-2 px-3 py-3 text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
+                            <AppSpinner className="size-3.5" />
+                            Buscando clientes…
+                          </p>
+                        )}
                         {!clienteLoading && clienteOptions.length === 0 && (
-                          <p className="px-3 py-3 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">Sin coincidencias.</p>
+                          <p className="px-3 py-3 text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
+                            Sin clientes con «{clienteDebounced}».
+                          </p>
                         )}
                         {!clienteLoading && clienteOptions.length > 0 && (
                           <ul>
@@ -199,12 +224,24 @@ export function CotizacionCloneModal({
                                 <button
                                   type="button"
                                   onClick={() => onPickTargetCliente(c)}
-                                  className="w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-[#F1F5FF] focus:outline-none focus-visible:bg-[#F1F5FF] dark:hover:bg-white/6"
+                                  className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[#F4F7FF] focus-visible:bg-[#F4F7FF] focus-visible:outline-none dark:hover:bg-[#1B2539] dark:focus-visible:bg-[#1B2539]"
                                 >
-                                  <span className="block font-medium text-[#09090B] dark:text-[#f8fafc]">{c.nombre}</span>
-                                  {c.telefono ? (
-                                    <span className="block text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">{c.telefono}</span>
-                                  ) : null}
+                                  <span
+                                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[#F4F4F5] text-[11px] font-semibold text-[#52525B] dark:bg-[#1B2539] dark:text-[#B7C1D1]"
+                                    aria-hidden
+                                  >
+                                    {(c.nombre || "?").trim().slice(0, 1).toUpperCase()}
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                                      {c.nombre}
+                                    </span>
+                                    {c.telefono ? (
+                                      <span className="block text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
+                                        {c.telefono}
+                                      </span>
+                                    ) : null}
+                                  </span>
                                 </button>
                               </li>
                             ))}
@@ -212,133 +249,152 @@ export function CotizacionCloneModal({
                         )}
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             )}
           </fieldset>
 
-          <section className={`${cloneModalPanelClass} shrink-0 p-3! sm:p-3.5!`}>
-            <label htmlFor="clone-cotizacion-search" className="mb-1.5 block text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">
-              Buscar cotización
+          <div className="relative">
+            <label htmlFor="clone-cotizacion-search" className="mb-2 block text-[13px] font-medium text-[#3F3F46] dark:text-[#B7C1D1]">
+              Cotización a copiar
             </label>
             <div className="relative">
-              <svg
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A1A1AA]"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+              <Search
+                className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]"
                 aria-hidden
-              >
-                <circle cx="8.5" cy="8.5" r="5.5" />
-                <path d="M14 14 18 18" strokeLinecap="round" />
-              </svg>
+              />
               <input
                 id="clone-cotizacion-search"
                 type="search"
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Folio (ej. 42) o nombre de cliente…"
+                placeholder="Folio (ej. 42) o nombre del cliente"
                 autoFocus
-                className={cloneModalSearchInputClass}
+                className={searchInputClass}
               />
               {search.trim().length > 0 && (
                 <button
                   type="button"
                   onClick={() => onSearchChange("")}
-                  className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[#A1A1AA] transition hover:bg-[#FAFAFA] hover:text-[#52525B] dark:hover:bg-white/6 dark:hover:text-[#D3D3D8]"
+                  className="absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-[#A1A1AA] transition-colors hover:bg-[#F4F4F5] hover:text-[#3F3F46] dark:hover:bg-[#1B2539] dark:hover:text-[#D6DEEA]"
                   aria-label="Limpiar búsqueda"
                 >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
-                    <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 1 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
-                  </svg>
+                  <X className="size-4" aria-hidden />
                 </button>
               )}
             </div>
-          </section>
+          </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-2">
-            <div className="flex items-center justify-between gap-2 px-0.5">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#A1A1AA] dark:text-[#8EA0B8] sm:text-[11px]">
-                {searchDebounced.length >= 1 ? "Resultados" : "Últimas creadas"}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]">
+              {buscando ? "Resultados" : "Más recientes"}
+            </span>
+            {!listLoading && rows.length > 0 && (
+              <span className="rounded-full bg-[#F4F4F5] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[#52525B] dark:bg-[#1B2539] dark:text-[#B7C1D1]">
+                {rows.length}
               </span>
-              {!listLoading && rows.length > 0 && (
-                <span className="tabular-nums text-[11px] font-medium text-[#A1A1AA] dark:text-[#8EA0B8]">{rows.length}</span>
-              )}
-            </div>
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-3xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]">
-              <div className="custom-scrollbar absolute inset-0 overflow-y-auto overscroll-contain">
-                {listLoading && (
-                  <div className="flex flex-col items-center justify-center gap-3 px-4 py-14">
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#E7E7EA] border-t-[#1B5CFF] dark:border-[#273244] dark:border-t-[#4B7CFF]" />
-                    <p className="text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
-                      {searchDebounced.length >= 1 ? "Buscando cotizaciones…" : "Cargando últimas cotizaciones…"}
-                    </p>
-                  </div>
-                )}
-                {!listLoading && rows.length === 0 && (
-                  <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E7E7EA] bg-white text-[#A1A1AA] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#8EA0B8]">
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                        <circle cx="11" cy="11" r="7" />
-                        <path d="m20 20-3-3M8 11h6" strokeLinecap="round" />
-                      </svg>
-                    </span>
-                    <p className="text-sm font-medium text-[#52525B] dark:text-[#B7C1D1]">
-                      {searchDebounced.length >= 1 ? "Sin coincidencias" : "Sin cotizaciones"}
-                    </p>
-                    <p className="max-w-65 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
-                      {searchDebounced.length >= 1
-                        ? "Pruebe otro folio o parte del nombre del cliente."
-                        : "Aún no hay cotizaciones para clonar."}
-                    </p>
-                  </div>
-                )}
-                {!listLoading && rows.length > 0 && (
-                  <ul className="space-y-2.5 p-3 sm:p-3.5">
-                    {rows.map((row) => (
-                      <li key={row.id}>
-                        <button
-                          type="button"
-                          disabled={picking || (clienteMode === "otro" && !targetCliente)}
-                          onClick={() => onPick(row.id)}
-                          title={clienteMode === "otro" && !targetCliente ? "Elige primero el cliente destino" : undefined}
-                          className="flex w-full flex-col gap-2 rounded-3xl border border-[#E7E7EA] bg-white p-3.5 text-left shadow-sm transition-all hover:-translate-y-px hover:border-[#1B5CFF]/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#273244] dark:bg-[#111827] dark:hover:border-[#4B7CFF]/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                        >
-                          <div className="flex min-w-0 flex-1 items-start gap-3">
-                            <span className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#1B5CFF]/20 bg-[#F1F5FF] px-1.5 text-[11px] font-bold tabular-nums text-[#1B5CFF] dark:border-[#4B7CFF]/25 dark:bg-[#1B5CFF]/15 dark:text-[#4B7CFF]">
-                              {formatDocumentFolio(FOLIO_SERIE.cotizacion, row.idx)}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">{row.cliente}</p>
-                              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
-                                {row.contacto && row.contacto !== "—" && <span>Contacto: {row.contacto}</span>}
-                                {row.fecha && <span className="tabular-nums text-[#A1A1AA] dark:text-[#8EA0B8]">{formatDMY(row.fecha)}</span>}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="shrink-0 rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] px-2.5 py-1 text-xs font-semibold tabular-nums text-[#09090B] dark:border-[#273244] dark:bg-white/6 dark:text-[#e5e7eb]">
-                            {formatMoney(row.total)}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              {picking && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/55 backdrop-blur-[2px] dark:bg-[#0f172a]/70">
-                  <div className="flex items-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-4 py-2.5 text-sm font-medium text-[#52525B] shadow-md dark:border-[#273244] dark:bg-[#111827] dark:text-[#e5e7eb]">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#D3D3D8] border-t-[#1B5CFF] dark:border-[#3A4661] dark:border-t-[#4B7CFF]" />
-                    Cargando cotización…
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
+
+        {/* Lista */}
+        <div className="relative mt-2 min-h-0 flex-1 border-t border-[#F0F0F2] dark:border-[#1F2A3C]">
+          <div className="custom-scrollbar absolute inset-0 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
+            {faltaDestino && !listLoading && rows.length > 0 && (
+              <p className="mb-2 flex items-center gap-2 rounded-lg bg-[#FFF8EB] px-3 py-2 text-[12px] font-medium text-[#8A5A10] dark:bg-[rgba(230,162,60,0.10)] dark:text-[#F0C675]">
+                <Info className="size-3.5 shrink-0" aria-hidden />
+                Elige primero el cliente destino para poder copiar.
+              </p>
+            )}
+
+            {listLoading && (
+              <ul className="space-y-1" aria-label="Cargando cotizaciones" aria-busy="true">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <li key={i} className="flex items-center gap-3 rounded-xl px-2.5 py-3">
+                    <span className="h-9 w-16 shrink-0 animate-pulse rounded-lg bg-[#F0F0F2] dark:bg-[#1B2539]" />
+                    <span className="flex-1 space-y-2">
+                      <span className="block h-3 w-3/5 animate-pulse rounded bg-[#F0F0F2] dark:bg-[#1B2539]" />
+                      <span className="block h-2.5 w-2/5 animate-pulse rounded bg-[#F4F4F5] dark:bg-[#172033]" />
+                    </span>
+                    <span className="h-3 w-16 animate-pulse rounded bg-[#F0F0F2] dark:bg-[#1B2539]" />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {!listLoading && rows.length === 0 && (
+              <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                <span className="inline-flex size-12 items-center justify-center rounded-xl bg-[#F4F4F5] text-[#A1A1AA] dark:bg-[#1B2539] dark:text-[#64748B]">
+                  <SearchX className="size-5" aria-hidden />
+                </span>
+                <p className="mt-3 text-[14px] font-medium text-[#3F3F46] dark:text-[#D6DEEA]">
+                  {buscando ? "Sin coincidencias" : "Aún no hay cotizaciones"}
+                </p>
+                <p className="mt-1 max-w-64 text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
+                  {buscando ? "Prueba con otro folio o parte del nombre del cliente." : "Cuando existan, aparecerán aquí."}
+                </p>
+              </div>
+            )}
+
+            {!listLoading && rows.length > 0 && (
+              <ul className="space-y-1">
+                {rows.map((row) => {
+                  const esteCargando = pickingId === row.id;
+                  return (
+                    <li key={row.id}>
+                      <button
+                        type="button"
+                        disabled={picking || faltaDestino}
+                        onClick={() => onPick(row.id)}
+                        className={`group flex w-full items-center gap-3 rounded-xl border px-2.5 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:cursor-not-allowed ${
+                          esteCargando
+                            ? "border-[#BBD0FF] bg-[#F7F9FF] dark:border-[#3A4A6B] dark:bg-[#151E32]"
+                            : "border-transparent enabled:hover:border-[#E4E4E7] enabled:hover:bg-[#FAFAFA] disabled:opacity-50 dark:enabled:hover:border-[#273244] dark:enabled:hover:bg-[#0F172A]/60"
+                        }`}
+                      >
+                        <span className="inline-flex h-9 min-w-16 shrink-0 items-center justify-center rounded-lg bg-[#EEF3FF] px-2 font-mono text-[12px] font-semibold tabular-nums text-[#1244D1] dark:bg-[#1B2A63] dark:text-[#9BB6FF]">
+                          {formatDocumentFolio(FOLIO_SERIE.cotizacion, row.idx)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                            {row.cliente}
+                          </span>
+                          <span className="mt-0.5 flex items-center gap-1.5 truncate text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
+                            {row.fecha && <span className="tabular-nums">{formatDMY(row.fecha)}</span>}
+                            {row.fecha && row.contacto && row.contacto !== "—" && <span aria-hidden>·</span>}
+                            {row.contacto && row.contacto !== "—" && <span className="truncate">{row.contacto}</span>}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-right text-[14px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                          {formatMoney(row.total)}
+                        </span>
+                        {esteCargando ? (
+                          <AppSpinner className="size-4 shrink-0 text-[#1B5CFF]" />
+                        ) : (
+                          <ChevronRight
+                            className="size-4 shrink-0 text-[#D4D4D8] transition-transform duration-150 group-enabled:group-hover:translate-x-0.5 group-enabled:group-hover:text-[#71717A] dark:text-[#3A4661]"
+                            aria-hidden
+                          />
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {picking && (
+            <div className="cot-fade pointer-events-none absolute inset-x-0 bottom-4 flex justify-center" role="status">
+              <span className="inline-flex items-center gap-2 rounded-full bg-[#17235B] px-4 py-2 text-[13px] font-medium text-white shadow-lg dark:bg-[#1B2A63]">
+                <AppSpinner className="size-3.5" />
+                Copiando cotización…
+              </span>
+            </div>
+          )}
+        </div>
       </div>
-    </Modal>
+    </AppModal>
   );
 }

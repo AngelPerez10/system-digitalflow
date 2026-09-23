@@ -1,8 +1,7 @@
 import PageMeta from "@/components/common/PageMeta";
-import { type SyntheticEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Alert from "@/components/ui/alert/Alert";
-import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
 import {
   CotizacionPageHeader,
@@ -26,10 +25,7 @@ import {
   cotPageCanvasClass,
   cotPageInnerClass,
   cotSansStyle,
-  dangerActionBtnClass,
-  modalSmallShellClass,
   primaryActionInlineBtnClass,
-  secondaryActionBtnClass,
 } from "./shared/cotizacionFormStyles";
 import { CotizacionExportOverlay } from "./form/CotizacionExportOverlay";
 import CotizacionesStatusSegmentFilter from "./list/CotizacionesStatusSegmentFilter";
@@ -37,6 +33,8 @@ import CotizacionEnviarPdfModal, {
   type CotizacionEnviarPdfTarget,
 } from "./form/CotizacionEnviarPdfModal";
 import CotizacionViewModal from "./shared/CotizacionViewModal";
+import { CotizacionConfirmDeleteModal } from "./form/CotizacionConfirmDeleteModal";
+import { AppModalContext } from "@/components/ui/modal-kit/ModalKit";
 
 const searchInputClass =
   "min-h-[44px] w-full rounded-[10px] border border-[#E7E7EA] bg-white py-2 pl-10 pr-10 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] sm:min-h-[44px] sm:pl-11";
@@ -136,7 +134,6 @@ const parseYearMonth = (value: string) => {
 };
 
 export default function CotizacionesPage() {
-  const deleteModalTitleId = useId();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const initialSearch = (searchParams.get(COTIZACION_LIST_SEARCH_PARAM) || readCotizacionListSearch()).trim();
@@ -1106,65 +1103,29 @@ export default function CotizacionesPage() {
             </div>
           </div>
 
-          {cotizacionToDelete && (
-            <Modal
-              isOpen={showDeleteModal}
-              onClose={handleCancelDelete}
-              closeOnBackdropClick={false}
-              showCloseButton={false}
-              className={`${modalSmallShellClass} mx-4 sm:mx-auto`}
-              ariaLabelledBy={deleteModalTitleId}
-            >
-              <div className="bg-white p-6 dark:bg-[#111827]">
-                <div className="mb-5 flex items-start gap-3.5">
-                  <span
-                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]"
-                    aria-hidden="true"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      />
-                    </svg>
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h3
-                      id={deleteModalTitleId}
-                      className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]"
-                    >
-                      ¿Eliminar cotización?
-                    </h3>
-                    <p className="mt-1 text-[14px] leading-5 text-[#52525B] dark:text-[#B7C1D1]">
-                      Se eliminará la cotización de{" "}
-                      <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">
-                        {cotizacionToDelete.cliente}
-                      </span>
-                      . Esta acción no se puede deshacer.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-                  <button
-                    type="button"
-                    onClick={handleCancelDelete}
-                    className={`${secondaryActionBtnClass} sm:flex-1`}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmDelete}
-                    className={`${dangerActionBtnClass} sm:flex-1`}
-                  >
-                    Sí, eliminar
-                  </button>
-                </div>
-              </div>
-            </Modal>
-          )}
+          <CotizacionConfirmDeleteModal
+            open={showDeleteModal && cotizacionToDelete != null}
+            onClose={handleCancelDelete}
+            onConfirm={handleConfirmDelete}
+            title="¿Eliminar esta cotización?"
+            description="Se borrará de forma permanente junto con sus partidas. Esto no se puede deshacer."
+            confirmLabel="Sí, eliminar"
+            detail={
+              cotizacionToDelete ? (
+                <AppModalContext
+                  rows={[
+                    {
+                      label: "Folio",
+                      value: formatDocumentFolio(FOLIO_SERIE.cotizacion, cotizacionToDelete.idx),
+                      strong: true,
+                    },
+                    { label: "Cliente", value: cotizacionToDelete.cliente || "—" },
+                    { label: "Total", value: cotizacionToDelete.monto || "—", strong: true },
+                  ]}
+                />
+              ) : null
+            }
+          />
 
           <CotizacionEnviarPdfModal
             open={enviarPdfTarget != null}
@@ -1217,31 +1178,29 @@ export default function CotizacionesPage() {
           >
             {enviadaViewRow ? (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8ea0b8]">
-                      Enviada por
-                    </p>
-                    <p className="mt-0.5 font-medium text-[#09090B] dark:text-[#f8fafc]">
+                <div className="flex items-center gap-3 rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] px-4 py-3 dark:border-[#273244] dark:bg-[#0F172A]/60">
+                  <span
+                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-[#EEF3FF] text-[13px] font-semibold text-[#1244D1] dark:bg-[#1B2A63] dark:text-[#9BB6FF]"
+                    aria-hidden
+                  >
+                    {(enviadaViewRow.enviadoPor || "?").trim().slice(0, 1).toUpperCase()}
+                  </span>
+                  <dl className="min-w-0 flex-1">
+                    <dt className="sr-only">Enviada por</dt>
+                    <dd className="truncate text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
                       {enviadaViewRow.enviadoPor || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8ea0b8]">
-                      Fecha
-                    </p>
-                    <p className="mt-0.5 font-medium text-[#09090B] dark:text-[#f8fafc]">
+                    </dd>
+                    <dt className="sr-only">Fecha</dt>
+                    <dd className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
                       {formatIsoDateTime(enviadaViewRow.enviadoEn)}
-                    </p>
-                  </div>
+                    </dd>
+                  </dl>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8ea0b8]">
-                    Comentario
-                  </p>
-                  <pre className="mt-1 whitespace-pre-wrap wrap-break-word rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 font-sans leading-relaxed dark:border-[#273244] dark:bg-[#0f172a]/40">
-                    {enviadaViewRow.enviadoComentario || "—"}
-                  </pre>
+                  <p className="mb-1.5 text-[13px] font-medium text-[#3F3F46] dark:text-[#B7C1D1]">Comentario</p>
+                  <blockquote className="whitespace-pre-wrap wrap-break-word border-l-2 border-[#1B5CFF] py-1 pl-4 text-[14px] leading-relaxed text-[#3F3F46] dark:border-[#4B7CFF] dark:text-[#D6DEEA]">
+                    {enviadaViewRow.enviadoComentario || "Sin comentario."}
+                  </blockquote>
                 </div>
               </div>
             ) : null}

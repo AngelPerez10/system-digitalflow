@@ -1,70 +1,46 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  Download,
+  ExternalLink,
+  FileCode,
+  FileText,
+  FileWarning,
+  Info,
+  Mail,
+  MailCheck,
+  Pencil,
+  RotateCw,
+} from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
-import { Modal } from "@/components/ui/modal";
+import { AppProgressDialog } from "@/components/ui/modal-kit/ModalKit";
 import { fetchApi, hasAuthSessionFlag } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 import { objectUrlsForPdfViewer } from "@/utils/pdfViewerPreview";
 import { cotizacionListPath, listSearchFromLocationState } from "@/pages/Ventas/Cotizacion/shared/cotizacionListNav";
 import {
-  cardShellClass,
-  cardShellMutedClass as erpCardShellMutedClass,
   cotPageCanvasClass as erpPageCanvasClass,
   cotPageInnerClass as erpPageInnerClass,
   cotSansStyle,
-  cotSubheadingClass as erpSubheadingClass,
-  heroBandClass,
-  heroBlurClass,
-  heroEyebrowClass,
-  heroIconWrapClass,
-  primaryActionBtnClass as erpPrimaryBtnClass,
-  secondaryActionBtnClass as erpSecondaryBtnClass,
 } from "./shared/cotizacionFormStyles";
+import "@/components/ui/modal-kit/motion.css";
+import CotizacionEnviarPdfModal, { type CotizacionEnviarPdfTarget } from "./form/CotizacionEnviarPdfModal";
+import type { ApiCotizacion } from "./shared/cotizacionFormTypes";
+import { formatDMY, formatMoney } from "./shared/cotizacionFormUtils";
 
+/* Botones de la barra: misma altura (40 px), radio y tipografía; solo cambia el tono. */
+const btnBase =
+  "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[10px] px-3.5 text-[14px] font-medium transition-[background-color,border-color,color,transform] duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100";
+const btnPrimary = `${btnBase} border border-[#1B5CFF] bg-[#1B5CFF] font-semibold text-white hover:border-[#1244D1] hover:bg-[#1244D1] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:bg-[#3B6AF0]`;
+const btnSecondary = `${btnBase} border border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D4D4D8] hover:bg-[#FAFAFA] hover:text-[#09090B] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]`;
+const btnGhost = `${btnBase} border border-transparent text-[#52525B] hover:bg-[#F4F4F5] hover:text-[#09090B] dark:text-[#B7C1D1] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]`;
 
-const sectionLabelOrangeClass =
-  "text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] dark:text-[#4B7CFF] sm:text-[11px]";
-
-const outlineCoralBtnClass =
-  "inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-[#BBD0FF] bg-white px-4 py-3 text-xs font-semibold text-[#1B5CFF] transition-colors hover:bg-[#EAF1FF] focus:outline-none focus:ring-2 focus:ring-[#1B5CFF]/25 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4B7CFF]/40 dark:bg-transparent dark:text-[#4B7CFF] dark:hover:bg-[#4B7CFF]/10 sm:min-h-0";
-
-const externalLinkIcon = (
-  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M15 3h6v6" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M10 14L21 3" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const downloadIcon = (
-  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M7 10l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M12 15V3" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const retryIcon = (
-  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-    <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M21 3v5h-5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M3 21v-5h5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const htmlIcon = (
-  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M14 2v6h6" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M9 13h6M9 17h4" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-/** Altura del visor: una sola vista útil (viewport menos cabecera del layout + migas + header de página). */
+/** Visor: ocupa el alto útil del viewport (menos layout y barra del documento). */
 const viewerFrameClass =
-  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-140 lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
+  "pdf-browser-viewer block h-[72vh] min-h-[480px] w-full border-0 bg-white sm:h-[calc(100dvh-13rem)] sm:min-h-[640px]";
 
 type AlertState = {
   show: boolean;
@@ -190,6 +166,7 @@ export default function CotizacionPdfPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { permissions } = useAuth();
   const isPreviewMode = String(cotizacionId || "").toUpperCase() === "PREVIEW" || searchParams.get("preview") === "1";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
@@ -204,6 +181,9 @@ export default function CotizacionPdfPage() {
 
   /** Folio visible (idx → COT-n), no el id interno de la URL */
   const [cotizacionIdx, setCotizacionIdx] = useState<number | string | null>(null);
+  /** Detalle de la cotización (cliente, total, status…) para el panel de resumen. */
+  const [detalle, setDetalle] = useState<ApiCotizacion | null>(null);
+  const [enviarPdfTarget, setEnviarPdfTarget] = useState<CotizacionEnviarPdfTarget | null>(null);
   const cotizacionFolio =
     cotizacionIdx === "PREVIEW"
       ? "PREVIEW"
@@ -246,8 +226,9 @@ export default function CotizacionPdfPage() {
     })
       .then(async (res) => {
         if (!res.ok || cancelled) return;
-        const data = (await res.json().catch(() => null)) as { idx?: number | null } | null;
+        const data = (await res.json().catch(() => null)) as ApiCotizacion | null;
         if (cancelled || !data) return;
+        setDetalle(data);
         if (data.idx != null && Number.isFinite(Number(data.idx))) {
           setCotizacionIdx(Number(data.idx));
         } else {
@@ -496,295 +477,347 @@ export default function CotizacionPdfPage() {
     }
   }, [cotizacionId, cotizacionFolio, isPreviewMode]);
 
-  const pct = Math.min(99, Math.max(0, Math.round(loadingProgress)));
+
+  const handleDownloadPdf = () => {
+    if (!pdfDownloadUrl) return;
+    const a = document.createElement("a");
+    a.href = pdfDownloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  /* ------------------------------------------------------------------------
+     Derivados de presentación
+     ------------------------------------------------------------------------ */
+  const puedeEditar = !isPreviewMode && !!cotizacionId && permissions?.cotizaciones?.edit === true;
+  const estado: "cargando" | "listo" | "error" = loading ? "cargando" : pdfObjectUrl ? "listo" : "error";
+  const statusKey = String(detalle?.status || "").toUpperCase();
+  const statusInfo =
+    statusKey === "AUTORIZADA"
+      ? { label: "Autorizada", dot: "bg-[#04724D] dark:bg-[#4ADE80]", chip: "bg-[#E9F8F0] text-[#04724D] dark:bg-[#0F2A1C] dark:text-[#4ADE80]" }
+      : statusKey === "CANCELADA"
+        ? { label: "Cancelada", dot: "bg-[#C22B2B] dark:bg-[#F87171]", chip: "bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]" }
+        : statusKey === "PENDIENTE"
+          ? { label: "Pendiente", dot: "bg-[#D97706] dark:bg-[#E6A23C]", chip: "bg-[#FFF8EB] text-[#8A5A10] dark:bg-[rgba(230,162,60,0.12)] dark:text-[#F0C675]" }
+          : null;
+  const clienteNombre = String(detalle?.cliente_nombre || detalle?.cliente || "").trim();
+  const esGarantia = !!detalle?.pdf_opciones?.es_garantia;
+  const total = esGarantia ? 0 : Number(detalle?.total) || 0;
+  const anticipoPct = Math.min(100, Math.max(0, Number(detalle?.anticipo_pct ?? 60) || 60));
+  const anticipo = total * (anticipoPct / 100);
+  const partidas = Array.isArray(detalle?.items) ? detalle.items.length : 0;
+  const fechaDoc = detalle?.fecha ? formatDMY(String(detalle.fecha).slice(0, 10)) : "";
+  const enviadoPor = String(detalle?.enviado_por_full_name || detalle?.enviado_por_username || "").trim();
+  const puedeEnviarCorreo =
+    !isPreviewMode && !!detalle && (statusKey === "PENDIENTE" || statusKey === "AUTORIZADA") && estado === "listo";
+
+  const abrirEnvio = () =>
+    setEnviarPdfTarget({
+      id: Number(cotizacionId),
+      idx: typeof cotizacionIdx === "number" ? cotizacionIdx : undefined,
+      cliente: clienteNombre || undefined,
+      status: statusKey,
+    });
 
   return (
     <div className={erpPageCanvasClass} style={cotSansStyle}>
-      <div className={erpPageInnerClass}>
+      <div className={`${erpPageInnerClass} space-y-4! sm:space-y-5!`}>
         <PageMeta title="PDF Cotización | Digitalflow" description="Vista previa y descarga del PDF de cotización" />
 
-        <Modal isOpen={loading} onClose={() => {}} showCloseButton={false} ariaLabel="Generando PDF de cotización" className="mx-4 max-w-md sm:mx-auto">
-          <div className="p-7 sm:p-8" aria-busy="true" aria-live="polite">
-            <div className="flex flex-col items-center justify-center text-center">
-              <div className="relative mb-6">
-                <div className="relative flex h-19 w-19 items-center justify-center rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]/90">
-                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#0f172a]">
-                    <div
-                      className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#1B5CFF] dark:border-t-[#4B7CFF]"
-                      aria-hidden
-                    />
-                    <svg className="relative h-7 w-7 text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" aria-hidden>
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                      <path d="M10 13h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                      <path d="M10 17h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+        <AppProgressDialog
+          open={loading}
+          icon={<FileText />}
+          title={isPreviewMode ? "Generando vista previa" : "Generando PDF"}
+          description="Estamos armando el documento con los datos más recientes."
+          subject={cotizacionFolio && cotizacionFolio !== "PREVIEW" ? cotizacionFolio : undefined}
+          progress={loadingProgress}
+          steps={["Reuniendo los datos", "Generando el documento", "Preparando la vista previa"]}
+        />
 
-              <p className={sectionLabelOrangeClass}>Documento</p>
-              <h2 className="mt-1 text-base font-semibold tracking-tight text-[#09090B] dark:text-[#f8fafc] sm:text-lg">Generando PDF</h2>
-              <p className="mt-1.5 max-w-xs text-xs text-[#6E6E77] dark:text-[#8ea0b8] sm:text-sm">
-                Puede tardar unos segundos. No cierre esta ventana.
-              </p>
-
-              <div className="mt-6 w-full">
-                <div className="flex items-center justify-between text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
-                  <span>Progreso</span>
-                  <span className="font-medium tabular-nums">{pct}%</span>
-                </div>
-                <div
-                  className="mt-2 h-2 w-full overflow-hidden rounded-full border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]"
-                  role="progressbar"
-                  aria-valuenow={pct}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label="Progreso de generación del PDF"
-                >
-                  <div
-                    className="h-full bg-[#1B5CFF] transition-[width] duration-500 ease-out dark:bg-[#1B5CFF]"
-                    style={{ width: `${Math.min(100, Math.max(0, loadingProgress))}%` }}
-                  />
-                </div>
-                <p className="mt-3 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">Preparando archivo…</p>
-              </div>
-            </div>
-          </div>
-        </Modal>
-
-        <nav
-          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#6E6E77] dark:text-[#8ea0b8] sm:text-[13px]"
-          aria-label="Migas de pan"
-        >
-          <Link
-            to="/"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
-          >
-            Inicio
-          </Link>
-          <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
-            /
-          </span>
-          <Link
-            to="/cotizacion"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
-          >
-            Cotizaciones
-          </Link>
-          <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
-            /
-          </span>
-          <span className="text-[#52525B] dark:text-[#cbd5e1]">Vista PDF</span>
-        </nav>
+        <CotizacionEnviarPdfModal
+          open={enviarPdfTarget != null}
+          cotizacion={enviarPdfTarget}
+          onClose={() => setEnviarPdfTarget(null)}
+          onSent={(correo, envio) => {
+            setEnviarPdfTarget(null);
+            if (envio) setDetalle((d) => (d ? { ...d, ...envio } : d));
+            setAlert({ show: true, variant: "success", title: "Correo enviado", message: `El PDF se envió a ${correo}.` });
+          }}
+          onError={(message) => setAlert({ show: true, variant: "error", title: "Correo", message })}
+        />
 
         {alert.show && (
           <div role="alert" aria-live="assertive">
-            <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
+            <Alert
+              variant={alert.variant}
+              title={alert.title}
+              message={alert.message}
+              showLink={false}
+              onClose={() => setAlert((a) => ({ ...a, show: false }))}
+            />
           </div>
         )}
 
-        <header className={heroBandClass}>
-          <div className={heroBlurClass} aria-hidden />
-          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
-            <div className="flex min-w-0 items-start gap-4">
-              <span className={heroIconWrapClass} aria-hidden>
-                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className={heroEyebrowClass}>{isPreviewMode ? "Vista previa" : "Cotización"}</p>
-                  {cotizacionFolio != null && (
-                    <span className="inline-flex h-5 items-center rounded-full bg-[rgba(230,162,60,0.22)] px-2 font-mono text-[10px] font-semibold uppercase tracking-wide text-[#E6A23C]">
-                      {cotizacionFolio}
-                    </span>
-                  )}
-                </div>
-                <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">Vista PDF</h1>
-                <p className="mt-1.5 max-w-[62ch] text-[15px] leading-5.5 tracking-[-0.1px] text-white/70 sm:mt-2">
-                  Revise el documento en el panel principal y use el lateral para abrir en otra pestaña o descargar.
-                </p>
+        {/* ============================ Barra del documento ============================ */}
+        <header
+          className="cot-rise flex flex-col gap-4 rounded-2xl border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827] sm:px-5 lg:flex-row lg:items-center lg:justify-between"
+          style={{ "--cot-i": 0 } as CSSProperties}
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(cotizacionListPath(listSearchFromLocationState(location.state)))}
+              className={`${btnGhost} w-10! px-0!`}
+              aria-label="Volver al listado de cotizaciones"
+              title="Volver al listado"
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+            </button>
+            <span className="h-8 w-px shrink-0 bg-[#E4E4E7] dark:bg-[#273244]" aria-hidden />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-[17px] font-semibold tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+                  {isPreviewMode ? "Vista previa" : cotizacionFolio ? `Cotización ${cotizacionFolio}` : "Cotización"}
+                </h1>
+                {statusInfo && (
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium ${statusInfo.chip}`}>
+                    <span className={`size-1.5 rounded-full ${statusInfo.dot}`} aria-hidden />
+                    {statusInfo.label}
+                  </span>
+                )}
+                {esGarantia && (
+                  <span className="inline-flex items-center rounded-full bg-[#E7F7FB] px-2 py-0.5 text-[12px] font-medium text-[#0E6B80] dark:bg-[#0C2A32] dark:text-[#67E8F9]">
+                    Garantía
+                  </span>
+                )}
               </div>
+              <p className="mt-0.5 truncate text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
+                {isPreviewMode ? (
+                  "Así se verá el documento al guardarlo"
+                ) : detalle ? (
+                  <>
+                    {clienteNombre || "Sin cliente"}
+                    {fechaDoc ? <span className="text-[#A1A1AA] dark:text-[#64748B]"> · {fechaDoc}</span> : null}
+                  </>
+                ) : (
+                  <span className="inline-block h-3 w-48 animate-pulse rounded bg-[#F0F0F2] align-middle dark:bg-[#1F2A3C]" />
+                )}
+              </p>
             </div>
-            <div className="flex shrink-0 sm:pt-1">
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {puedeEditar && (
               <button
                 type="button"
-                onClick={() => navigate(cotizacionListPath(listSearchFromLocationState(location.state)))}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-white/20 bg-white/10 px-4 text-sm font-medium text-white transition-colors hover:bg-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:w-auto"
-                aria-label="Regresar a cotizaciones"
+                onClick={() => navigate(`/cotizacion/${cotizacionId}/editar`, { state: location.state })}
+                className={btnGhost}
               >
-                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M10 19 3 12l7-7" />
-                  <path d="M3 12h18" />
-                </svg>
-                <span className="hidden sm:inline">Volver al listado</span>
-                <span className="sm:hidden">Volver</span>
+                <Pencil className="size-4" aria-hidden />
+                Editar
               </button>
-            </div>
+            )}
+            {!isPreviewMode && (
+              <button
+                type="button"
+                disabled={!puedeEnviarCorreo}
+                onClick={abrirEnvio}
+                title={statusKey === "CANCELADA" ? "No se puede enviar una cotización cancelada" : undefined}
+                className={btnSecondary}
+              >
+                <Mail className="size-4" aria-hidden />
+                Enviar por correo
+              </button>
+            )}
+            <a
+              href={pdfDownloadUrl || undefined}
+              target="_blank"
+              rel="noreferrer"
+              tabIndex={pdfDownloadUrl ? undefined : -1}
+              aria-disabled={!pdfDownloadUrl}
+              onClick={(e) => {
+                if (!pdfDownloadUrl) e.preventDefault();
+              }}
+              className={`${btnSecondary} ${!pdfDownloadUrl ? "pointer-events-none opacity-50" : ""}`}
+            >
+              <ExternalLink className="size-4" aria-hidden />
+              Abrir
+            </a>
+            <button type="button" disabled={!pdfDownloadUrl} onClick={handleDownloadPdf} className={btnPrimary}>
+              <Download className="size-4" aria-hidden />
+              Descargar
+            </button>
           </div>
         </header>
 
-        <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
-          <div className="min-w-0 lg:col-span-8">
-            <div className={`flex min-h-0 flex-col ${cardShellClass} lg:min-h-[calc(100vh-13.5rem)]`}>
-              <div className="border-b border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 dark:border-[#273244] dark:bg-[#111827] sm:px-5 sm:py-3.5">
-                <div className="flex flex-wrap items-end justify-between gap-2">
-                  <div>
-                    <p className={sectionLabelOrangeClass}>Vista previa</p>
-                    <p className="mt-0.5 text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">Documento generado</p>
+        <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          {/* ============================ Documento ============================ */}
+          <section
+            aria-label="Documento"
+            className="cot-rise min-w-0 overflow-hidden rounded-2xl border border-[#E4E4E7] bg-[#EDEEF1] shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#0B1220]"
+            style={{ "--cot-i": 1 } as CSSProperties}
+          >
+            {estado === "cargando" ? (
+              <div className="flex justify-center px-3 py-6 sm:px-8 sm:py-10" aria-busy="true" aria-label="Cargando documento">
+                <div className="w-full max-w-[760px] rounded-md bg-white p-8 shadow-[0_18px_40px_-24px_rgba(9,9,11,0.45)] dark:bg-[#1B2539] sm:p-12">
+                  <div className="flex items-start justify-between gap-6">
+                    <div className="h-10 w-36 animate-pulse rounded bg-[#E4E4E7] dark:bg-[#273244]" />
+                    <div className="h-14 w-40 animate-pulse rounded bg-[#E4E4E7] dark:bg-[#273244]" />
                   </div>
-                  <p className="text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">El visor usa el motor PDF del navegador.</p>
+                  <div className="mt-10 space-y-2.5">
+                    {[92, 76, 84].map((w) => (
+                      <div key={w} className="h-2.5 animate-pulse rounded bg-[#F0F0F2] dark:bg-[#1F2A3C]" style={{ width: `${w}%` }} />
+                    ))}
+                  </div>
+                  <div className="mt-8 overflow-hidden rounded border border-[#F0F0F2] dark:border-[#273244]">
+                    <div className="h-8 bg-[#1B5CFF]/15" />
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex gap-4 border-t border-[#F0F0F2] px-3 py-3 dark:border-[#273244]">
+                        <div className="h-2.5 w-8 animate-pulse rounded bg-[#F0F0F2] dark:bg-[#1F2A3C]" />
+                        <div className="h-2.5 flex-1 animate-pulse rounded bg-[#F0F0F2] dark:bg-[#1F2A3C]" />
+                        <div className="h-2.5 w-16 animate-pulse rounded bg-[#F0F0F2] dark:bg-[#1F2A3C]" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              <div className="flex min-h-0 flex-1 flex-col bg-[#FAFAFA] p-2 dark:bg-[#0f172a] sm:p-3">
-                {loading ? (
-                  <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-140 lg:min-h-[calc(100vh-13.5rem)]"
-                    aria-busy="true"
-                    aria-live="polite"
-                    aria-label="Cargando documento"
-                  >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10">
-                      <span className="h-7 w-7 animate-spin rounded-full border-2 border-[#E7E7EA] border-t-[#1B5CFF] dark:border-[#273244] dark:border-t-[#4B7CFF]" aria-hidden />
-                    </div>
-                    <p className="mt-4 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">Preparando vista previa…</p>
-                  </div>
-                ) : pdfObjectUrl ? (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#1f2937]">
-                    {/*
-                      Solo iframe (como Órdenes/Proyectos). El <object data="blob…#toolbar=…">
-                      hace que Chrome pida recursos internos `invalid/` y llene la consola
-                      con net::ERR_FAILED aunque el PDF se vea.
-                    */}
-                    <iframe
-                      key={pdfObjectUrl}
-                      title={docIsPdf ? "Vista previa del PDF" : "Vista previa del documento"}
-                      aria-label={`Vista previa del documento de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
-                      src={pdfObjectUrl}
-                      className={`${viewerFrameClass} bg-white`}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10 text-[#1B5CFF] dark:text-[#4B7CFF]">
-                      <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <path d="M14 2v6h6" />
-                        <path d="M10 13h4" />
-                        <path d="M10 17h7" />
-                      </svg>
-                    </div>
-                    <p className="text-base font-semibold text-[#09090B] dark:text-[#f8fafc]">No hay documento disponible</p>
-                    <p className="mt-1.5 max-w-sm text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
-                      No se pudo generar la vista previa. Compruebe la cotización o vuelva al listado.
-                    </p>
-                    {hasError && (
-                      <div className="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
-                        <button type="button" className={erpPrimaryBtnClass} onClick={handleRetry}>
-                          {retryIcon}
-                          Reintentar
-                        </button>
-                        {!isPreviewMode && (
-                          <button type="button" className={erpSecondaryBtnClass} onClick={() => void handleDownloadHtmlFallback()}>
-                            {htmlIcon}
-                            Descargar HTML
-                          </button>
-                        )}
-                      </div>
+            ) : estado === "listo" ? (
+              <div className="cot-fade">
+                {/*
+                  Solo iframe (como Órdenes/Proyectos). El <object data="blob…#toolbar=…">
+                  hace que Chrome pida recursos internos `invalid/` y llene la consola
+                  con net::ERR_FAILED aunque el PDF se vea.
+                */}
+                <iframe
+                  key={pdfObjectUrl}
+                  title={docIsPdf ? "Vista previa del PDF" : "Vista previa del documento"}
+                  aria-label={`Vista previa del documento de la cotización${cotizacionFolio != null ? ` ${cotizacionFolio}` : ""}`}
+                  src={pdfObjectUrl ?? undefined}
+                  className={viewerFrameClass}
+                />
+              </div>
+            ) : (
+              <div className="cot-fade flex flex-col items-center px-6 py-16 text-center sm:py-24">
+                <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-white text-[#C22B2B] ring-1 ring-inset ring-[#F6CFCF] dark:bg-[#3F1518] dark:text-[#F87171] dark:ring-[#7F1D1D]">
+                  <FileWarning className="size-6" strokeWidth={1.8} aria-hidden />
+                </span>
+                <h2 className="mt-5 text-[18px] font-semibold tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+                  {alert.title || "No se pudo generar el documento"}
+                </h2>
+                <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-[#52525B] dark:text-[#B7C1D1]">
+                  {alert.message || "Vuelve a intentarlo. Si el problema sigue, descarga el HTML de respaldo."}
+                </p>
+                {hasError && (
+                  <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
+                    <button type="button" className={btnPrimary} onClick={handleRetry}>
+                      <RotateCw className="size-4" aria-hidden />
+                      Reintentar
+                    </button>
+                    {!isPreviewMode && (
+                      <button type="button" className={btnSecondary} onClick={() => void handleDownloadHtmlFallback()}>
+                        <FileCode className="size-4" aria-hidden />
+                        HTML de respaldo
+                      </button>
                     )}
-                    <Link
-                      to="/cotizacion"
-                      className="mt-6 text-sm font-medium text-[#1B5CFF] underline-offset-4 hover:underline dark:text-[#4B7CFF]"
-                    >
-                      Ir a cotizaciones
-                    </Link>
                   </div>
                 )}
               </div>
-            </div>
-          </div>
+            )}
+          </section>
 
-          <div className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
-            <div className={cardShellClass}>
-              <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-5">
-                <p className={sectionLabelOrangeClass}>Documento</p>
-                <h2 className={`mt-1 ${erpSubheadingClass}`}>Archivo y acciones</h2>
-                <p className="mt-1 text-xs text-[#6E6E77] dark:text-[#8ea0b8] sm:text-sm">Nombre sugerido al descargar y accesos rápidos.</p>
-              </div>
-              <div className="space-y-4 px-4 py-5 sm:px-5">
-                <div className={`${erpCardShellMutedClass} px-3 py-2.5`}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">Nombre de archivo</p>
-                  <code className="mt-1 block break-all rounded-md border border-[#E7E7EA] bg-white px-2.5 py-1.5 text-xs font-medium text-[#09090B] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
-                    {filename}
-                  </code>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  <a
-                    href={pdfDownloadUrl || undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    tabIndex={pdfDownloadUrl ? undefined : -1}
-                    className={`${outlineCoralBtnClass} ${!pdfDownloadUrl ? "pointer-events-none opacity-50" : ""}`}
-                    aria-disabled={!pdfDownloadUrl}
-                    onClick={(e) => {
-                      if (!pdfDownloadUrl) e.preventDefault();
-                    }}
-                  >
-                    {externalLinkIcon}
-                    <span className="hidden sm:inline">Abrir en nueva pestaña</span>
-                    <span className="sm:hidden">Abrir</span>
-                  </a>
-
-                  <button
-                    type="button"
-                    disabled={!pdfDownloadUrl}
-                    className={`${erpPrimaryBtnClass} min-h-12! sm:min-h-0!`}
-                    onClick={() => {
-                      if (!pdfDownloadUrl) return;
-                      const a = document.createElement("a");
-                      a.href = pdfDownloadUrl;
-                      a.download = filename;
-                      document.body.appendChild(a);
-                      a.click();
-                      a.remove();
-                    }}
-                  >
-                    {downloadIcon}
-                    Descargar PDF
-                  </button>
-
-                  {hasError && (
-                    <>
-                      <button type="button" className={`${erpSecondaryBtnClass} min-h-12! sm:min-h-0!`} onClick={handleRetry}>
-                        {retryIcon}
-                        Reintentar
-                      </button>
-                      {!isPreviewMode && (
-                        <button
-                          type="button"
-                          className={`${erpSecondaryBtnClass} min-h-12! sm:min-h-0!`}
-                          onClick={() => void handleDownloadHtmlFallback()}
-                        >
-                          {htmlIcon}
-                          Descargar HTML (respaldo)
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <p className="text-[11px] leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
-                  Si la vista previa se ve cortada, abra el archivo en una pestaña nueva o descárguelo para verlo con su lector PDF.
+          {/* ============================ Resumen ============================ */}
+          {!isPreviewMode && (
+            <aside
+              className="cot-rise min-w-0 overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827] xl:sticky xl:top-24"
+              style={{ "--cot-i": 2 } as CSSProperties}
+              aria-label="Resumen de la cotización"
+            >
+              <div className="p-5">
+                <p className="text-[12px] font-medium text-[#71717A] dark:text-[#8EA0B8]">Total</p>
+                {detalle ? (
+                  <p className="mt-1 text-[28px] font-semibold leading-none tracking-[-0.8px] tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                    {formatMoney(total)}
+                  </p>
+                ) : (
+                  <span className="mt-2 block h-7 w-36 animate-pulse rounded bg-[#F0F0F2] dark:bg-[#1F2A3C]" />
+                )}
+                <p className="mt-1.5 text-[12px] text-[#A1A1AA] dark:text-[#64748B]">
+                  {esGarantia ? "Garantía · precios en $0 en el PDF" : `MXN · IVA incluido · ${partidas} ${partidas === 1 ? "partida" : "partidas"}`}
                 </p>
+
+                {detalle && !esGarantia && total > 0 && (
+                  <div className="mt-5">
+                    <div className="flex h-1.5 overflow-hidden rounded-full bg-[#F0F0F2] dark:bg-[#1F2A3C]" aria-hidden>
+                      <div
+                        className="cot-bar h-full w-full rounded-full bg-[#1B5CFF] dark:bg-[#4B7CFF]"
+                        style={{ transform: `scaleX(${anticipoPct / 100})` }}
+                      />
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-3">
+                      <div>
+                        <dt className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">Anticipo {anticipoPct.toFixed(0)}%</dt>
+                        <dd className="mt-0.5 text-[15px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                          {formatMoney(anticipo)}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">Saldo {(100 - anticipoPct).toFixed(0)}%</dt>
+                        <dd className="mt-0.5 text-[15px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                          {formatMoney(Math.max(0, total - anticipo))}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
+
+              <dl className="border-t border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
+                {[
+                  { label: "Cliente", value: clienteNombre },
+                  { label: "Contacto", value: String(detalle?.contacto || "").trim() },
+                  { label: "Teléfono", value: String(detalle?.contacto_telefono || "").trim() },
+                ].map((r) => (
+                  <div key={r.label} className="py-1.5 first:pt-0 last:pb-0">
+                    <dt className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{r.label}</dt>
+                    <dd className="mt-0.5 break-words text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                      {detalle ? r.value || "—" : <span className="inline-block h-3.5 w-32 animate-pulse rounded bg-[#F0F0F2] align-middle dark:bg-[#1F2A3C]" />}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              <div className="flex items-start gap-3 border-t border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
+                {enviadoPor ? (
+                  <>
+                    <MailCheck className="mt-0.5 size-4 shrink-0 text-[#04724D] dark:text-[#4ADE80]" aria-hidden />
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-medium text-[#09090B] dark:text-[#F8FAFC]">Enviada por {enviadoPor}</p>
+                      <p className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
+                        {detalle?.enviado_en
+                          ? new Date(detalle.enviado_en).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })
+                          : "Sin fecha registrada"}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mt-0.5 size-4 shrink-0 text-[#A1A1AA] dark:text-[#64748B]" aria-hidden />
+                    <p className="text-[13px] text-[#71717A] dark:text-[#8EA0B8]">Aún no se ha enviado al cliente.</p>
+                  </>
+                )}
+              </div>
+            </aside>
+          )}
         </div>
+
+        {estado === "listo" && (
+          <p className="flex items-center gap-2 px-1 text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
+            <Info className="size-3.5 shrink-0" aria-hidden />
+            ¿No se ve el documento? Algunos navegadores de celular no muestran PDF aquí: usa «Abrir» o «Descargar».
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,0 +1,180 @@
+/*
+ * Movimiento compartido (Cotizaciones, Órdenes de servicio y modales de la app).
+ * Las clases conservan el prefijo `cot-` por su origen en Cotizaciones.
+ *
+ * Reglas de rendimiento:
+ *  - Solo se animan `transform` y `opacity` (compositor, sin reflow).
+ *  - Animaciones cortas y de una sola vez; nada en bucle salvo indicadores de carga.
+ *  - Todo queda desactivado con `prefers-reduced-motion: reduce`.
+ */
+
+.cot-bar {
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Entrada escalonada de bloques: usar style={{ "--cot-i": n }} para el orden. */
+  .cot-rise {
+    animation: cot-rise 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--cot-i, 0) * 70ms);
+  }
+
+  /* Paneles desplegables (listas de cliente, servicios, productos). */
+  .cot-pop {
+    animation: cot-pop 170ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+    transform-origin: top center;
+  }
+
+  /* Cambio de contenido en el mismo lugar (pestañas del compositor). */
+  .cot-fade {
+    animation: cot-fade 240ms ease-out both;
+  }
+
+  /* Palomita de paso completado. */
+  .cot-tick {
+    animation: cot-tick 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Cifra que acaba de cambiar (se re-monta con `key`). */
+  .cot-flash {
+    animation: cot-flash 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Barras de progreso: se escalan en X en lugar de animar `width`. */
+  .cot-bar {
+    transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Botones y tarjetas pulsables: respuesta táctil breve. */
+  .cot-press {
+    transition:
+      transform 120ms ease-out,
+      background-color 160ms ease-out,
+      border-color 160ms ease-out,
+      color 160ms ease-out,
+      box-shadow 160ms ease-out;
+  }
+  .cot-press:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  /*
+   * Cambio de tema: index.css pone `animation: none !important` durante 2 frames
+   * (html.theme-changing). Si el nombre pasa a `none` y regresa, el navegador
+   * reinicia la animación y toda la entrada se repite. Conservar el nombre evita
+   * el reinicio; la duración en 0 de ese instante deja el estado final.
+   */
+  html.theme-changing .cot-rise {
+    animation-name: cot-rise !important;
+  }
+  html.theme-changing .cot-pop {
+    animation-name: cot-pop !important;
+  }
+  html.theme-changing .cot-fade {
+    animation-name: cot-fade !important;
+  }
+  html.theme-changing .cot-tick {
+    animation-name: cot-tick !important;
+  }
+  html.theme-changing .cot-flash {
+    animation-name: cot-flash !important;
+  }
+  html.theme-changing .cot-sheen::after {
+    animation-name: cot-sheen !important;
+  }
+
+  /* Renglones de la hoja de carga: se «escriben» en bucle (solo mientras carga). */
+  .cot-write {
+    transform-origin: left center;
+    animation: cot-write 1800ms cubic-bezier(0.65, 0, 0.35, 1) infinite both;
+    animation-delay: calc(var(--cot-i, 0) * 220ms);
+  }
+
+  /* Destello decorativo del encabezado: un solo barrido al entrar. */
+  .cot-sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.10) 50%, transparent 65%);
+    transform: translateX(-100%);
+    animation: cot-sheen 1400ms 300ms cubic-bezier(0.4, 0, 0.2, 1) 1 both;
+  }
+}
+
+@keyframes cot-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cot-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cot-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cot-tick {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cot-flash {
+  from {
+    opacity: 0.35;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cot-write {
+  0% {
+    transform: scaleX(0);
+    opacity: 0.4;
+  }
+  45%,
+  80% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+@keyframes cot-sheen {
+  to {
+    transform: translateX(100%);
+  }
+}
