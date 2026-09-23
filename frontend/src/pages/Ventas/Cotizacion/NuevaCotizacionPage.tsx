@@ -35,7 +35,7 @@ import {
 
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
-import { fetchApi } from "@/config/api";
+import { fetchApi, resolveMediaUrl } from "@/config/api";
 import { MARCA_NOMBRE_DEFAULT } from "@/config/marcaIniciales";
 import "@/components/ui/modal-kit/motion.css";
 import { useAuth } from "@/context/AuthContext";
@@ -413,9 +413,11 @@ export default function NuevaCotizacionPage() {
   const syscomInputWrapRef = useRef<HTMLDivElement>(null);
   const syscomPopRef = useRef<HTMLDivElement>(null);
   const conceptoRef = useRef<HTMLDivElement>(null);
+  const conceptoPopRef = useRef<HTMLDivElement>(null);
   /** Evita aplicar resultados de una petición SYSCOM anterior si el usuario sigue escribiendo. */
   const syscomSearchGenRef = useRef(0);
   const [syscomPopPos, setSyscomPopPos] = useState<SyscomPopPos | null>(null);
+  const [conceptoPopPos, setConceptoPopPos] = useState<SyscomPopPos | null>(null);
   const [descuentoClientePct, setDescuentoClientePct] = useState<number>(0);
   const [descuentoClienteTouched, setDescuentoClienteTouched] = useState<boolean>(false);
   /** Porcentaje de anticipo personalizado (default 60 %, mínimo 40 %). */
@@ -575,12 +577,64 @@ export default function NuevaCotizacionPage() {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [tipoTrabajoOpen]);
 
+  useLayoutEffect(() => {
+    if (!conceptoOpen) {
+      setConceptoPopPos(null);
+      return;
+    }
+    const el = conceptoRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const margin = 8;
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+      const preferredMax = Math.min(288, vh * 0.42);
+      const spaceBelow = vh - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const width = Math.min(Math.max(rect.width, 280), vw - margin * 2);
+      let left = rect.left;
+      if (left + width > vw - margin) left = Math.max(margin, vw - width - margin);
+
+      const openAbove = spaceBelow < 160 && spaceAbove > spaceBelow;
+
+      if (openAbove) {
+        const maxHeight = Math.max(120, Math.min(preferredMax, spaceAbove - 4));
+        setConceptoPopPos({
+          left,
+          width,
+          bottom: vh - rect.top + margin,
+          maxHeight,
+        });
+      } else {
+        const top = rect.bottom + margin;
+        const maxHeight = Math.max(120, Math.min(preferredMax, vh - top - margin));
+        setConceptoPopPos({
+          left,
+          width,
+          top,
+          maxHeight,
+        });
+      }
+    };
+
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [conceptoOpen, conceptoSearch]);
+
   useEffect(() => {
     if (!conceptoOpen) return;
     const onPointerDown = (event: MouseEvent) => {
-      if (conceptoRef.current && !conceptoRef.current.contains(event.target as Node)) {
-        setConceptoOpen(false);
-      }
+      const t = event.target as Node;
+      if (conceptoRef.current?.contains(t)) return;
+      if (conceptoPopRef.current?.contains(t)) return;
+      setConceptoOpen(false);
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
@@ -1135,7 +1189,7 @@ export default function NuevaCotizacionPage() {
     };
   }, [productoSearch, selectedSyscomProducto, selectedCatalogoConcepto, selectedManualProducto]);
 
-  const selectSyscomProducto = (p: SyscomProducto) => {
+  const selectSyscomProducto = useCallback((p: SyscomProducto) => {
     setSelectedSyscomProducto(p);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(null);
@@ -1147,7 +1201,7 @@ export default function NuevaCotizacionPage() {
     setUnidad((u) => (u.trim() ? u : "PZA"));
     setPrecioLista(round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio)));
     setSyscomOpen(false);
-  };
+  }, [syscomTipoCambio]);
 
   const resolveCatalogoDescripcion = (c: CatalogoConcepto) => {
     const catalogDesc = String(c.descripcion || "").trim();
@@ -1168,7 +1222,7 @@ export default function NuevaCotizacionPage() {
       .slice(0, 8);
   }, [catalogoManualProductos, productoSearch]);
 
-  const selectManualProducto = (p: ProductoManualCatalogo) => {
+  const selectManualProducto = useCallback((p: ProductoManualCatalogo) => {
     setSelectedSyscomProducto(null);
     setSelectedCatalogoConcepto(null);
     setSelectedManualProducto(p);
@@ -1181,7 +1235,7 @@ export default function NuevaCotizacionPage() {
     setUnidad((u) => (u.trim() ? u : "PZA"));
     setPrecioLista(Math.max(0, toNumber(p.precio, 0)));
     setSyscomOpen(false);
-  };
+  }, []);
 
   const showSyscomPanel = useMemo(
     () =>
@@ -1212,6 +1266,7 @@ export default function NuevaCotizacionPage() {
         title: p.producto || "-",
         subtitle: [p.marca, p.modelo].filter(Boolean).join(" · ") || `Manual #${p.id}`,
         price: toNumber(p.precio, 0),
+        imageUrl: resolveMediaUrl(p.imagen_url) || undefined,
         onSelect: () => selectManualProducto(p),
       })),
       ...syscomProductos.map((p) => ({
@@ -1220,10 +1275,11 @@ export default function NuevaCotizacionPage() {
         title: String(p.titulo || p.modelo || "-"),
         subtitle: [p.marca, p.modelo].filter(Boolean).join(" · "),
         price: round2(getSyscomPrecioListaMxnConIva(p, syscomTipoCambio)),
+        imageUrl: getCatalogProductoImageUrl(p) || undefined,
         onSelect: () => selectSyscomProducto(p),
       })),
     ],
-    [filteredManualProductos, syscomProductos, syscomTipoCambio]
+    [filteredManualProductos, syscomProductos, syscomTipoCambio, selectManualProducto, selectSyscomProducto]
   );
 
   useLayoutEffect(() => {
@@ -1308,12 +1364,17 @@ export default function NuevaCotizacionPage() {
     return { ok: missing.length === 0, missing };
   };
 
-  const validateCotizacionRequired = () => {
-    const v = validateClienteContacto();
-    const missing = [...v.missing];
+  const validateCotizacionRequired = useCallback(() => {
+    const missing: string[] = [];
+    if (!clienteId) missing.push("Cliente");
+    const tieneContacto = !!String(contactoNombre || "").trim();
+    // Contacto es opcional; medio solo obligatorio si hay contacto.
+    if (tieneContacto && !String(medioContacto || "").trim()) {
+      missing.push("Medio de Contacto");
+    }
     if (tipoTrabajoIds.length === 0) missing.push("Tipo de Trabajo");
     return { ok: missing.length === 0, missing };
-  };
+  }, [clienteId, contactoNombre, medioContacto, tipoTrabajoIds.length]);
 
   const medioContactoInvalid =
     medioContactoTouched &&
@@ -1322,11 +1383,11 @@ export default function NuevaCotizacionPage() {
 
   const tipoTrabajoInvalid = tipoTrabajoTouched && tipoTrabajoIds.length === 0;
 
-  const resolveClienteNombre = () => {
+  const resolveClienteNombre = useCallback(() => {
     const fromList = String(selectedCliente?.nombre || "").trim();
     if (fromList) return fromList;
     return String(clienteSearch || "").trim();
-  };
+  }, [selectedCliente?.nombre, clienteSearch]);
 
   const buildCotizacionPayload = useCallback(() => {
     const nowIso = todayIso;
@@ -1391,7 +1452,7 @@ export default function NuevaCotizacionPage() {
     todayIso,
     selectedCliente,
     clienteId,
-    clienteSearch,
+    resolveClienteNombre,
     contactoNombre,
     contactoTelefono,
     medioContacto,
@@ -1623,6 +1684,8 @@ export default function NuevaCotizacionPage() {
     clienteId,
     contactoNombre,
     medioContacto,
+    tipoTrabajoIds.length,
+    validateCotizacionRequired,
   ]);
 
   upsertCotizacionRef.current = upsertCotizacion;
@@ -2598,9 +2661,22 @@ export default function NuevaCotizacionPage() {
                     role="option"
                     aria-selected={false}
                     onClick={opt.onSelect}
-                    className="group flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-[#F4F7FF] focus:outline-none focus-visible:bg-[#F4F7FF] focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-[#1B2539] dark:focus-visible:bg-[#1B2539]"
+                    className="group flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-[#F4F7FF] focus:outline-none focus-visible:bg-[#F4F7FF] focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-[#1B2539] dark:focus-visible:bg-[#1B2539]"
                   >
-                    <span className="min-w-0">
+                    <span className="inline-flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E4E4E7] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0F172A]">
+                      {opt.imageUrl ? (
+                        <img
+                          src={opt.imageUrl}
+                          alt=""
+                          className="size-full object-contain p-0.5"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <Package className="size-5 text-[#A1A1AA] dark:text-[#64748B]" aria-hidden />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
                         {opt.title}
                       </span>
@@ -2627,6 +2703,87 @@ export default function NuevaCotizacionPage() {
                       </p>
                     </div>
                   )}
+              </div>
+            </div>,
+            document.body
+          )}
+
+        {!bloquearConceptoInput &&
+          conceptoOpen &&
+          conceptoPopPos &&
+          createPortal(
+            <div
+              ref={conceptoPopRef}
+              id="cotizacion-concepto-sugerencias"
+              role="listbox"
+              aria-label="Sugerencias de concepto"
+              style={{
+                position: "fixed",
+                zIndex: 2147483646,
+                left: conceptoPopPos.left,
+                width: conceptoPopPos.width,
+                maxHeight: conceptoPopPos.maxHeight,
+                ...(conceptoPopPos.top != null
+                  ? { top: conceptoPopPos.top }
+                  : { bottom: conceptoPopPos.bottom }),
+              }}
+              className="cot-pop flex flex-col overflow-hidden rounded-xl border border-[#E4E4E7] bg-white shadow-[0_24px_48px_-20px_rgba(9,9,11,0.4)] ring-1 ring-black/5 dark:border-[#273244] dark:bg-[#111827] dark:ring-white/10"
+            >
+              <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-1.5">
+                {conceptoSearch.trim() && (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={false}
+                    onClick={() => {
+                      handleConceptoInputChange(conceptoSearch);
+                      setConceptoOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-[14px] text-[#3F3F46] transition-colors hover:bg-[#F4F7FF] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539]"
+                  >
+                    <Plus className="size-4 shrink-0 text-[#1B5CFF]" aria-hidden />
+                    <span className="min-w-0 truncate">
+                      Usar «
+                      <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                        {conceptoSearch.trim()}
+                      </span>
+                      » como concepto libre
+                    </span>
+                  </button>
+                )}
+                {conceptosFiltrados.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="option"
+                    aria-selected={
+                      String(c.concepto || "").trim().toLowerCase() ===
+                      conceptoNombre.trim().toLowerCase()
+                    }
+                    onClick={() => {
+                      handleConceptoInputChange(String(c.concepto || ""));
+                      setConceptoOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-[#F4F7FF] dark:hover:bg-[#1B2539]"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                        {c.concepto || "Sin nombre"}
+                      </span>
+                      <span className="block text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
+                        Folio {c.folio}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                      {formatMoney(toNumber(c.precio1, 0))}
+                    </span>
+                  </button>
+                ))}
+                {conceptosFiltrados.length === 0 && !conceptoSearch.trim() && (
+                  <p className="px-3 py-6 text-center text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
+                    No hay conceptos en el catálogo.
+                  </p>
+                )}
               </div>
             </div>,
             document.body
@@ -2663,7 +2820,7 @@ export default function NuevaCotizacionPage() {
                   aria-hidden
                 />
                 <div
-                  className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:18px_18px] [mask-image:linear-gradient(to_left,black,transparent_70%)]"
+                  className="pointer-events-none absolute inset-0 opacity-[0.07] bg-[radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] bg-size-[18px_18px] mask-[linear-gradient(to_left,black,transparent_70%)]"
                   aria-hidden
                 />
 
@@ -2754,7 +2911,7 @@ export default function NuevaCotizacionPage() {
                 <dl className="relative mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-white/10 ring-1 ring-inset ring-white/10 md:grid-cols-4">
                   {headerFacts.map((f) => (
                     <div key={f.key} className="min-w-0 bg-[#17235B]/85 px-4 py-3 dark:bg-[#1B2A63]/85">
-                      <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-white/50">
+                      <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-widest text-white/50">
                         {f.icon}
                         {f.label}
                       </dt>
@@ -3501,7 +3658,7 @@ export default function NuevaCotizacionPage() {
                         ) : (
                           <div key="concepto" className="cot-fade">
                             <FieldLabel htmlFor="cot-concepto-input">Concepto</FieldLabel>
-                            <div className={`relative ${conceptoOpen ? "z-100" : "z-0"}`} ref={conceptoRef}>
+                            <div className="relative" ref={conceptoRef}>
                               <input
                                 id="cot-concepto-input"
                                 role="combobox"
@@ -3521,73 +3678,14 @@ export default function NuevaCotizacionPage() {
                                 }}
                                 placeholder="Busca por folio o escribe un concepto libre"
                                 autoComplete="off"
-                                aria-expanded={conceptoOpen}
-                                aria-controls={conceptoOpen ? "cotizacion-concepto-sugerencias" : undefined}
+                                aria-expanded={conceptoOpen && !bloquearConceptoInput}
+                                aria-controls={
+                                  conceptoOpen && !bloquearConceptoInput
+                                    ? "cotizacion-concepto-sugerencias"
+                                    : undefined
+                                }
+                                aria-autocomplete="list"
                               />
-                              {!bloquearConceptoInput && conceptoOpen && (
-                                <div className={dropdownPanelClass}>
-                                  <div
-                                    id="cotizacion-concepto-sugerencias"
-                                    role="listbox"
-                                    className="custom-scrollbar max-h-72 overflow-y-auto p-1.5"
-                                  >
-                                    {conceptoSearch.trim() && (
-                                      <button
-                                        type="button"
-                                        role="option"
-                                        aria-selected={false}
-                                        onClick={() => {
-                                          handleConceptoInputChange(conceptoSearch);
-                                          setConceptoOpen(false);
-                                        }}
-                                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-[14px] text-[#3F3F46] transition-colors hover:bg-[#F4F7FF] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539]"
-                                      >
-                                        <Plus className="size-4 shrink-0 text-[#1B5CFF]" aria-hidden />
-                                        <span className="min-w-0 truncate">
-                                          Usar «
-                                          <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">
-                                            {conceptoSearch.trim()}
-                                          </span>
-                                          » como concepto libre
-                                        </span>
-                                      </button>
-                                    )}
-                                    {conceptosFiltrados.map((c) => (
-                                      <button
-                                        key={c.id}
-                                        type="button"
-                                        role="option"
-                                        aria-selected={
-                                          String(c.concepto || "").trim().toLowerCase() ===
-                                          conceptoNombre.trim().toLowerCase()
-                                        }
-                                        onClick={() => {
-                                          handleConceptoInputChange(String(c.concepto || ""));
-                                          setConceptoOpen(false);
-                                        }}
-                                        className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-[#F4F7FF] dark:hover:bg-[#1B2539]"
-                                      >
-                                        <span className="min-w-0">
-                                          <span className="block truncate text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
-                                            {c.concepto || "Sin nombre"}
-                                          </span>
-                                          <span className="block text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
-                                            Folio {c.folio}
-                                          </span>
-                                        </span>
-                                        <span className="shrink-0 text-[13px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
-                                          {formatMoney(toNumber(c.precio1, 0))}
-                                        </span>
-                                      </button>
-                                    ))}
-                                    {conceptosFiltrados.length === 0 && !conceptoSearch.trim() && (
-                                      <p className="px-3 py-6 text-center text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
-                                        No hay conceptos en el catálogo.
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
                             </div>
                             <p className={fieldHintClass}>
                               {selectedCatalogoConcepto
