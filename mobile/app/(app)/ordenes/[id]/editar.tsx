@@ -26,6 +26,7 @@ import { FormDivisor, FormSection, FormSubtitulo } from '@/components/FormSectio
 import { FotosEditor } from '@/components/FotosEditor';
 import { IconAlerta, IconCamera, IconSignature } from '@/components/icons';
 import { LocationMapModal } from '@/components/LocationMapModal';
+import { mapaDisponible } from '@/utils/modulosNativos';
 import { MinimoMeter } from '@/components/MinimoMeter';
 import { SignaturePad } from '@/components/SignaturePad';
 import { ErrorState } from '@/components/StateViews';
@@ -314,7 +315,7 @@ export default function EditarOrdenScreen() {
                 <UbicacionField
                   value={form.direccion}
                   onChangeText={(valor) => actualizar('direccion', valor)}
-                  onSeleccionarMapa={() => setMapaAbierto(true)}
+                  onSeleccionarMapa={mapaDisponible() ? () => setMapaAbierto(true) : undefined}
                   disabled={guardando}
                 />
               </FormSection>,
@@ -466,6 +467,7 @@ export default function EditarOrdenScreen() {
         </View>
       </KeyboardAvoidingView>
 
+      {mapaDisponible() ? (
       <LocationMapModal
         visible={mapaAbierto}
         direccion={form.direccion}
@@ -475,6 +477,7 @@ export default function EditarOrdenScreen() {
           setMapaAbierto(false);
         }}
       />
+      ) : null}
     </View>
   );
 }

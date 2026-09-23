@@ -12,13 +12,38 @@ import {
   Text,
   View,
 } from 'react-native';
-import * as Location from 'expo-location';
-import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+// Solo tipos: se borran al compilar. Los paquetes se cargan con `require`
+// (ver `cargarWebView` / `cargarLocation`) porque en el APK 1.0.0 no existen.
+import type * as LocationTypes from 'expo-location';
+import type { WebView as WebViewType, WebViewMessageEvent } from 'react-native-webview';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, type } from '@/theme/tokens';
 import { IconCheck, IconLocateMe, IconPin, IconRefresh } from '@/components/icons';
 import { ModalFooter, ModalHeader, ModalPrimaryButton } from '@/components/ModalChrome';
+import { mapaDisponible, ubicacionDisponible } from '@/utils/modulosNativos';
 import { useReducedMotion } from '@/utils/useReducedMotion';
+
+type WebViewModulo = typeof import('react-native-webview');
+
+function cargarWebView(): WebViewModulo | null {
+  if (!mapaDisponible()) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('react-native-webview') as WebViewModulo;
+  } catch {
+    return null;
+  }
+}
+
+function cargarLocation(): typeof LocationTypes | null {
+  if (!ubicacionDisponible()) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-location') as typeof LocationTypes;
+  } catch {
+    return null;
+  }
+}
 
 export type MapLatLng = { lat: number; lng: number };
 
@@ -123,7 +148,9 @@ function buildMapHtml(center: MapLatLng, dark: boolean): string {
 export function LocationMapModal({ visible, onClose, onConfirm, direccion = '' }: Props) {
   const { colors, scheme } = useTheme();
   const reduced = useReducedMotion();
-  const webRef = useRef<WebView>(null);
+  const webRef = useRef<WebViewType>(null);
+  const WebViewMod = useMemo(() => cargarWebView(), []);
+  const Location = useMemo(() => cargarLocation(), []);
 
   const inicial = useMemo(
     () => parseLatLngFromDireccion(direccion) ?? DEFAULT_CENTER,
@@ -208,7 +235,7 @@ export function LocationMapModal({ visible, onClose, onConfirm, direccion = '' }
   };
 
   const usarMiUbicacion = async () => {
-    if (ubicando) return;
+    if (ubicando || !Location) return;
     setUbicando(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -265,7 +292,8 @@ export function LocationMapModal({ visible, onClose, onConfirm, direccion = '' }
 
         <View style={[styles.mapaWrap, { backgroundColor: scheme === 'dark' ? '#141418' : '#f4f4f5' }]}>
           <Animated.View style={[styles.mapaFill, { opacity: mapaOpacity }]}>
-            <WebView
+            {WebViewMod ? (
+            <WebViewMod.WebView
               ref={webRef}
               source={{ html }}
               style={styles.mapa}
@@ -275,6 +303,7 @@ export function LocationMapModal({ visible, onClose, onConfirm, direccion = '' }
               originWhitelist={['*']}
               decelerationRate="normal"
             />
+            ) : null}
           </Animated.View>
 
           {!mapaListo ? (
@@ -306,6 +335,7 @@ export function LocationMapModal({ visible, onClose, onConfirm, direccion = '' }
             <Text style={[styles.hintTexto, { color: colors.inkMuted }]}>Arrastra el mapa para mover el pin</Text>
           </Animated.View>
 
+          {Location ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Usar mi ubicación actual"
@@ -328,6 +358,7 @@ export function LocationMapModal({ visible, onClose, onConfirm, direccion = '' }
               <IconLocateMe color={colors.primary} size={20} />
             )}
           </Pressable>
+          ) : null}
         </View>
 
         <ModalFooter>

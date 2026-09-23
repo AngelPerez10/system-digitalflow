@@ -10,7 +10,8 @@ interface Props {
   /** Dirección libre, o un enlace de Google Maps (`?q=lat,lng`) guardado desde el selector. */
   value: string;
   onChangeText: (value: string) => void;
-  onSeleccionarMapa: () => void;
+  /** Sin él (binario sin mapa) se ocultan los accesos al mapa. */
+  onSeleccionarMapa?: () => void;
   disabled?: boolean;
 }
 
@@ -58,6 +59,7 @@ export function UbicacionField({ value, onChangeText, onSeleccionarMapa, disable
             <Text style={[styles.enlace, { color: colors.navyText }]}>Ver en Google Maps</Text>
           </Pressable>
         </View>
+        {onSeleccionarMapa ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cambiar ubicación en el mapa"
@@ -71,6 +73,7 @@ export function UbicacionField({ value, onChangeText, onSeleccionarMapa, disable
         >
           <IconRefresh color={colors.inkMuted} size={16} />
         </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Quitar ubicación"
@@ -98,6 +101,7 @@ export function UbicacionField({ value, onChangeText, onSeleccionarMapa, disable
         multiline
         editable={!disabled}
       />
+      {onSeleccionarMapa ? (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Seleccionar ubicación en el mapa"
@@ -109,6 +113,7 @@ export function UbicacionField({ value, onChangeText, onSeleccionarMapa, disable
         <IconPin color={colors.primary} size={14} />
         <Text style={[styles.enlaceMapa, { color: colors.primary }]}>Seleccionar en el mapa</Text>
       </Pressable>
+      ) : null}
     </View>
   );
 }
