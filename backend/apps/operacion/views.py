@@ -1,6 +1,8 @@
 import json
 import logging
+from datetime import timedelta
 
+from django.core import signing
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpResponse
 from django.utils import timezone
@@ -8,9 +10,10 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.exceptions import ValidationError as DRFValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.pdf_enlace import PDF_ENLACE_MAX_AGE, PDF_TOKEN_REGEX, crear_token_pdf, leer_token_pdf
 from apps.common.pdf_html import request_wants_html_preview
 from apps.cotizaciones.pdf_render import PdfRenderError, any_provider_configured, render_html_to_pdf
 from apps.ordenes.image_services import (
@@ -126,6 +129,14 @@ def _pdf_response_from_html(html: str, filename: str, *, wants_html: bool = Fals
     return response
 
 
+PROYECTO_PDF_SALT = "proyectos.pdf-compartido"
+
+
+def _proyecto_pdf_filename(proyecto) -> str:
+    folio = getattr(proyecto, "folio", None) or getattr(proyecto, "idx", None) or proyecto.id
+    return f"Proyecto_{folio}.pdf"
+
+
 class ProyectoViewSet(viewsets.ModelViewSet):
     """CRUD de proyectos de operación. Permisos del módulo `proyectos`."""
 
@@ -140,8 +151,11 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         # Técnicos suelen tener edit sin create; adjuntos no deben exigir create.
         if self.action in ("upload_image", "delete_image"):
             return [IsAuthenticated(), ProyectosAttachmentPermission()]
-        if self.action in ("enviar_pdf", "correo_sugerido"):
+        if self.action in ("enviar_pdf", "correo_sugerido", "pdf_enlace"):
             return [IsAuthenticated(), ProyectosSendPdfPermission()]
+        if self.action == "pdf_compartido":
+            # El token firmado es la credencial (se abre desde WhatsApp o el navegador).
+            return [AllowAny()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -210,10 +224,42 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         """PDF del proyecto (híbrido operativo + equipos sin precios)."""
         proyecto = self.get_object()
         html = self._generate_pdf_html(proyecto)
-        folio = getattr(proyecto, "folio", None) or getattr(proyecto, "idx", None) or proyecto.id
-        filename = f"Proyecto_{folio}.pdf"
         wants_html = request_wants_html_preview(request)
-        return _pdf_response_from_html(html, filename, wants_html=wants_html)
+        return _pdf_response_from_html(html, _proyecto_pdf_filename(proyecto), wants_html=wants_html)
+
+    @action(detail=True, methods=["post"], url_path="pdf-enlace")
+    def pdf_enlace(self, request, pk=None):
+        """Enlace firmado (7 días) al PDF, para compartirlo o abrirlo sin sesión."""
+        proyecto = self.get_object()
+        token = crear_token_pdf(PROYECTO_PDF_SALT, proyecto.pk)
+        url = request.build_absolute_uri(f"/api/proyectos/pdf-compartido/{token}/")
+        expira = timezone.now() + timedelta(seconds=PDF_ENLACE_MAX_AGE)
+        return Response(
+            {"url": url, "expira": expira.isoformat(), "filename": _proyecto_pdf_filename(proyecto)}
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path=rf"pdf-compartido/(?P<token>{PDF_TOKEN_REGEX})",
+        authentication_classes=[],
+    )
+    def pdf_compartido(self, request, token=None):
+        """PDF del proyecto a partir de un enlace firmado de `pdf_enlace`."""
+        try:
+            proyecto_id = leer_token_pdf(PROYECTO_PDF_SALT, token or "")
+        except signing.SignatureExpired:
+            return Response(
+                {"detail": "Este enlace ya expiró. Pide uno nuevo a quien te lo envió."},
+                status=410,
+            )
+        except signing.BadSignature:
+            raise NotFound()
+        proyecto = Proyecto.objects.filter(pk=proyecto_id).first()
+        if not proyecto:
+            raise NotFound()
+        html = self._generate_pdf_html(proyecto)
+        return _pdf_response_from_html(html, _proyecto_pdf_filename(proyecto))
 
     @action(detail=True, methods=["get"], url_path="correo-sugerido")
     def correo_sugerido(self, request, pk=None):

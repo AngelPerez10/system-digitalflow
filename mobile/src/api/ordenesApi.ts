@@ -60,3 +60,4 @@ export async function uploadOrdenImage(
   if (!url) throw new Error('El servidor no devolvió la URL de la imagen.');
   return url;
 }
+

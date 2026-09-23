@@ -14,7 +14,7 @@ export const PROYECTO_FECHA_DESDE_FIELD_ID = "proyecto-fecha-inicio-desde";
 export const PROYECTO_MONITOREO_FIELD_ID = "proyecto-monitoreo-si-btn";
 
 /** Mínimo de caracteres (trim) por jornada en la bitácora. */
-export const NOTA_DIA_MIN_CHARS = 150;
+export const NOTA_DIA_MIN_CHARS = 100;
 
 export function proyectoNotaDiaFieldId(notaId: string): string {
   return `proyecto-nota-dia-${notaId}`;

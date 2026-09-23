@@ -17,6 +17,7 @@ import {
   IconCalendar,
   IconCamera,
   IconComment,
+  IconDocumento,
   IconEditar,
   IconFlecha,
   IconPerson,
@@ -29,6 +30,7 @@ import { ErrorState } from '@/components/StateViews';
 import { EquiposLista } from '@/features/orders/components/EquiposLista';
 import { FallaBox } from '@/features/orders/components/FallaBox';
 import { OrdenDetalleHeader } from '@/features/orders/components/OrdenDetalleHeader';
+import { OrdenPdfAcciones } from '@/features/orders/components/OrdenPdfAcciones';
 import { DetalleOrdenSkeleton } from '@/features/orders/components/OrdenSkeletons';
 import { formStateFromOrden, seccionesCompletas } from '@/features/orders/editarOrdenForm';
 import { duracionServicio, folioDisplay, statusLabel } from '@/features/orders/ordenFormat';
@@ -79,7 +81,7 @@ export default function DetalleOrdenScreen() {
     Number.isFinite(ordenId) ? ordenId : null,
   );
   const { user, permissions } = useSession();
-  const entrance = useEntrance(6);
+  const entrance = useEntrance(7);
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const [liberando, setLiberando] = useState(false);
@@ -142,6 +144,7 @@ export default function DetalleOrdenScreen() {
     trabajo: { bg: colors.goldSoftBg, fg: colors.goldSoftText },
     equipos: { bg: colors.statusResueltoBg, fg: colors.statusResueltoText },
     evidencia: { bg: colors.roseBg, fg: colors.roseText },
+    pdf: { bg: colors.primaryRing, fg: colors.primary },
   } satisfies Record<string, Tono>;
 
   return (
@@ -312,6 +315,16 @@ export default function DetalleOrdenScreen() {
             ) : (
               <Vacio texto="Sin fotos ni firmas todavía." />
             )}
+          </InfoSection>
+        </Animated.View>
+
+        <Animated.View style={entrance(6)}>
+          <InfoSection
+            icon={(c) => <IconDocumento color={c} size={15} />}
+            titulo="Reporte PDF"
+            tono={tono.pdf}
+          >
+            <OrdenPdfAcciones orden={orden} />
           </InfoSection>
         </Animated.View>
       </ScrollView>

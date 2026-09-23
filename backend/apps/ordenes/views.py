@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timedelta
 from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
+from django.core import signing
 from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q, Subquery
 from django.db.models.fields.json import KeyTextTransform
@@ -17,11 +18,12 @@ from PIL import Image
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.common.document_folio import FOLIO_SERIE_ODT, resolve_document_folio
 from apps.common.marca import logo_data_uri_for_pdf
+from apps.common.pdf_enlace import PDF_ENLACE_MAX_AGE, crear_token_pdf, leer_token_pdf
 from apps.common.pdf_html import request_wants_html_preview
 from apps.common.ssrf import is_cloudinary_host
 from apps.cotizaciones.pdf_render import (
@@ -305,6 +307,19 @@ def _pdf_response_from_html(html: str, filename: str, *, wants_html: bool = Fals
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
+
+
+# Enlace público y temporal al PDF de una orden (ver apps/common/pdf_enlace.py).
+PDF_ENLACE_SALT = "ordenes.pdf-compartido"
+
+
+def crear_token_pdf_orden(orden_id: int) -> str:
+    return crear_token_pdf(PDF_ENLACE_SALT, orden_id)
+
+
+def leer_token_pdf_orden(token: str) -> int:
+    """pk de la orden del token. Lanza `signing.SignatureExpired` / `signing.BadSignature`."""
+    return leer_token_pdf(PDF_ENLACE_SALT, token, max_age=PDF_ENLACE_MAX_AGE)
 
 
 def _orden_pdf_filename(orden) -> str:
@@ -650,8 +665,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         if self.action in ('upload_image', 'delete_image'):
             return [IsAuthenticated(), OrdenesAttachmentPermission()]
-        if self.action in ('enviar_pdf', 'correo_sugerido'):
+        if self.action in ('enviar_pdf', 'correo_sugerido', 'pdf_enlace'):
             return [IsAuthenticated(), OrdenesSendPdfPermission()]
+        if self.action == 'pdf_compartido':
+            # El token firmado es la credencial (se abre desde WhatsApp o el navegador).
+            return [AllowAny()]
         if self.action in ('liberar', 'tomar', 'pool'):
             # Cualquier técnico con acceso al módulo puede soltar/tomar de la
             # bolsa; usar OrdenesAnyAccessPermission evita el mapeo POST→create.
@@ -2169,6 +2187,48 @@ class OrdenViewSet(viewsets.ModelViewSet):
         filename = _orden_pdf_filename(orden)
         wants_html = request_wants_html_preview(request)
         return _pdf_response_from_html(html, filename, wants_html=wants_html)
+
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='pdf-enlace',
+    )
+    def pdf_enlace(self, request, pk=None):
+        """Enlace firmado (7 días) al PDF, para compartirlo o abrirlo sin sesión."""
+        orden = self.get_object()
+        token = crear_token_pdf_orden(orden.pk)
+        url = request.build_absolute_uri(f'/api/ordenes/pdf-compartido/{token}/')
+        expira = timezone.now() + timedelta(seconds=PDF_ENLACE_MAX_AGE)
+        return Response(
+            {
+                'url': url,
+                'expira': expira.isoformat(),
+                'filename': _orden_pdf_filename(orden),
+            }
+        )
+
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path=r'pdf-compartido/(?P<token>[A-Za-z0-9_\-:]+)',
+        authentication_classes=[],
+    )
+    def pdf_compartido(self, request, token=None):
+        """PDF de la orden a partir de un enlace firmado de `pdf_enlace`."""
+        try:
+            orden_id = leer_token_pdf_orden(token or '')
+        except signing.SignatureExpired:
+            return Response(
+                {'detail': 'Este enlace ya expiró. Pide uno nuevo a quien te lo envió.'},
+                status=410,
+            )
+        except signing.BadSignature:
+            raise NotFound()
+        orden = Orden.objects.filter(pk=orden_id).first()
+        if not orden:
+            raise NotFound()
+        html = self._generate_pdf_html(orden)
+        return _pdf_response_from_html(html, _orden_pdf_filename(orden))
 
     @action(
         detail=True,

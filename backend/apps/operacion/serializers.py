@@ -271,7 +271,7 @@ class ProyectoSerializer(serializers.ModelSerializer):
         return raw
 
     def validate_notas_por_dia(self, value):
-        """Normaliza lista de bitácora; el mínimo de 150 solo aplica al cerrar."""
+        """Normaliza lista de bitácora; el mínimo de 100 solo aplica al cerrar."""
         if value is None:
             return []
         if not isinstance(value, list):
@@ -495,7 +495,7 @@ class ProyectoSerializer(serializers.ModelSerializer):
                     {"motivo_cancelacion": ["Indique el motivo de cancelación del proyecto."]}
                 )
 
-        # Bitácora: mínimo 150 caracteres por jornada solo al cerrar.
+        # Bitácora: mínimo 100 caracteres por jornada solo al cerrar.
         if str(status or "").strip().lower() == "cerrado":
             if "notas_por_dia" in attrs:
                 notas = attrs.get("notas_por_dia")
@@ -505,7 +505,7 @@ class ProyectoSerializer(serializers.ModelSerializer):
                 notas = []
             if not isinstance(notas, list):
                 notas = []
-            min_chars = 150
+            min_chars = 100
             nota_errors = []
             entries = notas if notas else [{}]
             for i, item in enumerate(entries):

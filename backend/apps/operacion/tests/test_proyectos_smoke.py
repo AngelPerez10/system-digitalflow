@@ -317,7 +317,7 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(del_res.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Proyecto.objects.filter(pk=proyecto_id).exists())
 
-    def test_notas_por_dia_require_min_150_chars_only_when_cerrado(self):
+    def test_notas_por_dia_require_min_100_chars_only_when_cerrado(self):
         create_res = self.client.post(
             "/api/proyectos/",
             {
@@ -340,7 +340,7 @@ class ProyectosSmokeTests(APITestCase):
         self.assertEqual(bad_close.status_code, status.HTTP_400_BAD_REQUEST, bad_close.data)
         self.assertIn("notas_por_dia", bad_close.data)
 
-        ok_nota = "x" * 150
+        ok_nota = "x" * 100
         ok_close = self.client.patch(
             f"/api/proyectos/{proyecto_id}/",
             {

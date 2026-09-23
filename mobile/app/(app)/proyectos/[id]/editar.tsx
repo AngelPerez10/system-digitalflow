@@ -24,7 +24,15 @@ import { DateTimeField } from '@/components/DateTimeField';
 import { EditarHeader } from '@/components/EditarHeader';
 import { FormDivisor, FormSection, FormSubtitulo } from '@/components/FormSection';
 import { FotosEditor } from '@/components/FotosEditor';
-import { IconAlerta, IconCamera, IconCheck, IconClipboard, IconSignature } from '@/components/icons';
+import {
+  IconAlerta,
+  IconCalendar,
+  IconCheck,
+  IconClipboard,
+  IconClock,
+  IconPerson,
+  IconWrench,
+} from '@/components/icons';
 import { InfoSection } from '@/components/InfoSection';
 import { SignaturePad } from '@/components/SignaturePad';
 import { SiNoSegment } from '@/components/SiNoSegment';
@@ -41,6 +49,7 @@ import { ProyectoStatusSegment } from '@/features/proyectos/components/ProyectoS
 import {
   MOTIVO_CANCELACION_MAX,
   MOTIVO_PAUSA_MAX,
+  NOTA_DIA_MIN_CHARS,
   SECCIONES_PROYECTO,
   TITULO_SECCION_PROYECTO,
   construirPatch,
@@ -62,10 +71,13 @@ import { font, MOTION, radius, spacing, TOUCH_TARGET, type } from '@/theme/token
 import { useEntrance } from '@/utils/useEntrance';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 
+/** Bloques animados en orden de entrada: los pasos, recursos, cotizaciones y firmas. */
+const BLOQUES = 9;
+
 /**
- * Formulario de campo del proyecto — hermano del de órdenes: banda con el
- * avance del reporte y «Siguiente», pasos numerados que se palomean al
- * completarse, confirmación al salir con cambios y la barra de guardado fija.
+ * Reporte de campo del proyecto — mismo lenguaje que el de órdenes: un solo
+ * formulario con pasos numerados que se palomean solos al completarse, todo a
+ * la vista. Las firmas cierran el formulario, siempre hasta abajo.
  */
 export default function EditarProyectoScreen() {
   const router = useRouter();
@@ -84,7 +96,7 @@ export default function EditarProyectoScreen() {
   const [errores, setErrores] = useState<EditarProyectoErrors>({});
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [fase, setFase] = useState<SubmitPhase>('idle');
-  const entrance = useEntrance(SECCIONES_PROYECTO.length + 2);
+  const entrance = useEntrance(BLOQUES);
   const scrollRef = useRef<ScrollView>(null);
   const posiciones = useRef<Partial<Record<SeccionProyecto, number>>>({});
   const saliendo = useRef(false);
@@ -148,8 +160,10 @@ export default function EditarProyectoScreen() {
       form.requiere_presupuesto_adicional,
   );
   const instalados = form.equipos.filter((e) => e.estadoInstalacion === 'instalado').length;
+  const entregados = form.equipos.filter((e) => e.equipoEntregado).length;
   const notasLlenas = form.notas_por_dia.filter((n) => n.nota.trim()).length;
-  const firmas = [form.firma_cliente_url, form.firma_tecnico_url].filter((f) => f.trim()).length;
+  const firmaCliente = Boolean(form.firma_cliente_url.trim());
+  const firmaTecnico = Boolean(form.firma_tecnico_url.trim());
 
   const irASeccion = (seccion: SeccionProyecto) => {
     const y = posiciones.current[seccion] ?? 0;
@@ -219,6 +233,7 @@ export default function EditarProyectoScreen() {
         siguiente={siguiente ? TITULO_SECCION_PROYECTO[siguiente] : null}
         onVolver={pedirSalida}
         onIrSiguiente={() => siguiente && irASeccion(siguiente)}
+        mostrarProgreso={false}
       />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -238,43 +253,47 @@ export default function EditarProyectoScreen() {
               <FormSection
                 numero={1}
                 titulo="Estatus"
-                descripcion={esAlarmas ? 'Estado del proyecto y monitoreo' : 'Estado actual del proyecto'}
+                descripcion="¿En qué punto está el proyecto?"
                 completa={completas.estatus}
               >
-                <ProyectoStatusSegment
-                  value={form.status}
-                  permiteCancelar={admin}
-                  onChange={(status) => actualizar('status', status)}
-                />
-                <Colapsable abierto={form.status === 'pausado'}>
-                  <View style={styles.colapsado}>
-                    <TextField
-                      label="Motivo de la pausa"
-                      value={form.motivo_pausa}
-                      onChangeText={(valor) => actualizar('motivo_pausa', valor)}
-                      placeholder="Explica por qué se pausó el proyecto"
-                      multiline
-                      maxLength={MOTIVO_PAUSA_MAX}
-                      error={errores.motivo_pausa}
-                      helper={`Obligatorio · ${form.motivo_pausa.length}/${MOTIVO_PAUSA_MAX}`}
-                    />
-                  </View>
-                </Colapsable>
-                {/* Solo admin: el técnico no puede elegir «Cancelado» (`permiteCancelar`). */}
-                <Colapsable abierto={form.status === 'cancelado' && admin}>
-                  <View style={styles.colapsado}>
-                    <TextField
-                      label="Motivo de la cancelación"
-                      value={form.motivo_cancelacion}
-                      onChangeText={(valor) => actualizar('motivo_cancelacion', valor)}
-                      placeholder="Explica por qué se canceló el proyecto"
-                      multiline
-                      maxLength={MOTIVO_CANCELACION_MAX}
-                      error={errores.motivo_cancelacion}
-                      helper={`Obligatorio · ${form.motivo_cancelacion.length}/${MOTIVO_CANCELACION_MAX}`}
-                    />
-                  </View>
-                </Colapsable>
+                <View>
+                  <ProyectoStatusSegment
+                    value={form.status}
+                    permiteCancelar={admin}
+                    onChange={(status) => actualizar('status', status)}
+                  />
+                  <Colapsable abierto={form.status === 'pausado'}>
+                    <View style={[styles.colapsado, styles.sinMargenFinal]}>
+                      <TextField
+                        label="Motivo de la pausa"
+                        value={form.motivo_pausa}
+                        onChangeText={(valor) => actualizar('motivo_pausa', valor)}
+                        placeholder="¿Por qué se detuvo el proyecto?"
+                        multiline
+                        maxLength={MOTIVO_PAUSA_MAX}
+                        error={errores.motivo_pausa}
+                        helper={`Obligatorio al pausar · ${form.motivo_pausa.length}/${MOTIVO_PAUSA_MAX}`}
+                        editable={!guardando}
+                      />
+                    </View>
+                  </Colapsable>
+                  {/* Solo admin: el técnico no puede elegir «Cancelado» (`permiteCancelar`). */}
+                  <Colapsable abierto={form.status === 'cancelado' && admin}>
+                    <View style={[styles.colapsado, styles.sinMargenFinal]}>
+                      <TextField
+                        label="Motivo de la cancelación"
+                        value={form.motivo_cancelacion}
+                        onChangeText={(valor) => actualizar('motivo_cancelacion', valor)}
+                        placeholder="¿Por qué se canceló el proyecto?"
+                        multiline
+                        maxLength={MOTIVO_CANCELACION_MAX}
+                        error={errores.motivo_cancelacion}
+                        helper={`Obligatorio al cancelar · ${form.motivo_cancelacion.length}/${MOTIVO_CANCELACION_MAX}`}
+                        editable={!guardando}
+                      />
+                    </View>
+                  </Colapsable>
+                </View>
                 {esAlarmas ? (
                   <>
                     <FormDivisor />
@@ -297,9 +316,14 @@ export default function EditarProyectoScreen() {
               <FormSection
                 numero={2}
                 titulo="Jornadas"
-                descripcion="Periodo de trabajo y horario en sitio"
+                descripcion="Días de trabajo y horario en sitio."
                 completa={completas.jornadas}
               >
+                <FormSubtitulo
+                  icon={<IconCalendar color={colors.inkMuted} size={14} />}
+                  texto="Días de trabajo"
+                  meta={form.fechas_inicio.length ? `${form.fechas_inicio.length}` : undefined}
+                />
                 <FechasInicioEditor
                   fechas={form.fechas_inicio}
                   onChange={(fechas) => {
@@ -313,8 +337,10 @@ export default function EditarProyectoScreen() {
                   error={errores.fechas_inicio}
                 />
                 <Text style={[styles.ayuda, { color: colors.inkSubtle }]}>
-                  Se agrega un día a la bitácora por cada día del periodo.
+                  Cada día del periodo agrega un día a la bitácora.
                 </Text>
+                <FormDivisor />
+                <FormSubtitulo icon={<IconClock color={colors.inkMuted} size={14} />} texto="Horario en sitio" />
                 <View style={styles.filaCeldas}>
                   <DateTimeField
                     label="Llegada"
@@ -351,9 +377,13 @@ export default function EditarProyectoScreen() {
               <FormSection
                 numero={3}
                 titulo="Equipos"
-                descripcion="Marca lo entregado e instalado"
+                descripcion={
+                  form.equipos.length > 0
+                    ? `${entregados} de ${form.equipos.length} entregados`
+                    : 'Este proyecto no tiene equipos.'
+                }
+                meta={form.equipos.length > 0 ? `${instalados}/${form.equipos.length} instalados` : undefined}
                 completa={completas.equipos}
-                meta={form.equipos.length > 0 ? `${instalados}/${form.equipos.length}` : undefined}
               >
                 <EquiposProyectoEditor
                   equipos={form.equipos}
@@ -376,11 +406,11 @@ export default function EditarProyectoScreen() {
                 titulo="Bitácora"
                 descripcion={
                   form.status === 'cerrado'
-                    ? 'Para cerrar, cada día necesita al menos 150 caracteres'
-                    : 'Qué se hizo cada día, con fotos'
+                    ? `Para cerrar, cada día necesita al menos ${NOTA_DIA_MIN_CHARS} caracteres.`
+                    : 'Qué se hizo cada día, con fotos del avance.'
                 }
+                meta={form.notas_por_dia.length > 0 ? `${notasLlenas}/${form.notas_por_dia.length} días` : undefined}
                 completa={completas.bitacora}
-                meta={form.notas_por_dia.length > 0 ? `${notasLlenas}/${form.notas_por_dia.length}` : undefined}
               >
                 <NotasPorDiaEditor
                   notas={form.notas_por_dia}
@@ -398,9 +428,9 @@ export default function EditarProyectoScreen() {
               <FormSection
                 numero={5}
                 titulo="Avance"
-                descripcion="Qué tanto del proyecto está terminado"
-                completa={completas.avance}
+                descripcion="¿Qué tanto del proyecto está terminado?"
                 meta={`${form.porcentaje_avance}%`}
+                completa={completas.avance}
               >
                 <PorcentajeAvance
                   value={form.porcentaje_avance}
@@ -411,43 +441,21 @@ export default function EditarProyectoScreen() {
             )}
 
             {seccion(
-              'evidencia',
+              'fotos',
               5,
               <FormSection
                 numero={6}
-                titulo="Evidencia"
-                descripcion="Fotos del trabajo y firmas de conformidad"
-                completa={completas.evidencia}
+                titulo="Fotos del trabajo"
+                descripcion="Evidencia del resultado final."
+                meta={`${form.evidencias_urls.length} / 10`}
+                completa={completas.fotos}
               >
-                <FormSubtitulo
-                  icon={<IconCamera color={colors.inkMuted} size={14} />}
-                  texto="Fotos"
-                  meta={`${form.evidencias_urls.length}/10`}
-                />
                 <FotosEditor
                   urls={form.evidencias_urls}
                   maxFotos={10}
                   disabled={guardando}
                   subirFoto={(dataUrl) => uploadProyectoImage(dataUrl, 'proyectos/evidencias')}
                   onChange={(urls) => actualizar('evidencias_urls', urls)}
-                />
-                <FormDivisor />
-                <FormSubtitulo
-                  icon={<IconSignature color={colors.inkMuted} size={14} />}
-                  texto="Firma del cliente"
-                  meta={firmas ? `${firmas}/2 firmas` : undefined}
-                />
-                <SignaturePad
-                  value={form.firma_cliente_url}
-                  onChange={(url) => actualizar('firma_cliente_url', url)}
-                  disabled={guardando}
-                />
-                <FormDivisor />
-                <FormSubtitulo icon={<IconSignature color={colors.inkMuted} size={14} />} texto="Firma del técnico" />
-                <SignaturePad
-                  value={form.firma_tecnico_url}
-                  onChange={(url) => actualizar('firma_tecnico_url', url)}
-                  disabled={guardando}
                 />
               </FormSection>,
             )}
@@ -458,38 +466,48 @@ export default function EditarProyectoScreen() {
               <FormSection
                 numero={7}
                 titulo="Recursos e incidencias"
-                descripcion="Opcional"
+                descripcion="Opcional · vehículo, herramientas y lo que salió distinto."
                 completa={extrasConContenido}
               >
-                <TextField
-                  label="Vehículo asignado"
-                  value={form.vehiculo_asignado}
-                  onChangeText={(valor) => actualizar('vehiculo_asignado', valor)}
-                  placeholder="Placas o unidad"
-                />
-                <TextField
-                  label="Herramientas generales"
-                  value={form.herramientas_generales}
-                  onChangeText={(valor) => actualizar('herramientas_generales', valor)}
-                  placeholder="Lista breve de herramientas o equipo"
-                  multiline
-                />
+                <FormSubtitulo icon={<IconWrench color={colors.inkMuted} size={14} />} texto="Recursos" />
+                <View style={styles.campos}>
+                  <TextField
+                    label="Vehículo asignado"
+                    value={form.vehiculo_asignado}
+                    onChangeText={(valor) => actualizar('vehiculo_asignado', valor)}
+                    placeholder="Placas o unidad"
+                    editable={!guardando}
+                  />
+                  <TextField
+                    label="Herramientas generales"
+                    value={form.herramientas_generales}
+                    onChangeText={(valor) => actualizar('herramientas_generales', valor)}
+                    placeholder="Lista breve de herramientas o equipo"
+                    multiline
+                    editable={!guardando}
+                  />
+                </View>
                 <FormDivisor />
-                <TextField
-                  label="Incidencias"
-                  value={form.incidencias}
-                  onChangeText={(valor) => actualizar('incidencias', valor)}
-                  placeholder="Algo que salió distinto a lo planeado"
-                  multiline
-                />
-                <TextField
-                  label="Requerimientos adicionales"
-                  value={form.requerimientos_adicionales}
-                  onChangeText={(valor) => actualizar('requerimientos_adicionales', valor)}
-                  placeholder="Trabajo fuera del alcance original, si aplica"
-                  multiline
-                  error={errores.requerimientos_adicionales}
-                />
+                <FormSubtitulo icon={<IconAlerta color={colors.inkMuted} size={14} />} texto="Incidencias" />
+                <View style={styles.campos}>
+                  <TextField
+                    label="¿Qué salió distinto?"
+                    value={form.incidencias}
+                    onChangeText={(valor) => actualizar('incidencias', valor)}
+                    placeholder="Algo que no salió como se planeó"
+                    multiline
+                    editable={!guardando}
+                  />
+                  <TextField
+                    label="Requerimientos adicionales"
+                    value={form.requerimientos_adicionales}
+                    onChangeText={(valor) => actualizar('requerimientos_adicionales', valor)}
+                    placeholder="Trabajo fuera del alcance original, si aplica"
+                    multiline
+                    error={errores.requerimientos_adicionales}
+                    editable={!guardando}
+                  />
+                </View>
                 <Pressable
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: form.requiere_presupuesto_adicional, disabled: guardando }}
@@ -542,6 +560,33 @@ export default function EditarProyectoScreen() {
                 </Text>
               </InfoSection>
             </Animated.View>
+
+            {/* Las firmas cierran el reporte: siempre lo último, hasta abajo. */}
+            {seccion(
+              'firmas',
+              8,
+              <FormSection
+                numero={8}
+                titulo="Firmas de conformidad"
+                descripcion="Se recaban al final, con el reporte ya capturado."
+                meta={`${Number(firmaCliente) + Number(firmaTecnico)} / 2`}
+                completa={completas.firmas}
+              >
+                <Firmante rol="Cliente" detalle="Recibe el trabajo de conformidad" firmada={firmaCliente} />
+                <SignaturePad
+                  value={form.firma_cliente_url}
+                  onChange={(url) => actualizar('firma_cliente_url', url)}
+                  disabled={guardando}
+                />
+                <FormDivisor />
+                <Firmante rol="Técnico responsable" detalle="Confirma que el reporte es correcto" firmada={firmaTecnico} />
+                <SignaturePad
+                  value={form.firma_tecnico_url}
+                  onChange={(url) => actualizar('firma_tecnico_url', url)}
+                  disabled={guardando}
+                />
+              </FormSection>,
+            )}
           </ScrollView>
         </View>
 
@@ -579,10 +624,62 @@ export default function EditarProyectoScreen() {
   );
 }
 
+/**
+ * Quién firma, para qué y si ya firmó. La pastilla cambia de «Pendiente» a
+ * «Firmada» con un pequeño rebote al capturarse la firma.
+ */
+function Firmante({ rol, detalle, firmada }: { rol: string; detalle: string; firmada: boolean }) {
+  const { colors } = useTheme();
+  const reduced = useReducedMotion();
+  const escala = useRef(new Animated.Value(1)).current;
+  const previa = useRef(firmada);
+
+  useEffect(() => {
+    if (previa.current === firmada) return;
+    previa.current = firmada;
+    if (reduced || !firmada) return;
+    escala.setValue(0.85);
+    const anim = Animated.spring(escala, { toValue: 1, friction: 5, tension: 180, useNativeDriver: true });
+    anim.start();
+    return () => anim.stop();
+  }, [firmada, reduced, escala]);
+
+  return (
+    <View style={styles.firmante} accessible accessibilityLabel={`${rol}, ${firmada ? 'firmada' : 'firma pendiente'}`}>
+      <View style={[styles.firmanteAvatar, { backgroundColor: colors.surfaceSunken }]}>
+        <IconPerson color={colors.inkMuted} size={15} />
+      </View>
+      <View style={styles.firmanteTextos}>
+        <Text style={[styles.firmanteRol, { color: colors.ink }]}>{rol}</Text>
+        <Text style={[styles.firmanteDetalle, { color: colors.inkSubtle }]}>{detalle}</Text>
+      </View>
+      <Animated.View
+        style={[
+          styles.firmanteEstado,
+          {
+            backgroundColor: firmada ? colors.statusResueltoBg : colors.statusPendienteBg,
+            transform: [{ scale: escala }],
+          },
+        ]}
+      >
+        {firmada ? <IconCheck color={colors.statusResueltoText} size={11} /> : null}
+        <Text
+          style={[styles.firmanteEstadoTexto, { color: firmada ? colors.statusResueltoText : colors.statusPendienteText }]}
+        >
+          {firmada ? 'Firmada' : 'Pendiente'}
+        </Text>
+      </Animated.View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   contenido: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.xxl, gap: spacing.xxl },
   colapsado: { paddingTop: spacing.lg },
+  /** `TextField` trae su propio margen inferior; al final de una tarjeta sobra. */
+  sinMargenFinal: { marginBottom: -spacing.lg },
+  campos: { marginBottom: -spacing.lg },
   ayuda: { ...type.caption, fontSize: 12 },
   filaCeldas: { flexDirection: 'row', gap: spacing.sm },
   check: {
@@ -599,6 +696,20 @@ const styles = StyleSheet.create({
   checkTextos: { flex: 1, gap: 1 },
   checkTitulo: { ...type.bodyMedium, fontFamily: font.semibold, fontSize: 14 },
   checkAyuda: { ...type.caption, fontSize: 12 },
+  firmante: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  firmanteAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  firmanteTextos: { flex: 1, minWidth: 0 },
+  firmanteRol: { ...type.label, fontFamily: font.semibold, fontSize: 14 },
+  firmanteDetalle: { ...type.caption, fontSize: 12, lineHeight: 16 },
+  firmanteEstado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  firmanteEstadoTexto: { fontFamily: font.semibold, fontSize: 11 },
   barra: { borderTopWidth: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm },
   barraEstado: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 18 },
   punto: { width: 7, height: 7, borderRadius: 4 },

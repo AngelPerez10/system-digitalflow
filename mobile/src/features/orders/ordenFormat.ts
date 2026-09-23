@@ -204,3 +204,4 @@ export function haceCuanto(iso: string | null | undefined, ahora: Date = new Dat
   if (h < 24) return `hace ${h} h`;
   return `hace ${Math.floor(h / 24)} d`;
 }
+

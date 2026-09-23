@@ -20,6 +20,8 @@ interface Props {
   siguiente: string | null;
   onVolver: () => void;
   onIrSiguiente: () => void;
+  /** `false` oculta el bloque «Reporte X de Y» y su barra (solo identifica el registro). */
+  mostrarProgreso?: boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export function EditarHeader({
   siguiente,
   onVolver,
   onIrSiguiente,
+  mostrarProgreso = true,
 }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -116,6 +119,7 @@ export function EditarHeader({
         {cliente}
       </Text>
 
+      {mostrarProgreso ? (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={
@@ -152,6 +156,7 @@ export function EditarHeader({
           />
         </View>
       </Pressable>
+      ) : null}
     </View>
   );
 }

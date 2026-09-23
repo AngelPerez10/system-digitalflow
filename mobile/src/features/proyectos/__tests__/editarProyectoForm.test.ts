@@ -63,7 +63,8 @@ describe('seccionesCompletasProyecto', () => {
       equipos: true,
       bitacora: false,
       avance: false,
-      evidencia: false,
+      fotos: false,
+      firmas: false,
     });
   });
 
@@ -119,3 +120,4 @@ describe('primeraSeccionConErrorProyecto', () => {
     expect(primeraSeccionConErrorProyecto({ notas_por_dia: {} })).toBeNull();
   });
 });
+

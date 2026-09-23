@@ -122,3 +122,4 @@ describe('haceCuanto', () => {
     expect(haceCuanto('no es fecha', ahora)).toBeNull();
   });
 });
+

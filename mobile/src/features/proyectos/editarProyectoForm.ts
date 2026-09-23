@@ -44,7 +44,7 @@ export type EditarProyectoErrors = Partial<
 export const MOTIVO_PAUSA_MAX = 500;
 export const MOTIVO_CANCELACION_MAX = 500;
 /** Mínimo obligatorio por jornada — solo se exige al cerrar (espejo de `NOTA_DIA_MIN_CHARS`). */
-export const NOTA_DIA_MIN_CHARS = 150;
+export const NOTA_DIA_MIN_CHARS = 100;
 
 export function formStateFromProyecto(proyecto: Proyecto): EditarProyectoFormState {
   return {
@@ -272,9 +272,24 @@ export function contarCambios(original: Proyecto, patch: ProyectoFieldPatch): nu
   }).length;
 }
 
-/** Pasos del formulario de proyecto, en orden visual. */
-export const SECCIONES_PROYECTO = ['estatus', 'jornadas', 'equipos', 'bitacora', 'avance', 'evidencia'] as const;
+/**
+ * Pasos obligatorios del formulario, en orden visual. Las firmas van al final
+ * a propósito: se recaban cuando todo lo demás ya está capturado.
+ */
+export const SECCIONES_PROYECTO = ['estatus', 'jornadas', 'equipos', 'bitacora', 'avance', 'fotos', 'firmas'] as const;
 export type SeccionProyecto = (typeof SECCIONES_PROYECTO)[number] | 'extras';
+
+/** Orden en pantalla, incluida la sección opcional («extras» va antes de las firmas). */
+export const ORDEN_VISUAL_PROYECTO: readonly SeccionProyecto[] = [
+  'estatus',
+  'jornadas',
+  'equipos',
+  'bitacora',
+  'avance',
+  'fotos',
+  'extras',
+  'firmas',
+];
 
 export const TITULO_SECCION_PROYECTO: Record<SeccionProyecto, string> = {
   estatus: 'Estatus',
@@ -282,11 +297,12 @@ export const TITULO_SECCION_PROYECTO: Record<SeccionProyecto, string> = {
   equipos: 'Equipos',
   bitacora: 'Bitácora',
   avance: 'Avance',
-  evidencia: 'Evidencia',
+  fotos: 'Fotos',
   extras: 'Recursos e incidencias',
+  firmas: 'Firmas',
 };
 
-/** Qué pasos están completos — alimenta el avance del encabezado y las palomitas. */
+/** Qué pasos están completos — alimenta la barra de pasos y el resumen de cierre. */
 export function seccionesCompletasProyecto(
   state: EditarProyectoFormState,
   proyecto: Pick<Proyecto, 'tipos_trabajo'>,
@@ -301,10 +317,8 @@ export function seccionesCompletasProyecto(
     equipos: state.equipos.every((e) => e.estadoInstalacion === 'instalado'),
     bitacora: state.notas_por_dia.length > 0 && state.notas_por_dia.every((n) => n.nota.trim().length > 0),
     avance: state.porcentaje_avance > 0,
-    evidencia:
-      state.evidencias_urls.length > 0 &&
-      state.firma_cliente_url.trim().length > 0 &&
-      state.firma_tecnico_url.trim().length > 0,
+    fotos: state.evidencias_urls.length > 0,
+    firmas: state.firma_cliente_url.trim().length > 0 && state.firma_tecnico_url.trim().length > 0,
   };
 }
 
@@ -321,8 +335,6 @@ const SECCION_DE_CAMPO: Partial<Record<keyof EditarProyectoErrors, SeccionProyec
   requerimientos_adicionales: 'extras',
 };
 
-const ORDEN_VISUAL: readonly SeccionProyecto[] = [...SECCIONES_PROYECTO, 'extras'];
-
 /** Primer paso (en orden visual) con un error de validación. */
 export function primeraSeccionConErrorProyecto(errors: EditarProyectoErrors): SeccionProyecto | null {
   const conError = new Set(
@@ -334,5 +346,5 @@ export function primeraSeccionConErrorProyecto(errors: EditarProyectoErrors): Se
       .map((campo) => SECCION_DE_CAMPO[campo])
       .filter(Boolean),
   );
-  return ORDEN_VISUAL.find((s) => conError.has(s)) ?? null;
+  return ORDEN_VISUAL_PROYECTO.find((s) => conError.has(s)) ?? null;
 }

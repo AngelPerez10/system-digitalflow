@@ -7,6 +7,7 @@ import { useSession } from '@/auth/SessionProvider';
 import { canEditModule } from '@/auth/permissions';
 import { FotosGaleria } from '@/components/FotosGaleria';
 import { IconAlerta, IconBox, IconCamera, IconEditar, IconSignature, IconVisto } from '@/components/icons';
+import { ReportePdf } from '@/components/ReportePdf';
 import { SegmentedTabs } from '@/components/SegmentedTabs';
 import { ErrorState } from '@/components/StateViews';
 import { BitacoraTimeline } from '@/features/proyectos/components/BitacoraTimeline';
@@ -313,6 +314,15 @@ export default function DetalleProyectoScreen() {
                   ) : null}
                 </Grupo>
               ) : null}
+
+              <Grupo titulo="Reporte PDF">
+                <ReportePdf
+                  base={`/proyectos/${proyecto.id}`}
+                  nombreArchivo={`Proyecto_${folio}.pdf`}
+                  meta={`Reporte del proyecto · ${statusLabel(proyecto.status)}`}
+                  documento={`el reporte del proyecto ${folio}`}
+                />
+              </Grupo>
             </Aparecer>
           ) : null}
 
