@@ -88,7 +88,6 @@ pytest-report.html
 .claude/
 .codex/
 .cursor/
-.impeccable/
 .superpowers/
 .worktrees/
 docs/
