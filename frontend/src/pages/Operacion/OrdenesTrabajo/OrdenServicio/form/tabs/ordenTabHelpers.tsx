@@ -3,7 +3,11 @@ import type { OrdenEditableField } from "../../shared/ordenEditScope";
 
 export type OrdenFieldKey = OrdenEditableField;
 
-/** Encabezado de bloque dentro de las pestañas del modal de orden. */
+/**
+ * Tarjeta de bloque dentro de los pasos del modal de orden: encabezado con
+ * ícono en mosaico + título + descripción, y cuerpo con los campos.
+ * Las etiquetas de campo se normalizan a 13 px / 500 para todo el formulario.
+ */
 export function OrdenFormSection({
   title,
   description,
@@ -16,21 +20,24 @@ export function OrdenFormSection({
   icon?: ReactNode;
 }) {
   return (
-    <section className="space-y-3">
-      <header className="flex items-start gap-2.5 border-b border-[#E7E7EA] pb-2 dark:border-[#273244]">
+    <section className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827]">
+      <header className="flex items-center gap-3 border-b border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
         {icon ? (
-          <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 text-[#1B5CFF] dark:text-[#4B7CFF]" aria-hidden>
+          <span
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF] [&_svg]:size-[18px]"
+            aria-hidden
+          >
             {icon}
           </span>
         ) : null}
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">{title}</h3>
+          <h3 className="text-[15px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">{title}</h3>
           {description ? (
-            <p className="mt-0.5 text-[11px] leading-snug text-[#6E6E77] dark:text-[#8EA0B8]">{description}</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-[#71717A] dark:text-[#8EA0B8]">{description}</p>
           ) : null}
         </div>
       </header>
-      <div className="space-y-4 rounded-xl border border-[#E7E7EA] bg-white p-4 shadow-sm dark:border-[#273244] dark:bg-[#111827]">
+      <div className="space-y-5 px-5 py-5 [&_label.block]:mb-1.5! [&_label.block]:text-[13px]! [&_label.block]:font-medium! [&_label.block]:text-[#3F3F46]! dark:[&_label.block]:text-[#B7C1D1]!">
         {children}
       </div>
     </section>

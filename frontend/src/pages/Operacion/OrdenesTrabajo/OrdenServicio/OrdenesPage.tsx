@@ -15,6 +15,7 @@ import { OrdenesPageStats } from "./list/OrdenesPageStats";
 import OrdenesListFiltersPopover from "./list/OrdenesListFiltersPopover";
 import OrdenesStatusSegmentFilter from "./list/OrdenesStatusSegmentFilter";
 import OrdenLocationMapModal from "./form/fields/OrdenLocationMapModal";
+import { tecnicoDisplayLabel } from "./form/tabs/ordenTabHelpers";
 import OrdenFormModal, {
   ORDEN_FORM_PANEL_IDS,
   ORDEN_FORM_TAB_IDS,
@@ -74,7 +75,7 @@ import {
 } from "./shared/ordenPrioridadSections";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
-import { OrdenDeleteModal, OrdenViewModal } from "../OrdenTrabajoModals";
+import { OrdenDeleteDialog, OrdenDetailModal } from "./shared/OrdenDialogs";
 import {
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
@@ -1577,7 +1578,7 @@ export default function Ordenes() {
         </section>
 
         {/* Modales de detalle */}
-        <OrdenViewModal
+        <OrdenDetailModal
           open={problematicaModal.open}
           onClose={() => setProblematicaModal({ open: false, content: "" })}
           title="Problemática"
@@ -1602,9 +1603,9 @@ export default function Ordenes() {
           <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
             {problematicaModal.content || "-"}
           </pre>
-        </OrdenViewModal>
+        </OrdenDetailModal>
 
-        <OrdenViewModal
+        <OrdenDetailModal
           open={serviciosModal.open}
           onClose={() => setServiciosModal({ open: false, content: [] })}
           title="Servicios realizados"
@@ -1640,9 +1641,9 @@ export default function Ordenes() {
               Sin servicios registrados
             </div>
           )}
-        </OrdenViewModal>
+        </OrdenDetailModal>
 
-        <OrdenViewModal
+        <OrdenDetailModal
           open={comentarioModal.open}
           onClose={() => setComentarioModal({ open: false, content: "" })}
           title="Comentario del técnico"
@@ -1663,7 +1664,7 @@ export default function Ordenes() {
           <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
             {comentarioModal.content || "-"}
           </pre>
-        </OrdenViewModal>
+        </OrdenDetailModal>
 
         <OrdenFormModal
           variant="admin"
@@ -1684,10 +1685,16 @@ export default function Ordenes() {
           uploadingPhotos={uploadingPhotos}
           bodyLoading={detailLoading}
           triggerSaveFromFooter={triggerSaveFromFooter}
+          summary={{
+            cliente: formData.cliente,
+            tecnico: tecnicoDisplayLabel(usuarios, formData.tecnico_asignado) || undefined,
+            prioridad: ({ alta: "Alta", media: "Media", baja: "Baja" } as Record<string, string>)[formData.prioridad_pool],
+          }}
           showCalificacionTab={isAdmin && !!editingOrden}
         >
           {activeTab === "cliente" ? (
           <OrdenClienteTab
+              part="cliente"
               hidden={false}
               variant="admin"
               panelId={ORDEN_FORM_PANEL_IDS.cliente}
@@ -1734,6 +1741,7 @@ export default function Ordenes() {
           ) : null}
           {activeTab === "orden" ? (
             <OrdenDetalleTab
+              part="trabajo"
               variant="admin"
               panelId={ORDEN_FORM_PANEL_IDS.orden}
               labelledBy={ORDEN_FORM_TAB_IDS.orden}
@@ -1765,6 +1773,53 @@ export default function Ordenes() {
               setCotizacionesAdmin={setCotizacionesAdmin}
             />
           ) : null}
+          {activeTab === "asignacion" ? (
+            <OrdenClienteTab
+                part="asignacion"
+                hidden={false}
+                variant="admin"
+                panelId={ORDEN_FORM_PANEL_IDS.asignacion}
+                labelledBy={ORDEN_FORM_TAB_IDS.asignacion}
+                editingOrden={editingOrden}
+                formData={formData}
+                setFormData={setFormData}
+                ro={ro}
+                inputLockedClass={inputLockedClass}
+                setClienteSearch={setClienteSearch}
+                clientes={clientes}
+                selectCliente={selectCliente}
+                setShowClienteModal={setShowClienteModal}
+                tecnicoSearch={tecnicoSearch}
+                setTecnicoSearch={setTecnicoSearch}
+                quienInstaloSearch={quienInstaloSearch}
+                setQuienInstaloSearch={setQuienInstaloSearch}
+                quienEntregoSearch={quienEntregoSearch}
+                setQuienEntregoSearch={setQuienEntregoSearch}
+                usuarios={usuarios}
+                selectTecnico={selectTecnico}
+                selectQuienInstalo={selectQuienInstalo}
+                selectQuienEntrego={selectQuienEntrego}
+                setFirmaClienteUrl={setFirmaClienteUrl}
+                setShowMapModal={setShowMapModal}
+                tecnicoSignatureUrl={tecnicoSignatureUrl}
+                maxPhotosAllowed={maxPhotosAllowed}
+                getRootProps={getRootProps}
+                getInputProps={getInputProps}
+                isDragActive={isDragActive}
+                photoPreview={photoPreview}
+                setPhotoPreview={setPhotoPreview}
+                confirmDelete={confirmDelete}
+                setConfirmDelete={setConfirmDelete}
+                confirmDeletePhoto={confirmDeletePhoto}
+                deletingPhoto={deletingPhoto}
+                uploadingPhotos={uploadingPhotos}
+                photoUploadProgress={photoUploadProgress}
+                statusTecnicoId={statusTecnicoId}
+                isReadOnly={isReadOnly}
+                isLimitedEdit={isLimitedEdit}
+                isAdmin={isAdmin}
+              />
+          ) : null}
           {activeTab === "equipos" && (
             <OrdenEquiposTab
               panelId={ORDEN_FORM_PANEL_IDS.equipos}
@@ -1780,6 +1835,97 @@ export default function Ordenes() {
               onRemoveEquipo={removeEquipo}
             />
           )}
+          {activeTab === "evidencia" && (
+            <div
+              id={ORDEN_FORM_PANEL_IDS.evidencia}
+              role="tabpanel"
+              aria-labelledby={ORDEN_FORM_TAB_IDS.evidencia}
+              tabIndex={-1}
+              className="space-y-5 outline-none"
+            >
+              <OrdenClienteTab
+                  part="evidencia"
+                  embedded
+                  hidden={false}
+                  variant="admin"
+                  panelId={ORDEN_FORM_PANEL_IDS.evidencia}
+                  labelledBy={ORDEN_FORM_TAB_IDS.evidencia}
+                  editingOrden={editingOrden}
+                  formData={formData}
+                  setFormData={setFormData}
+                  ro={ro}
+                  inputLockedClass={inputLockedClass}
+                  setClienteSearch={setClienteSearch}
+                  clientes={clientes}
+                  selectCliente={selectCliente}
+                  setShowClienteModal={setShowClienteModal}
+                  tecnicoSearch={tecnicoSearch}
+                  setTecnicoSearch={setTecnicoSearch}
+                  quienInstaloSearch={quienInstaloSearch}
+                  setQuienInstaloSearch={setQuienInstaloSearch}
+                  quienEntregoSearch={quienEntregoSearch}
+                  setQuienEntregoSearch={setQuienEntregoSearch}
+                  usuarios={usuarios}
+                  selectTecnico={selectTecnico}
+                  selectQuienInstalo={selectQuienInstalo}
+                  selectQuienEntrego={selectQuienEntrego}
+                  setFirmaClienteUrl={setFirmaClienteUrl}
+                  setShowMapModal={setShowMapModal}
+                  tecnicoSignatureUrl={tecnicoSignatureUrl}
+                  maxPhotosAllowed={maxPhotosAllowed}
+                  getRootProps={getRootProps}
+                  getInputProps={getInputProps}
+                  isDragActive={isDragActive}
+                  photoPreview={photoPreview}
+                  setPhotoPreview={setPhotoPreview}
+                  confirmDelete={confirmDelete}
+                  setConfirmDelete={setConfirmDelete}
+                  confirmDeletePhoto={confirmDeletePhoto}
+                  deletingPhoto={deletingPhoto}
+                  uploadingPhotos={uploadingPhotos}
+                  photoUploadProgress={photoUploadProgress}
+                  statusTecnicoId={statusTecnicoId}
+                  isReadOnly={isReadOnly}
+                  isLimitedEdit={isLimitedEdit}
+                  isAdmin={isAdmin}
+                />
+              {isAdmin && (
+                <OrdenDetalleTab
+                  part="admin"
+                  embedded
+                  variant="admin"
+                  panelId={ORDEN_FORM_PANEL_IDS.evidencia}
+                  labelledBy={ORDEN_FORM_TAB_IDS.evidencia}
+                  isActive
+                  showLevantamiento={tipoOrden === "levantamiento"}
+                  tipoOrden={tipoOrden}
+                  setTipoOrden={setTipoOrden}
+                  isReadOnly={isReadOnly}
+                  isLimitedEdit={isLimitedEdit}
+                  editingOrden={editingOrden}
+                  levantamientoSnapshotRef={levantamientoSnapshotRef}
+                  formData={formData}
+                  setFormData={setFormData}
+                  ro={ro}
+                  inputLockedClass={inputLockedClass}
+                  servicioSearch={servicioSearch}
+                  setServicioSearch={setServicioSearch}
+                  serviciosDisponibles={serviciosDisponibles}
+                  setServiciosDisponibles={setServiciosDisponibles}
+                  addServicio={addServicio}
+                  isAdmin={isAdmin}
+                  statusAdminId={statusAdminId}
+                  fechaEnvioAdminId={fechaEnvioAdminId}
+                  statusAdministrativo={statusAdministrativo}
+                  setStatusAdministrativo={setStatusAdministrativo}
+                  fechaEnvioAdmin={fechaEnvioAdmin}
+                  setFechaEnvioAdmin={setFechaEnvioAdmin}
+                  cotizacionesAdmin={cotizacionesAdmin}
+                  setCotizacionesAdmin={setCotizacionesAdmin}
+                />
+              )}
+            </div>
+          )}
           {activeTab === "calificacion" && isAdmin && (
             <OrdenCalificacionTab
               panelId={ORDEN_FORM_PANEL_IDS.calificacion}
@@ -1794,7 +1940,7 @@ export default function Ordenes() {
         </OrdenFormModal>
 
         {ordenToDelete && (
-          <OrdenDeleteModal
+          <OrdenDeleteDialog
             open={showDeleteModal}
             clienteLabel={ordenToDelete.cliente}
             onCancel={handleCancelDelete}

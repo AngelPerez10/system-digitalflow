@@ -7,7 +7,12 @@ import {
 } from "../shared/ordenEditScope";
 
 export type TipoOrden = "servicio_tecnico" | "levantamiento" | "mantenimiento";
-export type OrdenFormTab = "cliente" | "orden" | "equipos" | "calificacion";
+/**
+ * Pasos del formulario de orden, en el orden en que se captura una orden real:
+ * cliente → servicio («orden») → asignación y agenda → equipos → evidencia y cierre.
+ * «calificacion» es una vista aparte, solo lectura, para admin.
+ */
+export type OrdenFormTab = "cliente" | "orden" | "asignacion" | "equipos" | "evidencia" | "calificacion";
 
 export function useOrdenFormModalState({
   canCreate,

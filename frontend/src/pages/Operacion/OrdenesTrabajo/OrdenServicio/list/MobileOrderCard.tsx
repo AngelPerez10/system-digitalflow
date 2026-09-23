@@ -1,4 +1,4 @@
-import { OrdenViewModal } from "../../OrdenTrabajoModals";
+import { OrdenDetailModal } from "../shared/OrdenDialogs";
 import { memo, useMemo, useState } from "react";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { erpMobileCardClass } from "../ordenServicioStyles";
@@ -343,7 +343,7 @@ export function MobileOrderCard({
         )}
       </footer>
 
-      <OrdenViewModal
+      <OrdenDetailModal
         open={showProblematicaModal}
         onClose={() => setShowProblematicaModal(false)}
         title="Problemática"
@@ -352,7 +352,7 @@ export function MobileOrderCard({
         <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 text-[13px] dark:border-[#273244] dark:bg-[#0f172a]/60">
           {orden.problematica || "—"}
         </pre>
-      </OrdenViewModal>
+      </OrdenDetailModal>
     </article>
   );
 }

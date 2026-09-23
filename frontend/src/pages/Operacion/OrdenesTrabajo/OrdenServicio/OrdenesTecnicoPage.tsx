@@ -2,13 +2,13 @@
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { OrdenesPageStats } from "./list/OrdenesPageStats";
 import OrdenesListFiltersPopover from "./list/OrdenesListFiltersPopover";
 import OrdenesStatusSegmentFilter from "./list/OrdenesStatusSegmentFilter";
+import { tecnicoDisplayLabel } from "./form/tabs/ordenTabHelpers";
 import OrdenFormModal, { ORDEN_FORM_PANEL_IDS, ORDEN_FORM_TAB_IDS } from "./form/OrdenFormModal";
 import { OrdenClienteTab } from "./form/tabs/OrdenClienteTab";
 import { OrdenDetalleTab } from "./form/tabs/OrdenDetalleTab";
@@ -18,7 +18,8 @@ import {
   type Usuario,
 } from "./shared/ordenesPageTypes";
 import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
-import { useOrdenFormDraft } from "./form/useOrdenFormDraft";
+import { useOrdenFormDraft, type LevantamientoSnap } from "./form/useOrdenFormDraft";
+import OrdenLocationMapModal from "./form/fields/OrdenLocationMapModal";
 import { useOrdenesList } from "./shared/useOrdenesList";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
@@ -53,10 +54,7 @@ import {
 } from "./shared/useOrdenesShared";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
-import {
-  OrdenDeleteModal,
-  OrdenViewModal,
-} from "../OrdenTrabajoModals";
+import { OrdenDeleteDialog, OrdenDetailModal } from "./shared/OrdenDialogs";
 import {
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
@@ -99,7 +97,7 @@ export default function OrdenesTecnico() {
 
   const formScrollRef = useRef<HTMLFormElement>(null);
 
-  const levantamientoSnapshotRef = useRef<{ payload: any; dibujo_url: string; cerco_materiales?: any[] } | null>(null);
+  const levantamientoSnapshotRef = useRef<LevantamientoSnap | null>(null);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -329,110 +327,11 @@ export default function OrdenesTecnico() {
   };
 
   const [showMapModal, setShowMapModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number, lng: number } | null>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const zoomRef = useRef<number>(15);
-  const mapContainerId = 'leaflet-map';
 
   const [problematicaModal, setProblematicaModal] = useState<{ open: boolean, content: string }>({ open: false, content: '' });
   const [serviciosModal, setServiciosModal] = useState<{ open: boolean; content: string[] }>({ open: false, content: [] });
   const [comentarioModal, setComentarioModal] = useState<{ open: boolean; content: string }>({ open: false, content: '' });
 
-  // Cargar Leaflet en demanda e inicializar mapa al abrir modal
-  useEffect(() => {
-    if (!showMapModal) {
-      if (mapRef.current) {
-        try { mapRef.current.remove(); } catch { /* mapa Leaflet ya destruido */ }
-        mapRef.current = null;
-        markerRef.current = null;
-      }
-      return;
-    }
-
-    const initFromDireccion = () => {
-      const d = (formData.direccion || '').trim();
-      const m = d.match(/q=([-\d.]+),([-\d.]+)/);
-      if (m) {
-        const lat = parseFloat(m[1]);
-        const lng = parseFloat(m[2]);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setSelectedLocation({ lat, lng });
-          return true;
-        }
-      }
-      return false;
-    };
-
-    const ensureLeaflet = async () => {
-      const w = window as Window & { L?: unknown };
-      if (w.L) return w.L;
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        link.crossOrigin = '';
-        document.head.appendChild(link);
-      }
-      await new Promise<void>((resolve, reject) => {
-        if (document.getElementById('leaflet-js')) return resolve();
-        const script = document.createElement('script');
-        script.id = 'leaflet-js';
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.crossOrigin = '';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Leaflet load error'));
-        document.body.appendChild(script);
-      });
-      return (window as Window & { L?: unknown }).L;
-    };
-
-    void (async () => {
-      try {
-        const L: any = await ensureLeaflet();
-        const had = initFromDireccion();
-        if (!had && !selectedLocation) {
-          setSelectedLocation({ lat: 19.0653, lng: -104.2831 });
-        }
-        const container = document.getElementById(mapContainerId);
-        if (!container) return;
-        const center = selectedLocation || { lat: 19.0653, lng: -104.2831 };
-        const map = L.map(container).setView([center.lat, center.lng], zoomRef.current || 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors',
-        }).addTo(map);
-        map.on('zoomend', () => {
-          try { zoomRef.current = map.getZoom(); } catch { /* zoom durante teardown */ }
-        });
-        map.on('click', (e: any) => {
-          const { lat, lng } = e.latlng;
-          setSelectedLocation({ lat, lng });
-        });
-        mapRef.current = map;
-        if (selectedLocation) {
-          markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
-        }
-      } catch {
-        setAlert({ show: true, variant: 'error', title: 'Error de mapa', message: 'No se pudo cargar el mapa interactivo.' });
-        setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3000);
-      }
-    })();
-  }, [showMapModal, formData.direccion, selectedLocation, setAlert]);
-
-  useEffect(() => {
-    const L: any = (window as any).L;
-    if (!mapRef.current || !selectedLocation || !L) return;
-    const map = mapRef.current;
-    const currentZoom = typeof zoomRef.current === 'number' ? zoomRef.current : map.getZoom?.() || 15;
-    map.setView([selectedLocation.lat, selectedLocation.lng], currentZoom);
-    if (markerRef.current) {
-      markerRef.current.setLatLng([selectedLocation.lat, selectedLocation.lng]);
-    } else {
-      markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
-    }
-  }, [selectedLocation]);
 
   const handleDeleteClick = (orden: Orden) => {
     if (!canOrdenesDelete) {
@@ -821,16 +720,16 @@ export default function OrdenesTecnico() {
                     orden.status_changed_by_full_name,
                     orden.status_changed_by_username,
                   );
-                  const tecnico = usuarios.find(u => u.id === (orden as any).tecnico_asignado);
+                  const tecnico = usuarios.find(u => u.id === orden.tecnico_asignado);
                   let tecnicoNombre = '-';
                   if (tecnico) {
                     tecnicoNombre = tecnico.first_name && tecnico.last_name ? `${tecnico.first_name} ${tecnico.last_name}` : (tecnico.username || tecnico.email);
-                  } else if ((orden as any).tecnico_asignado_full_name) {
-                    tecnicoNombre = (orden as any).tecnico_asignado_full_name;
-                  } else if ((orden as any).tecnico_asignado_username) {
-                    tecnicoNombre = (orden as any).tecnico_asignado_username;
-                  } else if ((orden as any).tecnico_asignado) {
-                    tecnicoNombre = `ID: ${(orden as any).tecnico_asignado}`;
+                  } else if (orden.tecnico_asignado_full_name) {
+                    tecnicoNombre = orden.tecnico_asignado_full_name;
+                  } else if (orden.tecnico_asignado_username) {
+                    tecnicoNombre = orden.tecnico_asignado_username;
+                  } else if (orden.tecnico_asignado) {
+                    tecnicoNombre = `ID: ${orden.tecnico_asignado}`;
                   }
                   return (
                     <TableRow
@@ -1120,7 +1019,7 @@ export default function OrdenesTecnico() {
       </section>
 
       {/* Modales de detalle */}
-      <OrdenViewModal
+      <OrdenDetailModal
         open={problematicaModal.open}
         onClose={() => setProblematicaModal({ open: false, content: "" })}
         title="Problemática"
@@ -1134,9 +1033,9 @@ export default function OrdenesTecnico() {
         <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
           {problematicaModal.content || "-"}
         </pre>
-      </OrdenViewModal>
+      </OrdenDetailModal>
 
-      <OrdenViewModal
+      <OrdenDetailModal
         open={serviciosModal.open}
         onClose={() => setServiciosModal({ open: false, content: [] })}
         title="Servicios realizados"
@@ -1161,9 +1060,9 @@ export default function OrdenesTecnico() {
             Sin servicios registrados
           </div>
         )}
-      </OrdenViewModal>
+      </OrdenDetailModal>
 
-      <OrdenViewModal
+      <OrdenDetailModal
         open={comentarioModal.open}
         onClose={() => setComentarioModal({ open: false, content: "" })}
         title="Comentario del técnico"
@@ -1177,7 +1076,7 @@ export default function OrdenesTecnico() {
         <pre className="whitespace-pre-wrap wrap-break-word leading-relaxed rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0f172a]/40">
           {comentarioModal.content || "-"}
         </pre>
-      </OrdenViewModal>
+      </OrdenDetailModal>
 
       <OrdenFormModal
         variant="tecnico"
@@ -1198,12 +1097,18 @@ export default function OrdenesTecnico() {
         uploadingPhotos={uploadingPhotos}
         bodyLoading={detailLoading}
         triggerSaveFromFooter={triggerSaveFromFooter}
+        summary={{
+          cliente: formData.cliente,
+          tecnico: tecnicoDisplayLabel(usuarios, formData.tecnico_asignado) || undefined,
+          prioridad: ({ alta: "Alta", media: "Media", baja: "Baja" } as Record<string, string>)[formData.prioridad_pool],
+        }}
         canOrdenesEdit={canOrdenesEdit}
         canOrdenesCreate={canOrdenesCreate}
       >
 
           {activeTab === "cliente" ? (
           <OrdenClienteTab
+            part="cliente"
             hidden={false}
             variant="tecnico"
             panelId={ORDEN_FORM_PANEL_IDS.cliente}
@@ -1249,6 +1154,7 @@ export default function OrdenesTecnico() {
           ) : null}
         {activeTab === "orden" ? (
         <OrdenDetalleTab
+            part="trabajo"
             variant="tecnico"
             panelId={ORDEN_FORM_PANEL_IDS.orden}
             labelledBy={ORDEN_FORM_TAB_IDS.orden}
@@ -1271,6 +1177,52 @@ export default function OrdenesTecnico() {
             addServicio={addServicio}
           />
         ) : null}
+        {activeTab === "asignacion" ? (
+          <OrdenClienteTab
+            part="asignacion"
+            hidden={false}
+            variant="tecnico"
+            panelId={ORDEN_FORM_PANEL_IDS.asignacion}
+            labelledBy={ORDEN_FORM_TAB_IDS.asignacion}
+            editingOrden={editingOrden}
+            formData={formData}
+            setFormData={setFormData}
+            ro={ro}
+            inputLockedClass={inputLockedClass}
+            setClienteSearch={setClienteSearch}
+            clientes={clientes}
+            selectCliente={selectCliente}
+            setShowClienteModal={setShowClienteModal}
+            tecnicoSearch={tecnicoSearch}
+            setTecnicoSearch={setTecnicoSearch}
+            quienInstaloSearch={quienInstaloSearch}
+            setQuienInstaloSearch={setQuienInstaloSearch}
+            quienEntregoSearch={quienEntregoSearch}
+            setQuienEntregoSearch={setQuienEntregoSearch}
+            usuarios={usuarios}
+            selectTecnico={selectTecnico}
+            selectQuienInstalo={selectQuienInstalo}
+            selectQuienEntrego={selectQuienEntrego}
+            setFirmaClienteUrl={setFirmaClienteUrl}
+            setShowMapModal={setShowMapModal}
+            tecnicoSignatureUrl={tecnicoSignatureUrl}
+            maxPhotosAllowed={maxPhotosAllowed}
+            getRootProps={getRootProps}
+            getInputProps={getInputProps}
+            isDragActive={isDragActive}
+            photoPreview={photoPreview}
+            setPhotoPreview={setPhotoPreview}
+            confirmDelete={confirmDelete}
+            setConfirmDelete={setConfirmDelete}
+            confirmDeletePhoto={confirmDeletePhoto}
+            deletingPhoto={deletingPhoto}
+            uploadingPhotos={uploadingPhotos}
+            photoUploadProgress={photoUploadProgress}
+            isReadOnly={isReadOnly}
+            isLimitedEdit={isLimitedEdit}
+            isAdmin={isAdmin}
+          />
+        ) : null}
         {activeTab === "equipos" && (
           <OrdenEquiposTab
             panelId={ORDEN_FORM_PANEL_IDS.equipos}
@@ -1286,10 +1238,65 @@ export default function OrdenesTecnico() {
             onRemoveEquipo={removeEquipo}
           />
         )}
+        {activeTab === "evidencia" && (
+          <div
+            id={ORDEN_FORM_PANEL_IDS.evidencia}
+            role="tabpanel"
+            aria-labelledby={ORDEN_FORM_TAB_IDS.evidencia}
+            tabIndex={-1}
+            className="space-y-5 outline-none"
+          >
+            <OrdenClienteTab
+              part="evidencia"
+              embedded
+              hidden={false}
+              variant="tecnico"
+              panelId={ORDEN_FORM_PANEL_IDS.evidencia}
+              labelledBy={ORDEN_FORM_TAB_IDS.evidencia}
+              editingOrden={editingOrden}
+              formData={formData}
+              setFormData={setFormData}
+              ro={ro}
+              inputLockedClass={inputLockedClass}
+              setClienteSearch={setClienteSearch}
+              clientes={clientes}
+              selectCliente={selectCliente}
+              setShowClienteModal={setShowClienteModal}
+              tecnicoSearch={tecnicoSearch}
+              setTecnicoSearch={setTecnicoSearch}
+              quienInstaloSearch={quienInstaloSearch}
+              setQuienInstaloSearch={setQuienInstaloSearch}
+              quienEntregoSearch={quienEntregoSearch}
+              setQuienEntregoSearch={setQuienEntregoSearch}
+              usuarios={usuarios}
+              selectTecnico={selectTecnico}
+              selectQuienInstalo={selectQuienInstalo}
+              selectQuienEntrego={selectQuienEntrego}
+              setFirmaClienteUrl={setFirmaClienteUrl}
+              setShowMapModal={setShowMapModal}
+              tecnicoSignatureUrl={tecnicoSignatureUrl}
+              maxPhotosAllowed={maxPhotosAllowed}
+              getRootProps={getRootProps}
+              getInputProps={getInputProps}
+              isDragActive={isDragActive}
+              photoPreview={photoPreview}
+              setPhotoPreview={setPhotoPreview}
+              confirmDelete={confirmDelete}
+              setConfirmDelete={setConfirmDelete}
+              confirmDeletePhoto={confirmDeletePhoto}
+              deletingPhoto={deletingPhoto}
+              uploadingPhotos={uploadingPhotos}
+              photoUploadProgress={photoUploadProgress}
+              isReadOnly={isReadOnly}
+              isLimitedEdit={isLimitedEdit}
+              isAdmin={isAdmin}
+            />
+          </div>
+        )}
       </OrdenFormModal>
 
       {ordenToDelete && (
-        <OrdenDeleteModal
+        <OrdenDeleteDialog
           open={showDeleteModal}
           clienteLabel={ordenToDelete.cliente}
           onCancel={handleCancelDelete}
@@ -1297,111 +1304,19 @@ export default function OrdenesTecnico() {
         />
       )}
 
-      {/* Modal Mapa Interactivo */}
-      <Modal
-        isOpen={showMapModal}
+      <OrdenLocationMapModal
+        open={showMapModal}
         onClose={() => setShowMapModal(false)}
-        closeOnBackdropClick={false}
-        ariaLabel="Seleccionar ubicación en el mapa"
-        className="w-[96vw] sm:w-[90vw] md:w-[80vw] max-w-3xl mx-0 sm:mx-auto"
-      >
-        <div className="p-0 overflow-hidden max-h-[90vh] flex flex-col bg-white dark:bg-[#0f172a] rounded-3xl">
-          <div className="px-4 sm:px-5 py-4 border-b border-[#E7E7EA] dark:border-[#273244]">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30">
-                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div>
-                <h5 className="text-base font-semibold text-[#09090B] dark:text-[#F8FAFC]">Seleccionar Ubicación</h5>
-                <p className="text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">Haz clic en el mapa para seleccionar la ubicación</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 sm:p-5 flex-1 overflow-auto">
-            <div className="space-y-4">
-              <div className="relative w-full h-[50vh] sm:h-[55vh] md:h-[60vh] rounded-lg overflow-hidden border border-[#E7E7EA] dark:border-[#273244]">
-                <div id="leaflet-map" className="absolute inset-0" />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">O ingresa las coordenadas manualmente</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <input type="text" placeholder="Latitud (ej: 19.0653)" value={selectedLocation?.lat || ''} onChange={(e) => { const lat = parseFloat(e.target.value); if (!isNaN(lat)) setSelectedLocation({ lat, lng: selectedLocation?.lng || -104.2831 }); }} className="w-full h-10 rounded-lg border border-[#E7E7EA] dark:border-[#273244] bg-white dark:bg-[#111827] text-sm px-3 text-[#09090B] dark:text-[#B7C1D1] outline-none" />
-                  </div>
-                  <div>
-                    <input type="text" placeholder="Longitud (ej: -104.2831)" value={selectedLocation?.lng || ''} onChange={(e) => { const lng = parseFloat(e.target.value); if (!isNaN(lng)) setSelectedLocation({ lat: selectedLocation?.lat || 19.0653, lng }); }} className="w-full h-10 rounded-lg border border-[#E7E7EA] dark:border-[#273244] bg-white dark:bg-[#111827] text-sm px-3 text-[#09090B] dark:text-[#B7C1D1] outline-none" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* Footer */}
-          <div className="px-4 sm:px-5 py-4 border-t border-[#E7E7EA] dark:border-[#273244] flex flex-col sm:flex-row justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowMapModal(false)}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-[#E7E7EA] bg-white text-[#52525B] hover:bg-[#FAFAFA] focus:ring-2 focus:ring-gray-300/40 dark:border-[#273244] dark:bg-[#111827] dark:text-[#B7C1D1] dark:hover:bg-gray-700"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                bumpFormNonce();
-                if (!navigator.geolocation) {
-                  setAlert({ show: true, variant: 'warning', title: 'Geolocalización no disponible', message: 'Tu navegador no soporta geolocalización.' });
-                  setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                  return;
-                }
-                if (!window.isSecureContext) {
-                  setAlert({ show: true, variant: 'warning', title: 'Se requiere conexión segura', message: 'La geolocalización requiere HTTPS (o localhost). Abre el sistema con HTTPS o en localhost e inténtalo de nuevo.' });
-                  setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3200);
-                  return;
-                }
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    setSelectedLocation({ lat: latitude, lng: longitude });
-                    const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                    setFormData((prev) => ({ ...prev, direccion: url }));
-                    setShowMapModal(false);
-                    setSelectedLocation(null);
-                  },
-                  () => {
-                    setAlert({ show: true, variant: 'warning', title: 'No se pudo obtener ubicación', message: 'Activa permisos de ubicación e inténtalo de nuevo.' });
-                    setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
-                  },
-                  { enableHighAccuracy: true, timeout: 8000 }
-                );
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[12px] border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 focus:ring-2 focus:ring-blue-300/40 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7z" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Usar mi ubicación
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const loc = selectedLocation || { lat: 19.0653, lng: -104.2831 };
-                const url = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
-                setFormData({ ...formData, direccion: url });
-                setShowMapModal(false);
-                setSelectedLocation(null);
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-[12px] bg-[#1B5CFF] text-white hover:bg-[#1B5CFF] focus:ring-2 focus:ring-[#1B5CFF]/30"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Usar esta ubicación
-            </button>
-          </div>
-        </div>
-      </Modal>
+        direccion={formData.direccion}
+        onConfirm={(url) => {
+          bumpFormNonce();
+          setFormData((prev) => ({ ...prev, direccion: url }));
+        }}
+        onNotify={({ variant, title, message }) => {
+          setAlert({ show: true, variant, title, message });
+          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3200);
+        }}
+      />
 
       <ClienteFormModal
         isOpen={showClienteModal}

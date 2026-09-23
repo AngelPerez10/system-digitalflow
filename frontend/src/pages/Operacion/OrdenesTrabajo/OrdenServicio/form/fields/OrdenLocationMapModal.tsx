@@ -1,11 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Modal } from "@/components/ui/modal";
-import {
-  erpBodyClass,
-  erpInputLikeClass,
-  erpSubheadingClass,
-} from "@/layout/erpPageStyles";
-import { erpModalPrimaryBtnClass, erpModalSecondaryBtnClass } from "../../../ordenTrabajoStyles";
+import { Check, ExternalLink, Loader2, LocateFixed, MapPin, Minus, Plus, X } from "lucide-react";
+import { AppModal } from "@/components/ui/modal-kit/ModalKit";
 
 export type OrdenMapLatLng = { lat: number; lng: number };
 
@@ -22,20 +17,22 @@ type OrdenLocationMapModalProps = {
   }) => void;
 };
 
-type LeafletMap = {
+export type LeafletMap = {
   remove: () => void;
   setView: (center: [number, number], zoom?: number) => LeafletMap;
   getZoom: () => number;
+  zoomIn: () => LeafletMap;
+  zoomOut: () => LeafletMap;
   invalidateSize: (animate?: boolean) => void;
   on: (event: string, handler: (e?: { latlng?: OrdenMapLatLng }) => void) => LeafletMap;
 };
 
-type LeafletMarker = {
+export type LeafletMarker = {
   setLatLng: (latlng: [number, number]) => void;
   addTo: (map: LeafletMap) => LeafletMarker;
 };
 
-type LeafletNS = {
+export type LeafletNS = {
   map: (el: HTMLElement | string, options?: { zoomControl?: boolean }) => LeafletMap;
   tileLayer: (
     url: string,
@@ -57,10 +54,6 @@ function parseLatLngFromDireccion(direccion: string): OrdenMapLatLng | null {
 
 function mapsUrlFrom(loc: OrdenMapLatLng): string {
   return `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
-}
-
-function formatCoord(n: number): string {
-  return n.toFixed(6);
 }
 
 async function ensureLeaflet(): Promise<LeafletNS> {
@@ -128,29 +121,24 @@ export default function OrdenLocationMapModal({
   onNotify,
 }: OrdenLocationMapModalProps) {
   const titleId = useId().replace(/:/g, "");
+  const descId = useId().replace(/:/g, "");
   const mapDomId = useId().replace(/:/g, "");
-  const latId = useId().replace(/:/g, "");
-  const lngId = useId().replace(/:/g, "");
 
   const mapRef = useRef<LeafletMap | null>(null);
   const markerRef = useRef<LeafletMarker | null>(null);
   const zoomRef = useRef(15);
   const locationRef = useRef<OrdenMapLatLng>(DEFAULT_CENTER);
+  /** true = el cambio viene de tocar el mapa: mover solo el pin, sin recentrar (evita saltos). */
+  const skipRecenterRef = useRef(false);
 
   const [location, setLocation] = useState<OrdenMapLatLng>(DEFAULT_CENTER);
-  const [latText, setLatText] = useState(formatCoord(DEFAULT_CENTER.lat));
-  const [lngText, setLngText] = useState(formatCoord(DEFAULT_CENTER.lng));
   const [mapReady, setMapReady] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
 
   locationRef.current = location;
 
-  const applyLocation = (next: OrdenMapLatLng, syncInputs = true) => {
+  const applyLocation = (next: OrdenMapLatLng) => {
     setLocation(next);
-    if (syncInputs) {
-      setLatText(formatCoord(next.lat));
-      setLngText(formatCoord(next.lng));
-    }
   };
 
   // Inicializar / destruir mapa al abrir / cerrar
@@ -184,7 +172,7 @@ export default function OrdenLocationMapModal({
         const el = document.getElementById(mapDomId);
         if (!el) return;
 
-        const map = L.map(el, { zoomControl: true }).setView(
+        const map = L.map(el, { zoomControl: false }).setView(
           [initial.lat, initial.lng],
           zoomRef.current
         );
@@ -202,6 +190,7 @@ export default function OrdenLocationMapModal({
         });
         map.on("click", (e) => {
           if (!e?.latlng) return;
+          skipRecenterRef.current = true;
           applyLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
         });
 
@@ -251,8 +240,12 @@ export default function OrdenLocationMapModal({
     const map = mapRef.current;
     const L = (window as Window & { L?: LeafletNS }).L;
     if (!open || !map || !L || !mapReady) return;
-    const zoom = typeof zoomRef.current === "number" ? zoomRef.current : map.getZoom();
-    map.setView([location.lat, location.lng], zoom);
+    if (skipRecenterRef.current) {
+      skipRecenterRef.current = false;
+    } else {
+      const zoom = typeof zoomRef.current === "number" ? zoomRef.current : map.getZoom();
+      map.setView([location.lat, location.lng], zoom);
+    }
     if (markerRef.current) {
       markerRef.current.setLatLng([location.lat, location.lng]);
     } else {
@@ -260,24 +253,7 @@ export default function OrdenLocationMapModal({
     }
   }, [location, open, mapReady]);
 
-  const commitLatText = () => {
-    const lat = Number.parseFloat(latText.replace(",", "."));
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
-      setLatText(formatCoord(location.lat));
-      return;
-    }
-    applyLocation({ lat, lng: location.lng });
-  };
-
-  const commitLngText = () => {
-    const lng = Number.parseFloat(lngText.replace(",", "."));
-    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
-      setLngText(formatCoord(location.lng));
-      return;
-    }
-    applyLocation({ lat: location.lat, lng });
-  };
-
+  /** Mueve el pin a tu posición actual; confirmas tú con «Usar esta ubicación». */
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
       onNotify?.({
@@ -300,10 +276,8 @@ export default function OrdenLocationMapModal({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGeoLoading(false);
-        const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        applyLocation(next);
-        onConfirm(mapsUrlFrom(next), next);
-        onClose();
+        zoomRef.current = Math.max(zoomRef.current, 17);
+        applyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
       () => {
         setGeoLoading(false);
@@ -322,157 +296,143 @@ export default function OrdenLocationMapModal({
     onClose();
   };
 
+  const zoomBy = (delta: 1 | -1) => {
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      if (delta > 0) map.zoomIn();
+      else map.zoomOut();
+    } catch {
+      /* mapa en teardown */
+    }
+  };
+
+  const floatingBtn =
+    "inline-flex size-11 items-center justify-center bg-white text-[#27272A] transition-colors hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#111827] dark:text-[#E5E7EB] dark:hover:bg-[#1B2539]";
+
   return (
-    <Modal
-      isOpen={open}
+    <AppModal
+      open={open}
       onClose={onClose}
-      closeOnBackdropClick={false}
-      ariaLabelledBy={titleId}
-      className="mx-0 w-[min(96vw,52rem)] max-w-4xl overflow-hidden rounded-3xl border border-[#E7E7EA] bg-[#FFFFFF] p-0 shadow-[0_30px_90px_-40px_rgba(28,25,23,0.55)] dark:border-[#273244] dark:bg-[#111827] sm:mx-auto"
+      size="lg"
+      labelledBy={titleId}
+      describedBy={descId}
+      className="sm:max-w-4xl!"
     >
-      <div className="flex max-h-[92vh] flex-col">
-        <header className="relative shrink-0 border-b border-[#E7E7EA] bg-gradient-to-r from-[#FAFAFA] via-[#fffaf3] to-[#FFFFFF] px-4 py-4 pr-14 dark:border-[#273244] dark:from-[#111827] dark:via-[#111827] dark:to-[#0f172a] sm:px-6 sm:pr-16">
-          <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#1B5CFF]" aria-hidden />
-          <div className="flex items-start gap-3">
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-white shadow-sm">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                <path
-                  d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <circle cx="12" cy="10" r="2.5" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1B5CFF] dark:text-[#4B7CFF]">
-                Órdenes · Ubicación
-              </p>
-              <h3 id={titleId} className={`mt-1 ${erpSubheadingClass}`}>
-                Seleccionar ubicación
-              </h3>
-              <p className={`mt-1 text-sm ${erpBodyClass}`}>
-                Toca el mapa o escribe latitud y longitud. Se guardará un enlace de Google Maps.
-              </p>
-            </div>
-          </div>
-        </header>
+      <div className="relative h-[min(82dvh,720px)] min-h-[480px] overflow-hidden bg-[#E5E7EB] dark:bg-[#0B1220]">
+        {/* Mapa a todo el modal */}
+        <div
+          className="absolute inset-0"
+          role="application"
+          aria-label="Mapa interactivo: haz clic o toca para mover el pin"
+        >
+          <div id={mapDomId} className="absolute inset-0 z-0" />
+        </div>
 
-        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-          <div className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#0f172a] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:border-[#273244]">
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 z-[500] flex justify-center p-3"
-              aria-hidden={!mapReady}
-            >
-              <span className="rounded-full border border-white/15 bg-[#0f172a]/75 px-3 py-1.5 text-[11px] font-medium text-[#f8fafc] shadow-lg backdrop-blur-md">
-                {mapReady ? "Haz clic en el mapa para colocar el pin" : "Cargando mapa…"}
+        {/* Encabezado flotante */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[600] bg-gradient-to-b from-[#0B1220]/75 via-[#0B1220]/35 to-transparent px-4 pb-10 pt-4 sm:px-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#1B5CFF] shadow-md dark:bg-[#111827] dark:text-[#9BB6FF]">
+                <MapPin className="size-5" strokeWidth={2} aria-hidden />
               </span>
+              <div className="min-w-0">
+                <h2 id={titleId} className="text-[17px] font-semibold tracking-[-0.2px] text-white drop-shadow">
+                  Ubicación del servicio
+                </h2>
+                <p id={descId} className="truncate text-[13px] text-white/85 drop-shadow">
+                  {mapReady ? "Toca el mapa para mover el pin" : "Cargando mapa…"}
+                </p>
+              </div>
             </div>
-
-            <div
-              className="relative h-[min(52vh,28rem)] w-full sm:h-[min(56vh,32rem)]"
-              role="application"
-              aria-label="Mapa interactivo para elegir coordenadas"
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar ventana"
+              className="pointer-events-auto inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-white/95 text-[#27272A] shadow-md transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white dark:bg-[#111827]/95 dark:text-[#E5E7EB]"
             >
-              <div id={mapDomId} className="absolute inset-0 z-0" />
-            </div>
-
-            <div className="pointer-events-none absolute bottom-3 left-3 z-[500] max-w-[min(100%-1.5rem,18rem)] rounded-xl border border-white/10 bg-[#0f172a]/80 px-3 py-2 text-[11px] text-[#e2e8f0] shadow-lg backdrop-blur-md">
-              <p className="font-semibold text-[#f8fafc]">Pin actual</p>
-              <p className="mt-0.5 tabular-nums text-[#94a3b8]">
-                {formatCoord(location.lat)}, {formatCoord(location.lng)}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#0f172a]/50">
-            <p className="mb-3 text-xs font-medium text-[#52525B] dark:text-[#aeb8c8]">
-              O ingresa las coordenadas manualmente
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label htmlFor={latId} className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                  Latitud
-                </label>
-                <input
-                  id={latId}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="Ej. 19.065300"
-                  value={latText}
-                  onChange={(e) => setLatText(e.target.value)}
-                  onBlur={commitLatText}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      commitLatText();
-                    }
-                  }}
-                  className={erpInputLikeClass}
-                />
-              </div>
-              <div>
-                <label htmlFor={lngId} className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                  Longitud
-                </label>
-                <input
-                  id={lngId}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="Ej. -104.283100"
-                  value={lngText}
-                  onChange={(e) => setLngText(e.target.value)}
-                  onBlur={commitLngText}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      commitLngText();
-                    }
-                  }}
-                  className={erpInputLikeClass}
-                />
-              </div>
-            </div>
-            <p className="mt-3 break-all text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
-              <span className="font-medium text-[#52525B] dark:text-[#aeb8c8]">Vista previa: </span>
-              <a
-                href={mapsUrlFrom(location)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#1B5CFF] underline-offset-2 hover:underline dark:text-[#4B7CFF]"
-              >
-                {mapsUrlFrom(location)}
-              </a>
-            </p>
+              <X className="size-5" aria-hidden />
+            </button>
           </div>
         </div>
 
-        <footer className="flex shrink-0 flex-col-reverse gap-2.5 border-t border-[#E7E7EA] bg-[#FAFAFA] px-4 py-4 dark:border-[#273244] dark:bg-[#111827] sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6">
-          <button type="button" onClick={onClose} className={erpModalSecondaryBtnClass}>
-            Cancelar
-          </button>
+        {!mapReady && (
+          <div className="absolute inset-0 z-[550] flex items-center justify-center" role="status">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[13px] font-medium text-[#27272A] shadow-lg dark:bg-[#111827] dark:text-[#E5E7EB]">
+              <Loader2 className="size-4 animate-spin text-[#1B5CFF]" aria-hidden />
+              Cargando mapa…
+            </span>
+          </div>
+        )}
+
+        {/* Controles flotantes (derecha) */}
+        <div className="absolute right-4 top-1/2 z-[600] flex -translate-y-1/2 flex-col gap-3 sm:right-5">
+          <div className="flex flex-col overflow-hidden rounded-xl shadow-[0_8px_20px_-8px_rgba(9,9,11,0.45)] ring-1 ring-black/5 dark:ring-white/10">
+            <button type="button" onClick={() => zoomBy(1)} disabled={!mapReady} aria-label="Acercar" className={floatingBtn}>
+              <Plus className="size-5" aria-hidden />
+            </button>
+            <span className="h-px bg-[#E4E4E7] dark:bg-[#273244]" aria-hidden />
+            <button type="button" onClick={() => zoomBy(-1)} disabled={!mapReady} aria-label="Alejar" className={floatingBtn}>
+              <Minus className="size-5" aria-hidden />
+            </button>
+          </div>
           <button
             type="button"
             onClick={handleUseMyLocation}
-            disabled={geoLoading}
+            disabled={geoLoading || !mapReady}
             aria-busy={geoLoading || undefined}
-            className={`${erpModalSecondaryBtnClass} border-[#BFD3FF] text-[#1244D1] hover:bg-[#F1F5FF] dark:border-[#4B7CFF]/35 dark:text-[#4B7CFF] dark:hover:bg-[#4B7CFF]/10`}
+            aria-label="Ir a mi ubicación"
+            title="Ir a mi ubicación"
+            className={`${floatingBtn} rounded-xl text-[#1B5CFF]! shadow-[0_8px_20px_-8px_rgba(9,9,11,0.45)] ring-1 ring-black/5 dark:text-[#9BB6FF]! dark:ring-white/10`}
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" strokeLinecap="round" />
-            </svg>
-            {geoLoading ? "Obteniendo…" : "Usar mi ubicación"}
+            {geoLoading ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <LocateFixed className="size-5" aria-hidden />}
           </button>
-          <button type="button" onClick={handleConfirm} className={erpModalPrimaryBtnClass}>
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Usar esta ubicación
-          </button>
-        </footer>
+        </div>
+
+        {/* Tarjeta flotante (abajo) */}
+        <div className="absolute inset-x-3 bottom-7 z-[600] sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-[min(100%-2.5rem,26rem)]">
+          <div className="cot-pop rounded-2xl bg-white p-4 shadow-[0_18px_40px_-16px_rgba(9,9,11,0.5)] ring-1 ring-black/5 dark:bg-[#111827] dark:ring-white/10">
+            <div className="flex items-center gap-3">
+              <span
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF]"
+                aria-hidden
+              >
+                <MapPin className="size-5" strokeWidth={2} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">Pin colocado</p>
+                <a
+                  href={mapsUrlFrom(location)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[13px] font-medium text-[#1B5CFF] underline-offset-4 hover:underline dark:text-[#7FA2FF]"
+                >
+                  Revisar en Google Maps
+                  <ExternalLink className="size-3.5" aria-hidden />
+                </a>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-[auto_1fr] gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-11 items-center justify-center rounded-xl px-4 text-[14px] font-medium text-[#52525B] transition-colors hover:bg-[#F4F4F5] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:text-[#B7C1D1] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={!mapReady}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1B5CFF] px-4 text-[14px] font-semibold text-white transition-[background-color,transform] hover:bg-[#1244D1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.25)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#4B7CFF] dark:hover:bg-[#3B6AF0]"
+              >
+                <Check className="size-4" aria-hidden />
+                Usar esta ubicación
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </Modal>
+    </AppModal>
   );
 }

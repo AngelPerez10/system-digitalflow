@@ -9,11 +9,10 @@ import { TimeIcon } from "@/icons";
 import { buildClienteSearchActions } from "@/components/clientes/clienteSearchActions";
 import { direccionParaOrden, direccionResumen } from "@/components/clientes/clienteFormShared";
 import { Cliente } from "@/types/cliente";
-import { ORDEN_BASE_MAX_FOTOS, type FotosExtraMax, type Usuario } from "../../shared/ordenesPageTypes";
-import {
-  OrdenPhotoDeleteModal,
-  OrdenPhotoPreviewModal,
-} from "../../../OrdenTrabajoModals";
+import { FOTOS_EXTRA_OPTIONS, ORDEN_BASE_MAX_FOTOS, type FotosExtraMax, type Usuario } from "../../shared/ordenesPageTypes";
+import { Images } from "lucide-react";
+import { OrdenPhotoPreviewModal } from "../../../OrdenTrabajoModals";
+import { OrdenPhotoDeleteDialog } from "../../shared/OrdenDialogs";
 import type { OrdenFormData } from "../useOrdenFormDraft";
 import { useBufferedTextField } from "../useBufferedTextField";
 import SearchableSelect, { type SearchableSelectOption } from "@/components/form/SearchableSelect";
@@ -40,6 +39,13 @@ function localYmdAndHm(now = new Date()): { ymd: string; hm: string } {
 
 export type OrdenClienteTabProps = {
   variant: "admin" | "tecnico";
+  /**
+   * Qué bloques pinta: «cliente» (cliente y contacto), «asignacion» (equipo, status,
+   * prioridad y agenda) o «evidencia» (fotos y firmas). Por defecto, todos.
+   */
+  part?: "cliente" | "asignacion" | "evidencia" | "all";
+  /** true = sin envoltura de tabpanel (la pone quien compone el paso). */
+  embedded?: boolean;
   panelId: string;
   labelledBy: string;
   editingOrden:
@@ -137,6 +143,8 @@ export function OrdenClienteTab({
   isLimitedEdit = false,
   isAdmin = false,
   hidden = false,
+  part = "all",
+  embedded = false,
 }: OrdenClienteTabProps) {
   const fotosExtraId = variant === "admin" ? "fotos-extra-max" : "fotos-extra-max-tecnico";
   const fotosExtraHintId = variant === "admin" ? "fotos-extra-hint-admin" : "fotos-extra-hint-tecnico";
@@ -428,18 +436,27 @@ export function OrdenClienteTab({
     if (u) select(u);
   };
 
+  const showCliente = part === "all" || part === "cliente";
+  const showAsignacion = part === "all" || part === "asignacion";
+  const showEvidencia = part === "all" || part === "evidencia";
+
   return (
     <div
-      id={panelId}
-      role="tabpanel"
-      aria-labelledby={labelledBy}
+      {...(embedded
+        ? {}
+        : {
+            id: panelId,
+            role: "tabpanel",
+            "aria-labelledby": labelledBy,
+            tabIndex: hidden ? undefined : -1,
+          })}
       hidden={hidden}
-      tabIndex={hidden ? undefined : -1}
-      className="space-y-6 focus:outline-none"
+      className="space-y-5 focus:outline-none"
     >
+      {showCliente && (
       <OrdenFormSection
         title="Cliente y contacto"
-        description="Quién recibe el servicio y cómo localizarlo."
+        description="Quién recibe el servicio, cómo contactarlo y dónde es."
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" strokeLinecap="round" strokeLinejoin="round" />
@@ -608,10 +625,12 @@ export function OrdenClienteTab({
           </div>
         </div>
       </OrdenFormSection>
+      )}
 
+      {showAsignacion && (
       <OrdenFormSection
-        title="Asignación del equipo"
-        description="Quién atiende la orden, instalación/entrega, status y prioridad en bolsa."
+        title="Responsables y estado"
+        description="Quién atiende la orden, quién instaló y entregó, su status y la prioridad."
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" strokeLinecap="round" strokeLinejoin="round" />
@@ -853,10 +872,12 @@ export function OrdenClienteTab({
           </div>
         ) : null}
       </OrdenFormSection>
+      )}
 
+      {showAsignacion && (
       <OrdenFormSection
-        title="Agenda y tiempo"
-        description="Inicio y cierre del servicio en campo."
+        title="Agenda"
+        description="Cuándo empezó y cuándo terminó el servicio en campo."
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
@@ -926,10 +947,12 @@ export function OrdenClienteTab({
           </div>
         </div>
       </OrdenFormSection>
+      )}
 
+      {showEvidencia && (
       <OrdenFormSection
-        title="Evidencia"
-        description="Firmas y fotos del servicio."
+        title="Fotos y firmas"
+        description="Evidencia del trabajo y conformidad del cliente."
         icon={
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeLinecap="round" strokeLinejoin="round" />
@@ -960,29 +983,81 @@ export function OrdenClienteTab({
         </div>
 
         {!ro("fotos_extra_max") && (
-          <div className={`rounded-lg border border-[#E7E7EA] p-3 dark:border-[#273244] sm:p-4 ${variant === "tecnico" ? "mb-3" : ""} space-y-2`}>
-            <label htmlFor={fotosExtraId} className="block text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">
-              Fotos adicionales (además de las {ORDEN_BASE_MAX_FOTOS} base)
-            </label>
-            <select
-              id={fotosExtraId}
-              value={formData.fotos_extra_max}
-              onChange={(e) => {
-                const n = Number(e.target.value) as FotosExtraMax;
-                setFormData({ ...formData, fotos_extra_max: n });
-              }}
-              className="h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3.5 text-sm text-[#09090B] outline-none transition-colors focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC]"
-              aria-describedby={fotosExtraHintId}
+          <div
+            role="group"
+            aria-labelledby={fotosExtraId}
+            className={`rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#0F172A]/60 ${variant === "tecnico" ? "mb-3" : ""}`}
+            aria-describedby={fotosExtraHintId}
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#1B5CFF] ring-1 ring-inset ring-[#E4E4E7] dark:bg-[#111827] dark:text-[#9BB6FF] dark:ring-[#273244]"
+                aria-hidden
+              >
+                <Images className="size-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p id={fotosExtraId} className="text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                  Límite de fotos
+                </p>
+                <p className="text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
+                  Incluye {ORDEN_BASE_MAX_FOTOS}. Permite más si el trabajo lo necesita.
+                </p>
+              </div>
+            </div>
+
+            <div
+              role="radiogroup"
+              aria-labelledby={fotosExtraId}
+              className="mt-3.5 grid grid-cols-5 gap-1 rounded-[10px] border border-[#E4E4E7] bg-white p-1 dark:border-[#273244] dark:bg-[#111827]"
             >
-              <option value={0}>Ninguna — máximo {ORDEN_BASE_MAX_FOTOS} en total</option>
-              <option value={2}>+2 — máximo {ORDEN_BASE_MAX_FOTOS + 2} en total</option>
-              <option value={3}>+3 — máximo {ORDEN_BASE_MAX_FOTOS + 3} en total</option>
-              <option value={4}>+4 — máximo {ORDEN_BASE_MAX_FOTOS + 4} en total</option>
-              <option value={5}>+5 — máximo {ORDEN_BASE_MAX_FOTOS + 5} en total</option>
-            </select>
-            <p id={fotosExtraHintId} className="text-xs text-[#52525B] dark:text-[#8ea0b8]">
-              Límite actual: {maxPhotosAllowed} fotos en total.
-            </p>
+              {FOTOS_EXTRA_OPTIONS.map((extra) => {
+                const active = formData.fotos_extra_max === extra;
+                return (
+                  <button
+                    key={extra}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    aria-label={extra === 0 ? `Sin fotos extra, ${ORDEN_BASE_MAX_FOTOS} en total` : `${extra} fotos extra, ${ORDEN_BASE_MAX_FOTOS + extra} en total`}
+                    onClick={() => setFormData({ ...formData, fotos_extra_max: extra as FotosExtraMax })}
+                    className={`flex min-h-12 flex-col items-center justify-center rounded-[7px] px-1 leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 ${
+                      active
+                        ? "bg-[#1B5CFF] text-white shadow-sm dark:bg-[#4B7CFF]"
+                        : "text-[#3F3F46] hover:bg-[#F4F4F5] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539]"
+                    }`}
+                  >
+                    <span className="text-[14px] font-semibold">{extra === 0 ? "Sin extra" : `+${extra}`}</span>
+                    <span className={`text-[11px] ${active ? "text-white/80" : "text-[#A1A1AA] dark:text-[#64748B]"}`}>
+                      {ORDEN_BASE_MAX_FOTOS + extra} total
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {(() => {
+              const usadas = Array.isArray(formData.fotos_urls) ? formData.fotos_urls.length : 0;
+              return (
+                <div className="mt-3.5" id={fotosExtraHintId}>
+                  <div className="flex gap-1" aria-hidden>
+                    {Array.from({ length: maxPhotosAllowed }).map((_, i) => (
+                      <span
+                        key={i}
+                        className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                          i < usadas ? "bg-[#1B5CFF] dark:bg-[#4B7CFF]" : "bg-[#E4E4E7] dark:bg-[#273244]"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
+                    <span className="font-semibold tabular-nums text-[#27272A] dark:text-[#E5E7EB]">{usadas}</span> de{" "}
+                    <span className="tabular-nums">{maxPhotosAllowed}</span> fotos subidas
+                    {usadas > maxPhotosAllowed ? " · hay más fotos que el límite elegido" : ""}
+                  </p>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1152,7 +1227,7 @@ export function OrdenClienteTab({
               : undefined
           }
         />
-        <OrdenPhotoDeleteModal
+        <OrdenPhotoDeleteDialog
           open={confirmDelete.open}
           deleting={deletingPhoto}
           onCancel={() => setConfirmDelete({ open: false, index: null, url: null })}
@@ -1163,6 +1238,7 @@ export function OrdenClienteTab({
           }}
         />
       </OrdenFormSection>
+      )}
     </div>
   );
 }

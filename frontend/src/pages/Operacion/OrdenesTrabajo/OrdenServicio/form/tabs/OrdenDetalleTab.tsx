@@ -14,6 +14,10 @@ import { OrdenFormSection, RequiredMark, type OrdenFieldKey } from "./ordenTabHe
 const SERVICIO_CREAR_PREFIX = "__crear__:";
 
 export type OrdenDetalleTabProps = {
+  /** «trabajo» = trabajo en campo (y levantamiento); «admin» = seguimiento administrativo. */
+  part?: "trabajo" | "admin" | "all";
+  /** true = sin envoltura de tabpanel (la pone quien compone el paso). */
+  embedded?: boolean;
   variant: "admin" | "tecnico";
   panelId: string;
   labelledBy: string;
@@ -47,12 +51,12 @@ export type OrdenDetalleTabProps = {
 
 export function OrdenDetalleTab({
   variant,
+  part = "all",
+  embedded = false,
   panelId,
   labelledBy,
   isActive,
   showLevantamiento,
-  tipoOrden: _tipoOrden,
-  setTipoOrden: _setTipoOrden,
   isReadOnly,
   isLimitedEdit,
   editingOrden,
@@ -140,9 +144,12 @@ export function OrdenDetalleTab({
     setServicioSearch(name);
   };
 
+  const showTrabajo = part === "all" || part === "trabajo";
+  const showAdmin = part === "all" || part === "admin";
+
   return (
     <>
-      {showLevantamiento && (
+      {showLevantamiento && showTrabajo && (
         <div className={isActive ? "" : "hidden"} aria-hidden={!isActive}>
           <LevantamientoForm
             ordenId={editingOrden?.id ?? null}
@@ -155,16 +162,21 @@ export function OrdenDetalleTab({
       )}
 
       <div
-          id={panelId}
-          role="tabpanel"
-          aria-labelledby={labelledBy}
+          {...(embedded
+            ? {}
+            : {
+                id: panelId,
+                role: "tabpanel",
+                "aria-labelledby": labelledBy,
+                tabIndex: isActive ? -1 : undefined,
+              })}
           hidden={!isActive}
-          tabIndex={isActive ? -1 : undefined}
-          className="space-y-6 focus:outline-none"
+          className="space-y-5 focus:outline-none"
         >
+          {showTrabajo && (
           <OrdenFormSection
             title="Trabajo en campo"
-            description="Problemática, servicios hechos y cierre del técnico."
+            description="Qué reportó el cliente, qué se hizo y el cierre del técnico."
             icon={
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" />
@@ -266,11 +278,12 @@ export function OrdenDetalleTab({
                 })()}
               </div>
           </OrdenFormSection>
+          )}
 
-          {variant === "admin" && isAdmin && setStatusAdministrativo && setFechaEnvioAdmin && setCotizacionesAdmin ? (
+          {showAdmin && variant === "admin" && isAdmin && setStatusAdministrativo && setFechaEnvioAdmin && setCotizacionesAdmin ? (
             <OrdenFormSection
               title="Seguimiento administrativo"
-              description="Control de oficina independiente del status del técnico. Cotizaciones y status administrativo se guardan con la orden."
+              description="Control de oficina, independiente del status del técnico. Incluye las cotizaciones vinculadas."
               icon={
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />

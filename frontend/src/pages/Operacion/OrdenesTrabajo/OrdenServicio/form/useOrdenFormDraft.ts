@@ -1015,10 +1015,9 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       if (!ok) {
         // Llevar a la pestaña donde está el campo (el form usa noValidate; no se puede
         // enfocar controles required en paneles hidden).
-        const needsCliente = missing.some(
+        const needsCliente = missing.some((m) => m === "Cliente" || m === "Teléfono");
+        const needsAsignacion = missing.some(
           (m) =>
-            m === "Cliente" ||
-            m === "Teléfono" ||
             m === "Nivel de prioridad" ||
             m.startsWith("¿Por qué") ||
             m.startsWith("Motivo de cancelación"),
@@ -1029,6 +1028,9 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
         if (needsCliente) {
           setActiveTab("cliente");
           activeTabRef.current = "cliente";
+        } else if (needsAsignacion) {
+          setActiveTab("asignacion");
+          activeTabRef.current = "asignacion";
         } else if (needsOrden) {
           setActiveTab("orden");
           activeTabRef.current = "orden";

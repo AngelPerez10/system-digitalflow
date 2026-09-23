@@ -1,46 +1,101 @@
-import type { KeyboardEvent, MutableRefObject, ReactNode, RefObject } from "react";
+import { useEffect, type KeyboardEvent, type MutableRefObject, type ReactNode, type RefObject } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  Check,
+  ClipboardList,
+  Loader2,
+  Package,
+  Star,
+  UserRound,
+  Users,
+  Wrench,
+  X,
+} from "lucide-react";
 
 import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
+import { appModalBtn } from "@/components/ui/modal-kit/modalKitStyles";
+import "@/components/ui/modal-kit/motion.css";
 
-import {
-  OrdenFormModalHeader,
-  OrdenModalFooterActions,
-  OrdenModalPrimaryButton,
-} from "../../OrdenTrabajoModals";
-import {
-  erpModalBodyClass,
-  erpModalFooterClass,
-  erpModalFormScrollClass,
-  erpModalSansStyle,
-  erpModalSecondaryBtnClass,
-  erpModalShellClass,
-  erpModalTabClass,
-} from "../../ordenTrabajoStyles";
+import { erpModalSansStyle, erpModalShellClass } from "../../ordenTrabajoStyles";
 import type { OrdenFormTab } from "./useOrdenFormModalState";
 
 export const ORDEN_FORM_TAB_IDS = {
   cliente: "orden-form-tab-cliente",
   orden: "orden-form-tab-orden",
+  asignacion: "orden-form-tab-asignacion",
   equipos: "orden-form-tab-equipos",
+  evidencia: "orden-form-tab-evidencia",
   calificacion: "orden-form-tab-calificacion",
 } as const;
 
 export const ORDEN_FORM_PANEL_IDS = {
   cliente: "orden-form-panel-cliente",
   orden: "orden-form-panel-orden",
+  asignacion: "orden-form-panel-asignacion",
   equipos: "orden-form-panel-equipos",
+  evidencia: "orden-form-panel-evidencia",
   calificacion: "orden-form-panel-calificacion",
 } as const;
 
-/** Pestañas del asistente paso a paso (progreso "Paso X de N", botón Siguiente). */
-const TAB_ORDER: OrdenFormTab[] = ["cliente", "orden", "equipos"];
+/** Pasos del asistente, en el orden en que se captura una orden real. */
+const TAB_ORDER: OrdenFormTab[] = ["cliente", "orden", "asignacion", "equipos", "evidencia"];
+
+const STEP_META: Record<OrdenFormTab, { label: string; hint: string; description: string }> = {
+  cliente: {
+    label: "Cliente",
+    hint: "Quién y dónde",
+    description: "Selecciona al cliente y confirma cómo contactarlo y dónde es el servicio.",
+  },
+  orden: {
+    label: "Servicio",
+    hint: "Problema y trabajo",
+    description: "Describe lo que reportó el cliente y lo que se hizo en campo.",
+  },
+  asignacion: {
+    label: "Asignación",
+    hint: "Técnico, status y agenda",
+    description: "Quién atiende la orden, en qué estado va, su prioridad y horarios.",
+  },
+  equipos: {
+    label: "Equipos",
+    hint: "Piezas del inventario",
+    description: "Agrega las piezas entregadas o instaladas desde el inventario.",
+  },
+  evidencia: {
+    label: "Evidencia y cierre",
+    hint: "Fotos, firmas y seguimiento",
+    description: "Sube las fotos del trabajo y recaba las firmas de conformidad.",
+  },
+  calificacion: {
+    label: "Calificación",
+    hint: "Opinión del cliente",
+    description: "Calificación y comentario que dejó el cliente (solo lectura).",
+  },
+};
+
+const STEP_ICON: Record<OrdenFormTab, typeof UserRound> = {
+  cliente: UserRound,
+  orden: Wrench,
+  asignacion: Users,
+  equipos: Package,
+  evidencia: Camera,
+  calificacion: Star,
+};
 
 export type OrdenFormModalAlert = {
   show: boolean;
   variant: "error" | "warning" | "success" | "info";
   title: string;
   message: string;
+};
+
+export type OrdenFormModalSummary = {
+  cliente?: string;
+  tecnico?: string;
+  prioridad?: string;
 };
 
 export type OrdenFormModalProps = {
@@ -67,6 +122,8 @@ export type OrdenFormModalProps = {
   canOrdenesCreate?: boolean;
   /** Pestaña extra (solo admin) con la calificación y comentario del cliente. */
   showCalificacionTab?: boolean;
+  /** Resumen en vivo en la barra lateral (escritorio). */
+  summary?: OrdenFormModalSummary;
   children: ReactNode;
 };
 
@@ -92,17 +149,26 @@ export default function OrdenFormModal({
   canOrdenesEdit = true,
   canOrdenesCreate = true,
   showCalificacionTab = false,
+  summary,
   children,
 }: OrdenFormModalProps) {
   const saveBusy = isSaving || uploadingPhotos;
   const isStepperTab = TAB_ORDER.includes(activeTab);
   const stepIndex = Math.max(0, TAB_ORDER.indexOf(activeTab));
+  const isLastStep = stepIndex === TAB_ORDER.length - 1;
+  const canSave = !(variant === "tecnico" && !(editingOrden ? canOrdenesEdit : canOrdenesCreate));
   // Orden de foco por teclado: incluye la pestaña de calificación cuando aplica.
-  const navTabs: OrdenFormTab[] = showCalificacionTab
-    ? [...TAB_ORDER, "calificacion"]
-    : TAB_ORDER;
+  const navTabs: OrdenFormTab[] = showCalificacionTab ? [...TAB_ORDER, "calificacion"] : TAB_ORDER;
+  const meta = STEP_META[activeTab];
 
-  /** Cambia de pestaña y devuelve el foco al panel para que lectores de pantalla y teclado sigan el flujo. */
+  // En la fila horizontal (celular) el paso activo puede quedar fuera de vista: lo centra.
+  useEffect(() => {
+    if (!isOpen) return;
+    document.getElementById(ORDEN_FORM_TAB_IDS[activeTab])?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [activeTab, isOpen]);
+  const StepIcon = STEP_ICON[activeTab];
+
+  /** Cambia de paso y devuelve el foco al panel para que lectores de pantalla y teclado sigan el flujo. */
   const switchTab = (next: OrdenFormTab, fromFooter?: boolean) => {
     const apply = () => {
       setActiveTab(next);
@@ -116,8 +182,17 @@ export default function OrdenFormModal({
     else apply();
   };
 
-  const goToEquiposTab = (fromFooter?: boolean) => switchTab("equipos", fromFooter);
-  const goBackTab = () => {
+  const goNext = () => {
+    // Desde «Cliente» decide la página (misma lógica de siempre: `goToOrdenTab`).
+    if (activeTab === "cliente") {
+      goToOrdenTab(true);
+      return;
+    }
+    const next = TAB_ORDER[stepIndex + 1];
+    if (next) switchTab(next, true);
+  };
+
+  const goBack = () => {
     const prev = TAB_ORDER[stepIndex - 1];
     if (prev) switchTab(prev);
   };
@@ -145,83 +220,74 @@ export default function OrdenFormModal({
 
     const next = navTabs[nextIdx];
     setActiveTab(next);
+    activeTabRef.current = next;
     requestAnimationFrame(() => {
       document.getElementById(ORDEN_FORM_TAB_IDS[next])?.focus();
     });
   };
 
-  const backButton =
-    stepIndex > 0 ? (
-      <button
-        type="button"
-        onClick={goBackTab}
-        disabled={saveBusy}
-        className={`${erpModalSecondaryBtnClass} sm:w-auto`}
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-          <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Atrás
-      </button>
-    ) : null;
+  const tabButtonProps = (tab: OrdenFormTab) => ({
+    type: "button" as const,
+    id: ORDEN_FORM_TAB_IDS[tab],
+    role: "tab" as const,
+    tabIndex: activeTab === tab ? 0 : -1,
+    "aria-selected": activeTab === tab,
+    "aria-controls": ORDEN_FORM_PANEL_IDS[tab],
+    onClick: () => switchTab(tab),
+    onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => handleTabKeyDown(e, tab),
+  });
 
-  const nextOrSave =
-    activeTab === "calificacion" ? null : activeTab === "cliente" ? (
-      <OrdenModalPrimaryButton
-        type="button"
-        disabled={isSaving}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          goToOrdenTab(true);
-        }}
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-          <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Siguiente
-      </OrdenModalPrimaryButton>
-    ) : activeTab === "orden" ? (
-      <OrdenModalPrimaryButton
-        type="button"
-        disabled={isSaving}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          goToEquiposTab(true);
-        }}
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-          <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Siguiente
-      </OrdenModalPrimaryButton>
-    ) : variant === "tecnico" && !(editingOrden ? canOrdenesEdit : canOrdenesCreate) ? null : (
-      <OrdenModalPrimaryButton type="button" disabled={saveBusy} onClick={triggerSaveFromFooter}>
-        {isSaving || uploadingPhotos ? (
-          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-            <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
-          </svg>
-        ) : (
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-        {isSaving ? "Guardando…" : uploadingPhotos ? "Subiendo fotos…" : editingOrden ? "Actualizar" : "Guardar"}
-      </OrdenModalPrimaryButton>
+  const saveLabel = isSaving
+    ? "Guardando…"
+    : uploadingPhotos
+      ? "Subiendo fotos…"
+      : editingOrden
+        ? "Guardar cambios"
+        : "Crear orden";
+
+  const saveButton = (
+    <button type="button" disabled={saveBusy} onClick={triggerSaveFromFooter} className={appModalBtn.primary}>
+      {saveBusy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
+      {saveLabel}
+    </button>
+  );
+
+  const nextButton = (primary: boolean) => (
+    <button
+      type="button"
+      disabled={isSaving}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        goNext();
+      }}
+      className={primary ? appModalBtn.primary : appModalBtn.secondary}
+    >
+      Siguiente
+      <ArrowRight className="size-4" aria-hidden />
+    </button>
+  );
+
+  /**
+   * Acciones del pie:
+   * - Nueva orden: «Siguiente» hasta el último paso, ahí «Crear orden».
+   * - Edición: «Guardar cambios» disponible desde el paso 2 (desde «Cliente» la
+   *   página valida y avanza primero), además de «Siguiente» para recorrer.
+   */
+  const primaryActions =
+    bodyLoading || !isStepperTab ? null : isLastStep ? (
+      canSave ? saveButton : null
+    ) : editingOrden && activeTab !== "cliente" && canSave ? (
+      <>
+        <span className="hidden sm:contents">{nextButton(false)}</span>
+        {saveButton}
+      </>
+    ) : (
+      nextButton(true)
     );
 
-  // En móvil, "Atrás" y "Siguiente/Guardar" comparten fila (2 columnas); en desktop
-  // `sm:contents` disuelve el wrapper y el pie los alinea a la derecha como antes.
-  const savePrimary = backButton ? (
-    <div className="grid grid-cols-2 gap-2.5 sm:contents">
-      {backButton}
-      {nextOrSave}
-    </div>
-  ) : (
-    nextOrSave
-  );
+  const title = editingOrden ? "Editar orden" : "Nueva orden";
+  const hasSummary = !!summary && !!(summary.cliente || summary.tecnico || summary.prioridad);
 
   return (
     <Modal
@@ -230,158 +296,263 @@ export default function OrdenFormModal({
       onClose={onClose}
       closeOnBackdropClick={false}
       closeOnEscape={closeOnEscape}
+      showCloseButton={false}
       ariaLabel={`${editingOrden ? "Editar" : "Nueva"} orden de ${tipoOrdenLabel}`}
-      className={erpModalShellClass}
+      className={`${erpModalShellClass} rounded-t-2xl! bg-white! dark:bg-[#111827]! sm:w-[min(96vw,72rem)]! sm:max-w-6xl! sm:rounded-2xl! lg:h-[min(90vh,880px)]`}
     >
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden" style={erpModalSansStyle}>
-      <OrdenFormModalHeader
-        editing={!!editingOrden}
-        title={`${editingOrden ? "Editar" : "Nueva"} orden de ${tipoOrdenLabel}`}
-        subtitle="Captura y revisa los datos antes de guardar"
-      />
-      <div className={erpModalBodyClass}>
-        {isLimitedEdit && (
-          <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:mx-6 sm:mt-6">
-            Edición limitada: solo puedes actualizar problemática, estado, tiempos y fotos en órdenes de otros técnicos.
-          </div>
-        )}
-        <form
-          ref={formScrollRef}
-          onSubmit={onSubmit}
-          noValidate
-          className="flex min-h-0 min-w-0 flex-1 flex-col"
-        >
-          <div className={erpModalFormScrollClass}>
-            {bodyLoading ? (
-              <div
-                className="flex min-h-[40vh] flex-col items-center justify-center gap-3 py-10 text-center"
-                role="status"
-                aria-live="polite"
-              >
-                <svg className="h-7 w-7 animate-spin text-[#1B5CFF] dark:text-[#4B7CFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <circle cx="12" cy="12" r="10" strokeOpacity="0.2" />
-                  <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
-                </svg>
-                <p className="text-sm font-medium text-[#52525B] dark:text-[#B7C1D1]">
-                  Cargando la orden…
-                </p>
-                <p className="max-w-xs text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
-                  Estamos trayendo firma, fotos y equipos. Puedes cerrar y volver a intentarlo si tarda demasiado.
-                </p>
+      <div
+        className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden lg:flex-row"
+        style={erpModalSansStyle}
+      >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Cerrar ventana"
+        className="absolute right-3 top-3 z-20 inline-flex size-10 items-center justify-center rounded-lg text-[#A1A1AA] transition-colors hover:bg-[#F4F4F5] hover:text-[#3F3F46] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:text-[#64748B] dark:hover:bg-[#1B2539] dark:hover:text-[#D6DEEA] lg:right-5 lg:top-5"
+      >
+        <X className="size-5" aria-hidden />
+      </button>
+        {/* ============================ Barra lateral ============================ */}
+        <aside className="custom-scrollbar flex shrink-0 flex-col border-b border-[#F0F0F2] bg-[#FAFAFA] dark:border-[#1F2A3C] dark:bg-[#0B1220] lg:w-[280px] lg:overflow-y-auto lg:border-b-0 lg:border-r">
+          <div className="flex items-center gap-3 px-5 pb-3 pr-16 pt-5 lg:block lg:px-6 lg:pb-5 lg:pr-6 lg:pt-6">
+            <span
+              className="cot-tick inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#17235B] text-[#E6A23C] dark:bg-[#1B2A63] lg:size-11"
+              aria-hidden
+            >
+              <ClipboardList className="size-5" strokeWidth={1.9} />
+            </span>
+            <div className="min-w-0 lg:mt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]">
+                Orden de {tipoOrdenLabel}
+              </p>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                <h2 className="text-[18px] font-semibold leading-tight tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC] lg:text-[20px]">
+                  {title}
+                </h2>
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    editingOrden
+                      ? "bg-[#FFF8EB] text-[#8A5A10] dark:bg-[rgba(230,162,60,0.12)] dark:text-[#F0C675]"
+                      : "bg-[#E9F8F0] text-[#04724D] dark:bg-[#0F2A1C] dark:text-[#4ADE80]"
+                  }`}
+                >
+                  {editingOrden ? "Edición" : "Nueva"}
+                </span>
               </div>
-            ) : (
-            <>
-            {modalAlert.show && (
-              <div className="mb-4" role="alert">
-                <Alert
-                  variant={modalAlert.variant}
-                  title={modalAlert.title}
-                  message={modalAlert.message}
-                  showLink={false}
-                  placement="inline"
+            </div>
+          </div>
+
+          {!bodyLoading && (
+            <nav aria-label="Pasos del formulario" className="shrink-0">
+              <div
+                role="tablist"
+                aria-label="Secciones del formulario"
+                className="flex gap-1 overflow-x-auto px-3 pb-3 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-col lg:overflow-visible lg:pb-0 [&::-webkit-scrollbar]:hidden"
+              >
+                {TAB_ORDER.map((tab, i) => {
+                  const active = activeTab === tab;
+                  const done = isStepperTab && i < stepIndex;
+                  const { label, hint } = STEP_META[tab];
+                  return (
+                    <button
+                      key={tab}
+                      {...tabButtonProps(tab)}
+                      className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 lg:w-full ${
+                        active
+                          ? "bg-white shadow-[0_1px_3px_rgba(9,9,11,0.08)] ring-1 ring-[#E4E4E7] dark:bg-[#111827] dark:ring-[#273244]"
+                          : "hover:bg-white/70 dark:hover:bg-[#111827]/60"
+                      }`}
+                    >
+                      <span
+                        className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums transition-colors duration-300 ${
+                          active
+                            ? "bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
+                            : done
+                              ? "bg-[#04724D] text-white dark:bg-[#22A06B]"
+                              : "bg-white text-[#71717A] ring-1 ring-inset ring-[#E4E4E7] dark:bg-[#111827] dark:text-[#8EA0B8] dark:ring-[#273244]"
+                        }`}
+                        aria-hidden
+                      >
+                        {done ? <Check className="cot-tick size-3.5" strokeWidth={3} /> : i + 1}
+                      </span>
+                      <span className="min-w-0 pr-1">
+                        <span
+                          className={`block whitespace-nowrap text-[14px] ${
+                            active
+                              ? "font-semibold text-[#09090B] dark:text-[#F8FAFC]"
+                              : "font-medium text-[#3F3F46] dark:text-[#D6DEEA]"
+                          }`}
+                        >
+                          {label}
+                        </span>
+                        <span className="hidden text-[12px] text-[#71717A] dark:text-[#8EA0B8] lg:block">{hint}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {showCalificacionTab && (
+                  <>
+                    <span
+                      className="mx-1 w-px shrink-0 self-stretch bg-[#E4E4E7] dark:bg-[#273244] lg:mx-3 lg:my-2 lg:h-px lg:w-auto"
+                      aria-hidden
+                    />
+                    <button
+                      {...tabButtonProps("calificacion")}
+                      className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 lg:w-full ${
+                        activeTab === "calificacion"
+                          ? "bg-white shadow-[0_1px_3px_rgba(9,9,11,0.08)] ring-1 ring-[#E4E4E7] dark:bg-[#111827] dark:ring-[#273244]"
+                          : "hover:bg-white/70 dark:hover:bg-[#111827]/60"
+                      }`}
+                    >
+                      <span
+                        className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[#FFF8EB] text-[#9A6B15] dark:bg-[rgba(230,162,60,0.12)] dark:text-[#E6A23C]"
+                        aria-hidden
+                      >
+                        <Star className="size-3.5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block whitespace-nowrap text-[14px] font-medium text-[#3F3F46] dark:text-[#D6DEEA]">
+                          Calificación
+                        </span>
+                        <span className="hidden text-[12px] text-[#71717A] dark:text-[#8EA0B8] lg:block">
+                          Opinión del cliente
+                        </span>
+                      </span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </nav>
+          )}
+
+          {hasSummary && !bodyLoading && (
+            <dl className="mt-auto hidden shrink-0 space-y-3 border-t border-[#F0F0F2] px-6 py-5 dark:border-[#1F2A3C] lg:mt-6 lg:block">
+              {[
+                { label: "Cliente", value: summary?.cliente },
+                { label: "Técnico", value: summary?.tecnico },
+                { label: "Prioridad", value: summary?.prioridad },
+              ].map((r) => (
+                <div key={r.label}>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#A1A1AA] dark:text-[#64748B]">
+                    {r.label}
+                  </dt>
+                  <dd
+                    className={`mt-0.5 truncate text-[13px] ${
+                      r.value ? "font-medium text-[#27272A] dark:text-[#E5E7EB]" : "text-[#A1A1AA] dark:text-[#64748B]"
+                    }`}
+                    title={r.value || undefined}
+                  >
+                    {r.value || "Sin definir"}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </aside>
+
+        {/* ============================ Contenido del paso ============================ */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <header className="relative shrink-0 border-b border-[#F0F0F2] dark:border-[#1F2A3C] lg:px-8 lg:py-5 lg:pr-16">
+            {!bodyLoading && (
+              <div key={activeTab} className="cot-fade hidden items-start gap-3.5 lg:flex">
+                <span
+                  className="mt-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF]"
+                  aria-hidden
+                >
+                  <StepIcon className="size-5" strokeWidth={1.9} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium text-[#1B5CFF] dark:text-[#7FA2FF]">
+                    {isStepperTab ? `Paso ${stepIndex + 1} de ${TAB_ORDER.length}` : "Solo lectura"}
+                  </p>
+                  <h3 className="text-[20px] font-semibold tracking-[-0.4px] text-[#09090B] dark:text-[#F8FAFC]">
+                    {meta.label}
+                  </h3>
+                  <p className="mt-0.5 text-[13px] text-[#71717A] dark:text-[#8EA0B8]">{meta.description}</p>
+                </div>
+              </div>
+            )}
+            {isStepperTab && !bodyLoading && (
+              <div className="h-0.5 lg:absolute lg:inset-x-0 lg:bottom-0" aria-hidden>
+                <div
+                  className="cot-bar h-full w-full bg-[#1B5CFF] dark:bg-[#4B7CFF]"
+                  style={{ transform: `scaleX(${(stepIndex + 1) / TAB_ORDER.length})` }}
                 />
               </div>
             )}
+          </header>
 
-            {isStepperTab && (
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
-                  Paso {stepIndex + 1} de {TAB_ORDER.length}
-                </p>
-                <span
-                  className="h-1 w-24 overflow-hidden rounded-full bg-[#E7E7EA] dark:bg-[#273244]"
-                  aria-hidden
+          <form
+            ref={formScrollRef}
+            onSubmit={onSubmit}
+            noValidate
+            className="erp-modal-form-scroll custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#F7F7F8] touch-pan-y dark:bg-[#0F172A]/60 sm:touch-auto"
+          >
+            <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-5 sm:px-8 sm:py-7">
+              {bodyLoading ? (
+                <div
+                  className="flex min-h-[40vh] flex-col items-center justify-center gap-3 py-10 text-center"
+                  role="status"
+                  aria-live="polite"
                 >
-                  <span
-                    className="block h-full rounded-full bg-[#1B5CFF] transition-[width] duration-300 dark:bg-[#4B7CFF]"
-                    style={{ width: `${((stepIndex + 1) / TAB_ORDER.length) * 100}%` }}
-                  />
-                </span>
-              </div>
-            )}
-
-            <div
-              className="flex items-center gap-2 overflow-x-auto"
-              role="tablist"
-              aria-label="Secciones del formulario"
-              aria-orientation="horizontal"
-            >
-              <button
-                type="button"
-                id={ORDEN_FORM_TAB_IDS.cliente}
-                role="tab"
-                tabIndex={activeTab === "cliente" ? 0 : -1}
-                aria-selected={activeTab === "cliente"}
-                aria-controls={ORDEN_FORM_PANEL_IDS.cliente}
-                onClick={() => switchTab("cliente")}
-                onKeyDown={(e) => handleTabKeyDown(e, "cliente")}
-                className={erpModalTabClass(activeTab === "cliente")}
-              >
-                Datos del cliente
-              </button>
-              <button
-                type="button"
-                id={ORDEN_FORM_TAB_IDS.orden}
-                role="tab"
-                tabIndex={activeTab === "orden" ? 0 : -1}
-                aria-selected={activeTab === "orden"}
-                aria-controls={ORDEN_FORM_PANEL_IDS.orden}
-                onClick={() => switchTab("orden")}
-                onKeyDown={(e) => handleTabKeyDown(e, "orden")}
-                className={erpModalTabClass(activeTab === "orden")}
-              >
-                Datos de la orden
-              </button>
-              <button
-                type="button"
-                id={ORDEN_FORM_TAB_IDS.equipos}
-                role="tab"
-                tabIndex={activeTab === "equipos" ? 0 : -1}
-                aria-selected={activeTab === "equipos"}
-                aria-controls={ORDEN_FORM_PANEL_IDS.equipos}
-                onClick={() => switchTab("equipos")}
-                onKeyDown={(e) => handleTabKeyDown(e, "equipos")}
-                className={erpModalTabClass(activeTab === "equipos")}
-              >
-                Equipos
-              </button>
-              {showCalificacionTab && (
-                <>
-                  <span
-                    className="mx-1 h-5 w-px shrink-0 self-center bg-[#E7E7EA] dark:bg-[#273244]"
-                    aria-hidden
-                  />
-                  <button
-                    type="button"
-                    id={ORDEN_FORM_TAB_IDS.calificacion}
-                    role="tab"
-                    tabIndex={activeTab === "calificacion" ? 0 : -1}
-                    aria-selected={activeTab === "calificacion"}
-                    aria-controls={ORDEN_FORM_PANEL_IDS.calificacion}
-                    onClick={() => switchTab("calificacion")}
-                    onKeyDown={(e) => handleTabKeyDown(e, "calificacion")}
-                    className={erpModalTabClass(activeTab === "calificacion")}
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                        <path d="M12 2.5l2.72 5.51 6.08.88-4.4 4.29 1.04 6.06L12 16.98l-5.44 2.86 1.04-6.06-4.4-4.29 6.08-.88L12 2.5z" />
-                      </svg>
-                      Calificación del cliente
-                    </span>
-                  </button>
-                </>
+                  <Loader2 className="size-7 animate-spin text-[#1B5CFF] dark:text-[#4B7CFF]" aria-hidden />
+                  <p className="text-[15px] font-medium text-[#27272A] dark:text-[#E5E7EB]">Cargando la orden…</p>
+                  <p className="max-w-xs text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
+                    Estamos trayendo firma, fotos y equipos. Si tarda demasiado, cierra y vuelve a intentarlo.
+                  </p>
+                </div>
+              ) : (
+                <div key={activeTab} className="cot-fade space-y-5">
+                  {isLimitedEdit && (
+                    <div className="rounded-xl border border-[#F0D7A3] bg-[#FFF8EB] px-4 py-3 text-[13px] leading-relaxed text-[#8A5A10] dark:border-[rgba(230,162,60,0.3)] dark:bg-[rgba(230,162,60,0.10)] dark:text-[#F0C675]">
+                      <span className="font-semibold">Edición limitada.</span> En órdenes de otros técnicos solo puedes
+                      actualizar problemática, estado, tiempos y fotos.
+                    </div>
+                  )}
+                  {modalAlert.show && (
+                    <div role="alert">
+                      <Alert
+                        variant={modalAlert.variant}
+                        title={modalAlert.title}
+                        message={modalAlert.message}
+                        showLink={false}
+                        placement="inline"
+                      />
+                    </div>
+                  )}
+                  {children}
+                </div>
               )}
             </div>
+          </form>
 
-            {children}
-            </>
-            )}
-          </div>
-        </form>
-        <div className={erpModalFooterClass}>
-          <OrdenModalFooterActions onCancel={onClose} primary={bodyLoading ? null : savePrimary} />
+          {/* ============================ Pie ============================ */}
+          <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#F0F0F2] bg-white px-4 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] dark:border-[#1F2A3C] dark:bg-[#111827] sm:px-8 sm:pb-3.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-11 items-center rounded-lg px-3 text-[14px] font-medium text-[#71717A] transition-colors hover:bg-[#F4F4F5] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:text-[#8EA0B8] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]"
+            >
+              {bodyLoading || !isStepperTab ? "Cerrar" : "Cancelar"}
+            </button>
+            <div className="flex items-center gap-2">
+              {!bodyLoading && isStepperTab && stepIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  disabled={saveBusy}
+                  aria-label="Paso anterior"
+                  className={`${appModalBtn.secondary} px-4!`}
+                >
+                  <ArrowLeft className="size-4" aria-hidden />
+                  <span className="hidden sm:inline">Atrás</span>
+                </button>
+              )}
+              {primaryActions}
+            </div>
+          </footer>
         </div>
-      </div>
       </div>
     </Modal>
   );
