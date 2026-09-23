@@ -5,6 +5,7 @@ import { toUserMessage } from '@/api/errors';
 import { useTheme } from '@/theme/ThemeProvider';
 import { font, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 import { abrirEnlace } from '@/utils/abrirEnlace';
+import { guardarPdfEnTelefono, puedeGuardarPdf } from '@/utils/guardarPdf';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 import { enlacesWhatsApp, mensajePdf, telefonoWhatsApp } from '@/utils/whatsapp';
 import { EnviarPdfCorreoModal } from './EnviarPdfCorreoModal';
@@ -52,11 +53,19 @@ export function ReportePdf({
 
   const descargar = async () => {
     setOcupado('descargar');
+    setAviso(null);
     try {
       const { url } = await obtenerEnlacePdf(base);
-      await abrirEnlace(url, 'No se pudo abrir el PDF. Verifica que tengas un navegador instalado.');
+      if (puedeGuardarPdf()) {
+        // Se guarda directo en el teléfono (Descargas), sin abrir el navegador.
+        const resultado = await guardarPdfEnTelefono(url, nombreArchivo);
+        if (resultado.estado === 'guardado') setAviso(`${nombreArchivo} se guardó en ${resultado.carpeta}.`);
+      } else {
+        // Respaldo: el navegador lo baja como archivo (`descargar=1` → attachment).
+        await abrirEnlace(`${url}?descargar=1`, 'No se pudo descargar el PDF. Verifica que tengas un navegador instalado.');
+      }
     } catch (e) {
-      Alert.alert('No se pudo generar el PDF', toUserMessage(e));
+      Alert.alert('No se pudo descargar el PDF', toUserMessage(e));
     } finally {
       setOcupado(null);
     }
@@ -104,7 +113,8 @@ export function ReportePdf({
         cargando={ocupado === 'descargar'}
         disabled={ocupado !== null}
         onPress={() => void descargar()}
-        accessibilityHint="Abre el PDF en el navegador para verlo o guardarlo"
+        textoCargando="Descargando…"
+        accessibilityHint="Guarda el PDF en la carpeta de descargas del teléfono"
       />
 
       <View style={styles.enviar}>
@@ -174,6 +184,7 @@ function Boton({
   icon,
   tintaIcono,
   cargando,
+  textoCargando = 'Preparando…',
   disabled,
   onPress,
   accessibilityHint,
@@ -183,6 +194,7 @@ function Boton({
   icon: (color: string) => React.ReactNode;
   tintaIcono?: string;
   cargando: boolean;
+  textoCargando?: string;
   disabled: boolean;
   onPress: () => void;
   accessibilityHint: string;
@@ -223,7 +235,7 @@ function Boton({
           {cargando ? <ActivityIndicator size="small" color={tintaGlifo} /> : icon(tintaGlifo)}
         </View>
         <Text style={[styles.botonTexto, { color: tintaTexto }]} numberOfLines={1}>
-          {cargando ? 'Preparando…' : etiqueta}
+          {cargando ? textoCargando : etiqueta}
         </Text>
       </Pressable>
     </Animated.View>

@@ -1,4 +1,4 @@
-import { TurboModuleRegistry } from 'react-native';
+import { Platform, TurboModuleRegistry } from 'react-native';
 import { requireOptionalNativeModule } from 'expo';
 
 /**
@@ -33,4 +33,22 @@ export function ubicacionDisponible(): boolean {
     }
   }
   return ubicacion;
+}
+
+let archivos: boolean | null = null;
+
+/**
+ * ¿El binario trae el sistema de archivos de Expo? Llega como dependencia de
+ * `expo`, así que el APK 1.0.0 ya lo incluye; se verifica igual antes de usarlo
+ * para guardar PDFs en el teléfono.
+ */
+export function archivosDisponibles(): boolean {
+  if (archivos === null) {
+    try {
+      archivos = Platform.OS === 'android' && requireOptionalNativeModule('ExponentFileSystem') != null;
+    } catch {
+      archivos = false;
+    }
+  }
+  return archivos;
 }

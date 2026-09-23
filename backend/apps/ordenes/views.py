@@ -23,7 +23,7 @@ from rest_framework.response import Response
 
 from apps.common.document_folio import FOLIO_SERIE_ODT, resolve_document_folio
 from apps.common.marca import logo_data_uri_for_pdf
-from apps.common.pdf_enlace import PDF_ENLACE_MAX_AGE, crear_token_pdf, leer_token_pdf
+from apps.common.pdf_enlace import PDF_ENLACE_MAX_AGE, como_descarga, crear_token_pdf, leer_token_pdf
 from apps.common.pdf_html import request_wants_html_preview
 from apps.common.ssrf import is_cloudinary_host
 from apps.cotizaciones.pdf_render import (
@@ -2228,7 +2228,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
         if not orden:
             raise NotFound()
         html = self._generate_pdf_html(orden)
-        return _pdf_response_from_html(html, _orden_pdf_filename(orden))
+        filename = _orden_pdf_filename(orden)
+        return como_descarga(_pdf_response_from_html(html, filename), filename, request)
 
     @action(
         detail=True,

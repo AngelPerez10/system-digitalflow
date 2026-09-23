@@ -24,3 +24,11 @@ def leer_token_pdf(salt: str, token: str, max_age: int = PDF_ENLACE_MAX_AGE) -> 
     if not isinstance(data, dict) or not isinstance(data.get("o"), int):
         raise signing.BadSignature("token sin documento")
     return data["o"]
+
+
+def como_descarga(response, filename: str, request):
+    """Con `?descargar=1`, el navegador baja el PDF como archivo en vez de mostrarlo."""
+    quiere = str(request.GET.get("descargar", "")).strip().lower() in ("1", "true", "si", "sí")
+    if quiere and str(response.get("Content-Type", "")).startswith("application/pdf"):
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

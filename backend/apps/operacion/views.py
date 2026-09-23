@@ -13,7 +13,13 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.common.pdf_enlace import PDF_ENLACE_MAX_AGE, PDF_TOKEN_REGEX, crear_token_pdf, leer_token_pdf
+from apps.common.pdf_enlace import (
+    PDF_ENLACE_MAX_AGE,
+    PDF_TOKEN_REGEX,
+    como_descarga,
+    crear_token_pdf,
+    leer_token_pdf,
+)
 from apps.common.pdf_html import request_wants_html_preview
 from apps.cotizaciones.pdf_render import PdfRenderError, any_provider_configured, render_html_to_pdf
 from apps.ordenes.image_services import (
@@ -259,7 +265,8 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         if not proyecto:
             raise NotFound()
         html = self._generate_pdf_html(proyecto)
-        return _pdf_response_from_html(html, _proyecto_pdf_filename(proyecto))
+        filename = _proyecto_pdf_filename(proyecto)
+        return como_descarga(_pdf_response_from_html(html, filename), filename, request)
 
     @action(detail=True, methods=["get"], url_path="correo-sugerido")
     def correo_sugerido(self, request, pk=None):

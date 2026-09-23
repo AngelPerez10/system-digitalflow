@@ -62,6 +62,9 @@ class PdfEnlaceApiTests(TestCase):
         self.assertEqual(pdf.status_code, 200)
         self.assertEqual(pdf["Content-Type"], "application/pdf")
 
+        descarga = anonimo.get(path + "?descargar=1")
+        self.assertTrue(descarga["Content-Disposition"].startswith("attachment;"))
+
     def test_token_invalido_da_404(self):
         res = APIClient().get("/api/ordenes/pdf-compartido/no-es-un-token/")
         self.assertEqual(res.status_code, 404)
