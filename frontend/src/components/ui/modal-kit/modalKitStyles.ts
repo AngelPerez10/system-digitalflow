@@ -1,7 +1,8 @@
 /** Botones de los modales de la app (ver ModalKit). */
 
+/** Pie de modal: compacto pero ≥44px en sm+ (WCAG/touch). */
 const btnBase =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-semibold [&_svg]:size-4 sm:min-h-14 sm:gap-2.5 sm:px-5 sm:py-3.5 sm:text-[15px] sm:[&_svg]:size-[18px] tracking-[-0.1px] transition-[background-color,border-color,color,transform] duration-150 focus-visible:outline-none focus-visible:ring-4 active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100";
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold [&_svg]:size-3.5 sm:min-h-11 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-[14px] sm:[&_svg]:size-4 tracking-[-0.1px] transition-[background-color,border-color,color,transform] duration-150 focus-visible:outline-none focus-visible:ring-4 active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100";
 
 export const appModalBtn = {
   secondary: `${btnBase} border border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D4D4D8] hover:bg-[#FAFAFA] hover:text-[#09090B] focus-visible:ring-[rgba(27,92,255,0.18)] disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]`,
