@@ -61,7 +61,11 @@ type Orden = {
   tecnico_asignado_full_name?: string;
   /** Mismo `payload.tipo` que en LevantamientoForm: camara | cerco | alarmas */
   levantamiento_tipo?: "camara" | "cerco" | "alarmas" | null;
-  [k: string]: any;
+  /** Variantes de nombre del tipo de orden que ha devuelto el API. */
+  tipo_orden?: string | null;
+  tipoOrden?: string | null;
+  tipo?: string | null;
+  order_type?: string | null;
 };
 
 function isGoogleMapsUrl(value: string | null | undefined): boolean {
@@ -233,7 +237,7 @@ export default function LevantamientoPage() {
   const levantamientos = useMemo(() => {
     const list = Array.isArray(ordenes) ? ordenes : [];
     return list.filter((o) => {
-      const raw = (o as any)?.tipo_orden ?? (o as any)?.tipoOrden ?? (o as any)?.tipo ?? (o as any)?.order_type;
+      const raw = o?.tipo_orden ?? o?.tipoOrden ?? o?.tipo ?? o?.order_type;
       // El API ya filtra tipo_orden=levantamiento; se mantiene por compatibilidad.
       if (!raw) return true;
       return String(raw || "").toLowerCase() === "levantamiento";
@@ -264,19 +268,19 @@ export default function LevantamientoPage() {
       }
       return true;
     });
-    const toTs = (v: any) => {
+    const toTs = (v: unknown) => {
       if (!v) return 0;
       const t = Date.parse(String(v));
       return Number.isFinite(t) ? t : 0;
     };
     return list.slice().sort((a, b) => {
-      const ai = toTs((a as any).fecha_inicio) || 0;
-      const bi = toTs((b as any).fecha_inicio) || 0;
+      const ai = toTs(a.fecha_inicio) || 0;
+      const bi = toTs(b.fecha_inicio) || 0;
       if (bi !== ai) return bi - ai;
-      const ac = toTs((a as any).fecha_creacion) || 0;
-      const bc = toTs((b as any).fecha_creacion) || 0;
+      const ac = toTs(a.fecha_creacion) || 0;
+      const bc = toTs(b.fecha_creacion) || 0;
       if (bc !== ac) return bc - ac;
-      return Number((b as any).id || 0) - Number((a as any).id || 0);
+      return Number(b.id || 0) - Number(a.id || 0);
     });
   }, [levantamientos, search, selectedMonth, filterStatus, filterTipoLevantamiento, filterDate]);
 
@@ -342,7 +346,7 @@ export default function LevantamientoPage() {
         method: "DELETE",
       });
       if (response.ok) {
-        setOrdenes((prev) => prev.filter((o) => (o as any).id !== ordenToDelete.id));
+        setOrdenes((prev) => prev.filter((o) => o.id !== ordenToDelete.id));
         setShowDeleteModal(false);
         setOrdenToDelete(null);
         setAlert({ show: true, variant: "success", title: "Orden eliminada", message: `La orden para "${ordenToDelete.cliente}" ha sido eliminada.` });
@@ -572,11 +576,10 @@ export default function LevantamientoPage() {
                     <div className="relative w-full">
                       <DatePicker
                         id="filtro-fecha-levantamiento"
-                        label={undefined as any}
                         placeholder="Seleccionar fecha"
                         defaultDate={filterDate || undefined}
                         appendToBody={true}
-                        onChange={(_dates: any, currentDateString: string) => setFilterDate(currentDateString || "")}
+                        onChange={(_dates: Date[], currentDateString: string) => setFilterDate(currentDateString || "")}
                       />
                     </div>
                   </div>
@@ -655,7 +658,7 @@ export default function LevantamientoPage() {
                     const finFmt = orden.fecha_finalizacion ? formatYmdToDMY(orden.fecha_finalizacion) : "-";
                     const folioDisplay = displayOrdenFolio(orden, startIndex + idx + 1);
                     const tecnicoNombre =
-                      (orden as any).tecnico_asignado_full_name || (orden as any).nombre_encargado || "-";
+                      orden.tecnico_asignado_full_name || orden.nombre_encargado || "-";
                     return (
                       <TableRow key={orden.id ?? idx} className={erpTableRowHoverClass}>
                         <TableCell className="px-2 py-2 whitespace-nowrap w-[90px] min-w-[80px]">{folioDisplay}</TableCell>

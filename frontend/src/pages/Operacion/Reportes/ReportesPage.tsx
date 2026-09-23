@@ -226,10 +226,10 @@ export default function ReportesPage() {
     try {
       const res = await fetchApi("/api/ordenes/reportes-semanales/");
       const data = await res.json().catch(() => []);
-      if (!res.ok) throw new Error((data as any)?.detail || "No se pudieron cargar los reportes.");
+      if (!res.ok) throw new Error((data as { detail?: string } | null)?.detail || "No se pudieron cargar los reportes.");
       setReportes(Array.isArray(data) ? (data as ReporteSemanal[]) : []);
-    } catch (e: any) {
-      setError(e?.message || "Error al cargar reportes.");
+    } catch (e) {
+      setError((e instanceof Error && e.message) || "Error al cargar reportes.");
     } finally {
       setLoading(false);
     }
@@ -285,12 +285,12 @@ export default function ReportesPage() {
         body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data as any)?.detail || "No se pudo crear el reporte.");
+      if (!res.ok) throw new Error((data as { detail?: string } | null)?.detail || "No se pudo crear el reporte.");
       setSuccess("Reporte semanal creado correctamente.");
       await fetchReportes();
       if (isAdmin) setAdminCrearModalOpen(false);
-    } catch (e: any) {
-      setError(e?.message || "Error al crear reporte.");
+    } catch (e) {
+      setError((e instanceof Error && e.message) || "Error al crear reporte.");
     } finally {
       setSaving(false);
     }

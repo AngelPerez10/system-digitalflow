@@ -281,7 +281,6 @@ export default function SearchableSelect({
       return;
     }
     updateMenuPosition(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useLayoutEffect(() => {
@@ -312,7 +311,6 @@ export default function SearchableSelect({
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, true);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, visible.length]);
 
   useEffect(() => {

@@ -125,7 +125,6 @@ describe("groupOrdenesByPrioridad", () => {
         { id: 1, prioridad_pool: "media", fecha_creacion: hace(80), status: "pendiente" },
         { id: 2, prioridad_pool: "baja", fecha_creacion: hace(10), status: "pendiente" },
       ],
-      NOW,
     );
     const media = sections.find((s) => s.key === "MEDIA");
     const baja = sections.find((s) => s.key === "BAJA");

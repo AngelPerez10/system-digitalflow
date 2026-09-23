@@ -74,14 +74,16 @@ export default function IaPage() {
       const parsed = JSON.parse(raw);
       const list = Array.isArray(parsed) ? parsed : parsed?.conversations;
       if (!Array.isArray(list)) return;
-      const sanitized: Conversation[] = list
-        .filter((c: any) => c && typeof c.id === 'string')
-        .map((c: any) => ({
+      /** Lo guardado en localStorage no es confiable: cada campo se valida antes de usarlo. */
+      type StoredConversation = Partial<Record<keyof Conversation, unknown>>;
+      const sanitized: Conversation[] = (list as (StoredConversation | null)[])
+        .filter((c): c is StoredConversation => !!c && typeof c.id === 'string')
+        .map((c) => ({
           id: String(c.id),
           title: typeof c.title === 'string' && c.title.trim() ? c.title : 'Nuevo chat',
           createdAt: typeof c.createdAt === 'string' ? c.createdAt : new Date().toISOString(),
           updatedAt: typeof c.updatedAt === 'string' ? c.updatedAt : new Date().toISOString(),
-          messages: Array.isArray(c.messages) ? c.messages : [],
+          messages: Array.isArray(c.messages) ? (c.messages as ChatMessage[]) : [],
         }));
       setConversations(sanitized);
       if (sanitized.length) {
@@ -446,8 +448,8 @@ export default function IaPage() {
         const delta = parseSseChunk(pending);
         appendAssistantDelta(assistantId, delta);
       }
-    } catch (e: any) {
-      if (String(e?.name) === "AbortError") return;
+    } catch (e) {
+      if (String((e as { name?: unknown } | null)?.name) === "AbortError") return;
       const msg = String(e || "Error inesperado");
       const isCors = msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('cors');
       if (isCors) {

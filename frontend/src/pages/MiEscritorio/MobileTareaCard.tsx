@@ -7,10 +7,20 @@ import { PencilIcon, TrashBinIcon } from "../../icons";
    + azul eléctrico de `MiEscritorio/Tareas`.
    -------------------------------------------------------------------------- */
 
-interface Props {
-  tarea: any; idx: number; startIndex: number; formatDate: (d: string) => string;
-  onDescripcion: (t: any) => void; onFotos: (t: any) => void;
-  onEdit?: (t: any) => void; onDelete?: (t: any) => void; canEdit?: boolean; canDelete?: boolean;
+/** Campos que la tarjeta lee; cada página pasa su propio tipo `Tarea` completo. */
+export interface MobileTarea {
+  id?: number;
+  descripcion?: string;
+  fotos_urls?: string[];
+  fecha_creacion: string;
+  usuario_asignado_full_name?: string;
+  usuario_asignado_username?: string;
+}
+
+interface Props<T extends MobileTarea> {
+  tarea: T; idx: number; startIndex: number; formatDate: (d: string) => string;
+  onDescripcion: (t: T) => void; onFotos: (t: T) => void;
+  onEdit?: (t: T) => void; onDelete?: (t: T) => void; canEdit?: boolean; canDelete?: boolean;
 }
 
 const iconSvgProps = {
@@ -23,7 +33,7 @@ const iconSvgProps = {
   "aria-hidden": true,
 };
 
-export function MobileTareaCard({ tarea, idx: _i, startIndex: _si, formatDate, onDescripcion, onFotos, onEdit, onDelete, canEdit, canDelete }: Props) {
+export function MobileTareaCard<T extends MobileTarea>({ tarea, idx: _i, startIndex: _si, formatDate, onDescripcion, onFotos, onEdit, onDelete, canEdit, canDelete }: Props<T>) {
   const name = tarea.usuario_asignado_full_name || tarea.usuario_asignado_username || "—";
   const ini = name !== "—" ? String(name).slice(0, 1).toUpperCase() : "?";
   const fc = Array.isArray(tarea.fotos_urls) ? tarea.fotos_urls.length : 0;
@@ -108,9 +118,9 @@ export function MobileTareaCard({ tarea, idx: _i, startIndex: _si, formatDate, o
   );
 }
 
-interface ListProps { tareas: any[]; startIndex: number; loading: boolean; formatDate: (d: string) => string; onDescripcion: (t: any) => void; onFotos: (t: any) => void; onEdit?: (t: any) => void; onDelete?: (t: any) => void; canEdit?: boolean; canDelete?: boolean; }
+interface ListProps<T extends MobileTarea> { tareas: T[]; startIndex: number; loading: boolean; formatDate: (d: string) => string; onDescripcion: (t: T) => void; onFotos: (t: T) => void; onEdit?: (t: T) => void; onDelete?: (t: T) => void; canEdit?: boolean; canDelete?: boolean; }
 
-export function MobileTareaList({ tareas, startIndex, loading: _loading, formatDate, onDescripcion, onFotos, onEdit, onDelete, canEdit, canDelete }: ListProps) {
+export function MobileTareaList<T extends MobileTarea>({ tareas, startIndex, loading: _loading, formatDate, onDescripcion, onFotos, onEdit, onDelete, canEdit, canDelete }: ListProps<T>) {
   return (
     <div className="space-y-2.5 md:hidden" aria-label="Listado de tareas">
       {tareas.map((tarea, idx) => (

@@ -168,7 +168,6 @@ export function sortOrdenesByPrioridad<T extends OrdenPrioridadRow>(list: T[], n
 /** Agrupa por la prioridad del formulario (`prioridad_pool`); omite secciones vacías. */
 export function groupOrdenesByPrioridad<T extends OrdenPrioridadRow>(
   ordenes: T[],
-  _now: number = Date.now(),
 ): OrdenPrioridadSection<T>[] {
   const buckets: Record<OrdenPrioridadSectionKey, T[]> = {
     ALTA: [],

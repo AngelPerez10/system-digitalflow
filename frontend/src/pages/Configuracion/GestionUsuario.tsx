@@ -268,7 +268,7 @@ export default function UserProfiles() {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const isAdminUser = (u: UserAccount) => {
-    const explicitRole = String((u as any)?.role ?? '').trim().toLowerCase();
+    const explicitRole = String(u.role ?? '').trim().toLowerCase();
     return explicitRole === 'admin' || !!u.is_superuser || !!u.is_staff;
   };
 
@@ -307,7 +307,10 @@ export default function UserProfiles() {
     [authUser?.username],
   );
 
-  const normalizePerms = (p: any, options?: { isAdmin?: boolean }): Required<PermissionsPayload> => {
+  const normalizePerms = (
+    p: PermissionsPayload | null | undefined,
+    options?: { isAdmin?: boolean },
+  ): Required<PermissionsPayload> => {
     const isAdmin = !!options?.isAdmin;
     const base: Required<PermissionsPayload> = {
       ordenes: { view: true, create: false, edit: false, delete: false, own_only: isAdmin ? false : true },
@@ -330,8 +333,8 @@ export default function UserProfiles() {
         own_only: isAdmin ? false : true,
       },
     };
-    const safe = (v: any) => (typeof v === 'boolean' ? v : undefined);
-    const mergeCrud = (dst: any, src: any) => {
+    const safe = (v: unknown) => (typeof v === 'boolean' ? v : undefined);
+    const mergeCrud = (dst: Partial<CrudPerms>, src: Partial<CrudPerms> | undefined): Partial<CrudPerms> => {
       if (!src || typeof src !== 'object') return dst;
       return {
         view: safe(src.view) ?? dst.view,
@@ -373,8 +376,8 @@ export default function UserProfiles() {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'No se pudieron cargar los permisos');
       setPermsForm(normalizePerms(data?.permissions || {}, { isAdmin: isAdminUser(u) }));
-    } catch (e: any) {
-      setPermsError(e?.message || 'Error');
+    } catch (e) {
+      setPermsError((e instanceof Error && e.message) || 'Error');
       setPermsForm(normalizePerms({}, { isAdmin: isAdminUser(u) }));
     } finally {
       setPermsLoading(false);
@@ -395,10 +398,10 @@ export default function UserProfiles() {
       return {
         ...cur,
         [area]: {
-          ...(cur[area] as any),
+          ...cur[area],
           [key]: value,
         },
-      } as any;
+      };
     });
   };
 
@@ -451,8 +454,8 @@ export default function UserProfiles() {
       setSuccess('Permisos actualizados');
       setIsPermsOpen(false);
       setPermsUser(null);
-    } catch (e: any) {
-      setPermsError(e?.message || 'Error');
+    } catch (e) {
+      setPermsError((e instanceof Error && e.message) || 'Error');
     } finally {
       setPermsSaving(false);
     }
@@ -471,8 +474,8 @@ export default function UserProfiles() {
       if (!res.ok) throw new Error(data?.detail || 'Error al cargar usuarios');
       const rows = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
       setUsers(rows);
-    } catch (e: any) {
-      setError(e?.message || 'Error');
+    } catch (e) {
+      setError((e instanceof Error && e.message) || 'Error');
     } finally {
       setLoading(false);
     }
@@ -492,10 +495,10 @@ export default function UserProfiles() {
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (openMenuId != null && menuRef.current && !menuRef.current.contains(e.target as any)) {
+      if (openMenuId != null && menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setOpenMenuId(null);
       }
-      if (filterOpen && filterRef.current && !filterRef.current.contains(e.target as any)) {
+      if (filterOpen && filterRef.current && !filterRef.current.contains(e.target as Node)) {
         setFilterOpen(false);
       }
     };
@@ -588,10 +591,10 @@ export default function UserProfiles() {
     })
       .then(async (res) => {
         const data = (await res.json().catch(() => null)) as UserSignaturePayload | null;
-        if (!res.ok) throw new Error((data as any)?.detail || 'No se pudo cargar la firma');
+        if (!res.ok) throw new Error((data as { detail?: string } | null)?.detail || 'No se pudo cargar la firma');
         setSignatureValue(data?.url || '');
       })
-      .catch((e: any) => setSignatureError(e?.message || 'Error'))
+      .catch((e: unknown) => setSignatureError((e instanceof Error && e.message) || 'Error'))
       .finally(() => setSignatureLoading(false));
   };
 
@@ -665,15 +668,16 @@ export default function UserProfiles() {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || 'Error al crear usuario');
 
-      if (form.role === 'admin' && typeof (data as any)?.id === 'number' && canDelegatePerms) {
-        await seedAdminPerms((data as any).id);
+      const createdId = (data as { id?: unknown } | null)?.id;
+      if (form.role === 'admin' && typeof createdId === 'number' && canDelegatePerms) {
+        await seedAdminPerms(createdId);
       }
 
       setUsers((prev) => [data as UserAccount, ...prev]);
       setSuccess('Usuario creado');
       setIsCreateOpen(false);
-    } catch (e: any) {
-      setFormError(e?.message || 'Error');
+    } catch (e) {
+      setFormError((e instanceof Error && e.message) || 'Error');
     } finally {
       setCreating(false);
     }
@@ -724,7 +728,7 @@ export default function UserProfiles() {
           body: JSON.stringify({ signature: signatureValue }),
         });
         const dataSig = (await resSig.json().catch(() => null)) as UserSignaturePayload | null;
-        if (!resSig.ok) throw new Error((dataSig as any)?.detail || 'Error al guardar la firma');
+        if (!resSig.ok) throw new Error((dataSig as { detail?: string } | null)?.detail || 'Error al guardar la firma');
         setSignatureValue(dataSig?.url || '');
       }
 
@@ -738,8 +742,8 @@ export default function UserProfiles() {
       setSuccess('Usuario actualizado');
       setIsEditOpen(false);
       setEditUser(null);
-    } catch (e: any) {
-      setEditError(e?.message || 'Error');
+    } catch (e) {
+      setEditError((e instanceof Error && e.message) || 'Error');
     } finally {
       setEditing(false);
     }
@@ -766,8 +770,8 @@ export default function UserProfiles() {
       if (!res.ok) throw new Error(data?.detail || 'No se pudo actualizar el estado');
       setUsers((prev) => prev.map((row) => (row.id === u.id ? { ...row, ...(data as UserAccount) } : row)));
       setSuccess(next === true ? 'Usuario activado' : 'Usuario desactivado');
-    } catch (e: any) {
-      setError(e?.message || 'Error');
+    } catch (e) {
+      setError((e instanceof Error && e.message) || 'Error');
     } finally {
       setTogglingActiveId(null);
     }
@@ -787,8 +791,8 @@ export default function UserProfiles() {
       setUsers((prev) => prev.filter((u) => u.id !== confirmDeleteId));
       setConfirmDeleteId(null);
       setSuccess('Usuario eliminado');
-    } catch (e: any) {
-      setError(e?.message || 'Error');
+    } catch (e) {
+      setError((e instanceof Error && e.message) || 'Error');
     } finally {
       setDeleting(false);
     }
@@ -2318,12 +2322,12 @@ export default function UserProfiles() {
                     method: 'DELETE',
                   });
                   const data = (await res.json().catch(() => null)) as UserSignaturePayload | null;
-                  if (!res.ok) throw new Error((data as any)?.detail || 'No se pudo borrar la firma');
+                  if (!res.ok) throw new Error((data as { detail?: string } | null)?.detail || 'No se pudo borrar la firma');
                   setSignatureValue('');
                   setSuccess('Firma eliminada');
                   setConfirmDeleteSignature(false);
-                } catch (e: any) {
-                  setSignatureError(e?.message || 'Error');
+                } catch (e) {
+                  setSignatureError((e instanceof Error && e.message) || 'Error');
                 } finally {
                   setSignatureSaving(false);
                 }

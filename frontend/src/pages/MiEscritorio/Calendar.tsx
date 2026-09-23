@@ -3,7 +3,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { EventInput } from "@fullcalendar/core";
+import type { EventContentArg, EventInput } from "@fullcalendar/core";
 import esLocale from "@fullcalendar/core/locales/es";
 import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
@@ -58,7 +58,7 @@ const orderToEvent = (o: Orden): CalendarEvent | null => {
   };
 };
 
-const renderEventContent = (eventInfo: any) => {
+const renderEventContent = (eventInfo: EventContentArg) => {
   const colorClass = `fc-bg-${eventInfo.event.extendedProps.calendar.toLowerCase()}`;
   return (
     <div className={`event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm`}>
@@ -85,7 +85,7 @@ const Calendar: React.FC = () => {
         calendarOrdenesInFlight = (async () => {
           const res = await fetchApi("/api/ordenes/");
 
-          const data = await res.json().catch(() => null);
+          const data = (await res.json().catch(() => null)) as Orden[] | { results?: Orden[] } | null;
           if (!res.ok) {
             setEvents([]);
             return;
@@ -93,8 +93,8 @@ const Calendar: React.FC = () => {
 
           const rows: Orden[] = Array.isArray(data)
             ? data
-            : Array.isArray((data as any)?.results)
-              ? (data as any).results
+            : Array.isArray(data?.results)
+              ? data.results
               : [];
 
           if (!isAdmin && user?.id != null) {
