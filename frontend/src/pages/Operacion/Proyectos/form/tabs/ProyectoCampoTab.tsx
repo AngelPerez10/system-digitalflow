@@ -176,8 +176,10 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
             <StatusChangedByChip
               name={initialDraft.statusChangedByName}
               at={initialDraft.statusChangedAt}
+              avatarUrl={initialDraft.statusChangedByAvatarUrl}
               fallbackName={initialDraft.creadoPorName}
               fallbackAt={initialDraft.createdAt}
+              fallbackAvatarUrl={initialDraft.creadoPorAvatarUrl}
             />
           ) : null
         }

@@ -117,9 +117,11 @@ export type ProyectoDraft = {
   motivoCancelacion: string;
   /** Solo lectura: quién colocó el último status y cuándo (ISO). */
   statusChangedByName: string;
+  statusChangedByAvatarUrl: string;
   statusChangedAt: string;
   /** Fallback de auditoría cuando aún no hay sello de status. */
   creadoPorName: string;
+  creadoPorAvatarUrl: string;
   createdAt: string;
   fechaAutorizacion: string;
   /** Nombre libre de quien autorizó el proyecto / presupuesto. */

@@ -38,12 +38,14 @@ class OrdenSerializer(serializers.ModelSerializer):
     quien_entrego_full_name = serializers.SerializerMethodField()
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
     creado_por_full_name = serializers.SerializerMethodField()
+    creado_por_avatar_url = serializers.SerializerMethodField()
     actualizado_por_username = serializers.CharField(source='actualizado_por.username', read_only=True)
     actualizado_por_full_name = serializers.SerializerMethodField()
     status_changed_by_username = serializers.CharField(
         source='status_changed_by.username', read_only=True, allow_null=True
     )
     status_changed_by_full_name = serializers.SerializerMethodField()
+    status_changed_by_avatar_url = serializers.SerializerMethodField()
     tipo_orden = serializers.SerializerMethodField()
     levantamiento_tipo = serializers.SerializerMethodField()
     equipos_inventario_total = serializers.SerializerMethodField()
@@ -202,6 +204,13 @@ class OrdenSerializer(serializers.ModelSerializer):
         return (getattr(perfil, 'avatar_url', '') or '').strip()
 
     @staticmethod
+    def _avatar_de(user) -> str:
+        if not user:
+            return ''
+        perfil = getattr(user, 'permissions_profile', None)
+        return (getattr(perfil, 'avatar_url', '') or '').strip()
+
+    @staticmethod
     def _user_display_name(user):
         if not user:
             return None
@@ -214,11 +223,17 @@ class OrdenSerializer(serializers.ModelSerializer):
     def get_creado_por_full_name(self, obj):
         return self._user_display_name(obj.creado_por)
 
+    def get_creado_por_avatar_url(self, obj):
+        return self._avatar_de(getattr(obj, 'creado_por', None))
+
     def get_actualizado_por_full_name(self, obj):
         return self._user_display_name(obj.actualizado_por)
 
     def get_status_changed_by_full_name(self, obj):
         return self._user_display_name(obj.status_changed_by)
+
+    def get_status_changed_by_avatar_url(self, obj):
+        return self._avatar_de(getattr(obj, 'status_changed_by', None))
 
     def get_tipo_orden(self, obj):
         if getattr(obj, 'tiene_instalacion', False):
@@ -322,6 +337,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'status_changed_by',
             'status_changed_by_username',
             'status_changed_by_full_name',
+            'status_changed_by_avatar_url',
             'prioridad',
             'prioridad_pool',
             'prioridad_pool_efectiva',
@@ -363,6 +379,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',
+            'creado_por_avatar_url',
             'actualizado_por',
             'actualizado_por_username',
             'actualizado_por_full_name',
@@ -392,6 +409,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',
+            'creado_por_avatar_url',
             'actualizado_por',
             'actualizado_por_username',
             'actualizado_por_full_name',
@@ -400,6 +418,7 @@ class OrdenSerializer(serializers.ModelSerializer):
             'status_changed_by',
             'status_changed_by_username',
             'status_changed_by_full_name',
+            'status_changed_by_avatar_url',
             'en_pool',
             'liberada_por',
             'liberada_at',
@@ -450,6 +469,7 @@ class OrdenListSerializer(OrdenSerializer):
             'status_changed_by',
             'status_changed_by_username',
             'status_changed_by_full_name',
+            'status_changed_by_avatar_url',
             'prioridad',
             'prioridad_pool',
             'prioridad_pool_efectiva',
@@ -478,6 +498,7 @@ class OrdenListSerializer(OrdenSerializer):
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',
+            'creado_por_avatar_url',
             'actualizado_por',
             'actualizado_por_username',
             'actualizado_por_full_name',
@@ -503,6 +524,7 @@ class OrdenListSerializer(OrdenSerializer):
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',
+            'creado_por_avatar_url',
             'actualizado_por',
             'actualizado_por_username',
             'actualizado_por_full_name',
@@ -510,6 +532,7 @@ class OrdenListSerializer(OrdenSerializer):
             'status_changed_by',
             'status_changed_by_username',
             'status_changed_by_full_name',
+            'status_changed_by_avatar_url',
             'en_pool',
             'liberada_por',
             'liberada_at',

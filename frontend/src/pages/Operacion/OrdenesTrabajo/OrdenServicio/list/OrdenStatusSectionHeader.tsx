@@ -40,6 +40,7 @@ type Props = {
   count: number;
   headingId: string;
   as?: "div" | "h2";
+  className?: string;
 };
 
 /** Encabezado de sección del listado admin (barra + ícono + título + conteo). */
@@ -49,13 +50,14 @@ export function OrdenStatusSectionHeader({
   count,
   headingId,
   as = "div",
+  className = "",
 }: Props) {
   const tone = getOrdenStatusSectionStyles(statusKey);
   const TitleTag = as;
 
   return (
     <div
-      className={`relative flex items-center justify-between gap-3 overflow-hidden rounded-xl border px-3 py-2.5 sm:px-3.5 sm:py-3 ${tone.shell}`}
+      className={`relative flex items-center justify-between gap-3 overflow-hidden rounded-xl border px-3 py-2.5 sm:px-3.5 sm:py-3 ${tone.shell} ${className}`}
     >
       <span className={`absolute inset-y-0 left-0 w-1 ${tone.accent}`} aria-hidden />
       <div className="flex min-w-0 items-center gap-2.5 pl-1.5 sm:gap-3">

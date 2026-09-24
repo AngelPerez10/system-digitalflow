@@ -65,6 +65,7 @@ export interface Orden {
   status_changed_by?: number | null;
   status_changed_by_username?: string | null;
   status_changed_by_full_name?: string | null;
+  status_changed_by_avatar_url?: string | null;
   comentario_tecnico: string;
   /** Prioridad de la bolsa de órdenes ("liberar / tomar"). La fija el admin. */
   prioridad_pool?: "alta" | "media" | "baja" | string | null;
@@ -93,6 +94,7 @@ export interface Orden {
   creado_por_id?: number;
   creado_por_username?: string | null;
   creado_por_full_name?: string | null;
+  creado_por_avatar_url?: string | null;
   actualizado_por?: number | null;
   actualizado_por_username?: string | null;
   actualizado_por_full_name?: string | null;

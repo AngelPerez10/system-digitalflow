@@ -1,3 +1,4 @@
+import { History } from "lucide-react";
 import { isOrdenArrastre, labelMesOrden, labelMesOrdenCorto } from "../shared/ordenesPageUtils";
 
 type OrdenArrastreBadgeProps = {
@@ -5,44 +6,32 @@ type OrdenArrastreBadgeProps = {
   selectedMonth: string;
   className?: string;
   /**
-   * `stack` — dos líneas (cabecera angosta de tabla).
-   * `inline` — una línea (cards móviles con más ancho).
+   * `compact` — solo «Desde ago» (fila de tabla junto al folio).
+   * `inline` — «Arrastrada · desde ago 2026» (tarjetas con más ancho).
    */
-  layout?: "stack" | "inline";
+  layout?: "compact" | "inline";
 };
 
-/** Marca visual (texto + color; no solo color) para órdenes arrastradas al mes actual. */
-export function OrdenArrastreBadge({
-  orden,
-  selectedMonth,
-  className = "",
-  layout = "stack",
-}: OrdenArrastreBadgeProps) {
+/**
+ * Orden de un mes anterior que sigue abierta y se arrastra al mes visible.
+ * Ícono de historial + texto (no depende solo del color).
+ */
+export function OrdenArrastreBadge({ orden, selectedMonth, className = "", layout = "compact" }: OrdenArrastreBadgeProps) {
   if (!isOrdenArrastre(orden, selectedMonth)) return null;
   const mesLabel = labelMesOrden(orden);
   const mesCorto = labelMesOrdenCorto(orden);
-  const full = `Orden de ${mesLabel}, arrastrada al mes actual`;
-
-  if (layout === "inline") {
-    return (
-      <span
-        className={`inline-flex max-w-full shrink-0 items-center whitespace-nowrap rounded-md border border-amber-300/80 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100 ${className}`}
-        title={full}
-        aria-label={full}
-      >
-        Arrastre · {mesCorto}
-      </span>
-    );
-  }
+  const full = `Orden de ${mesLabel} que sigue abierta; se arrastra al mes actual`;
+  const mes = layout === "inline" ? mesCorto : mesCorto.split(" ")[0];
 
   return (
     <span
-      className={`inline-flex w-full min-w-0 max-w-full flex-col items-start gap-0 rounded-md border border-amber-300/80 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100 ${className}`}
+      className={`inline-flex h-[18px] max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#FAFAFA] pl-1 pr-1.5 text-[10.5px] font-semibold text-[#3F3F46] ring-1 ring-inset ring-[#E4E4E7] dark:bg-white/[0.04] dark:text-[#D6DEEA] dark:ring-[#273244] ${className}`}
       title={full}
       aria-label={full}
     >
-      <span className="whitespace-nowrap">Arrastre</span>
-      <span className="max-w-full truncate font-normal tabular-nums">{mesCorto}</span>
+      <History className="size-3 shrink-0 text-[#C27A12] dark:text-[#E6A23C]" aria-hidden />
+      {layout === "inline" ? <span>Arrastrada ·</span> : null}
+      <span className="tabular-nums">desde {mes}</span>
     </span>
   );
 }

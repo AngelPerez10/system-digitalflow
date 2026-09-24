@@ -115,8 +115,10 @@ const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handler
         <StatusChangedByChip
           name={row.draft.statusChangedByName}
           at={row.draft.statusChangedAt}
+          avatarUrl={row.draft.statusChangedByAvatarUrl}
           fallbackName={row.draft.creadoPorName}
           fallbackAt={row.draft.createdAt}
+          fallbackAvatarUrl={row.draft.creadoPorAvatarUrl}
         >
           <EstadoPill estado={row.estado} size="sm" />
         </StatusChangedByChip>

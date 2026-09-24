@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Avatar, Surface } from "@heroui/react";
 import { CalendarClock, History, UserRound, X } from "lucide-react";
+import { resolveMediaUrl } from "@/config/api";
 import {
   MODAL_BACKDROP_SURFACE,
   MODAL_BACKDROP_TRANSITION,
@@ -57,9 +58,13 @@ function relativeTimeEs(iso: string): string {
 type Props = {
   name: string;
   at?: string | null;
+  /** Foto de quien colocó el status (`status_changed_by_avatar_url`). */
+  avatarUrl?: string | null;
   /** Si no hay sello de status, usar creador / created_at. */
   fallbackName?: string | null;
   fallbackAt?: string | null;
+  /** Foto del creador cuando el chip cae al fallback. */
+  fallbackAvatarUrl?: string | null;
   align?: "start" | "center";
   variant?: "compact" | "panel";
   className?: string;
@@ -107,26 +112,38 @@ function AuditAvatar({
   initials,
   size,
   muted,
+  avatarUrl,
 }: {
   initials: string;
   size: "compact" | "md" | "lg";
   muted: boolean;
+  avatarUrl?: string | null;
 }) {
   const isCompact = size === "compact";
   const isLg = size === "lg";
+  const src = resolveMediaUrl(avatarUrl);
+
   return (
     <Avatar
       size="sm"
       color={muted ? "default" : "accent"}
       variant="soft"
       className={[
-        "shrink-0",
+        "shrink-0 overflow-hidden",
         isCompact ? "size-4.5" : isLg ? "size-12 sm:size-14" : "size-8 sm:size-9",
         muted
           ? "border border-dashed border-[#C7C9D1] bg-[#F4F4F5] dark:border-[#3A4661] dark:bg-[#1e293b]"
           : "",
       ].join(" ")}
     >
+      {src ? (
+        <Avatar.Image
+          src={src}
+          alt=""
+          className="size-full object-cover"
+          loading="lazy"
+        />
+      ) : null}
       <Avatar.Fallback
         className={[
           "font-semibold leading-none",
@@ -158,6 +175,7 @@ type AuditDetail = {
   fromFallback: boolean;
   initials: string;
   aria: string;
+  avatarUrl: string;
 };
 
 function StatusAuditDetailModal({
@@ -312,7 +330,12 @@ function StatusAuditDetailModal({
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
               <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-start sm:text-left">
-                <AuditAvatar initials={detail.initials} size="lg" muted={!detail.hasName} />
+                <AuditAvatar
+                  initials={detail.initials}
+                  size="lg"
+                  muted={!detail.hasName}
+                  avatarUrl={detail.avatarUrl}
+                />
                 <div className="min-w-0 flex-1">
                   <p
                     className={`truncate text-lg font-semibold tracking-tight sm:text-xl ${
@@ -391,8 +414,10 @@ function StatusAuditDetailModal({
 export function StatusChangedByChip({
   name,
   at,
+  avatarUrl,
   fallbackName,
   fallbackAt,
+  fallbackAvatarUrl,
   align = "start",
   variant = "compact",
   className = "",
@@ -413,6 +438,9 @@ export function StatusChangedByChip({
   const rel = relativeTimeEs(resolved.at);
   const aria = buildAriaLabel(display, when, hasName, resolved.fromFallback);
   const initials = initialsFromDisplayName(resolved.name);
+  const photo = resolved.fromFallback
+    ? String(fallbackAvatarUrl || "").trim()
+    : String(avatarUrl || "").trim();
 
   const detail: AuditDetail = {
     display,
@@ -423,6 +451,7 @@ export function StatusChangedByChip({
     fromFallback: resolved.fromFallback,
     initials,
     aria,
+    avatarUrl: hasName ? photo : "",
   };
 
   const modal = (
@@ -490,7 +519,7 @@ export function StatusChangedByChip({
           className,
         ].join(" ")}
       >
-        <AuditAvatar initials={initials} size="md" muted={!hasName} />
+        <AuditAvatar initials={initials} size="md" muted={!hasName} avatarUrl={detail.avatarUrl} />
         <div className="min-w-0 flex-1">
           <p
             className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.07em] ${secondaryText}`}
@@ -550,7 +579,7 @@ export function StatusChangedByChip({
           "motion-reduce:transition-none",
         ].join(" ")}
       >
-        <AuditAvatar initials={initials} size="compact" muted={!hasName} />
+        <AuditAvatar initials={initials} size="compact" muted={!hasName} avatarUrl={detail.avatarUrl} />
         <span
           className={`min-w-0 truncate text-[10px] font-semibold leading-none tracking-tight ${
             hasName ? primaryText : `font-medium italic ${secondaryText}`

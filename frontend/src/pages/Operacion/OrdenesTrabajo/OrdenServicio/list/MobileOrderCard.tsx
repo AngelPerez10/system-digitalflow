@@ -191,8 +191,10 @@ export function MobileOrderCard({
             <StatusChangedByChip
               name={statusByName}
               at={orden.status_changed_at}
+              avatarUrl={orden.status_changed_by_avatar_url}
               fallbackName={resolveOrdenStatusFallbackName(orden)}
               fallbackAt={orden.fecha_creacion}
+              fallbackAvatarUrl={orden.creado_por_avatar_url}
             />
           )}
         </div>
@@ -383,6 +385,11 @@ interface MobileOrderListProps {
   groupByStatus?: boolean;
   /** Mes del listado (YYYY-MM) para badge de arrastre. */
   selectedMonth?: string;
+  /**
+   * Desde qué ancho se oculta (ahí se muestra la tabla). `wide` (≥1280 px): en tablet y laptops chicas se ven
+   * las tarjetas en dos columnas en lugar de una tabla apretada.
+   */
+  hideFrom?: "md" | "wide";
 }
 
 export const MobileOrderList = memo(function MobileOrderList({
@@ -402,7 +409,9 @@ export const MobileOrderList = memo(function MobileOrderList({
   highlightRecentStatus = false,
   groupByStatus = false,
   selectedMonth = "",
+  hideFrom = "md",
 }: MobileOrderListProps) {
+  const tablet = hideFrom === "wide";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getTecnicoNombre = (orden: any): string => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -454,18 +463,23 @@ export const MobileOrderList = memo(function MobileOrderList({
   );
 
   return (
-    <div className="space-y-2.5 md:hidden">
+    <div className={`space-y-2.5 ${tablet ? "xl:hidden" : "md:hidden"}`}>
       {sections
         ? sections.map((section) => {
             const headingId = `ordenes-mobile-${section.key.toLowerCase()}`;
             return (
-              <section key={section.key} aria-labelledby={headingId} className="space-y-2.5">
+              <section
+                key={section.key}
+                aria-labelledby={headingId}
+                className={tablet ? "space-y-2.5 md:grid md:grid-cols-2 md:gap-3 md:space-y-0" : "space-y-2.5"}
+              >
                 <OrdenStatusSectionHeader
                   statusKey={section.key}
                   label={section.label}
                   count={section.ordenes.length}
                   headingId={headingId}
                   as="h2"
+                  className={tablet ? "md:col-span-2" : undefined}
                 />
                 {section.ordenes.map((orden, sectionIdx) => {
                   const idx =

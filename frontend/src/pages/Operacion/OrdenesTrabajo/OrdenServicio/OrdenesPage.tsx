@@ -1,13 +1,6 @@
 ﻿import { useState, useEffect, useId, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
@@ -29,48 +22,30 @@ import { useOrdenFormModalState } from "./form/useOrdenFormModalState";
 import { useOrdenFormDraft, type LevantamientoSnap } from "./form/useOrdenFormDraft";
 import { useOrdenesList } from "./shared/useOrdenesList";
 import { useOrdenesPagePermissions } from "./useOrdenesPagePermissions";
-import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { MobileOrderList } from "./list/MobileOrderCard";
-import { OrdenStatusSectionHeader } from "./list/OrdenStatusSectionHeader";
+import { OrdenesTable } from "./list/OrdenesTable";
+import { OrdenesHero } from "./list/OrdenesHero";
+import { MonthSwitcher } from "../../Proyectos/list/ProyectosHero";
+import { formatYearMonthLabel, shiftYearMonth } from "../../Proyectos/shared/proyectoListUtils";
 import { OrdenesMonthLoadingBanner } from "./list/OrdenesMonthLoadingBanner";
 import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import OrdenEnviarPdfModal, {
   type OrdenEnviarPdfTarget,
 } from "./list/OrdenEnviarPdfModal";
 import {
-  StatusChangedByChip,
-} from "../../shared/StatusChangedByChip";
-import {
-  resolveOrdenStatusFallbackName,
-  resolveStatusChangedByName,
-} from "../../shared/statusChangedBy";
-import {
   downloadOrdenesMesPdf,
   handleOrdenPdfClick,
-  isOrdenResuelta,
-  isOrdenServicioTecnico,
-  displayOrdenFolio,
   resolveClienteCorreoSugerido,
   fetchOrdenDetail,
-  isOrdenCancelada,
   fetchTodosLosUsuariosApi,
 } from "./shared/useOrdenesShared";
 import {
   formatYmdToDMY,
-  formatIsoDateTime,
-  displayOrdenUserName,
   getNowHHMM,
-  isGoogleMapsUrl,
-  isOrdenStatusChangeRecent,
-  ORDEN_RECIEN_RESUELTA_BADGE_CLASS,
-  ORDEN_RECIEN_RESUELTA_ROW_CLASS,
   parseYearMonth,
 } from "./shared/ordenesPageUtils";
-import { OrdenArrastreBadge } from "./list/OrdenArrastreBadge";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import {
-  getOrdenPrioridadSectionStyles,
-  ordenPrioridadListBadge,
   sortOrdenesByPrioridad,
 } from "./shared/ordenPrioridadSections";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
@@ -79,23 +54,11 @@ import { OrdenDeleteDialog, OrdenDetailModal } from "./shared/OrdenDialogs";
 import {
   erpBreadcrumbLinkClass,
   erpBreadcrumbNavClass,
-  erpHeroBlurClass,
-  erpHeroHeadingClass,
-  erpHeroIconWrapClass,
-  erpMonthNavBtnClass,
   erpPageCanvasClass,
   erpPageInnerClass,
   erpPrimaryBtnClass,
-  erpRowActionBarClass,
-  erpRowActionBtnClass,
   erpSansStyle,
   erpSecondaryBtnClass,
-  erpTableHeaderClass,
-  erpTableRowHoverClass,
-  erpTableWrapClass,
-  osHeroBandClass,
-  osHeroBodyClass,
-  osHeroEyebrowClass,
   pageCardShellClass,
   pageSearchInputClass,
 } from "./ordenServicioStyles";
@@ -636,6 +599,8 @@ export default function Ordenes() {
     return map;
   }, [listadoOrdenes]);
 
+  const shiftMonth = (delta: number) => selectMonth(shiftYearMonth(selectedMonth, delta));
+
   return (
     <div className={erpPageCanvasClass} style={erpSansStyle}>
       <div className={erpPageInnerClass}>
@@ -699,42 +664,13 @@ export default function Ordenes() {
           />
         )}
 
-        <header className={osHeroBandClass}>
-          <div className={erpHeroBlurClass} aria-hidden />
-          <div className="relative flex min-w-0 items-start gap-4">
-            <span className={erpHeroIconWrapClass} aria-hidden>
-              <svg
-                className="size-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                aria-hidden
-              >
-                <path
-                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className={osHeroEyebrowClass}>Operación</p>
-              <h1 className={`mt-1 ${erpHeroHeadingClass}`}>
-                Órdenes de trabajo
-              </h1>
-              <p className={osHeroBodyClass}>
-                Administra órdenes de servicio, fotos, firmas y PDF. Filtra por
-                estado, servicio o fecha en el listado.
-              </p>
-            </div>
-          </div>
-        </header>
+        <OrdenesHero
+          eyebrow="Operación"
+          title="Órdenes de trabajo"
+          description="Administra órdenes de servicio, fotos, firmas y PDF. Filtra por estado, servicio o fecha en el listado."
+          selectedMonth={selectedMonth}
+          onShiftMonth={shiftMonth}
+        />
 
         <OrdenesPageStats stats={ordenStats} />
         <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
@@ -848,8 +784,7 @@ export default function Ordenes() {
                   </h2>
                 </div>
                 <p className="mt-2 text-[14px] leading-5 text-[#52525B] dark:text-[#B7C1D1]">
-                  Resultados según búsqueda y filtros. En pantallas pequeñas
-                  desplázate horizontalmente si hace falta.
+                  Resultados según búsqueda y filtros, agrupados por estado.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
@@ -918,13 +853,15 @@ export default function Ordenes() {
               />
             </div>
           </div>
-          <div className="p-2 sm:p-3">
+          <div>
             {monthLoading ? (
+              <div className="px-3 pt-3 sm:px-5">
               <OrdenesMonthLoadingBanner
                 selectedMonth={selectedMonth}
-                className="mb-3"
-              />
+                />
+            </div>
             ) : null}
+            <div className="p-2 sm:p-3 xl:hidden">
             <MobileOrderList
               ordenes={listadoOrdenes}
               startIndex={startIndex}
@@ -940,642 +877,52 @@ export default function Ordenes() {
               highlightRecentStatus={isAdmin}
               groupByStatus
               selectedMonth={selectedMonth}
+              hideFrom="wide"
             />
-            <div className={"hidden md:block " + erpTableWrapClass}>
-              <Table className="w-full min-w-272.5 table-fixed sm:min-w-0 xl:min-w-full">
-                <TableHeader
-                  className={erpTableHeaderClass + " sticky top-0 z-10"}
-                >
-                  <TableRow>
-                    <TableCell
-                      isHeader
-                      className="px-3 py-2 text-left w-25 min-w-24 max-w-27.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
-                    >
-                      Folio
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-3 py-2 text-left w-2/5 min-w-55 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
-                    >
-                      Cliente
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-3 py-2 text-left w-1/5 min-w-55 text-[#52525B] dark:text-[#B7C1D1]"
-                    >
-                      Detalles
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-3 py-2 text-left w-32.5 min-w-32.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
-                    >
-                      Fechas
-                    </TableCell>
-
-                    <TableCell
-                      isHeader
-                      className="px-3 py-2 text-left w-40 min-w-40 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
-                    >
-                      Técnico
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-3 py-2 text-left w-45 min-w-45 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
-                    >
-                      Registro
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-3 py-2 text-center w-37.5 min-w-37.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
-                    >
-                      Prioridad · Estado
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-3 py-2 text-center w-37.5 min-w-37.5 whitespace-nowrap text-[#52525B] dark:text-[#B7C1D1]"
-                    >
-                      Acciones
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-[#EDEDED] bg-white text-[12px] text-[#44403c] dark:divide-[#273244] dark:bg-[#111827] dark:text-[#e5e7eb]">
-                  {statusSections.flatMap((section) => {
-                    const headingId = `ordenes-table-${section.key.toLowerCase()}`;
-                    const headerRow = (
-                      <TableRow
-                        key={`${section.key}-header`}
-                        className="hover:bg-transparent dark:hover:bg-transparent"
-                      >
-                        <TableCell
-                          isHeader
-                          scope="colgroup"
-                          colSpan={8}
-                          className="border-y-0 bg-transparent p-0 text-left"
-                        >
-                          <div className="px-3 py-2">
-                            <OrdenStatusSectionHeader
-                              statusKey={section.key}
-                              label={section.label}
-                              count={section.ordenes.length}
-                              headingId={headingId}
-                            />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-
-                    const dataRows = section.ordenes.map(
-                      (orden, sectionIdx) => {
-                        const idx =
-                          typeof orden.id === "number" &&
-                          ordenIndexById.has(orden.id)
-                            ? (ordenIndexById.get(orden.id) as number)
-                            : sectionIdx;
-                        const fecha =
-                          orden.fecha_inicio || orden.fecha_creacion || "";
-                        const fechaFmt = fecha ? formatYmdToDMY(fecha) : "-";
-                        const finFmt = orden.fecha_finalizacion
-                          ? formatYmdToDMY(orden.fecha_finalizacion)
-                          : "-";
-                        const folioDisplay = displayOrdenFolio(
-                          orden,
-                          startIndex + idx + 1,
-                        );
-                        // En órdenes resueltas o canceladas la prioridad de bolsa deja de ser relevante: no se muestra.
-                        const isResuelta = isOrdenResuelta(orden.status);
-                        const isCancelada = isOrdenCancelada(orden.status);
-                        const isTerminal = isResuelta || isCancelada;
-                        // Chip = prioridad del formulario. Las horas solo reordenan la cola.
-                        const prioBadge = ordenPrioridadListBadge(orden);
-                        const prioKey = prioBadge.assignedKey;
-                        const prioTone = getOrdenPrioridadSectionStyles(prioKey);
-                        const prioAria = isTerminal
-                          ? ""
-                          : prioBadge.ariaLabel.toLowerCase();
-                        const recentResolved =
-                          isAdmin && isOrdenStatusChangeRecent(orden);
-                        const creadaPor = displayOrdenUserName(orden, "creado");
-                        const editadaPor = displayOrdenUserName(
-                          orden,
-                          "actualizado",
-                        );
-                        const creadaEn = formatIsoDateTime(
-                          orden.fecha_creacion,
-                        );
-                        const editadaEn = formatIsoDateTime(
-                          orden.fecha_actualizacion,
-                        );
-                        const statusByName = resolveStatusChangedByName(
-                          orden.status_changed_by_full_name,
-                          orden.status_changed_by_username,
-                        );
-
-                        const tecnico = usuarios.find(
-                          (u) => u.id === orden.tecnico_asignado,
-                        );
-                        const tecnicoNombre = tecnico
-                          ? tecnico.first_name && tecnico.last_name
-                            ? `${tecnico.first_name} ${tecnico.last_name}`
-                            : tecnico.email
-                          : orden.nombre_encargado || "-";
-                        return (
-                          <TableRow
-                            key={orden.id ?? `${section.key}-${sectionIdx}`}
-                            className={`${erpTableRowHoverClass} ${recentResolved ? ORDEN_RECIEN_RESUELTA_ROW_CLASS : isTerminal ? "" : prioTone.rowAccent}`}
-                            aria-label={`Orden ${folioDisplay}${isTerminal ? "" : `, ${prioAria}`}${isCancelada ? ", cancelada" : ""}${recentResolved ? ", resuelta recientemente" : ""}`}
-                          >
-                            <TableCell className="px-3 py-2 w-25 min-w-24 max-w-27.5 overflow-hidden font-medium tabular-nums">
-                              <div className="flex min-w-0 flex-col items-stretch gap-1">
-                                <span className="whitespace-nowrap">
-                                  {folioDisplay}
-                                </span>
-                                <OrdenArrastreBadge
-                                  orden={orden}
-                                  selectedMonth={selectedMonth}
-                                />
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-3 py-2 text-[#09090B] dark:text-white w-1/5 min-w-55">
-                              <div className="font-medium truncate">
-                                {orden.cliente || "Sin cliente"}
-                              </div>
-                              {orden.cliente_direccion_etiqueta ? (
-                                <span
-                                  className="block text-[11px] font-medium text-[#52525B] dark:text-[#8EA0B8] truncate"
-                                  title={orden.cliente_direccion_etiqueta}
-                                >
-                                  {orden.cliente_direccion_etiqueta}
-                                </span>
-                              ) : null}
-                              {orden.direccion &&
-                                (isGoogleMapsUrl(orden.direccion) ? (
-                                  <a
-                                    href={orden.direccion}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="block text-[11px] text-blue-600 dark:text-blue-400 hover:underline truncate"
-                                  >
-                                    {orden.direccion}
-                                  </a>
-                                ) : (
-                                  <span
-                                    className="block text-[11px] text-[#52525B] dark:text-[#8EA0B8] truncate"
-                                    title={orden.direccion}
-                                  >
-                                    {orden.direccion}
-                                  </span>
-                                ))}
-                              {orden.telefono_cliente && (
-                                <a
-                                  href={`tel:${orden.telefono_cliente}`}
-                                  className="inline-block text-[11px] text-[#52525B] dark:text-[#8EA0B8]"
-                                >
-                                  {orden.telefono_cliente}
-                                </a>
-                              )}
-                            </TableCell>
-                            <TableCell className="px-3 py-2 w-2/5 min-w-55 whitespace-normal">
-                              <div className="flex flex-col gap-1 items-start">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setProblematicaModal({
-                                      open: true,
-                                      content: orden.problematica || "-",
-                                    })
-                                  }
-                                  className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                                  title="Ver problemática"
-                                >
-                                  <svg
-                                    className="w-3.5 h-3.5"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    aria-hidden="true"
-                                  >
-                                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  Problemática
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setServiciosModal({
-                                      open: true,
-                                      content: Array.isArray(
-                                        orden.servicios_realizados,
-                                      )
-                                        ? orden.servicios_realizados
-                                        : [],
-                                    })
-                                  }
-                                  className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                                  title="Ver servicios realizados"
-                                >
-                                  <svg
-                                    className="w-3.5 h-3.5"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    aria-hidden="true"
-                                  >
-                                    <path d="M4 6h16M4 12h16M4 18h16" />
-                                  </svg>
-                                  Servicios
-                                </button>
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap w-32.5 min-w-32.5">
-                              <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
-                                <div>
-                                  <span className="text-[#6E6E77]">
-                                    Inicio:
-                                  </span>{" "}
-                                  {fechaFmt}
-                                </div>
-                                <div>
-                                  <span className="text-[#6E6E77]">Fin:</span>{" "}
-                                  {finFmt}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-3 py-2 whitespace-nowrap w-40 min-w-40">
-                              <div className="space-y-1">
-                                <div className="text-[12px] text-[#52525B] dark:text-[#B7C1D1] truncate">
-                                  {tecnicoNombre}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setComentarioModal({
-                                      open: true,
-                                      content: (orden.comentario_tecnico ||
-                                        "") as string,
-                                    })
-                                  }
-                                  className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:underline dark:text-blue-400"
-                                  title="Ver comentario del técnico"
-                                >
-                                  <svg
-                                    className="w-3.5 h-3.5"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    aria-hidden="true"
-                                  >
-                                    <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-                                  </svg>
-                                  Comentarios
-                                </button>
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-3 py-2 w-45 min-w-45 align-top">
-                              <div className="flex min-w-0 flex-col gap-1.5 text-[12px] text-[#52525B] dark:text-[#B7C1D1]">
-                                <div className="min-w-0">
-                                  <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
-                                    Creada por
-                                  </div>
-                                  <div
-                                    className="truncate font-medium text-[#09090B] dark:text-white"
-                                    title={creadaPor}
-                                  >
-                                    {creadaPor}
-                                  </div>
-                                  {orden.fecha_creacion ? (
-                                    <time
-                                      className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
-                                      dateTime={orden.fecha_creacion}
-                                    >
-                                      {creadaEn}
-                                    </time>
-                                  ) : (
-                                    <span className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
-                                      —
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="min-w-0 border-t border-[#EDEDED] pt-1.5 dark:border-[#273244]">
-                                  <div className="text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]">
-                                    Editada por
-                                  </div>
-                                  <div
-                                    className="truncate font-medium text-[#09090B] dark:text-white"
-                                    title={editadaPor}
-                                  >
-                                    {editadaPor}
-                                  </div>
-                                  {orden.fecha_actualizacion ? (
-                                    <time
-                                      className="block text-[10px] leading-tight text-[#6E6E77] dark:text-[#8EA0B8]"
-                                      dateTime={orden.fecha_actualizacion}
-                                    >
-                                      {editadaEn}
-                                    </time>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-3 py-2 text-center w-41 min-w-39">
-                              <div className="flex flex-col items-center gap-1">
-                                {(() => {
-                                  const statusPill =
-                                    orden.status === "resuelto"
-                                      ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
-                                      : orden.status === "pausado"
-                                        ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
-                                        : orden.status === "cancelada"
-                                          ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
-                                          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300";
-                                  const statusLabel =
-                                    orden.status === "resuelto"
-                                      ? "Resuelto"
-                                      : orden.status === "pausado"
-                                        ? "Pausado"
-                                        : orden.status === "cancelada"
-                                          ? "Cancelada"
-                                          : "Pendiente";
-                                  const statusTitle =
-                                    orden.status === "pausado" &&
-                                    orden.motivo_pausa
-                                      ? String(orden.motivo_pausa)
-                                      : orden.status === "cancelada" &&
-                                          orden.motivo_cancelacion
-                                        ? String(orden.motivo_cancelacion)
-                                        : undefined;
-                                  // Resuelta o cancelada: solo estado (la prioridad ya no aplica).
-                                  if (isTerminal) {
-                                    return (
-                                      <span
-                                        className={`inline-flex items-center rounded-full px-2 py-0.75 text-[10px] font-semibold ${statusPill}`}
-                                        title={statusTitle}
-                                      >
-                                        {statusLabel}
-                                      </span>
-                                    );
-                                  }
-                                  // Activa: pastilla combinada — segmento izq. = prioridad, der. = estado.
-                                  return (
-                                    <span className="inline-flex items-stretch overflow-hidden whitespace-nowrap rounded-full text-[10px] font-semibold leading-none ring-1 ring-inset ring-black/6 dark:ring-white/10">
-                                      <span
-                                        className={`flex items-center gap-1 px-1.5 py-0.75 ${prioTone.cap}`}
-                                        title={prioBadge.title}
-                                        aria-label={prioBadge.ariaLabel}
-                                      >
-                                        <span
-                                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${prioTone.dot}`}
-                                          aria-hidden
-                                        />
-                                        {prioBadge.visibleLabel}
-                                      </span>
-                                      <span
-                                        className={`px-2 py-0.75 ${statusPill}`}
-                                        title={statusTitle}
-                                      >
-                                        {statusLabel}
-                                      </span>
-                                    </span>
-                                  );
-                                })()}
-                                {recentResolved && (
-                                  <span
-                                    className={
-                                      ORDEN_RECIEN_RESUELTA_BADGE_CLASS
-                                    }
-                                  >
-                                    <svg
-                                      className="h-2.5 w-2.5 shrink-0"
-                                      viewBox="0 0 16 16"
-                                      fill="none"
-                                      aria-hidden="true"
-                                    >
-                                      <path
-                                        d="M3.5 8.5 6.5 11.5 12.5 4.5"
-                                        stroke="currentColor"
-                                        strokeWidth="1.8"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                      />
-                                    </svg>
-                                    Resuelto recién
-                                  </span>
-                                )}
-                                {(statusByName ||
-                                  orden.status_changed_at ||
-                                  orden.creado_por_username ||
-                                  orden.creado_por_full_name) && (
-                                  <StatusChangedByChip
-                                    name={statusByName}
-                                    at={orden.status_changed_at}
-                                    fallbackName={resolveOrdenStatusFallbackName(orden)}
-                                    fallbackAt={orden.fecha_creacion}
-                                    align="center"
-                                  />
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-3 py-2 text-center w-37.5 min-w-37.5">
-                              <div className={erpRowActionBarClass}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOrdenPdf(orden)}
-                                  className={
-                                    erpRowActionBtnClass +
-                                    " hover:border-red-400 hover:text-red-600"
-                                  }
-                                  title={
-                                    orden.status === "resuelto"
-                                      ? "Descargar PDF"
-                                      : "Ver PDF"
-                                  }
-                                  aria-label={
-                                    orden.status === "resuelto"
-                                      ? "Descargar PDF"
-                                      : "Ver PDF"
-                                  }
-                                >
-                                  <svg
-                                    className="w-4 h-4"
-                                    viewBox="0 0 512 512"
-                                    fill="currentColor"
-                                    aria-hidden="true"
-                                  >
-                                    <g>
-                                      <path d="M378.413,0H208.297h-13.182L185.8,9.314L57.02,138.102l-9.314,9.314v13.176v265.514 c0,47.36,38.528,85.895,85.896,85.895h244.811c47.353,0,85.881-38.535,85.881-85.895V85.896C464.294,38.528,425.766,0,378.413,0z M432.497,426.105c0,29.877-24.214,54.091-54.084,54.091H133.602c-29.884,0-54.098-24.214-54.098-54.091V160.591h83.716 c24.885,0,45.077-20.178,45.077-45.07V31.804h170.116c29.87,0,54.084,24.214,54.084,54.092V426.105Z" />
-                                      <path d="M171.947,252.785h-28.529c-5.432,0-8.686,3.533-8.686,8.825v73.754c0,6.388,4.204,10.599,10.041,10.599 c5.711,0,9.914-4.21,9.914-10.599v-22.406c0-0.545,0.279-0.817,0.824-0.817h16.436c20.095,0,32.188-12.226,32.188-29.612 C204.136,264.871,192.182,252.785,171.947,252.785z M170.719,294.888h-15.208c-0.545,0-0.824-0.272-0.824-0.81v-23.23 c0-0.545,0.279-0.816,0.824-0.816h15.208c8.42,0,13.447,5.027,13.447,12.498C184.167,290,179.139,294.888,170.719,294.888z" />
-                                      <path d="M250.191,252.785h-21.868c-5.432,0-8.686,3.533-8.686,8.825v74.843c0,5.3,3.253,8.693,8.686,8.693h21.868 c19.69,0,31.923-6.249,36.81-21.324c1.76-5.3,2.723-11.681,2.723-24.857c0-13.175-0.964-19.557-2.723-24.856 C282.113,259.034,269.881,252.785,250.191,252.785z M267.856,316.896c-2.318,7.331-8.965,10.459-18.21,10.459h-9.23 c-0.545,0-0.824-0.272-0.824-0.816v-55.146c0-0.545,0.279-0.817,0.824-0.817h9.23c9.245,0,15.892,3.128,18.21,10.46 c0.95,3.128,1.62,8.56,1.62,17.93C269.476,308.336,268.805,313.768,267.856,316.896z" />
-                                      <path d="M361.167,252.785h-44.812c-5.432,0-8.7,3.533-8.7,8.825v73.754c0,6.388,4.218,10.599,10.055,10.599 c5.697,0,9.914-4.21,9.914-10.599v-26.351c0-0.538,0.265-0.81,0.81-0.81h26.086c5.837,0,9.23-3.532,9.23-8.56 c0-5.028-3.393-8.553-9.23-8.553h-26.086c-0.545,0-0.81-0.272-0.81-0.817v-19.425c0-0.545,0.265-0.816,0.81-0.816h32.733 c5.572,0,9.245-3.666,9.245-8.553C370.411,256.45,366.738,252.785,361.167,252.785z" />
-                                    </g>
-                                  </svg>
-                                </button>
-                                {isOrdenResuelta(orden.status) &&
-                                  isOrdenServicioTecnico(orden.tipo_orden) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => openEnviarPdfModal(orden)}
-                                      className={
-                                        erpRowActionBtnClass +
-                                        " hover:border-sky-400 hover:text-sky-600"
-                                      }
-                                      title="Enviar PDF por correo"
-                                      aria-label="Enviar PDF por correo"
-                                    >
-                                      <MailIcon className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                {canOrdenesEdit && (
-                                  <button
-                                    onClick={() => handleEdit(orden)}
-                                    className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-[#111827] border border-[#E7E7EA] dark:border-white/10 hover:border-[#1B5CFF] hover:text-[#1B5CFF] dark:hover:border-[#1B5CFF] transition"
-                                    title="Editar"
-                                    aria-label="Editar"
-                                  >
-                                    <PencilIcon className="w-4 h-4" />
-                                  </button>
-                                )}
-                                {canOrdenesDelete && (
-                                  <button
-                                    onClick={() => handleDeleteClick(orden)}
-                                    className={
-                                      erpRowActionBtnClass +
-                                      " hover:border-rose-400 hover:text-rose-600"
-                                    }
-                                    title="Eliminar"
-                                    aria-label="Eliminar"
-                                  >
-                                    <TrashBinIcon className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      },
-                    );
-
-                    return [headerRow, ...dataRows];
-                  })}
-                  {monthLoading && listadoOrdenes.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={8}
-                        className="px-2 py-8 text-center text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]"
-                      >
-                        <span role="status" aria-live="polite">
-                          Cargando órdenes del mes…
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {!monthLoading && listadoOrdenes.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="px-4 py-10 text-center">
-                        <p className="text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]">
-                          Sin órdenes
-                        </p>
-                        <p className="mt-1 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
-                          Cambia de mes o ajusta los filtros para ver
-                          resultados.
-                        </p>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+            </div>
+            <div className="hidden xl:block">
+              <OrdenesTable
+                sections={statusSections}
+                indexById={ordenIndexById}
+                startIndex={startIndex}
+                usuarios={usuarios}
+                selectedMonth={selectedMonth}
+                admin={isAdmin}
+                loading={monthLoading}
+                empty={
+                  <div className="flex flex-col items-center py-14 text-center">
+                    <p className="text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">Sin órdenes</p>
+                    <p className="mt-1 text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">Cambia de mes o ajusta los filtros para ver resultados.</p>
+                  </div>
+                }
+                onPdf={handleOrdenPdf}
+                onEnviarPdf={openEnviarPdfModal}
+                onEdit={canOrdenesEdit ? handleEdit : undefined}
+                onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
+                onVerProblematica={(content) => setProblematicaModal({ open: true, content })}
+                onVerServicios={(content) => setServiciosModal({ open: true, content })}
+                onVerComentario={(content) => setComentarioModal({ open: true, content })}
+              />
             </div>
 
-            {/* Navegación por mes: siempre visible (también mientras carga). */}
-            <div className="border-t border-[#E7E7EA] px-5 py-4 dark:border-[#273244]">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between sm:gap-4 flex-wrap">
-                <p className="text-xs sm:text-sm text-[#52525B] dark:text-[#8EA0B8]">
-                  {monthLoading ? (
-                    <span role="status" aria-live="polite">
-                      Cargando órdenes del mes seleccionado…
-                    </span>
-                  ) : (
-                    <>
-                      <span className="font-medium text-[#09090B] dark:text-white">
-                        {listadoOrdenes.length}
-                      </span>{" "}
-                      {listadoOrdenes.length === 1 ? "orden" : "órdenes"} en el
-                      mes
-                    </>
-                  )}
-                </p>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const ym = parseYearMonth(selectedMonth);
-                      if (!ym) return;
-                      const d = new Date(ym.year, ym.month - 2, 1);
-                      const mm = String(d.getMonth() + 1).padStart(2, "0");
-                      selectMonth(`${d.getFullYear()}-${mm}`);
-                    }}
-                    className={erpMonthNavBtnClass}
-                    title="Mes anterior"
-                    aria-label="Mes anterior"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M15 18l-6-6 6-6" />
-                    </svg>
-                  </button>
-                  <span className="min-w-32.5 sm:min-w-40 text-center text-[11px] sm:text-[12px] text-[#52525B] dark:text-[#B7C1D1] capitalize">
-                    {(() => {
-                      const ym = parseYearMonth(selectedMonth);
-                      if (!ym)
-                        return selectedMonth
-                          ? selectedMonth
-                          : "Todos los meses";
-                      return new Date(
-                        ym.year,
-                        ym.month - 1,
-                        1,
-                      ).toLocaleDateString("es-MX", {
-                        month: "long",
-                        year: "numeric",
-                      });
-                    })()}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const ym = parseYearMonth(selectedMonth);
-                      if (!ym) return;
-                      const dt = new Date(ym.year, ym.month - 1, 1);
-                      dt.setMonth(dt.getMonth() + 1);
-                      const next = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
-                      selectMonth(next);
-                    }}
-                    className={erpMonthNavBtnClass}
-                    title="Mes siguiente"
-                    aria-label="Mes siguiente"
-                  >
-                    <svg
-                      className="w-4 h-4 rotate-90"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M9 18l6-6 6 6" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+            {/* Pie: conteo; en celular también el cambio de mes (la banda no se muestra). */}
+          <div className="flex flex-col gap-3 border-t border-[#E7E7EA] px-5 py-3.5 dark:border-[#273244] sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]" aria-live="polite">
+              {monthLoading ? (
+                <span role="status">Cargando órdenes del mes…</span>
+              ) : (
+                <>
+                  <span className="font-medium tabular-nums text-[#09090B] dark:text-white">{listadoOrdenes.length.toLocaleString("es-MX")}</span>{" "}
+                  {listadoOrdenes.length === 1 ? "orden" : "órdenes"} en <span className="capitalize">{formatYearMonthLabel(selectedMonth)}</span>
+                </>
+              )}
+            </p>
+            <div className="sm:hidden">
+              <MonthSwitcher selectedMonth={selectedMonth} onShiftMonth={shiftMonth} tone="light" />
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
         {/* Modales de detalle */}
         <OrdenDetailModal
