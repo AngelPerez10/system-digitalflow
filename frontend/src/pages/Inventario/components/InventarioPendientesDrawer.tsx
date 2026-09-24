@@ -19,8 +19,7 @@ import {
   invPrimaryBtnClass,
   invSecondaryBtnClass,
 } from "../shared/inventarioStyles";
-import type { InventarioPendiente, InventarioUbicacion } from "../shared/inventarioTypes";
-import { UbicacionPicker } from "./InventarioUbicacion";
+import type { InventarioPendiente } from "../shared/inventarioTypes";
 import InventarioQtyStepper from "./InventarioQtyStepper";
 import InventarioThumb from "./InventarioThumb";
 
@@ -31,7 +30,7 @@ type Props = {
   canReceive: boolean;
   canDiscard: boolean;
   /** Deben lanzar un Error legible si fallan. */
-  onReceive: (p: InventarioPendiente, cantidad: number, ubicacion?: InventarioUbicacion) => Promise<void>;
+  onReceive: (p: InventarioPendiente, cantidad: number) => Promise<void>;
   onDiscard: (p: InventarioPendiente) => Promise<void>;
 };
 
@@ -170,7 +169,6 @@ function PendienteRow({
 }) {
   const [mode, setMode] = useState<Mode>("idle");
   const [qty, setQty] = useState(p.cantidad);
-  const [ubicacion, setUbicacion] = useState<InventarioUbicacion | "">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -188,13 +186,12 @@ function PendienteRow({
   };
 
   const startReceive = () => {
-    // Directo solo si no hay nada que preguntar (1 unidad y el producto ya existe).
-    if (p.cantidad === 1 && !p.requiere_ubicacion) {
+    // Con 1 unidad no hay nada que preguntar: entra directo.
+    if (p.cantidad === 1) {
       void run(() => onReceive(p, 1));
       return;
     }
     setQty(p.cantidad);
-    setUbicacion("");
     setMode("receive");
   };
 
@@ -246,35 +243,16 @@ function PendienteRow({
 
       {mode === "receive" ? (
         <div className="cot-pop mt-3 flex flex-col gap-3 rounded-[14px] border border-[#D7E3FF] bg-[#F7F9FF] p-3.5 dark:border-[#3A4A6B] dark:bg-[#1B2A63]/40 sm:ml-[3.625rem]">
-          {p.requiere_ubicacion ? (
-            <div className="space-y-1.5">
-              <p className="text-[13px] text-[#17235B] dark:text-[#C7D5FF]">
-                Producto nuevo en inventario · ¿dónde va?<span aria-hidden> *</span>
-              </p>
-              <UbicacionPicker
-                size="sm"
-                value={ubicacion}
-                onChange={setUbicacion}
-                disabled={busy}
-                label={`Ubicación de ${p.nombre || p.modelo}`}
-              />
-            </div>
-          ) : null}
-          {p.cantidad > 1 ? (
-            <p className="flex-1 text-[13px] text-[#17235B] dark:text-[#C7D5FF]">¿Cuántas unidades llegaron?</p>
-          ) : null}
+          <p className="flex-1 text-[13px] text-[#17235B] dark:text-[#C7D5FF]">¿Cuántas unidades llegaron?</p>
           <div className="flex flex-wrap items-center gap-2">
-            {p.cantidad > 1 ? (
-              <InventarioQtyStepper value={qty} min={1} max={p.cantidad} onChange={setQty} disabled={busy} label="Unidades recibidas" />
-            ) : null}
+            <InventarioQtyStepper value={qty} min={1} max={p.cantidad} onChange={setQty} disabled={busy} label="Unidades recibidas" />
             <button type="button" onClick={() => setMode("idle")} disabled={busy} className={`${invSecondaryBtnClass} ${smallBtn}`}>
               Cancelar
             </button>
             <button
               type="button"
-              onClick={() => void run(() => onReceive(p, qty, ubicacion || undefined))}
-              disabled={busy || (p.requiere_ubicacion && !ubicacion)}
-              title={p.requiere_ubicacion && !ubicacion ? "Elige exhibición o almacén" : undefined}
+              onClick={() => void run(() => onReceive(p, qty))}
+              disabled={busy}
               className={`${invPrimaryBtnClass} ${smallBtn}`}
             >
               {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}

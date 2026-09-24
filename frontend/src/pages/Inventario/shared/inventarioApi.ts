@@ -15,7 +15,6 @@ import type {
   InventarioMovimientosParams,
   InventarioStats,
   PaginatedResponse,
-  InventarioUbicacion,
   ScanModo,
   ScanResponse,
 } from "./inventarioTypes";
@@ -27,7 +26,7 @@ async function readError(res: Response): Promise<string> {
   return data?.detail || `Error ${res.status}`;
 }
 
-/** Error de la API con su `code` (p. ej. `ubicacion_requerida`) para reaccionar en la UI. */
+/** Error de la API con su `code` para reaccionar en la UI. */
 export class InventarioApiError extends Error {
   code: string;
   status: number;
@@ -44,23 +43,17 @@ async function throwApiError(res: Response): Promise<never> {
   throw new InventarioApiError(data?.detail || `Error ${res.status}`, data?.code || "", res.status);
 }
 
-export const isUbicacionRequerida = (e: unknown) =>
-  e instanceof InventarioApiError && e.code === "ubicacion_requerida";
-
 export async function scanInventario(
   codigo: string,
   modo: ScanModo,
   nota?: string,
-  /** Obligatoria si el código es nuevo; sin ella el servidor responde `ubicacion_requerida`. */
-  ubicacion?: InventarioUbicacion,
 ): Promise<ScanResponse> {
-  const body: { codigo_barras: string; modo: ScanModo; nota?: string; ubicacion?: InventarioUbicacion } = {
+  const body: { codigo_barras: string; modo: ScanModo; nota?: string } = {
     codigo_barras: codigo,
     modo,
   };
   const notaTrim = (nota ?? "").trim();
   if (notaTrim) body.nota = notaTrim.slice(0, 255);
-  if (ubicacion) body.ubicacion = ubicacion;
   const res = await fetchApi("/api/inventario/scan/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -76,6 +69,7 @@ export async function listInventarioItems(
   const searchParams = new URLSearchParams();
   if (params?.search?.trim()) searchParams.set("search", params.search.trim());
   if (params?.seccion?.trim()) searchParams.set("seccion", params.seccion.trim());
+  if (params?.ubicacion?.trim()) searchParams.set("ubicacion", params.ubicacion.trim());
   searchParams.set("page", String(params?.page ?? 1));
   searchParams.set("page_size", String(params?.page_size ?? DEFAULT_PAGE_SIZE));
   const qs = searchParams.toString();
@@ -259,12 +253,11 @@ export async function listInventarioPendientes(): Promise<InventarioPendiente[]>
 export async function recibirInventarioPendiente(
   id: number,
   cantidad?: number,
-  ubicacion?: InventarioUbicacion,
 ): Promise<RecibirPendienteResponse> {
   const res = await fetchApi(`/api/inventario/pendientes/${id}/recibir/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...(cantidad != null ? { cantidad } : {}), ...(ubicacion ? { ubicacion } : {}) }),
+    body: JSON.stringify(cantidad != null ? { cantidad } : {}),
   });
   if (!res.ok) await throwApiError(res);
   return (await res.json()) as RecibirPendienteResponse;

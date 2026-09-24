@@ -5,7 +5,7 @@
  * «no llegó» (0). Lo que no se recibe queda en espera en el servidor y no suma
  * existencias.
  */
-import type { FacturaPreviewLinea, InventarioUbicacion, RecepcionLinea } from "./inventarioTypes";
+import type { FacturaPreviewLinea, RecepcionLinea } from "./inventarioTypes";
 
 export type RecepcionState = Record<number, number>;
 
@@ -62,42 +62,10 @@ export const resumirRecepcion = (lineas: FacturaPreviewLinea[], state: Recepcion
   return r;
 };
 
-/** Ubicación elegida por línea (solo importa en productos nuevos que se reciben). */
-export type UbicacionesState = Record<number, InventarioUbicacion>;
-
-/** La línea crea un producto nuevo si entra algo y aún no existe en inventario. */
-export const esAltaNueva = (linea: FacturaPreviewLinea, state: RecepcionState) =>
-  linea.en_inventario == null && recibidaDe(state, linea) > 0;
-
-/** Líneas que no pueden confirmarse todavía: altas nuevas sin ubicación. */
-export const lineasSinUbicacion = (
-  lineas: FacturaPreviewLinea[],
-  state: RecepcionState,
-  ubicaciones: UbicacionesState,
-) => lineas.filter((l) => esAltaNueva(l, state) && !ubicaciones[l.indice]);
-
-/** Asigna la misma ubicación a todos los productos nuevos de la factura. */
-export const ubicarNuevas = (
-  lineas: FacturaPreviewLinea[],
-  ubicaciones: UbicacionesState,
-  ubicacion: InventarioUbicacion,
-): UbicacionesState => ({
-  ...ubicaciones,
-  ...Object.fromEntries(lineas.filter((l) => l.en_inventario == null).map((l) => [l.indice, ubicacion])),
-});
-
 /** Payload para el servidor: todas las líneas, con su `modelo` como verificación. */
-export const recepcionPayload = (
-  lineas: FacturaPreviewLinea[],
-  state: RecepcionState,
-  ubicaciones: UbicacionesState = {},
-): RecepcionLinea[] =>
-  lineas.map((linea) => {
-    const ubicacion = ubicaciones[linea.indice];
-    return {
-      indice: linea.indice,
-      modelo: linea.modelo,
-      recibida: recibidaDe(state, linea),
-      ...(ubicacion ? { ubicacion } : {}),
-    };
-  });
+export const recepcionPayload = (lineas: FacturaPreviewLinea[], state: RecepcionState): RecepcionLinea[] =>
+  lineas.map((linea) => ({
+    indice: linea.indice,
+    modelo: linea.modelo,
+    recibida: recibidaDe(state, linea),
+  }));

@@ -1,4 +1,4 @@
-"""Ubicación obligatoria al dar de alta y precio de mercado de SYSCOM/TVC."""
+"""Ubicación (solo al editar la ficha) y precio de mercado de SYSCOM/TVC."""
 from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
@@ -10,7 +10,7 @@ from rest_framework.test import APITestCase
 
 from apps.inventario.enrichment import actualizar_precio_mercado, sincronizar_precios_mercado
 from apps.inventario.invoice_import import FacturaDetalle, FacturaLinea
-from apps.inventario.models import InventarioImportacion, InventarioItem, InventarioPendiente
+from apps.inventario.models import InventarioItem, InventarioPendiente
 from apps.users.models import UserPermissions
 
 User = get_user_model()
@@ -45,45 +45,39 @@ class _Base(APITestCase):
         self.client.force_authenticate(user=self.user)
 
 
-class UbicacionObligatoriaTests(_Base):
+class UbicacionSoloAlEditarTests(_Base):
+    """La ubicación no se pide al dar de alta; se asigna al editar la ficha."""
+
     @patch('apps.inventario.views.enrich_from_catalogs', return_value=None)
-    def test_scan_de_codigo_nuevo_sin_ubicacion_no_crea_nada(self, enrich):
+    def test_scan_de_codigo_nuevo_se_crea_sin_ubicacion(self, _enrich):
         res = self.client.post(
             '/api/inventario/scan/', {'codigo_barras': 'NUEVO', 'modo': 'entrada'}, format='json'
         )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['code'], 'ubicacion_requerida')
-        self.assertFalse(InventarioItem.objects.exists())
-        enrich.assert_not_called()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(res.data['creado'])
+        self.assertEqual(res.data['item']['ubicacion'], '')
 
     @patch('apps.inventario.views.enrich_from_catalogs', return_value=None)
-    def test_scan_de_codigo_nuevo_guarda_la_ubicacion(self, _enrich):
+    def test_scan_ignora_la_ubicacion_enviada(self, _enrich):
         res = self.client.post(
             '/api/inventario/scan/',
             {'codigo_barras': 'NUEVO', 'modo': 'entrada', 'ubicacion': 'exhibicion'},
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data['item']['ubicacion'], 'exhibicion')
+        self.assertEqual(res.data['item']['ubicacion'], '')
 
-    def test_scan_de_codigo_existente_no_pide_ubicacion(self):
+    def test_scan_de_codigo_existente_conserva_su_ubicacion(self):
         InventarioItem.objects.create(codigo_barras='YA', cantidad=1, ubicacion='almacen')
         res = self.client.post(
             '/api/inventario/scan/', {'codigo_barras': 'YA', 'modo': 'entrada'}, format='json'
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['item']['cantidad'], 2)
-
-    def test_ubicacion_invalida_es_400(self):
-        res = self.client.post(
-            '/api/inventario/scan/',
-            {'codigo_barras': 'X', 'modo': 'entrada', 'ubicacion': 'bodega'},
-            format='json',
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['item']['ubicacion'], 'almacen')
 
     @patch(FETCH)
-    def test_factura_sin_ubicacion_para_producto_nuevo_es_400(self, mock_fetch):
+    def test_factura_crea_productos_nuevos_sin_ubicacion(self, mock_fetch):
         mock_fetch.return_value = _factura()
         InventarioItem.objects.create(codigo_barras='EXISTE-1', cantidad=3, ubicacion='almacen')
         res = self.client.post(
@@ -98,53 +92,25 @@ class UbicacionObligatoriaTests(_Base):
             },
             format='json',
         )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['code'], 'ubicacion_requerida')
-        # Nada se escribió: ni ítems, ni importación.
-        self.assertFalse(InventarioImportacion.objects.exists())
-        self.assertEqual(InventarioItem.objects.get(codigo_barras='EXISTE-1').cantidad, 3)
-
-    @patch(FETCH)
-    def test_factura_con_ubicacion_crea_en_su_lugar(self, mock_fetch):
-        mock_fetch.return_value = _factura()
-        InventarioItem.objects.create(codigo_barras='EXISTE-1', cantidad=3, ubicacion='almacen')
-        res = self.client.post(
-            '/api/inventario/importar-factura/',
-            {
-                'proveedor': 'syscom',
-                'folio': 'FA26/1',
-                'recepcion': [
-                    {'indice': 0, 'modelo': 'NUEVO-1', 'recibida': 2, 'ubicacion': 'exhibicion'},
-                    # Existente: no necesita ubicación y conserva la suya.
-                    {'indice': 1, 'modelo': 'EXISTE-1', 'recibida': 1},
-                ],
-            },
-            format='json',
-        )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(InventarioItem.objects.get(codigo_barras='NUEVO-1').ubicacion, 'exhibicion')
-        self.assertEqual(InventarioItem.objects.get(codigo_barras='EXISTE-1').ubicacion, 'almacen')
+        self.assertEqual(InventarioItem.objects.get(codigo_barras='NUEVO-1').ubicacion, '')
+        existente = InventarioItem.objects.get(codigo_barras='EXISTE-1')
+        self.assertEqual(existente.ubicacion, 'almacen')
+        self.assertEqual(existente.cantidad, 4)
 
     @patch(FETCH)
-    def test_linea_nueva_no_recibida_no_pide_ubicacion(self, mock_fetch):
+    def test_factura_sin_recepcion_no_asigna_almacen(self, mock_fetch):
         mock_fetch.return_value = _factura()
         res = self.client.post(
             '/api/inventario/importar-factura/',
-            {
-                'proveedor': 'syscom',
-                'folio': 'FA26/1',
-                'recepcion': [
-                    {'indice': 0, 'modelo': 'NUEVO-1', 'recibida': 0},
-                    {'indice': 1, 'modelo': 'EXISTE-1', 'recibida': 0},
-                ],
-            },
+            {'proveedor': 'syscom', 'folio': 'FA26/1'},
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(InventarioPendiente.objects.count(), 2)
+        self.assertEqual(InventarioItem.objects.get(codigo_barras='NUEVO-1').ubicacion, '')
 
     @patch(FETCH)
-    def test_recibir_pendiente_nuevo_pide_ubicacion(self, mock_fetch):
+    def test_recibir_pendiente_nuevo_no_pide_ubicacion(self, mock_fetch):
         mock_fetch.return_value = _factura()
         self.client.post(
             '/api/inventario/importar-factura/',
@@ -153,26 +119,49 @@ class UbicacionObligatoriaTests(_Base):
         )
         pendiente = InventarioPendiente.objects.get(modelo='NUEVO-1')
         listado = self.client.get('/api/inventario/pendientes/').data
-        self.assertTrue(next(p for p in listado if p['id'] == pendiente.id)['requiere_ubicacion'])
+        self.assertNotIn('requiere_ubicacion', next(p for p in listado if p['id'] == pendiente.id))
 
         res = self.client.post(f'/api/inventario/pendientes/{pendiente.id}/recibir/', {}, format='json')
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['code'], 'ubicacion_requerida')
-        self.assertEqual(InventarioPendiente.objects.get(id=pendiente.id).cantidad, 2)
-
-        res = self.client.post(
-            f'/api/inventario/pendientes/{pendiente.id}/recibir/', {'ubicacion': 'almacen'}, format='json'
-        )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data['item']['ubicacion'], 'almacen')
+        self.assertEqual(res.data['item']['ubicacion'], '')
 
-    def test_la_ubicacion_se_puede_cambiar_pero_no_vaciar(self):
-        item = InventarioItem.objects.create(codigo_barras='Z', cantidad=1, ubicacion='almacen')
+    def test_la_ubicacion_se_asigna_al_editar_pero_no_se_vacia(self):
+        item = InventarioItem.objects.create(codigo_barras='Z', cantidad=1)
         res = self.client.patch(f'/api/inventario/items/{item.id}/', {'ubicacion': 'exhibicion'}, format='json')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['ubicacion'], 'exhibicion')
+        res = self.client.patch(f'/api/inventario/items/{item.id}/', {'ubicacion': 'bodega'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         res = self.client.patch(f'/api/inventario/items/{item.id}/', {'ubicacion': ''}, format='json')
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class UbicacionFiltroTests(_Base):
+    def setUp(self):
+        super().setUp()
+        InventarioItem.objects.create(codigo_barras='EXH', cantidad=1, ubicacion='exhibicion')
+        InventarioItem.objects.create(codigo_barras='ALM', cantidad=1, ubicacion='almacen')
+        InventarioItem.objects.create(codigo_barras='SIN', cantidad=1)
+
+    def _codigos(self, ubicacion):
+        res = self.client.get('/api/inventario/items/', {'ubicacion': ubicacion})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        return {row['codigo_barras'] for row in res.data['results']}
+
+    def test_filtra_por_ubicacion(self):
+        self.assertEqual(self._codigos('exhibicion'), {'EXH'})
+        self.assertEqual(self._codigos('almacen'), {'ALM'})
+        self.assertEqual(self._codigos('sin'), {'SIN'})
+        self.assertEqual(self._codigos(''), {'EXH', 'ALM', 'SIN'})
+
+    def test_ubicacion_invalida_es_400(self):
+        res = self.client.get('/api/inventario/items/', {'ubicacion': 'bodega'})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_stats_cuenta_los_sin_ubicacion(self):
+        res = self.client.get('/api/inventario/stats/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['sin_ubicacion'], 1)
 
 
 class PrecioMercadoTests(_Base):

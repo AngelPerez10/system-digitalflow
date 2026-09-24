@@ -34,7 +34,6 @@ from .invoice_import import (
     FacturaYaImportada,
     PendienteCantidadInvalida,
     ProveedorNoSoportado,
-    UbicacionRequerida,
     importar_factura,
     previsualizar_factura,
     recibir_pendiente,
@@ -129,7 +128,6 @@ class ScanView(APIView):
 
         modo = serializer.validated_data['modo']
         nota = (serializer.validated_data.get('nota') or '').strip()[:255]
-        ubicacion = serializer.validated_data.get('ubicacion') or ''
         creado = False
         enriquecido = False
 
@@ -154,17 +152,8 @@ class ScanView(APIView):
                 item.cantidad -= 1
             else:
                 if item is None:
-                    # Alta nueva: la ubicación es obligatoria (se pide antes de
-                    # consultar el catálogo para no gastar la llamada).
-                    if not ubicacion:
-                        return Response(
-                            {
-                                'detail': 'Indica si el producto va a exhibición o almacén.',
-                                'code': 'ubicacion_requerida',
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                    item = InventarioItem(codigo_barras=codigo, cantidad=0, ubicacion=ubicacion)
+                    # Alta nueva sin ubicación: se asigna después al editar la ficha.
+                    item = InventarioItem(codigo_barras=codigo, cantidad=0)
                     enrich_data = enrich_from_catalogs(codigo)
                     if enrich_data:
                         enriquecido = True
@@ -204,8 +193,6 @@ class ScanView(APIView):
                         item.cantidad += 1
                         item.save()
                 else:
-                    if ubicacion and not item.ubicacion:
-                        item.ubicacion = ubicacion
                     item.cantidad += 1
                     item.save()
 
@@ -272,6 +259,17 @@ class InventarioItemListView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             queryset = queryset.filter(seccion=seccion)
+
+        ubicacion = (request.query_params.get('ubicacion') or '').strip().lower()
+        if ubicacion == 'sin':
+            queryset = queryset.filter(ubicacion='')
+        elif ubicacion:
+            if ubicacion not in InventarioItem.Ubicacion.values:
+                return Response(
+                    {'detail': 'Ubicación inválida.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            queryset = queryset.filter(ubicacion=ubicacion)
 
         paginator = InventarioPagination()
         page = paginator.paginate_queryset(queryset, request)
@@ -389,6 +387,7 @@ class InventarioStatsView(APIView):
             total_items=Count('id'),
             total_unidades=Sum('cantidad'),
             sin_identificar=Count('id', filter=Q(nombre='')),
+            sin_ubicacion=Count('id', filter=Q(ubicacion='')),
         )
         inicio_hoy = timezone.make_aware(
             datetime.combine(timezone.localdate(), time.min),
@@ -402,6 +401,7 @@ class InventarioStatsView(APIView):
                 'total_items': aggregates['total_items'] or 0,
                 'total_unidades': aggregates['total_unidades'] or 0,
                 'sin_identificar': aggregates['sin_identificar'] or 0,
+                'sin_ubicacion': aggregates['sin_ubicacion'] or 0,
                 'movimientos_hoy': movimientos_hoy,
             }
         )
@@ -644,10 +644,7 @@ def _factura_error_response(exc: Exception) -> Response:
         code = status.HTTP_409_CONFLICT
     else:
         code = status.HTTP_501_NOT_IMPLEMENTED
-    body = {'detail': str(exc)}
-    if isinstance(exc, UbicacionRequerida):
-        body['code'] = 'ubicacion_requerida'
-    return Response(body, status=code)
+    return Response({'detail': str(exc)}, status=code)
 
 
 _FACTURA_ERRORES = (FacturaInvalida, FacturaNoEncontrada, FacturaYaImportada, ProveedorNoSoportado)
@@ -744,12 +741,6 @@ class InventarioRecibirPendienteView(APIView):
                 pendiente_id=pk,
                 cantidad=serializer.validated_data.get('cantidad'),
                 usuario=request.user,
-                ubicacion=serializer.validated_data.get('ubicacion') or '',
-            )
-        except UbicacionRequerida as exc:
-            return Response(
-                {'detail': str(exc), 'code': 'ubicacion_requerida'},
-                status=status.HTTP_400_BAD_REQUEST,
             )
         except InventarioPendiente.DoesNotExist:
             return Response(

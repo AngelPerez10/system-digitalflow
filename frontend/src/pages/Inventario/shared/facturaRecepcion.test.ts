@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  lineasSinUbicacion,
   marcarTodas,
   recepcionPayload,
   recibidaDe,
   resumirRecepcion,
   setRecibida,
   toggleLinea,
-  ubicarNuevas,
 } from "./facturaRecepcion";
 import type { FacturaPreviewLinea } from "./inventarioTypes";
 
@@ -64,25 +62,6 @@ describe("facturaRecepcion", () => {
   it("el payload incluye todas las líneas con su modelo", () => {
     expect(recepcionPayload(lineas, { 0: 2 })).toEqual([
       { indice: 0, modelo: "DS1LN5ESB", recibida: 2 },
-      { indice: 1, modelo: "DS-KV6113", recibida: 0 },
-    ]);
-  });
-
-  it("los productos nuevos recibidos exigen ubicación; los existentes no", () => {
-    const existente = { ...linea(2, "YA-EXISTE", 1), en_inventario: { id: 9, cantidad: 3, ubicacion: "almacen" as const } };
-    const todas = [bobina, portero, existente];
-    const recibido = marcarTodas(todas, true);
-    expect(lineasSinUbicacion(todas, recibido, {}).map((l) => l.modelo)).toEqual(["DS1LN5ESB", "DS-KV6113"]);
-    // Una línea nueva no recibida no pide ubicación.
-    expect(lineasSinUbicacion(todas, setRecibida(recibido, bobina, 0), {}).map((l) => l.modelo)).toEqual(["DS-KV6113"]);
-    const ubic = ubicarNuevas(todas, {}, "exhibicion");
-    expect(ubic).toEqual({ 0: "exhibicion", 1: "exhibicion" });
-    expect(lineasSinUbicacion(todas, recibido, ubic)).toEqual([]);
-  });
-
-  it("el payload lleva la ubicación solo donde se eligió", () => {
-    expect(recepcionPayload(lineas, { 0: 1 }, { 0: "almacen" })).toEqual([
-      { indice: 0, modelo: "DS1LN5ESB", recibida: 1, ubicacion: "almacen" },
       { indice: 1, modelo: "DS-KV6113", recibida: 0 },
     ]);
   });

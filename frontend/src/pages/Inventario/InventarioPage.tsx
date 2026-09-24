@@ -29,19 +29,18 @@ import InventarioImportFacturaBar from "./components/InventarioImportFacturaBar"
 import InventarioItemsTable from "./components/InventarioItemsTable";
 import InventarioMovimientosList from "./components/InventarioMovimientosList";
 import InventarioPendientesDrawer from "./components/InventarioPendientesDrawer";
-import InventarioUbicacionPromptModal from "./components/InventarioUbicacionPromptModal";
 import InventarioPagination from "./components/InventarioPagination";
 import InventarioScanBar from "./components/InventarioScanBar";
 import InventarioSeccionChips from "./components/InventarioSeccionChips";
 import InventarioStats from "./components/InventarioStats";
+import InventarioUbicacionFiltro from "./components/InventarioUbicacionFiltro";
 import { BarcodeIcon, SearchIcon } from "./components/inventarioIcons";
-import { Clock3 } from "lucide-react";
+import { CircleDashed, Clock3 } from "lucide-react";
 import {
   deleteInventarioItem,
   descartarInventarioPendiente,
   fetchInventarioStats,
   importarFactura,
-  isUbicacionRequerida,
   listInventarioPendientes,
   recibirInventarioPendiente,
   listInventarioItems,
@@ -60,7 +59,7 @@ import type {
   InventarioMovimiento,
   InventarioPendiente,
   InventarioStats as InventarioStatsData,
-  InventarioUbicacion,
+  InventarioUbicacionFiltro as InventarioUbicacionFiltroValue,
   RecepcionLinea,
   ScanModo,
 } from "./shared/inventarioTypes";
@@ -99,6 +98,7 @@ export default function InventarioPage() {
   const [scanning, setScanning] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [seccionFiltro, setSeccionFiltro] = useState<InventarioSeccionFiltro>("todas");
+  const [ubicacionFiltro, setUbicacionFiltro] = useState<InventarioUbicacionFiltroValue>("todas");
   const [filterItem, setFilterItem] = useState<InventarioItem | null>(null);
   const [editItem, setEditItem] = useState<InventarioItem | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -111,13 +111,12 @@ export default function InventarioPage() {
     total_items: 0,
     total_unidades: 0,
     sin_identificar: 0,
+    sin_ubicacion: 0,
     movimientos_hoy: 0,
   });
 
   const [pendientes, setPendientes] = useState<InventarioPendiente[]>([]);
   const [pendientesOpen, setPendientesOpen] = useState(false);
-  /** Código nuevo escaneado que espera su ubicación (exhibición / almacén). */
-  const [ubicacionPara, setUbicacionPara] = useState<string | null>(null);
   /** Confirmación global (arriba a la derecha) para lo que se guarda. */
   const [notice, setNotice] = useState<{ id: number; variant: AlertVariant; title: string; message: string } | null>(
     null,
@@ -138,7 +137,12 @@ export default function InventarioPage() {
     }
   }, []);
 
-  const loadItems = useCallback(async (search: string, page: number, seccion: InventarioSeccionFiltro) => {
+  const loadItems = useCallback(async (
+    search: string,
+    page: number,
+    seccion: InventarioSeccionFiltro,
+    ubicacion: InventarioUbicacionFiltroValue,
+  ) => {
     setItemsLoading(true);
     try {
       const data = await listInventarioItems({
@@ -146,6 +150,7 @@ export default function InventarioPage() {
         page,
         page_size: ITEMS_PAGE_SIZE,
         seccion: seccion === "todas" ? undefined : seccion,
+        ubicacion: ubicacion === "todas" ? undefined : ubicacion,
       });
       setItems(data.results);
       setItemsCount(data.count);
@@ -252,7 +257,7 @@ export default function InventarioPage() {
       try {
         const res = await sincronizarSeccionesInventario(50);
         if (cancelado || res.actualizados <= 0) return;
-        await loadItems(debouncedSearch, itemsPage, seccionFiltro);
+        await loadItems(debouncedSearch, itemsPage, seccionFiltro, ubicacionFiltro);
         await loadStats();
       } catch {
         // Silencioso: el listado también intenta rellenar de a 5 al paginar.
@@ -275,8 +280,8 @@ export default function InventarioPage() {
   }, [searchTerm]);
 
   useEffect(() => {
-    void loadItems(debouncedSearch, itemsPage, seccionFiltro);
-  }, [debouncedSearch, itemsPage, seccionFiltro, loadItems]);
+    void loadItems(debouncedSearch, itemsPage, seccionFiltro, ubicacionFiltro);
+  }, [debouncedSearch, itemsPage, seccionFiltro, ubicacionFiltro, loadItems]);
 
   useEffect(() => {
     void loadMovimientos(filterItem?.id ?? null, movimientosPage);
@@ -284,7 +289,7 @@ export default function InventarioPage() {
 
   const refreshLists = useCallback(async () => {
     await Promise.all([
-      loadItems(debouncedSearch, itemsPage, seccionFiltro),
+      loadItems(debouncedSearch, itemsPage, seccionFiltro, ubicacionFiltro),
       loadMovimientos(filterItem?.id ?? null, movimientosPage),
       loadStats(),
     ]);
@@ -297,10 +302,16 @@ export default function InventarioPage() {
     loadStats,
     movimientosPage,
     seccionFiltro,
+    ubicacionFiltro,
   ]);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
+  };
+
+  const handleUbicacionFiltro = (next: InventarioUbicacionFiltroValue) => {
+    setUbicacionFiltro(next);
+    setItemsPage(1);
   };
 
   const handleSelectItem = (item: InventarioItem | null) => {
@@ -328,24 +339,19 @@ export default function InventarioPage() {
     try {
       await registrarEscaneo(code, modo === "salida" ? notaSalida : undefined);
     } catch (e) {
-      if (modo === "entrada" && isUbicacionRequerida(e)) {
-        // Código nuevo: primero hay que decir dónde va.
-        setUbicacionPara(code);
-        return;
-      }
       setError(e instanceof Error ? e.message : "No se pudo registrar el escaneo");
     } finally {
       setScanning(false);
     }
   };
 
-  /** Registra el escaneo; lanza el error de la API (p. ej. `ubicacion_requerida`). */
-  const registrarEscaneo = async (code: string, notaSalida?: string, ubicacion?: InventarioUbicacion) => {
-    const result = await scanInventario(code, modo, notaSalida, ubicacion);
+  /** Registra el escaneo; lanza el error de la API. */
+  const registrarEscaneo = async (code: string, notaSalida?: string) => {
+    const result = await scanInventario(code, modo, notaSalida);
     const nombre = result.item.nombre || result.item.codigo_barras;
     const accion = modo === "entrada" ? "Entrada" : "Salida";
     const extras: string[] = [];
-    if (result.creado) extras.push("ítem nuevo");
+    if (result.creado) extras.push("ítem nuevo, sin ubicación");
     if (result.enriquecido) extras.push("datos enriquecidos");
     if (modo === "salida" && result.movimiento.nota?.trim()) {
       extras.push(`motivo: ${result.movimiento.nota.trim()}`);
@@ -355,17 +361,6 @@ export default function InventarioPage() {
       `${accion} registrada: ${nombre} — existencia ${result.item.cantidad}${suffix}`,
     );
     await refreshLists();
-  };
-
-  const handleUbicacionElegida = async (ubicacion: InventarioUbicacion) => {
-    if (!ubicacionPara) return;
-    setScanning(true);
-    try {
-      await registrarEscaneo(ubicacionPara, undefined, ubicacion);
-      setUbicacionPara(null);
-    } finally {
-      setScanning(false);
-    }
   };
 
   const handleDelete = async (item: InventarioItem) => {
@@ -380,7 +375,7 @@ export default function InventarioPage() {
       }
       notify("Ítem eliminado", item.nombre || item.codigo_barras);
     await Promise.all([
-      loadItems(debouncedSearch, itemsPage, seccionFiltro),
+      loadItems(debouncedSearch, itemsPage, seccionFiltro, ubicacionFiltro),
       loadMovimientos(
         filterItem?.id === item.id ? null : filterItem?.id ?? null,
         filterItem?.id === item.id ? 1 : movimientosPage,
@@ -437,7 +432,7 @@ export default function InventarioPage() {
     setItemsPage(1);
     setMovimientosPage(1);
     await Promise.all([
-      loadItems(debouncedSearch, 1, seccionFiltro),
+      loadItems(debouncedSearch, 1, seccionFiltro, ubicacionFiltro),
       loadMovimientos(filterItem?.id ?? null, 1),
       loadStats(),
       loadPendientes(),
@@ -448,9 +443,8 @@ export default function InventarioPage() {
   const handleRecibirPendiente = async (
     p: InventarioPendiente,
     cantidad: number,
-    ubicacion?: InventarioUbicacion,
   ) => {
-    const res = await recibirInventarioPendiente(p.id, cantidad, ubicacion);
+    const res = await recibirInventarioPendiente(p.id, cantidad);
     setPendientes((prev) =>
       res.pendiente
         ? prev.map((row) => (row.id === p.id ? (res.pendiente as InventarioPendiente) : row))
@@ -538,6 +532,21 @@ export default function InventarioPage() {
                     {stats.sin_identificar.toLocaleString("es-MX")} sin identificar
                   </span>
                 ) : null}
+                {stats.sin_ubicacion > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUbicacionFiltro("sin");
+                      document.getElementById("inventario-items")?.scrollIntoView({ block: "start" });
+                    }}
+                    aria-pressed={ubicacionFiltro === "sin"}
+                    title="Ver los productos sin ubicación"
+                    className="cot-press inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-white/40 px-3.5 text-[13px] font-semibold text-white/90 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  >
+                    <CircleDashed className="size-3.5" aria-hidden />
+                    {stats.sin_ubicacion.toLocaleString("es-MX")} sin ubicación
+                  </button>
+                ) : null}
               </div>
             </div>
           </header>
@@ -588,13 +597,13 @@ export default function InventarioPage() {
               compact
               className="min-w-0 max-w-full overflow-hidden"
               title="Ítems en inventario"
-              desc="Elige una sección arriba. Toca un producto para ver su historial."
+              desc="Filtra por ubicación o sección. Toca un producto para ver su historial."
             >
-              <div className="mb-4 min-w-0">
+              <div id="inventario-items" className="mb-4 flex min-w-0 scroll-mt-4 flex-col gap-2 lg:flex-row lg:items-center">
                 <label htmlFor="inventario-search" className="sr-only">
                   Buscar ítems
                 </label>
-                <div className="relative min-w-0">
+                <div className="relative min-w-0 lg:flex-1">
                   <span
                     className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]"
                     aria-hidden="true"
@@ -610,6 +619,11 @@ export default function InventarioPage() {
                     className={invSearchInputClass}
                   />
                 </div>
+                <InventarioUbicacionFiltro
+                  value={ubicacionFiltro}
+                  onChange={handleUbicacionFiltro}
+                  sinUbicacion={stats.sin_ubicacion}
+                />
               </div>
               <div className="mb-4 min-w-0 max-w-full overflow-hidden">
                 <InventarioSeccionChips
@@ -679,15 +693,6 @@ export default function InventarioPage() {
           setItems((prev) => prev.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)));
           if (filterItem?.id === updated.id) setFilterItem((prev) => (prev ? { ...prev, ...updated } : prev));
         }}
-      />
-
-      <InventarioUbicacionPromptModal
-        codigo={ubicacionPara}
-        onCancel={() => {
-          setUbicacionPara(null);
-          setScanStatus("Alta cancelada: el código no se registró.");
-        }}
-        onChoose={handleUbicacionElegida}
       />
 
       <InventarioPendientesDrawer

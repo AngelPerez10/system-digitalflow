@@ -61,18 +61,6 @@ class FacturaInvalida(Exception):
     """Folio vacío o factura sin líneas útiles."""
 
 
-class UbicacionRequerida(FacturaInvalida):
-    """Un producto nuevo necesita ubicación (exhibición o almacén) para darse de alta."""
-
-
-UBICACIONES = frozenset(InventarioItem.Ubicacion.values)
-
-
-def _ubicacion_valida(valor: str | None) -> str:
-    valor = (valor or '').strip().lower()
-    return valor if valor in UBICACIONES else ''
-
-
 @dataclass(frozen=True)
 class FacturaLinea:
     ref_externa: str
@@ -312,25 +300,17 @@ def _dar_entrada(
     proveedor_cliente,
     usuario,
     nota: str,
-    ubicacion: str = '',
 ) -> tuple[InventarioItem, bool]:
     """Crea/actualiza el ítem de la línea, suma `cantidad` y registra la entrada.
 
-    Un ítem nuevo exige `ubicacion`; a uno existente sin ubicación se le asigna
-    si viene. Debe llamarse dentro de `transaction.atomic()`. Devuelve (ítem, creado).
+    Un ítem nuevo nace sin ubicación; se asigna después al editar la ficha.
+    Debe llamarse dentro de `transaction.atomic()`. Devuelve (ítem, creado).
     """
-    ubicacion = _ubicacion_valida(ubicacion)
     item = _buscar_item(origen, linea)
     creado = item is None
     if creado:
-        if not ubicacion:
-            raise UbicacionRequerida(
-                f'Elige si «{linea.nombre or linea.modelo}» va a exhibición o almacén.'
-            )
         codigo = linea.modelo or f'{origen.upper()}:{linea.ref_externa}'
-        item = InventarioItem(codigo_barras=codigo, cantidad=0, ubicacion=ubicacion)
-    elif ubicacion and not item.ubicacion:
-        item.ubicacion = ubicacion
+        item = InventarioItem(codigo_barras=codigo, cantidad=0)
 
     _aplicar_ficha(
         item, linea, origen, creado=creado, folio=folio, proveedor_cliente=proveedor_cliente
@@ -425,7 +405,7 @@ def previsualizar_factura(*, proveedor: str, folio: str) -> dict:
 
 def _cantidades_recibidas(
     detalle: FacturaDetalle, recepcion: list[dict] | None
-) -> tuple[list[int], list[str]]:
+) -> list[int]:
     """Unidades recibidas por línea. Sin `recepcion` → todo llegó (compatibilidad).
 
     Cada entrada de `recepcion` es {indice, modelo, recibida}. El `modelo` se
@@ -434,10 +414,9 @@ def _cantidades_recibidas(
     Las líneas no incluidas se consideran no recibidas.
     """
     if recepcion is None:
-        return [linea.cantidad for linea in detalle.lineas], [''] * len(detalle.lineas)
+        return [linea.cantidad for linea in detalle.lineas]
 
     recibidas = [0] * len(detalle.lineas)
-    ubicaciones = [''] * len(detalle.lineas)
     vistos: set[int] = set()
     for entrada in recepcion:
         indice = entrada['indice']
@@ -448,8 +427,7 @@ def _cantidades_recibidas(
             raise FacturaInvalida('La factura cambió desde que la cargaste. Vuelve a cargarla.')
         vistos.add(indice)
         recibidas[indice] = max(0, min(int(entrada['recibida']), linea.cantidad))
-        ubicaciones[indice] = _ubicacion_valida(entrada.get('ubicacion'))
-    return recibidas, ubicaciones
+    return recibidas
 
 
 def importar_factura(
@@ -462,15 +440,7 @@ def importar_factura(
     registrado para no importarlo dos veces.
     """
     origen, detalle, folio_oficial = _validar_nueva_importacion(proveedor, folio)
-    recibidas, ubicaciones = _cantidades_recibidas(detalle, recepcion)
-
-    # Todo producto nuevo que entra necesita ubicación: se valida antes de escribir.
-    if recepcion is not None:
-        for linea, recibida, ubicacion in zip(detalle.lineas, recibidas, ubicaciones):
-            if recibida > 0 and not ubicacion and _item_existente(origen, linea) is None:
-                raise UbicacionRequerida(
-                    f'Elige si «{linea.nombre or linea.modelo}» va a exhibición o almacén.'
-                )
+    recibidas = _cantidades_recibidas(detalle, recepcion)
 
     creados = 0
     actualizados = 0
@@ -494,7 +464,7 @@ def importar_factura(
 
         proveedor_cliente = obtener_o_crear_proveedor(origen)
 
-        for linea, recibida, ubicacion in zip(detalle.lineas, recibidas, ubicaciones):
+        for linea, recibida in zip(detalle.lineas, recibidas):
             if recibida > 0:
                 item, creado = _dar_entrada(
                     origen=origen,
@@ -504,8 +474,6 @@ def importar_factura(
                     proveedor_cliente=proveedor_cliente,
                     usuario=usuario,
                     nota=f'Importación {origen.upper()} {folio_oficial}',
-                    # Sin selección (API anterior) se conserva el alta sin ubicación.
-                    ubicacion=ubicacion or (InventarioItem.Ubicacion.ALMACEN if recepcion is None else ''),
                 )
                 if creado:
                     creados += 1
@@ -563,14 +531,7 @@ def _linea_de_pendiente(pendiente: InventarioPendiente) -> FacturaLinea:
     )
 
 
-def item_para_pendiente(pendiente: InventarioPendiente) -> InventarioItem | None:
-    """Ítem del inventario al que sumaría este pendiente (None = se creará)."""
-    return _item_existente(pendiente.proveedor, _linea_de_pendiente(pendiente))
-
-
-def recibir_pendiente(
-    *, pendiente_id: int, cantidad: int | None, usuario, ubicacion: str = ''
-) -> dict:
+def recibir_pendiente(*, pendiente_id: int, cantidad: int | None, usuario) -> dict:
     """Da entrada a un producto en espera (todo o parte). Si se completa, sale de la lista."""
     with transaction.atomic():
         pendiente = InventarioPendiente.objects.select_for_update().get(pk=pendiente_id)
@@ -588,7 +549,6 @@ def recibir_pendiente(
             proveedor_cliente=obtener_o_crear_proveedor(pendiente.proveedor),
             usuario=usuario,
             nota=f'Recepción pendiente {pendiente.proveedor.upper()} {pendiente.folio}',
-            ubicacion=ubicacion,
         )
         restante = pendiente.cantidad - recibir
         if restante > 0:

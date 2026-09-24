@@ -2,6 +2,8 @@ export type InventarioFuente = "desconocido" | "syscom" | "tvc";
 export type ScanModo = "entrada" | "salida";
 /** Dónde está físicamente el producto. Vacía solo en ítems anteriores al campo. */
 export type InventarioUbicacion = "exhibicion" | "almacen";
+/** Filtro del listado: una ubicación, "sin" (sin asignar) o "todas". */
+export type InventarioUbicacionFiltro = "todas" | InventarioUbicacion | "sin";
 
 export type InventarioItem = {
   id: number;
@@ -94,6 +96,8 @@ export type InventarioItemsParams = {
   page_size?: number;
   /** slug, o "sin" para sin sección; omitir = todas. */
   seccion?: string;
+  /** exhibicion | almacen, o "sin" para sin ubicación; omitir = todas. */
+  ubicacion?: string;
 };
 
 export type InventarioMovimientosParams = {
@@ -114,6 +118,7 @@ export type InventarioStats = {
   total_items: number;
   total_unidades: number;
   sin_identificar: number;
+  sin_ubicacion: number;
   movimientos_hoy: number;
 };
 
@@ -157,8 +162,6 @@ export type RecepcionLinea = {
   indice: number;
   modelo: string;
   recibida: number;
-  /** Obligatoria si la línea recibida crea un producto nuevo. */
-  ubicacion?: InventarioUbicacion;
 };
 
 /** Producto facturado que aún no llega: fuera del inventario hasta recibirlo. */
@@ -177,8 +180,6 @@ export type InventarioPendiente = {
   /** Unidades de la línea original de la factura. */
   cantidad_facturada: number;
   creado_en: string;
-  /** Al recibirlo se crea un producto nuevo: hay que elegir exhibición o almacén. */
-  requiere_ubicacion: boolean;
 };
 
 export type RecibirPendienteResponse = {

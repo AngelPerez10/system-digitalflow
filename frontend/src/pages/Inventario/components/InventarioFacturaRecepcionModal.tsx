@@ -23,25 +23,16 @@ import {
   inventarioSansStyle,
 } from "../shared/inventarioStyles";
 import {
-  esAltaNueva,
-  lineasSinUbicacion,
   marcarTodas,
   recepcionPayload,
   recibidaDe,
   resumirRecepcion,
   setRecibida,
   toggleLinea,
-  ubicarNuevas,
   type RecepcionState,
-  type UbicacionesState,
 } from "../shared/facturaRecepcion";
-import type {
-  FacturaPreview,
-  FacturaPreviewLinea,
-  InventarioUbicacion,
-  RecepcionLinea,
-} from "../shared/inventarioTypes";
-import { UbicacionBadge, UbicacionPicker } from "./InventarioUbicacion";
+import type { FacturaPreview, FacturaPreviewLinea, RecepcionLinea } from "../shared/inventarioTypes";
+import { UbicacionBadge } from "./InventarioUbicacion";
 import InventarioQtyStepper from "./InventarioQtyStepper";
 import InventarioThumb from "./InventarioThumb";
 
@@ -67,9 +58,6 @@ export default function InventarioFacturaRecepcionModal({ open, preview, onClose
   const titleId = useId();
   const descId = useId();
   const [state, setState] = useState<RecepcionState>({});
-  const [ubicaciones, setUbicaciones] = useState<UbicacionesState>({});
-  /** Tras un intento de confirmar, se resaltan las ubicaciones que faltan. */
-  const [intento, setIntento] = useState(false);
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,8 +66,6 @@ export default function InventarioFacturaRecepcionModal({ open, preview, onClose
   useEffect(() => {
     if (!open) return;
     setState({});
-    setUbicaciones({});
-    setIntento(false);
     setQuery("");
     setError(null);
   }, [open, preview?.folio]);
@@ -95,8 +81,6 @@ export default function InventarioFacturaRecepcionModal({ open, preview, onClose
   }, [lineas, query]);
 
   const todoMarcado = lineas.length > 0 && resumen.unidadesEnEspera === 0;
-  const hayNuevas = lineas.some((l) => l.en_inventario == null);
-  const faltanUbicacion = lineasSinUbicacion(lineas, state, ubicaciones);
   const pct = resumen.unidadesTotales ? resumen.unidadesRecibidas / resumen.unidadesTotales : 0;
 
   const close = () => {
@@ -105,19 +89,10 @@ export default function InventarioFacturaRecepcionModal({ open, preview, onClose
 
   const confirm = async () => {
     if (!preview || saving) return;
-    if (faltanUbicacion.length) {
-      setIntento(true);
-      setError(
-        faltanUbicacion.length === 1
-          ? `Elige si «${faltanUbicacion[0].nombre}» va a exhibición o almacén.`
-          : `Elige exhibición o almacén para ${faltanUbicacion.length} productos nuevos.`,
-      );
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
-      await onConfirm(recepcionPayload(lineas, state, ubicaciones));
+      await onConfirm(recepcionPayload(lineas, state));
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo importar la factura");
     } finally {
@@ -221,18 +196,6 @@ export default function InventarioFacturaRecepcionModal({ open, preview, onClose
             ) : (
               <span className="flex-1" />
             )}
-            {hayNuevas ? (
-              <div className="flex items-center gap-2">
-                <span className="shrink-0 text-[12.5px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Nuevos →</span>
-                <UbicacionPicker
-                  size="sm"
-                  value=""
-                  label="Ubicación para todos los productos nuevos"
-                  disabled={saving}
-                  onChange={(u) => setUbicaciones((prev) => ubicarNuevas(lineas, prev, u))}
-                />
-              </div>
-            ) : null}
             <button
               type="button"
               onClick={() => setState(marcarTodas(lineas, !todoMarcado))}
@@ -264,10 +227,6 @@ export default function InventarioFacturaRecepcionModal({ open, preview, onClose
                   linea={linea}
                   index={i}
                   recibida={recibidaDe(state, linea)}
-                  altaNueva={esAltaNueva(linea, state)}
-                  ubicacion={ubicaciones[linea.indice] ?? ""}
-                  ubicacionFaltante={intento && esAltaNueva(linea, state) && !ubicaciones[linea.indice]}
-                  onUbicacion={(u) => setUbicaciones((prev) => ({ ...prev, [linea.indice]: u }))}
                   disabled={saving}
                   onToggle={() => setState((s) => toggleLinea(s, linea))}
                   onChange={(n) => setState((s) => setRecibida(s, linea, n))}
@@ -284,12 +243,7 @@ export default function InventarioFacturaRecepcionModal({ open, preview, onClose
         {/* Pie */}
         <footer className="flex shrink-0 flex-col gap-3 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p className="text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
-            {faltanUbicacion.length > 0 ? (
-              <b className="font-semibold text-[#C22B2B] dark:text-[#F87171]">
-                Falta elegir ubicación en {faltanUbicacion.length}{" "}
-                {faltanUbicacion.length === 1 ? "producto nuevo" : "productos nuevos"}.
-              </b>
-            ) : resumen.unidadesEnEspera > 0 ? (
+            {resumen.unidadesEnEspera > 0 ? (
               <>
                 <b className="font-semibold text-[#8A5D0F] dark:text-[#E6A23C]">
                   {resumen.unidadesEnEspera} {resumen.unidadesEnEspera === 1 ? "unidad" : "unidades"}
@@ -325,10 +279,6 @@ function RecepcionRow({
   linea,
   index,
   recibida,
-  altaNueva,
-  ubicacion,
-  ubicacionFaltante,
-  onUbicacion,
   disabled,
   onToggle,
   onChange,
@@ -336,10 +286,6 @@ function RecepcionRow({
   linea: FacturaPreviewLinea;
   index: number;
   recibida: number;
-  altaNueva: boolean;
-  ubicacion: InventarioUbicacion | "";
-  ubicacionFaltante: boolean;
-  onUbicacion: (u: InventarioUbicacion) => void;
   disabled: boolean;
   onToggle: () => void;
   onChange: (n: number) => void;
@@ -404,28 +350,6 @@ function RecepcionRow({
           </span>
         </span>
       </label>
-
-      {altaNueva ? (
-        <div className="cot-fade order-last flex flex-col gap-1.5 pl-[2.375rem] sm:basis-full sm:flex-row sm:items-center sm:gap-3 sm:pl-[6.125rem]">
-          <span
-            className={`text-[12.5px] font-medium ${
-              ubicacionFaltante ? "text-[#C22B2B] dark:text-[#F87171]" : "text-[#52525B] dark:text-[#B7C1D1]"
-            }`}
-          >
-            Producto nuevo · ¿dónde va?<span aria-hidden> *</span>
-          </span>
-          <div className="sm:w-72">
-            <UbicacionPicker
-              size="sm"
-              value={ubicacion}
-              onChange={onUbicacion}
-              invalid={ubicacionFaltante}
-              disabled={disabled}
-              label={`Ubicación de ${linea.nombre}`}
-            />
-          </div>
-        </div>
-      ) : null}
 
       {/* Cantidad: al marcar se puede ajustar si llegó solo una parte */}
       <div className="flex items-center justify-between gap-3 pl-[2.375rem] sm:w-[15.5rem] sm:shrink-0 sm:justify-end sm:pl-0">

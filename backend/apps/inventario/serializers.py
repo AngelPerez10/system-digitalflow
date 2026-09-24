@@ -112,10 +112,6 @@ class ScanSerializer(serializers.Serializer):
         default='',
         trim_whitespace=True,
     )
-    # Obligatoria solo si el código es nuevo (la entrada crea el ítem).
-    ubicacion = serializers.ChoiceField(
-        choices=InventarioItem.Ubicacion.choices, required=False, allow_blank=True, default=''
-    )
 
 
 class PrevisualizarFacturaSerializer(serializers.Serializer):
@@ -129,10 +125,6 @@ class RecepcionLineaSerializer(serializers.Serializer):
     indice = serializers.IntegerField(min_value=0)
     modelo = serializers.CharField(required=False, allow_blank=True, max_length=120, default='')
     recibida = serializers.IntegerField(min_value=0)
-    # Obligatoria para líneas recibidas que crean un ítem nuevo.
-    ubicacion = serializers.ChoiceField(
-        choices=InventarioItem.Ubicacion.choices, required=False, allow_blank=True, default=''
-    )
 
 
 class ImportarFacturaSerializer(serializers.Serializer):
@@ -145,10 +137,6 @@ class ImportarFacturaSerializer(serializers.Serializer):
 class RecibirPendienteSerializer(serializers.Serializer):
     # Sin cantidad → se reciben todas las unidades en espera.
     cantidad = serializers.IntegerField(required=False, min_value=1)
-    # Obligatoria si el producto aún no existe en inventario.
-    ubicacion = serializers.ChoiceField(
-        choices=InventarioItem.Ubicacion.choices, required=False, allow_blank=True, default=''
-    )
 
 
 class InventarioPendienteSerializer(serializers.ModelSerializer):
@@ -167,17 +155,8 @@ class InventarioPendienteSerializer(serializers.ModelSerializer):
             'cantidad',
             'cantidad_facturada',
             'creado_en',
-            'requiere_ubicacion',
         ]
         read_only_fields = fields
-
-    requiere_ubicacion = serializers.SerializerMethodField()
-
-    def get_requiere_ubicacion(self, obj: InventarioPendiente) -> bool:
-        """True si recibirlo crea un ítem nuevo (hay que elegir exhibición o almacén)."""
-        from .invoice_import import item_para_pendiente
-
-        return item_para_pendiente(obj) is None
 
 
 class RegistrarCatalogoSerializer(serializers.Serializer):
