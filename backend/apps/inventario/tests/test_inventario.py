@@ -31,7 +31,7 @@ class InventarioScanTests(APITestCase):
         self.client.force_authenticate(user=denied)
         res = self.client.post(
             '/api/inventario/scan/',
-            {'codigo_barras': '7501234567890', 'modo': 'entrada'},
+            {'codigo_barras': '7501234567890', 'modo': 'entrada', 'ubicacion': 'almacen'},
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
@@ -40,7 +40,7 @@ class InventarioScanTests(APITestCase):
     def test_primera_entrada_crea_item(self, _enrich):
         res = self.client.post(
             '/api/inventario/scan/',
-            {'codigo_barras': '7501234567890', 'modo': 'entrada'},
+            {'codigo_barras': '7501234567890', 'modo': 'entrada', 'ubicacion': 'almacen'},
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -53,7 +53,7 @@ class InventarioScanTests(APITestCase):
         InventarioItem.objects.create(codigo_barras='ABC', cantidad=1)
         res = self.client.post(
             '/api/inventario/scan/',
-            {'codigo_barras': 'ABC', 'modo': 'entrada'},
+            {'codigo_barras': 'ABC', 'modo': 'entrada', 'ubicacion': 'almacen'},
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -143,7 +143,7 @@ class InventarioScanTests(APITestCase):
     def test_enriquecimiento_en_alta(self, _enrich):
         res = self.client.post(
             '/api/inventario/scan/',
-            {'codigo_barras': 'SKU-1', 'modo': 'entrada'},
+            {'codigo_barras': 'SKU-1', 'modo': 'entrada', 'ubicacion': 'almacen'},
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -173,7 +173,7 @@ class InventarioScanTests(APITestCase):
             ):
                 res = self.client.post(
                     '/api/inventario/scan/',
-                    {'codigo_barras': 'RACE', 'modo': 'entrada'},
+                    {'codigo_barras': 'RACE', 'modo': 'entrada', 'ubicacion': 'almacen'},
                     format='json',
                 )
 
@@ -358,7 +358,7 @@ class InventarioItemsTests(APITestCase):
     def test_list_movimientos(self, _enrich):
         self.client.post(
             '/api/inventario/scan/',
-            {'codigo_barras': 'X1', 'modo': 'entrada'},
+            {'codigo_barras': 'X1', 'modo': 'entrada', 'ubicacion': 'almacen'},
             format='json',
         )
         res = self.client.get(f'/api/inventario/movimientos/?item={self.item.id}')
@@ -378,7 +378,7 @@ class InventarioItemsTests(APITestCase):
 
         self.client.post(
             '/api/inventario/scan/',
-            {'codigo_barras': 'X1', 'modo': 'entrada'},
+            {'codigo_barras': 'X1', 'modo': 'entrada', 'ubicacion': 'almacen'},
             format='json',
         )
         hoy = timezone.localdate().isoformat()
@@ -816,7 +816,7 @@ class InventarioCaracteristicasTests(APITestCase):
     def test_scan_guarda_precio_unitario(self, _enrich):
         res = self.client.post(
             '/api/inventario/scan/',
-            {'codigo_barras': 'XBSSW01', 'modo': 'entrada'},
+            {'codigo_barras': 'XBSSW01', 'modo': 'entrada', 'ubicacion': 'almacen'},
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -860,7 +860,7 @@ class InventarioCaracteristicasTests(APITestCase):
     def test_alta_automatica_guarda_caracteristicas_en_notas(self, _enrich):
         res = self.client.post(
             '/api/inventario/scan/',
-            {'codigo_barras': 'DS-2CD1023', 'modo': 'entrada'},
+            {'codigo_barras': 'DS-2CD1023', 'modo': 'entrada', 'ubicacion': 'almacen'},
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -933,7 +933,7 @@ class InventarioVinculacionTests(APITestCase):
         )
         res = self.client.post(
             '/api/inventario/scan/',
-            {'codigo_barras': '305303442', 'modo': 'entrada'},
+            {'codigo_barras': '305303442', 'modo': 'entrada', 'ubicacion': 'almacen'},
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)

@@ -15,6 +15,7 @@ import type {
   InventarioMovimientosParams,
   InventarioStats,
   PaginatedResponse,
+  InventarioUbicacion,
   ScanModo,
   ScanResponse,
 } from "./inventarioTypes";
@@ -26,23 +27,46 @@ async function readError(res: Response): Promise<string> {
   return data?.detail || `Error ${res.status}`;
 }
 
+/** Error de la API con su `code` (p. ej. `ubicacion_requerida`) para reaccionar en la UI. */
+export class InventarioApiError extends Error {
+  code: string;
+  status: number;
+  constructor(message: string, code: string, status: number) {
+    super(message);
+    this.name = "InventarioApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+async function throwApiError(res: Response): Promise<never> {
+  const data = (await res.json().catch(() => null)) as { detail?: string; code?: string } | null;
+  throw new InventarioApiError(data?.detail || `Error ${res.status}`, data?.code || "", res.status);
+}
+
+export const isUbicacionRequerida = (e: unknown) =>
+  e instanceof InventarioApiError && e.code === "ubicacion_requerida";
+
 export async function scanInventario(
   codigo: string,
   modo: ScanModo,
   nota?: string,
+  /** Obligatoria si el código es nuevo; sin ella el servidor responde `ubicacion_requerida`. */
+  ubicacion?: InventarioUbicacion,
 ): Promise<ScanResponse> {
-  const body: { codigo_barras: string; modo: ScanModo; nota?: string } = {
+  const body: { codigo_barras: string; modo: ScanModo; nota?: string; ubicacion?: InventarioUbicacion } = {
     codigo_barras: codigo,
     modo,
   };
   const notaTrim = (nota ?? "").trim();
   if (notaTrim) body.nota = notaTrim.slice(0, 255);
+  if (ubicacion) body.ubicacion = ubicacion;
   const res = await fetchApi("/api/inventario/scan/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) await throwApiError(res);
   return (await res.json()) as ScanResponse;
 }
 
@@ -221,7 +245,7 @@ export async function importarFactura(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ proveedor, folio: folio.trim(), ...(recepcion ? { recepcion } : {}) }),
   });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) await throwApiError(res);
   return (await res.json()) as ImportarFacturaResponse;
 }
 
@@ -235,13 +259,14 @@ export async function listInventarioPendientes(): Promise<InventarioPendiente[]>
 export async function recibirInventarioPendiente(
   id: number,
   cantidad?: number,
+  ubicacion?: InventarioUbicacion,
 ): Promise<RecibirPendienteResponse> {
   const res = await fetchApi(`/api/inventario/pendientes/${id}/recibir/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cantidad != null ? { cantidad } : {}),
+    body: JSON.stringify({ ...(cantidad != null ? { cantidad } : {}), ...(ubicacion ? { ubicacion } : {}) }),
   });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) await throwApiError(res);
   return (await res.json()) as RecibirPendienteResponse;
 }
 
@@ -269,4 +294,42 @@ export async function listInventarioMovimientos(
   });
   if (!res.ok) throw new Error(await readError(res));
   return (await res.json()) as PaginatedResponse<InventarioMovimiento>;
+}
+
+export type PrecioSincronizado = Pick<
+  InventarioItem,
+  "id" | "precio_mercado" | "precio_mercado_anterior" | "precio_mercado_actualizado"
+>;
+
+export type SincronizarPreciosResponse = {
+  revisados: number;
+  actualizados: number;
+  pendientes_restantes: number;
+  /** Valores nuevos de cada ítem revisado (para pintarlos sin recargar la lista). */
+  items: PrecioSincronizado[];
+};
+
+/**
+ * Refresca el precio de venta (lista SYSCOM/TVC) de un lote de ítems vencidos.
+ * `ids` (los visibles) se consultan primero.
+ */
+export async function sincronizarPreciosMercado(limit = 6, ids: number[] = []): Promise<SincronizarPreciosResponse> {
+  const res = await fetchApi("/api/inventario/sincronizar-precios/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ limit, ids }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as SincronizarPreciosResponse;
+}
+
+/** Consulta ya el precio de mercado de un ítem (SYSCOM/TVC). */
+export async function actualizarPrecioMercado(id: number): Promise<InventarioItem> {
+  const res = await fetchApi(`/api/inventario/items/${id}/precio-mercado/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as InventarioItem;
 }

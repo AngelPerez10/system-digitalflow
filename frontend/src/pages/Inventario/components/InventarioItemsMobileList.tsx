@@ -5,7 +5,9 @@ import {
   inventarioMobileCardSelectedClass,
 } from "../shared/inventarioStyles";
 import type { InventarioFuente, InventarioItem } from "../shared/inventarioTypes";
+import { CostoCell, PrecioVentaCell } from "./InventarioPrecioMercado";
 import InventarioSeccionBadge from "./InventarioSeccionBadge";
+import { UbicacionBadge } from "./InventarioUbicacion";
 import InventarioThumb from "./InventarioThumb";
 import { LinkIcon } from "./inventarioIcons";
 
@@ -18,7 +20,6 @@ type InventarioItemsMobileListProps = {
   canDelete: boolean;
   selectedItemId: number | null;
   proveedorLabel: (item: InventarioItem) => string;
-  formatPrecio: (valor: string | number | null | undefined) => string;
   onSelectItem: (item: InventarioItem | null) => void;
   onEdit: (item: InventarioItem) => void;
   onDelete: (item: InventarioItem) => void;
@@ -35,7 +36,6 @@ export default function InventarioItemsMobileList({
   canDelete,
   selectedItemId,
   proveedorLabel,
-  formatPrecio,
   onSelectItem,
   onEdit,
   onDelete,
@@ -48,7 +48,6 @@ export default function InventarioItemsMobileList({
         const detalle = [item.marca, item.modelo].filter(Boolean).join(" · ");
         const proveedor = proveedorLabel(item);
         const folio = (item.folio_factura ?? "").trim();
-        const precioTxt = formatPrecio(item.precio_unitario);
         return (
           <li key={item.id}>
             <article
@@ -94,19 +93,21 @@ export default function InventarioItemsMobileList({
               <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-[#EDEDED] pt-3 dark:border-[#273244]">
                 <div className="min-w-0 rounded-[10px] bg-[#FAFAFA] px-2.5 py-2 dark:bg-[#1B2539]">
                   <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
-                    Precio
+                    Costo
                   </dt>
-                  <dd
-                    className={`mt-0.5 truncate text-sm font-semibold tabular-nums ${
-                      precioTxt
-                        ? "text-[#09090B] dark:text-[#F8FAFC]"
-                        : "font-normal text-[#A1A1AA] dark:text-[#64748b]"
-                    }`}
-                  >
-                    {precioTxt || "—"}
+                  <dd className="mt-0.5 text-sm">
+                    <CostoCell item={item} align="left" />
                   </dd>
                 </div>
                 <div className="min-w-0 rounded-[10px] bg-[#FAFAFA] px-2.5 py-2 dark:bg-[#1B2539]">
+                  <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                    Precio de venta
+                  </dt>
+                  <dd className="mt-0.5 text-sm">
+                    <PrecioVentaCell item={item} align="left" />
+                  </dd>
+                </div>
+                <div className="col-span-2 min-w-0 rounded-[10px] bg-[#FAFAFA] px-2.5 py-2 dark:bg-[#1B2539]">
                   <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
                     Folio
                   </dt>
@@ -125,6 +126,7 @@ export default function InventarioItemsMobileList({
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <InventarioSeccionBadge seccion={item.seccion} showEmpty compact />
+                <UbicacionBadge value={item.ubicacion} />
                 {proveedor ? (
                   <span className={fuenteBadgeClass(badgeFuente(item))}>{proveedor}</span>
                 ) : (

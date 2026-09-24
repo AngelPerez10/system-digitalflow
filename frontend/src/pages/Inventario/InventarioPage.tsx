@@ -29,6 +29,7 @@ import InventarioImportFacturaBar from "./components/InventarioImportFacturaBar"
 import InventarioItemsTable from "./components/InventarioItemsTable";
 import InventarioMovimientosList from "./components/InventarioMovimientosList";
 import InventarioPendientesDrawer from "./components/InventarioPendientesDrawer";
+import InventarioUbicacionPromptModal from "./components/InventarioUbicacionPromptModal";
 import InventarioPagination from "./components/InventarioPagination";
 import InventarioScanBar from "./components/InventarioScanBar";
 import InventarioSeccionChips from "./components/InventarioSeccionChips";
@@ -40,12 +41,15 @@ import {
   descartarInventarioPendiente,
   fetchInventarioStats,
   importarFactura,
+  isUbicacionRequerida,
   listInventarioPendientes,
   recibirInventarioPendiente,
   listInventarioItems,
   listInventarioMovimientos,
   patchInventarioItem,
   scanInventario,
+  sincronizarPreciosMercado,
+  type PrecioSincronizado,
   sincronizarSeccionesInventario,
 } from "./shared/inventarioApi";
 import type { InventarioSeccionFiltro } from "./shared/inventarioSecciones";
@@ -56,6 +60,7 @@ import type {
   InventarioMovimiento,
   InventarioPendiente,
   InventarioStats as InventarioStatsData,
+  InventarioUbicacion,
   RecepcionLinea,
   ScanModo,
 } from "./shared/inventarioTypes";
@@ -111,6 +116,8 @@ export default function InventarioPage() {
 
   const [pendientes, setPendientes] = useState<InventarioPendiente[]>([]);
   const [pendientesOpen, setPendientesOpen] = useState(false);
+  /** Código nuevo escaneado que espera su ubicación (exhibición / almacén). */
+  const [ubicacionPara, setUbicacionPara] = useState<string | null>(null);
   /** Confirmación global (arriba a la derecha) para lo que se guarda. */
   const [notice, setNotice] = useState<{ id: number; variant: AlertVariant; title: string; message: string } | null>(
     null,
@@ -186,6 +193,56 @@ export default function InventarioPage() {
     void loadStats();
     void loadPendientes();
   }, [loadStats, loadPendientes]);
+
+  /* Precio de venta (lista SYSCOM/TVC): se actualiza solo, independiente de las
+     secciones. Lotes pequeños en serie hasta que no quede nada vencido; los
+     ítems visibles van primero y cada lote se pinta al llegar. Se repite cada
+     15 min mientras la página esté abierta. */
+  const itemsRef = useRef<InventarioItem[]>([]);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+  const preciosCorriendoRef = useRef(false);
+  const aplicarPrecios = useCallback((lote: PrecioSincronizado[]) => {
+    if (!lote.length) return;
+    const porId = new Map(lote.map((p) => [p.id, p]));
+    const merge = <T extends InventarioItem>(row: T): T => {
+      const p = porId.get(row.id);
+      return p ? { ...row, ...p } : row;
+    };
+    setItems((prev) => prev.map(merge));
+    setFilterItem((prev) => (prev ? merge(prev) : prev));
+    setEditItem((prev) => (prev ? merge(prev) : prev));
+  }, []);
+  const sincronizarPrecios = useCallback(async () => {
+    if (preciosCorriendoRef.current) return;
+    preciosCorriendoRef.current = true;
+    try {
+      for (let vuelta = 0; vuelta < 60; vuelta += 1) {
+        const visibles = itemsRef.current
+          .filter((it) => it.fuente === "syscom" || it.fuente === "tvc")
+          .map((it) => it.id);
+        const res = await sincronizarPreciosMercado(6, visibles);
+        aplicarPrecios(res.items);
+        if (res.revisados === 0 || res.pendientes_restantes === 0) break;
+      }
+    } catch {
+      // Silencioso: se reintenta en la siguiente vuelta programada.
+    } finally {
+      preciosCorriendoRef.current = false;
+    }
+  }, [aplicarPrecios]);
+  useEffect(() => {
+    void sincronizarPrecios();
+    const id = window.setInterval(() => void sincronizarPrecios(), 15 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [sincronizarPrecios]);
+  // Al cambiar de página o búsqueda, los nuevos visibles sin precio se consultan ya.
+  useEffect(() => {
+    if (items.some((it) => (it.fuente === "syscom" || it.fuente === "tvc") && !it.precio_mercado_actualizado)) {
+      void sincronizarPrecios();
+    }
+  }, [items, sincronizarPrecios]);
 
   // Al abrir: rellena secciones vacías desde SYSCOM (ítems viejos).
   // Sin ref de “ya corrí”: en Strict Mode el primer efecto se cancela y el segundo debe volver a sincronizar.
@@ -269,26 +326,43 @@ export default function InventarioPage() {
     setScanStatus(null);
 
     try {
-      const result = await scanInventario(
-        code,
-        modo,
-        modo === "salida" ? notaSalida : undefined,
-      );
-      const nombre = result.item.nombre || result.item.codigo_barras;
-      const accion = modo === "entrada" ? "Entrada" : "Salida";
-      const extras: string[] = [];
-      if (result.creado) extras.push("ítem nuevo");
-      if (result.enriquecido) extras.push("datos enriquecidos");
-      if (modo === "salida" && result.movimiento.nota?.trim()) {
-        extras.push(`motivo: ${result.movimiento.nota.trim()}`);
-      }
-      const suffix = extras.length > 0 ? ` (${extras.join(", ")})` : "";
-      setScanStatus(
-        `${accion} registrada: ${nombre} — existencia ${result.item.cantidad}${suffix}`,
-      );
-      await refreshLists();
+      await registrarEscaneo(code, modo === "salida" ? notaSalida : undefined);
     } catch (e) {
+      if (modo === "entrada" && isUbicacionRequerida(e)) {
+        // Código nuevo: primero hay que decir dónde va.
+        setUbicacionPara(code);
+        return;
+      }
       setError(e instanceof Error ? e.message : "No se pudo registrar el escaneo");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  /** Registra el escaneo; lanza el error de la API (p. ej. `ubicacion_requerida`). */
+  const registrarEscaneo = async (code: string, notaSalida?: string, ubicacion?: InventarioUbicacion) => {
+    const result = await scanInventario(code, modo, notaSalida, ubicacion);
+    const nombre = result.item.nombre || result.item.codigo_barras;
+    const accion = modo === "entrada" ? "Entrada" : "Salida";
+    const extras: string[] = [];
+    if (result.creado) extras.push("ítem nuevo");
+    if (result.enriquecido) extras.push("datos enriquecidos");
+    if (modo === "salida" && result.movimiento.nota?.trim()) {
+      extras.push(`motivo: ${result.movimiento.nota.trim()}`);
+    }
+    const suffix = extras.length > 0 ? ` (${extras.join(", ")})` : "";
+    setScanStatus(
+      `${accion} registrada: ${nombre} — existencia ${result.item.cantidad}${suffix}`,
+    );
+    await refreshLists();
+  };
+
+  const handleUbicacionElegida = async (ubicacion: InventarioUbicacion) => {
+    if (!ubicacionPara) return;
+    setScanning(true);
+    try {
+      await registrarEscaneo(ubicacionPara, undefined, ubicacion);
+      setUbicacionPara(null);
     } finally {
       setScanning(false);
     }
@@ -371,8 +445,12 @@ export default function InventarioPage() {
     return result;
   };
 
-  const handleRecibirPendiente = async (p: InventarioPendiente, cantidad: number) => {
-    const res = await recibirInventarioPendiente(p.id, cantidad);
+  const handleRecibirPendiente = async (
+    p: InventarioPendiente,
+    cantidad: number,
+    ubicacion?: InventarioUbicacion,
+  ) => {
+    const res = await recibirInventarioPendiente(p.id, cantidad, ubicacion);
     setPendientes((prev) =>
       res.pendiente
         ? prev.map((row) => (row.id === p.id ? (res.pendiente as InventarioPendiente) : row))
@@ -597,6 +675,19 @@ export default function InventarioPage() {
         onClose={() => setEditItem(null)}
         onSave={handleSaveEdit}
         onItemUpdated={handleItemUpdatedFromModal}
+        onPrecioMercadoActualizado={(updated) => {
+          setItems((prev) => prev.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)));
+          if (filterItem?.id === updated.id) setFilterItem((prev) => (prev ? { ...prev, ...updated } : prev));
+        }}
+      />
+
+      <InventarioUbicacionPromptModal
+        codigo={ubicacionPara}
+        onCancel={() => {
+          setUbicacionPara(null);
+          setScanStatus("Alta cancelada: el código no se registró.");
+        }}
+        onChoose={handleUbicacionElegida}
       />
 
       <InventarioPendientesDrawer

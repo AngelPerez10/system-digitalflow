@@ -1,5 +1,7 @@
 export type InventarioFuente = "desconocido" | "syscom" | "tvc";
 export type ScanModo = "entrada" | "salida";
+/** Dónde está físicamente el producto. Vacía solo en ítems anteriores al campo. */
+export type InventarioUbicacion = "exhibicion" | "almacen";
 
 export type InventarioItem = {
   id: number;
@@ -21,6 +23,12 @@ export type InventarioItem = {
   proveedor_nombre: string;
   /** Costo por pieza de la última compra; null si no hay. */
   precio_unitario: string | null;
+  ubicacion: InventarioUbicacion | "";
+  /** Precio actual de SYSCOM/TVC (MXN con IVA); null si no aplica o aún no se consulta. */
+  precio_mercado: string | null;
+  /** Precio de mercado previo, para mostrar si subió o bajó. */
+  precio_mercado_anterior: string | null;
+  precio_mercado_actualizado: string | null;
   fecha_creacion: string;
   fecha_actualizacion: string;
 };
@@ -60,6 +68,7 @@ export type InventarioItemPatch = Partial<
     | "imagen_url"
     | "precio_unitario"
     | "seccion"
+    | "ubicacion"
   >
 >;
 
@@ -134,7 +143,7 @@ export type FacturaPreviewLinea = {
   cantidad: number;
   precio_unitario: string | null;
   /** Ítem que ya existe en inventario para esta línea (null = se creará). */
-  en_inventario: { id: number; cantidad: number } | null;
+  en_inventario: { id: number; cantidad: number; ubicacion: InventarioUbicacion | "" } | null;
 };
 
 export type FacturaPreview = {
@@ -148,6 +157,8 @@ export type RecepcionLinea = {
   indice: number;
   modelo: string;
   recibida: number;
+  /** Obligatoria si la línea recibida crea un producto nuevo. */
+  ubicacion?: InventarioUbicacion;
 };
 
 /** Producto facturado que aún no llega: fuera del inventario hasta recibirlo. */
@@ -166,6 +177,8 @@ export type InventarioPendiente = {
   /** Unidades de la línea original de la factura. */
   cantidad_facturada: number;
   creado_en: string;
+  /** Al recibirlo se crea un producto nuevo: hay que elegir exhibición o almacén. */
+  requiere_ubicacion: boolean;
 };
 
 export type RecibirPendienteResponse = {

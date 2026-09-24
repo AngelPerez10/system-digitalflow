@@ -17,7 +17,8 @@ export type SyscomProducto = {
   producto_id: string;
   modelo: string;
   sku?: string;
-  total_existencia: number;
+  /** null cuando el proveedor no publica existencia (p. ej. TVC «Proyecto»). */
+  total_existencia: number | null;
   titulo: string;
   marca: string;
   fuente?: string;
@@ -33,6 +34,10 @@ export type SyscomProducto = {
   marca_logo?: string;
   link?: string;
   iconos?: Record<string, string> | null;
+  /** TVC: el proveedor no publica precio (se vende por cotización). */
+  precio_bajo_cotizacion?: boolean;
+  /** TVC: «Valor» (precio público) o «Proyecto» (bajo cotización). */
+  tipo_flujo?: string;
   precios?: {
     precio_lista?: string | number | null;
     precio_especial?: string | number | null;
@@ -395,7 +400,14 @@ export const formatPrecioPublicoMxnConIva = (p: SyscomProducto, tipoCambio: numb
 
 /** Detalle de producto SYSCOM (endpoint productos/<id>/). Puede incluir imagenes[] (paths o URLs). */
 export type SyscomProductoDetalle = SyscomProducto & {
+  /** SYSCOM: descripción comercial en HTML (se muestra como texto). */
   descripcion?: string;
+  /** TVC: bloques de descripción ya en texto (Información general, Especificaciones…). */
+  secciones?: { titulo: string; texto: string }[];
+  /** TVC: fichas técnicas y guías. */
+  documentos?: { nombre: string; url: string }[];
+  /** SYSCOM: fichas técnicas y guías. */
+  recursos?: { recurso?: string; path?: string }[];
   caracteristicas?: string[];
   imagenes?: (string | { url?: string; imagen?: string; src?: string })[];
 };

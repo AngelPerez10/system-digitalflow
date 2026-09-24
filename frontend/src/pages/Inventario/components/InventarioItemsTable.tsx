@@ -13,7 +13,9 @@ import {
 } from "../shared/inventarioStyles";
 import type { InventarioFuente, InventarioItem } from "../shared/inventarioTypes";
 import InventarioItemsMobileList from "./InventarioItemsMobileList";
+import { CostoCell, PrecioVentaCell } from "./InventarioPrecioMercado";
 import InventarioSeccionBadge from "./InventarioSeccionBadge";
+import { UbicacionBadge } from "./InventarioUbicacion";
 import InventarioThumb from "./InventarioThumb";
 import { BarcodeIcon, LinkIcon } from "./inventarioIcons";
 
@@ -29,13 +31,6 @@ function proveedorVisible(item: InventarioItem): string {
   if (nombre) return nombre;
   if (item.fuente === "syscom" || item.fuente === "tvc") return fuenteLabel(item.fuente);
   return "";
-}
-
-function formatoPrecio(valor: string | number | null | undefined): string {
-  if (valor == null || valor === "") return "";
-  const n = typeof valor === "number" ? valor : Number(valor);
-  if (!Number.isFinite(n)) return String(valor);
-  return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 }
 
 const thClass = "whitespace-nowrap px-2 py-2.5 text-[#52525B] dark:text-[#B7C1D1]";
@@ -97,7 +92,6 @@ export default function InventarioItemsTable({
         canDelete={canDelete}
         selectedItemId={selectedItemId}
         proveedorLabel={proveedorVisible}
-        formatPrecio={formatoPrecio}
         onSelectItem={onSelectItem}
         onEdit={onEdit}
         onDelete={onDelete}
@@ -105,7 +99,7 @@ export default function InventarioItemsTable({
 
       {/* min-width fijo: sin sm:min-w-0, para que Folio/Precio no se aplasten fuera de vista */}
       <div className={"hidden md:block " + invTableWrapClass} tabIndex={0} aria-label="Tabla de ítems; desplaza horizontalmente si hace falta">
-        <Table className="w-full min-w-[1120px] table-fixed">
+        <Table className="w-full min-w-[1230px] table-fixed">
           <TableHeader className={invTableHeaderClass + " sticky top-0 z-10"}>
             <TableRow>
               <TableCell isHeader scope="col" className={`w-[28%] min-w-[220px] text-left ${thClass}`}>
@@ -120,8 +114,11 @@ export default function InventarioItemsTable({
               <TableCell isHeader scope="col" className={`w-[88px] text-center ${thClass}`}>
                 Existencia
               </TableCell>
-              <TableCell isHeader scope="col" className={`w-[120px] text-right ${thClass}`}>
-                Precio
+              <TableCell isHeader scope="col" className={`w-[110px] text-right ${thClass}`}>
+                Costo
+              </TableCell>
+              <TableCell isHeader scope="col" className={`w-[140px] text-right ${thClass}`}>
+                Precio de venta
               </TableCell>
               <TableCell isHeader scope="col" className={`w-[140px] text-left ${thClass}`}>
                 Folio
@@ -143,7 +140,6 @@ export default function InventarioItemsTable({
               const proveedorFuente: InventarioFuente =
                 item.fuente === "syscom" || item.fuente === "tvc" ? item.fuente : "desconocido";
               const folio = (item.folio_factura ?? "").trim();
-              const precioTxt = formatoPrecio(item.precio_unitario);
               return (
                 <TableRow
                   key={item.id}
@@ -168,8 +164,9 @@ export default function InventarioItemsTable({
                         <span className="mt-1 block truncate font-mono text-[11px] tracking-wide text-[#6E6E77] dark:text-[#8EA0B8]">
                           {item.codigo_barras}
                         </span>
-                        <span className="mt-1.5 block">
+                        <span className="mt-1.5 flex flex-wrap items-center gap-1">
                           <InventarioSeccionBadge seccion={item.seccion} compact />
+                          <UbicacionBadge value={item.ubicacion} />
                         </span>
                       </span>
                     </button>
@@ -188,16 +185,10 @@ export default function InventarioItemsTable({
                     <span className={existenciaBadgeClass(item.cantidad)}>{item.cantidad}</span>
                   </TableCell>
                   <TableCell className="px-2 py-2.5 text-right align-middle">
-                    {precioTxt ? (
-                      <span
-                        className="inline-block font-semibold tabular-nums tracking-tight text-[#09090B] dark:text-[#F8FAFC]"
-                        title={`Precio unitario ${precioTxt}`}
-                      >
-                        {precioTxt}
-                      </span>
-                    ) : (
-                      <span className={tdMuted}>—</span>
-                    )}
+                    <CostoCell item={item} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2.5 text-right align-middle">
+                    <PrecioVentaCell item={item} />
                   </TableCell>
                   <TableCell className="px-2 py-2.5 align-middle">
                     {folio ? (

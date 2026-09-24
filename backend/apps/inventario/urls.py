@@ -12,6 +12,16 @@ urlpatterns = [
         name='inventario-sincronizar-secciones',
     ),
     path(
+        'inventario/sincronizar-precios/',
+        views.InventarioSincronizarPreciosView.as_view(),
+        name='inventario-sincronizar-precios',
+    ),
+    path(
+        'inventario/items/<int:pk>/precio-mercado/',
+        views.InventarioItemPrecioMercadoView.as_view(),
+        name='inventario-item-precio-mercado',
+    ),
+    path(
         'inventario/items/<int:pk>/',
         views.InventarioItemDetailView.as_view(),
         name='inventario-item-detail',

@@ -165,6 +165,64 @@ def _abs_media_url(path: str) -> str:
     return f'{base}/{s.lstrip("/")}'
 
 
+_HTML_BLOQUE_RE = re.compile(r'</(?:p|div|li|h[1-6]|tr)\s*>|<br\s*/?>', re.IGNORECASE)
+_HTML_TAG_RE = re.compile(r'<[^>]+>')
+
+
+def _html_a_texto(value: object) -> str:
+    """HTML de TVC (Quill) → texto plano con saltos de párrafo."""
+    import html as _html
+
+    texto = _HTML_BLOQUE_RE.sub('\n', str(value or ''))
+    texto = _html.unescape(_HTML_TAG_RE.sub('', texto)).replace('\xa0', ' ')
+    lineas = [' '.join(l.split()) for l in texto.split('\n')]
+    return '\n'.join(l for l in lineas if l).strip()
+
+
+def _tvc_stock(raw: dict) -> int | None:
+    """Existencia total; None si TVC no la publica (p. ej. productos «Proyecto»)."""
+    detallado = raw.get('inventory_detailed')
+    if isinstance(detallado, list) and detallado:
+        total = 0
+        for fila in detallado:
+            n = _as_number((fila or {}).get('quantity')) if isinstance(fila, dict) else None
+            total += int(n) if n and n > 0 else 0
+        return total
+    if 'total_inventories' not in raw:
+        return None
+    n = _as_number(raw.get('total_inventories'))
+    return max(0, int(n)) if n is not None else 0
+
+
+def _tvc_secciones(raw: dict) -> list[dict]:
+    """`overviews` de TVC → [{titulo, texto}] en orden, sin HTML."""
+    overviews = raw.get('overviews')
+    if not isinstance(overviews, list):
+        return []
+    filas = sorted(
+        (o for o in overviews if isinstance(o, dict)),
+        key=lambda o: _as_number(o.get('order')) or 0,
+    )
+    out = []
+    for o in filas:
+        texto = _html_a_texto(o.get('description'))
+        if texto:
+            out.append({'titulo': str(o.get('title') or '').strip().rstrip('.'), 'texto': texto})
+    return out
+
+
+def _tvc_documentos(media: dict) -> list[dict]:
+    docs = media.get('documents') if isinstance(media.get('documents'), list) else []
+    out = []
+    for url in docs:
+        u = _abs_media_url(str(url or ''))
+        if not u or u.lower().endswith('.txt'):
+            continue
+        nombre = urllib.parse.unquote(u.rsplit('/', 1)[-1]).rsplit('.', 1)[0].replace('-', ' ').replace('_', ' ')
+        out.append({'nombre': ' '.join(nombre.split()), 'url': u})
+    return out
+
+
 def _map_tvc_product(raw: dict, exchange_rate: float | None = None) -> dict:
     """Normaliza un producto TVC al shape SyscomProducto usado en el frontend."""
     tvc_id = raw.get('tvc_id')
@@ -181,14 +239,12 @@ def _map_tvc_product(raw: dict, exchange_rate: float | None = None) -> dict:
     distributor = _as_number(raw.get('distributor_price'))
     list_price = _as_number(raw.get('list_price'))
 
-    stock_raw = raw.get('total_inventories')
-    try:
-        stock = int(float(stock_raw)) if stock_raw is not None and str(stock_raw).strip() != '' else 0
-    except (TypeError, ValueError):
-        stock = 0
+    stock = _tvc_stock(raw)
 
     producto_id = f'{_TVC_ID_PREFIX}{tvc_id}' if tvc_id is not None else ''
-    estado_inv = 'con_existencia' if stock > 0 else 'sin_existencia'
+    estado_inv = 'sin_dato' if stock is None else ('con_existencia' if stock > 0 else 'sin_existencia')
+    # TVC no publica precio ni inventario de productos «Proyecto» (se cotizan).
+    flujo = str(raw.get('product_flow_type') or '').strip()
 
     # Precio de lista en MXN con IVA (list_price USD × TC TVC × 1.16).
     # Si no hay precio de lista, usar el de distribuidor como respaldo.
@@ -197,8 +253,14 @@ def _map_tvc_product(raw: dict, exchange_rate: float | None = None) -> dict:
     if usd_base is not None and exchange_rate:
         precio_mxn = round(usd_base * exchange_rate * IVA_MX, 2)
 
-    link_model = tvc_model or provider_model
-    link = f'https://www.tvcenlinea.com/buscar?q={urllib.parse.quote(link_model)}' if link_model else 'https://www.tvcenlinea.com/'
+    # La ficha pública de TVC usa el mismo id que la API (tvc.mx/products/<tvc_id>).
+    link = f'https://tvc.mx/products/{tvc_id}' if tvc_id is not None else 'https://tvc.mx/'
+    galeria = [
+        _abs_media_url(str(u or ''))
+        for u in (media.get('gallery') if isinstance(media.get('gallery'), list) else [])
+        if str(u or '').strip()
+    ]
+    imagenes = [u for u in [main_image, *galeria] if u]
 
     return {
         'producto_id': producto_id,
@@ -225,6 +287,12 @@ def _map_tvc_product(raw: dict, exchange_rate: float | None = None) -> dict:
         'category_id': raw.get('category_id'),
         'brand_id': raw.get('brand_id'),
         'hash_tags': raw.get('hash_tags') if isinstance(raw.get('hash_tags'), list) else [],
+        'tipo_flujo': flujo,
+        # Sin precio publicado: se muestra «Precio bajo cotización» en vez de «—».
+        'precio_bajo_cotizacion': precio_mxn is None and list_price is None and distributor is None,
+        'imagenes': list(dict.fromkeys(imagenes)),
+        'secciones': _tvc_secciones(raw),
+        'documentos': _tvc_documentos(media),
     }
 
 

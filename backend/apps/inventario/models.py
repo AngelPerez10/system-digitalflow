@@ -24,6 +24,10 @@ class InventarioItem(models.Model):
         REDES = 'redes_it', 'Redes e IT'
         VIDEOVIGILANCIA = 'videovigilancia', 'Videovigilancia'
 
+    class Ubicacion(models.TextChoices):
+        EXHIBICION = 'exhibicion', 'Exhibición'
+        ALMACEN = 'almacen', 'Almacén'
+
     codigo_barras = models.CharField(max_length=64, unique=True, db_index=True)
     nombre = models.CharField(max_length=255, blank=True, default='')
     marca = models.CharField(max_length=120, blank=True, default='')
@@ -55,6 +59,19 @@ class InventarioItem(models.Model):
     precio_unitario = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True
     )
+    # Dónde está físicamente. Obligatoria al dar de alta (escáner o factura);
+    # vacía solo en ítems anteriores a este campo.
+    ubicacion = models.CharField(
+        max_length=20, choices=Ubicacion.choices, blank=True, default='', db_index=True
+    )
+    # Precio de venta: el precio de lista actual del proveedor (SYSCOM/TVC), en MXN
+    # con IVA. Se refresca periódicamente; `precio_mercado_anterior` permite mostrar
+    # si subió. El costo (lo que costó) es `precio_unitario`.
+    precio_mercado = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    precio_mercado_anterior = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    precio_mercado_actualizado = models.DateTimeField(null=True, blank=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 

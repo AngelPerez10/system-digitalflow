@@ -1,6 +1,42 @@
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { Modal } from "@/components/ui/modal";
+/**
+ * Ficha del producto (editar).
+ *
+ * Estructura:
+ *  - Cabecera marina centrada en el producto (foto, nombre, código, proveedor, ubicación).
+ *  - Indicadores: Existencia · Costo · Precio de venta (se actualiza desde SYSCOM/TVC) · Margen.
+ *  - Pestañas: Datos · Catálogo · Existencia · Historial. Los paneles quedan montados
+ *    (salvo Historial, que carga al abrirse) para no perder lo capturado al cambiar.
+ *  - Pie con estado de cambios y acciones.
+ *
+ * Movimiento: indicadores con entrada escalonada (`cot-rise`), panel que aparece con
+ * `cot-fade`, indicador de pestaña deslizante y cifras que se re-montan (`cot-flash`).
+ * Solo `transform`/`opacity`; todo se apaga con `prefers-reduced-motion`.
+ */
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Check,
+  History,
+  ImagePlus,
+  Link2,
+  Loader2,
+  Minus,
+  Package,
+  Plus,
+  RefreshCw,
+  Search,
+  Tag,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  Unlink,
+  X,
+} from "lucide-react";
+import { Modal } from "@/components/ui/modal";
+import "@/components/ui/modal-kit/motion.css";
+import {
+  actualizarPrecioMercado,
   fetchCatalogoDetallePorRef,
   scanInventario,
   searchCatalogo,
@@ -8,52 +44,26 @@ import {
 } from "../shared/inventarioApi";
 import {
   candidatoRowClass,
-  existenciaBadgeClass,
   fuenteBadgeClass,
   inventarioFieldLabelClass,
-  inventarioSectionIconClass,
+  inventarioSansStyle,
   invInputLikeClass,
-  invModalBodyClass,
-  invModalEyebrowClass,
-  invModalFooterClass,
-  invModalHeaderClass,
-  invModalHeaderIconClass,
-  invModalScrollClass,
-  invModalShellClass,
-  invModalSubtitleClass,
-  invModalTabClass,
-  invModalTabIndicatorClass,
-  invModalTabListClass,
-  invModalTitleClass,
   invNotaSalidaTextareaClass,
   invPrimaryBtnClass,
   invSecondaryBtnClass,
   invTextareaLikeClass,
 } from "../shared/inventarioStyles";
-import InventarioFormSection from "./InventarioFormSection";
+import { esDeProveedor, formatMxn, formatPct, precioMercadoInfo } from "../shared/precioMercado";
 import InventarioItemHistorialTab from "./InventarioItemHistorialTab";
+import { UbicacionBadge, UbicacionPicker } from "./InventarioUbicacion";
 import InventarioSeccionBadge from "./InventarioSeccionBadge";
 import InventarioThumb from "./InventarioThumb";
-import {
-  BarcodeIcon,
-  CheckIcon,
-  CloseIcon,
-  EntradaIcon,
-  HistoryIcon,
-  LinkIcon,
-  PhotoIcon,
-  RefreshIcon,
-  SalidaIcon,
-  SearchIcon,
-  TagIcon,
-  TrashIcon,
-  UploadIcon,
-} from "./inventarioIcons";
 import type {
   CatalogoCandidato,
   InventarioFuente,
   InventarioItem,
   InventarioItemPatch,
+  InventarioUbicacion,
 } from "../shared/inventarioTypes";
 import { INVENTARIO_SECCIONES } from "../shared/inventarioSecciones";
 
@@ -61,11 +71,13 @@ const MIN_BUSQUEDA = 3;
 const MAX_IMAGEN_MB = 8;
 const NOTA_MAX = 255;
 
-type ModalTab = "ficha" | "historial";
+type ModalTab = "datos" | "catalogo" | "existencia" | "historial";
 
-const MODAL_TABS: { id: ModalTab; label: string }[] = [
-  { id: "ficha", label: "Ficha" },
-  { id: "historial", label: "Historial" },
+const MODAL_TABS: { id: ModalTab; label: string; icon: ReactNode }[] = [
+  { id: "datos", label: "Datos", icon: <Tag className="size-4" aria-hidden /> },
+  { id: "catalogo", label: "Catálogo", icon: <Link2 className="size-4" aria-hidden /> },
+  { id: "existencia", label: "Existencia", icon: <Package className="size-4" aria-hidden /> },
+  { id: "historial", label: "Historial", icon: <History className="size-4" aria-hidden /> },
 ];
 
 function leerComoDataUrl(file: File): Promise<string> {
@@ -90,6 +102,9 @@ function toInventarioFuente(fuente: InventarioFuente | "manual"): InventarioFuen
   return "desconocido";
 }
 
+const linkBtnClass =
+  "inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-60";
+
 type InventarioEditModalProps = {
   open: boolean;
   item: InventarioItem | null;
@@ -98,6 +113,8 @@ type InventarioEditModalProps = {
   canAdjustStock?: boolean;
   onClose: () => void;
   onSave: (id: number, patch: InventarioItemPatch) => Promise<void>;
+  /** El precio de venta se consultó de nuevo (para refrescar la tabla). */
+  onPrecioMercadoActualizado?: (item: InventarioItem) => void;
   /** Tras aplicar entradas/salidas pendientes al Guardar. */
   onItemUpdated?: (item: InventarioItem) => void;
 };
@@ -110,13 +127,10 @@ export default function InventarioEditModal({
   onClose,
   onSave,
   onItemUpdated,
+  onPrecioMercadoActualizado,
 }: InventarioEditModalProps) {
   const titleId = useId();
-  const tabFichaId = `${titleId}-tab-ficha`;
-  const tabHistorialId = `${titleId}-tab-historial`;
-  const panelFichaId = `${titleId}-panel-ficha`;
-  const panelHistorialId = `${titleId}-panel-historial`;
-  const [modalTab, setModalTab] = useState<ModalTab>("ficha");
+  const [modalTab, setModalTab] = useState<ModalTab>("datos");
   const [historialRefreshKey, setHistorialRefreshKey] = useState(0);
   const [notaSalida, setNotaSalida] = useState("");
   const [nombre, setNombre] = useState("");
@@ -128,6 +142,11 @@ export default function InventarioEditModal({
   const [imagenUrl, setImagenUrl] = useState("");
   const [precioUnitario, setPrecioUnitario] = useState("");
   const [seccion, setSeccion] = useState("");
+  const [ubicacion, setUbicacion] = useState<InventarioUbicacion | "">("");
+  /** Precio de venta en pantalla (se refresca con «Actualizar» sin cerrar la ficha). */
+  const [mercado, setMercado] = useState<InventarioItem | null>(null);
+  const [consultandoMercado, setConsultandoMercado] = useState(false);
+  const [mercadoError, setMercadoError] = useState<string | null>(null);
   /** Existencia ya persistida (al abrir o tras Guardar). */
   const [cantidadGuardada, setCantidadGuardada] = useState(0);
   /** Existencia en pantalla; los ±1 solo se envían al Guardar. */
@@ -160,15 +179,13 @@ export default function InventarioEditModal({
     setModelo((prev) => (prev.trim() ? prev : detalle.modelo || prev));
     setImagenUrl((prev) => (prev.trim() ? prev : detalle.imagen_url || prev));
     setNotas((prev) => (prev.trim() ? prev : detalle.caracteristicas || prev));
-    setPrecioUnitario((prev) =>
-      prev.trim() ? prev : detalle.precio_unitario?.trim() || prev,
-    );
+    setPrecioUnitario((prev) => (prev.trim() ? prev : detalle.precio_unitario?.trim() || prev));
     setSeccion((prev) => (prev.trim() ? prev : detalle.seccion?.trim() || prev));
   }, []);
 
   useEffect(() => {
     if (!item) return;
-    setModalTab("ficha");
+    setModalTab("datos");
     setNotaSalida("");
     setRefrescoAviso(null);
     setFichaAviso(null);
@@ -182,6 +199,9 @@ export default function InventarioEditModal({
     setImagenUrl(item.imagen_url || "");
     setPrecioUnitario(item.precio_unitario != null ? String(item.precio_unitario) : "");
     setSeccion(item.seccion || "");
+    setUbicacion(item.ubicacion || "");
+    setMercado(item);
+    setMercadoError(null);
     setCantidadGuardada(item.cantidad);
     setCantidad(item.cantidad);
     setImagenError(null);
@@ -243,9 +263,11 @@ export default function InventarioEditModal({
         return;
       }
       aplicarDetalle(detalle);
-      if (!detalle.imagen_url && !imagenUrl.trim()) {
-        setRefrescoAviso("El catálogo no tiene foto para este producto.");
-      }
+      setRefrescoAviso(
+        !detalle.imagen_url && !imagenUrl.trim()
+          ? "El catálogo no tiene foto para este producto."
+          : "Datos vacíos completados desde el catálogo.",
+      );
     } catch (e) {
       setRefrescoAviso(e instanceof Error ? e.message : "No se pudo consultar el catálogo");
     } finally {
@@ -312,15 +334,12 @@ export default function InventarioEditModal({
     // Solo tomamos la foto del catálogo si el ítem aún no tiene una propia.
     if (candidato.imagen_url && !imagenUrl) setImagenUrl(candidato.imagen_url);
     if (candidato.caracteristicas && !notas.trim()) setNotas(candidato.caracteristicas);
-    if (candidato.precio_unitario && !precioUnitario.trim()) {
-      setPrecioUnitario(candidato.precio_unitario);
-    }
-    if (candidato.seccion && !seccion.trim()) {
-      setSeccion(candidato.seccion);
-    }
+    if (candidato.precio_unitario && !precioUnitario.trim()) setPrecioUnitario(candidato.precio_unitario);
+    if (candidato.seccion && !seccion.trim()) setSeccion(candidato.seccion);
     setCandidatos([]);
     setBusquedaHecha(false);
     setFichaAviso(null);
+    setRefrescoAviso(`Vinculado con ${fuenteLabel(candidato.fuente)}. Revisa los datos y guarda.`);
 
     // Detalle: ficha técnica, precio y sección (la búsqueda suele no traerlos).
     const faltaNotas = !notas.trim() && !candidato.caracteristicas;
@@ -331,15 +350,11 @@ export default function InventarioEditModal({
     fetchCatalogoDetallePorRef(candidato.fuente, candidato.ref_externa, candidato.modelo)
       .then((detalle) => {
         if (!detalle) return;
-        if (detalle.caracteristicas) {
-          setNotas((prev) => (prev.trim() ? prev : detalle.caracteristicas));
-        }
+        if (detalle.caracteristicas) setNotas((prev) => (prev.trim() ? prev : detalle.caracteristicas));
         if (detalle.precio_unitario) {
           setPrecioUnitario((prev) => (prev.trim() ? prev : detalle.precio_unitario || prev));
         }
-        if (detalle.seccion) {
-          setSeccion((prev) => (prev.trim() ? prev : detalle.seccion || prev));
-        }
+        if (detalle.seccion) setSeccion((prev) => (prev.trim() ? prev : detalle.seccion || prev));
       })
       .catch(() => {
         // Silencioso: queda el botón "Traer del catálogo" para reintentar.
@@ -360,6 +375,7 @@ export default function InventarioEditModal({
   const desvincular = () => {
     setFuente("desconocido");
     setRefExterna("");
+    setRefrescoAviso(null);
   };
 
   const elegirImagen = async (file: File | undefined) => {
@@ -401,11 +417,7 @@ export default function InventarioEditModal({
         const pasos = Math.abs(deltaExistencia);
         let actualizado = item;
         for (let i = 0; i < pasos; i += 1) {
-          const result = await scanInventario(
-            item.codigo_barras,
-            modo,
-            modo === "salida" ? notaSalida : undefined,
-          );
+          const result = await scanInventario(item.codigo_barras, modo, modo === "salida" ? notaSalida : undefined);
           actualizado = result.item;
         }
         setCantidadGuardada(actualizado.cantidad);
@@ -428,6 +440,8 @@ export default function InventarioEditModal({
         imagen_url: imagenUrl.trim(),
         precio_unitario: precioUnitario.trim() ? precioUnitario.trim() : null,
         seccion: seccion.trim(),
+        // Una vez asignada no se puede vaciar; solo se envía si hay una.
+        ...(ubicacion ? { ubicacion } : {}),
       });
       onClose();
     } catch (err) {
@@ -438,398 +452,485 @@ export default function InventarioEditModal({
   };
 
   const vinculado = fuente !== "desconocido" && refExterna.trim().length > 0;
+
+  const consultarMercado = async () => {
+    if (!item) return;
+    setConsultandoMercado(true);
+    setMercadoError(null);
+    try {
+      const actualizado = await actualizarPrecioMercado(item.id);
+      setMercado(actualizado);
+      onPrecioMercadoActualizado?.(actualizado);
+    } catch (e) {
+      setMercadoError(e instanceof Error ? e.message : "No se pudo consultar el precio");
+    } finally {
+      setConsultandoMercado(false);
+    }
+  };
   const terminoValido = termino.trim().length >= MIN_BUSQUEDA;
 
-  const tabIdFor = (id: ModalTab) => (id === "ficha" ? tabFichaId : tabHistorialId);
-  const panelIdFor = (id: ModalTab) => (id === "ficha" ? panelFichaId : panelHistorialId);
+  /** Hay algo sin guardar (campos o existencia). */
+  const dirty = useMemo(() => {
+    if (!item) return false;
+    return (
+      deltaExistencia !== 0 ||
+      nombre.trim() !== (item.nombre || "").trim() ||
+      marca.trim() !== (item.marca || "").trim() ||
+      modelo.trim() !== (item.modelo || "").trim() ||
+      notas.trim() !== (item.notas || "").trim() ||
+      fuente !== (item.fuente || "desconocido") ||
+      refExterna.trim() !== (item.ref_externa || "").trim() ||
+      imagenUrl.trim() !== (item.imagen_url || "").trim() ||
+      precioUnitario.trim() !== (item.precio_unitario != null ? String(item.precio_unitario) : "") ||
+      seccion !== (item.seccion || "") ||
+      ubicacion !== (item.ubicacion || "")
+    );
+  }, [item, deltaExistencia, nombre, marca, modelo, notas, fuente, refExterna, imagenUrl, precioUnitario, seccion, ubicacion]);
+
+  const tabIdFor = (id: ModalTab) => `${titleId}-tab-${id}`;
+  const panelIdFor = (id: ModalTab) => `${titleId}-panel-${id}`;
+  const tabIndex = MODAL_TABS.findIndex((t) => t.id === modalTab);
 
   const onModalTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const last = MODAL_TABS.length - 1;
     let next = index;
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      event.preventDefault();
-      next = index === last ? 0 : index + 1;
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      event.preventDefault();
-      next = index === 0 ? last : index - 1;
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      next = 0;
-    } else if (event.key === "End") {
-      event.preventDefault();
-      next = last;
-    } else {
-      return;
-    }
+    if (event.key === "ArrowRight") next = index === last ? 0 : index + 1;
+    else if (event.key === "ArrowLeft") next = index === 0 ? last : index - 1;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = last;
+    else return;
+    event.preventDefault();
     const nextTab = MODAL_TABS[next];
     setModalTab(nextTab.id);
-    window.requestAnimationFrame(() => {
-      document.getElementById(tabIdFor(nextTab.id))?.focus();
-    });
+    window.requestAnimationFrame(() => document.getElementById(tabIdFor(nextTab.id))?.focus());
   };
+
+  /* Indicadores (precio de venta con el precio de lista más reciente) */
+  const precioItem = mercado
+    ? { ...mercado, precio_unitario: precioUnitario.trim() ? precioUnitario.trim() : null }
+    : null;
+  const info = precioItem ? precioMercadoInfo(precioItem) : null;
+  const deProveedor = mercado ? esDeProveedor(mercado) : false;
+
+  const tabAviso: Partial<Record<ModalTab, "rojo" | "dorado">> = {
+    ...(ubicacion ? {} : { datos: "rojo" as const }),
+    ...(deltaExistencia !== 0 ? { existencia: "dorado" as const } : {}),
+  };
+
+  const nombreVisible = nombre.trim() || "Producto sin identificar";
 
   return (
     <Modal
       isOpen={open}
-      onClose={onClose}
+      onClose={() => !busy && onClose()}
+      closeOnEscape={!busy}
+      closeOnBackdropClick={false}
+      showCloseButton={false}
       ariaLabelledBy={titleId}
       mobileBottomSheet
-      className={invModalShellClass}
+      className="flex max-h-[min(94dvh,920px)] w-full flex-col overflow-hidden rounded-t-[20px] border border-[#E7E7EA] bg-white! p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.4)] dark:border-[#273244] dark:bg-[#111827]! sm:w-[min(96vw,58rem)] sm:max-w-4xl sm:rounded-[20px]"
     >
-      <form onSubmit={(e) => void handleSubmit(e)} className="flex min-h-0 flex-1 flex-col">
-        <header className={invModalHeaderClass}>
-          <div className="flex items-start gap-3.5 sm:gap-4">
-            <span className={invModalHeaderIconClass} aria-hidden="true">
-              <BarcodeIcon className="h-5 w-5" />
+      <form onSubmit={(e) => void handleSubmit(e)} className="flex min-h-0 flex-1 flex-col" style={inventarioSansStyle}>
+        {/* ---------------- Cabecera ---------------- */}
+        <header className="relative shrink-0 overflow-hidden bg-[#17235B] px-5 pb-5 pt-5 dark:bg-[#1B2A63] sm:px-6">
+          <div className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-[#E6A23C]/15 blur-3xl" aria-hidden />
+          <div className="relative flex items-start gap-4 pr-12">
+            <span className="shrink-0 rounded-[14px] bg-white p-1 shadow-[0_6px_16px_-8px_rgba(0,0,0,0.5)]">
+              <InventarioThumb src={imagenUrl} alt="" size={56} />
             </span>
-            <div className="min-w-0 flex-1 pt-0.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className={invModalEyebrowClass}>Operación · Inventario</p>
-                {vinculado ? (
-                  <span className="inline-flex h-5 items-center rounded-full bg-[rgba(230,162,60,0.22)] px-2 text-[10px] font-semibold uppercase tracking-wide text-[#E6A23C]">
-                    Vinculado
-                  </span>
-                ) : (
-                  <span className="inline-flex h-5 items-center rounded-full bg-white/10 px-2 text-[10px] font-semibold uppercase tracking-wide text-white/70">
-                    Sin vincular
-                  </span>
-                )}
-              </div>
-              <h2 id={titleId} className={`mt-1 sm:mt-1.5 ${invModalTitleClass}`}>
-                Ficha del ítem
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Ficha del producto</p>
+              <h2 id={titleId} className="mt-1 line-clamp-2 text-[19px] font-semibold leading-[1.25] tracking-[-0.4px] text-white sm:text-[21px]">
+                {nombreVisible}
               </h2>
-              {item ? (
-                <p className={invModalSubtitleClass}>
-                  Código{" "}
-                  <span className="font-mono tracking-wide text-white">{item.codigo_barras}</span>{" "}
-                  · existencia {cantidad}
-                </p>
-              ) : null}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {item ? (
+                  <span className="inline-flex h-6 items-center rounded-md bg-white/10 px-2 font-mono text-[12px] tracking-wide text-white/85">
+                    {item.codigo_barras}
+                  </span>
+                ) : null}
+                <span
+                  className={`inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold ${
+                    vinculado ? "bg-[rgba(230,162,60,0.22)] text-[#F0B454]" : "bg-white/10 text-white/70"
+                  }`}
+                >
+                  {vinculado ? <Link2 className="size-3" aria-hidden /> : <Unlink className="size-3" aria-hidden />}
+                  {vinculado ? fuenteLabel(fuente) : "Sin vincular"}
+                </span>
+                <UbicacionBadge value={ubicacion} />
+              </div>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Cerrar ventana"
+            className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-[10px] text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-40"
+          >
+            <X className="size-5" aria-hidden />
+          </button>
         </header>
 
-        <div className={invModalBodyClass}>
-          <div className={invModalScrollClass}>
-            <div
-              className={invModalTabListClass}
-              role="tablist"
-              aria-label="Secciones de la ficha"
+        {/* ---------------- Indicadores ---------------- */}
+        <div className="grid shrink-0 grid-cols-2 gap-2 border-b border-[#E7E7EA] bg-[#FAFAFA] px-5 py-3.5 dark:border-[#273244] dark:bg-[#151E32] sm:grid-cols-4 sm:gap-3 sm:px-6">
+          <Kpi i={0} label="Existencia">
+            <span key={cantidad} className="cot-flash inline-block text-[20px] font-semibold tabular-nums tracking-[-0.4px] text-[#09090B] dark:text-[#F8FAFC]">
+              {cantidad}
+            </span>
+            {deltaExistencia !== 0 ? (
+              <span className="ml-1.5 text-[12px] font-semibold text-[#9A6B15] dark:text-[#E6A23C]">
+                {deltaExistencia > 0 ? `+${deltaExistencia}` : deltaExistencia} al guardar
+              </span>
+            ) : (
+              <span className="ml-1.5 text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">{cantidad === 1 ? "unidad" : "unidades"}</span>
+            )}
+          </Kpi>
+          <Kpi i={1} label="Costo" sub={item?.folio_factura ? `Factura ${item.folio_factura}` : "Lo que te costó"}>
+            <span className="text-[17px] font-semibold tabular-nums tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+              {formatMxn(precioUnitario) ?? "—"}
+            </span>
+          </Kpi>
+          <Kpi
+            i={2}
+            label="Precio de venta"
+            sub={
+              mercadoError ??
+              (deProveedor ? `Lista ${fuenteLabel(mercado?.fuente ?? "desconocido")} · con IVA` : "Solo SYSCOM o TVC")
+            }
+            subTone={mercadoError ? "error" : undefined}
+            action={
+              deProveedor ? (
+                <button
+                  type="button"
+                  onClick={() => void consultarMercado()}
+                  disabled={consultandoMercado || busy}
+                  aria-label="Actualizar precio de venta desde el proveedor"
+                  title="Consultar ahora el precio de lista"
+                  className="inline-flex size-7 items-center justify-center rounded-md text-[#1B5CFF] transition-colors hover:bg-[rgba(27,92,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:text-[#7EA0FF]"
+                >
+                  <RefreshCw className={`size-3.5 ${consultandoMercado ? "animate-spin" : ""}`} aria-hidden />
+                </button>
+              ) : null
+            }
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <span key={info?.mercado ?? "x"} className="cot-flash inline-block text-[17px] font-semibold tabular-nums tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+                {deProveedor ? (formatMxn(info?.mercado) ?? "Consultando…") : "—"}
+              </span>
+              {info?.tendencia === "sube" || info?.tendencia === "baja" ? (
+                <span
+                  className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-bold ${
+                    info.tendencia === "sube"
+                      ? "bg-[#E9F8F0] text-[#04724D] dark:bg-[#0F2A1C] dark:text-[#4ADE80]"
+                      : "bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]"
+                  }`}
+                  title={`Antes ${formatMxn(mercado?.precio_mercado_anterior)}`}
+                >
+                  {info.tendencia === "sube" ? <TrendingUp className="size-3" aria-hidden /> : <TrendingDown className="size-3" aria-hidden />}
+                  {formatPct(info.variacionPct)}
+                </span>
+              ) : null}
+            </span>
+          </Kpi>
+          <Kpi i={3} label="Margen" sub={info?.vsCostoPct != null ? "Precio de venta vs. costo" : "Falta costo o precio"}>
+            <span
+              className={`text-[17px] font-semibold tabular-nums tracking-[-0.3px] ${
+                info?.vsCostoPct == null
+                  ? "text-[#A1A1AA] dark:text-[#64748B]"
+                  : info.vsCostoPct >= 0
+                    ? "text-[#04724D] dark:text-[#4ADE80]"
+                    : "text-[#C22B2B] dark:text-[#F87171]"
+              }`}
             >
-              {MODAL_TABS.map((tab, index) => {
-                const selected = modalTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    id={tabIdFor(tab.id)}
-                    role="tab"
-                    aria-selected={selected}
-                    aria-controls={panelIdFor(tab.id)}
-                    tabIndex={selected ? 0 : -1}
-                    className={invModalTabClass(selected)}
-                    onClick={() => setModalTab(tab.id)}
-                    onKeyDown={(e) => onModalTabKeyDown(e, index)}
-                  >
-                    {tab.id === "ficha" ? (
-                      <TagIcon className="h-4 w-4 shrink-0 opacity-80" />
-                    ) : (
-                      <HistoryIcon className="h-4 w-4 shrink-0 opacity-80" />
-                    )}
-                    {tab.label}
-                    {selected ? (
-                      <span className={invModalTabIndicatorClass} aria-hidden="true" />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
+              {info?.vsCostoPct != null ? formatPct(info.vsCostoPct) : "—"}
+            </span>
+          </Kpi>
+        </div>
 
-            {modalTab === "historial" && item ? (
-              <InventarioItemHistorialTab
-                item={item}
-                refreshKey={historialRefreshKey}
-                labelledBy={tabHistorialId}
-                panelId={panelHistorialId}
-              />
-            ) : null}
-
-            <div
-              id={panelFichaId}
-              role="tabpanel"
-              aria-labelledby={tabFichaId}
-              hidden={modalTab !== "ficha"}
-              className={modalTab === "ficha" ? "space-y-4" : undefined}
-            >
-            <InventarioFormSection
-              titleId={`${titleId}-sec-existencia`}
-              eyebrow="Existencia"
-              title="Meter o sacar"
-              hint="Los botones solo cambian el conteo aquí; el historial se escribe al Guardar."
-              icon={<BarcodeIcon className={inventarioSectionIconClass} />}
-            >
-              <div
-                className="overflow-hidden rounded-3xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#1B2539]"
-                role="group"
-                aria-labelledby={`${titleId}-existencia-label`}
+        {/* ---------------- Pestañas ---------------- */}
+        <div className="shrink-0 border-b border-[#E7E7EA] px-2 dark:border-[#273244] sm:px-4">
+        <div role="tablist" aria-label="Secciones de la ficha" className="relative grid grid-cols-4">
+          {MODAL_TABS.map((tab, index) => {
+            const selected = modalTab === tab.id;
+            const aviso = tabAviso[tab.id];
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                id={tabIdFor(tab.id)}
+                role="tab"
+                aria-selected={selected}
+                aria-controls={panelIdFor(tab.id)}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setModalTab(tab.id)}
+                onKeyDown={(e) => onModalTabKeyDown(e, index)}
+                className={`relative inline-flex min-h-12 items-center justify-center gap-1.5 px-1 text-[13px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40 sm:text-[14px] ${
+                  selected ? "text-[#1B5CFF] dark:text-[#7EA0FF]" : "text-[#6E6E77] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:text-[#F8FAFC]"
+                }`}
               >
-                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-5">
-                  <div className="min-w-0">
-                    <p
-                      id={`${titleId}-existencia-label`}
-                      className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9A6B15] dark:text-[#E6A23C]"
-                    >
-                      En piso ahora
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-end gap-3">
-                      <span
-                        className={`${existenciaBadgeClass(cantidad)} min-w-13! rounded-xl! px-3! py-1.5! text-2xl! leading-none!`}
-                        aria-live="polite"
-                        aria-atomic="true"
-                      >
-                        {cantidad}
-                      </span>
-                      <div className="pb-0.5">
-                        <p className="text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">
-                          {cantidad === 1 ? "unidad" : "unidades"}
-                        </p>
-                        <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
-                          Guardado: {cantidadGuardada}
-                          {deltaExistencia !== 0 ? (
-                            <span className="ml-1.5 font-semibold text-[#9A6B15] dark:text-[#E6A23C]">
-                              · pendiente {deltaExistencia > 0 ? `+${deltaExistencia}` : deltaExistencia}
-                            </span>
-                          ) : null}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                <span className="hidden sm:inline-flex">{tab.icon}</span>
+                {tab.label}
+                {aviso ? (
+                  <>
+                    <span
+                      className={`size-1.5 rounded-full ${aviso === "rojo" ? "bg-[#C22B2B] dark:bg-[#F87171]" : "bg-[#E6A23C]"}`}
+                      aria-hidden
+                    />
+                    <span className="sr-only">{aviso === "rojo" ? "(falta información)" : "(cambios pendientes)"}</span>
+                  </>
+                ) : null}
+              </button>
+            );
+          })}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full bg-[#1B5CFF] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none dark:bg-[#4B7CFF]"
+            style={{ width: `${100 / MODAL_TABS.length}%`, transform: `translateX(${tabIndex * 100}%)` }}
+          />
+        </div>
+        </div>
 
-                  {canAdjustStock ? (
-                    <div className="flex w-full gap-2 sm:w-auto sm:shrink-0">
-                      <button
-                        type="button"
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#E6A23C]/40 bg-[rgba(230,162,60,0.10)] px-4 text-sm font-semibold text-[#9A6B15] transition-colors hover:bg-[rgba(230,162,60,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E6A23C]/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#E6A23C]/30 dark:bg-[rgba(230,162,60,0.12)] dark:text-[#E6A23C] dark:hover:bg-[rgba(230,162,60,0.2)] sm:flex-none sm:min-w-34"
-                        onClick={() => ajustarExistenciaLocal(-1)}
-                        disabled={busy || !item || cantidad <= 0}
-                        aria-label="Salida: restar una unidad (se aplica al guardar)"
-                        title={cantidad <= 0 ? "Sin existencia" : "Salida −1 (al Guardar)"}
-                      >
-                        <SalidaIcon className="h-4 w-4 shrink-0" />
-                        Salida
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[#04724D] bg-[#04724D] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#035c3e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#04724D]/40 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:min-w-34"
-                        onClick={() => ajustarExistenciaLocal(1)}
-                        disabled={busy || !item}
-                        aria-label="Entrada: sumar una unidad (se aplica al guardar)"
-                        title="Entrada +1 (al Guardar)"
-                      >
-                        <EntradaIcon className="h-4 w-4 shrink-0" />
-                        Entrada
-                      </button>
-                    </div>
+        {/* ---------------- Cuerpo ---------------- */}
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white px-5 py-5 dark:bg-[#111827] sm:px-6">
+          {error ? (
+            <div role="alert" className="cot-fade mb-4 rounded-[14px] border border-[#F6CFCF] bg-[#FEF2F2] px-4 py-3 text-[14px] text-[#9F1F1F] dark:border-[#7F1D1D] dark:bg-[#3F1518] dark:text-[#FCA5A5]">
+              {error}
+            </div>
+          ) : null}
+
+          {/* ===== Datos ===== */}
+          <section id={panelIdFor("datos")} role="tabpanel" aria-labelledby={tabIdFor("datos")} hidden={modalTab !== "datos"} className="cot-fade">
+            <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)]">
+              {/* Foto */}
+              <div className="space-y-3">
+                <span className={inventarioFieldLabelClass}>Foto</span>
+                <div className="flex items-center justify-center rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-3 dark:border-[#273244] dark:bg-[#0F172A]">
+                  {subiendoImagen ? (
+                    <span className="flex size-[168px] items-center justify-center text-[#A1A1AA]">
+                      <Loader2 className="size-6 animate-spin" aria-hidden />
+                    </span>
                   ) : (
-                    <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
-                      Necesitas permiso de crear en Inventario para meter o sacar.
-                    </p>
+                    <InventarioThumb src={imagenUrl} alt={imagenUrl ? `Foto de ${nombreVisible}` : ""} size={168} />
                   )}
                 </div>
-                {deltaExistencia !== 0 ? (
-                  <p
-                    className="border-t border-[#E7E7EA] bg-[rgba(230,162,60,0.08)] px-4 py-2.5 text-xs text-[#9A6B15] dark:border-[#273244] dark:bg-[rgba(230,162,60,0.10)] dark:text-[#E6A23C] sm:px-5"
-                    role="status"
-                    aria-live="polite"
+                <div className="flex gap-2 md:flex-col">
+                  <label
+                    className={`${invSecondaryBtnClass} h-10 min-h-0 flex-1 cursor-pointer text-[13px] md:w-full ${
+                      saving || subiendoImagen ? "pointer-events-none opacity-60" : ""
+                    }`}
                   >
-                    Al guardar se {deltaExistencia > 0 ? "entrarán" : "sacarán"}{" "}
-                    {Math.abs(deltaExistencia)} unidad
-                    {Math.abs(deltaExistencia) === 1 ? "" : "es"} (mismo historial que el escáner).
+                    <ImagePlus className="size-4" aria-hidden />
+                    {subiendoImagen ? "Subiendo…" : imagenUrl ? "Cambiar foto" : "Subir foto"}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      disabled={saving || subiendoImagen}
+                      onChange={(e) => void elegirImagen(e.target.files?.[0])}
+                    />
+                  </label>
+                  {imagenUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setImagenUrl("")}
+                      disabled={saving || subiendoImagen}
+                      className={`${linkBtnClass} justify-center text-[#C22B2B] hover:bg-[#FEF2F2] focus-visible:ring-[#C22B2B]/30 dark:text-[#F87171] dark:hover:bg-[#3F1518]`}
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                      Quitar
+                    </button>
+                  ) : null}
+                </div>
+                {imagenError ? (
+                  <p className="text-[12.5px] text-[#C22B2B] dark:text-[#F87171]" role="alert">
+                    {imagenError}
                   </p>
+                ) : refrescando && !imagenUrl ? (
+                  <p className="text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]">Buscando la foto en el catálogo…</p>
                 ) : null}
               </div>
-              {canAdjustStock ? (
-                <div className="mt-3">
-                  <div className="mb-1.5 flex flex-wrap items-end justify-between gap-2">
-                    <label htmlFor={`${titleId}-nota-salida`} className={inventarioFieldLabelClass}>
-                      Motivo de la salida{" "}
-                      <span className="font-normal normal-case tracking-normal text-[#6E6E77] dark:text-[#8EA0B8]">
-                        (opcional)
-                      </span>
-                    </label>
-                    <span
-                      className="text-[11px] tabular-nums text-[#6E6E77] dark:text-[#8EA0B8]"
-                      aria-live="polite"
-                    >
-                      {notaSalida.length}/{NOTA_MAX}
-                    </span>
-                  </div>
-                  <textarea
-                    id={`${titleId}-nota-salida`}
-                    value={notaSalida}
-                    onChange={(e) => setNotaSalida(e.target.value.slice(0, NOTA_MAX))}
-                    maxLength={NOTA_MAX}
-                    rows={3}
-                    disabled={busy}
-                    autoComplete="off"
-                    placeholder="Ej. Entrega a obra Norte, préstamo a técnico, merma en almacén…"
-                    className={invNotaSalidaTextareaClass}
-                  />
-                  <p className="mt-1 text-[11px] text-[#6E6E77] dark:text-[#8EA0B8]">
-                    Se aplica a las salidas pendientes al Guardar.
-                  </p>
-                </div>
-              ) : null}
-              {ajusteAviso ? (
-                <p className="mt-2 text-xs text-[#04724D] dark:text-[#4ADE80]" role="status" aria-live="polite">
-                  {ajusteAviso}
-                </p>
-              ) : null}
-            </InventarioFormSection>
 
-            <InventarioFormSection
-              titleId={`${titleId}-sec-foto`}
-              eyebrow="Paso 1"
-              title="Foto del producto"
-              hint="Ayuda a distinguir productos que comparten empaque."
-              icon={<PhotoIcon className={inventarioSectionIconClass} />}
-            >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                <InventarioThumb
-                  src={imagenUrl}
-                  alt={imagenUrl ? `Foto de ${nombre || item?.codigo_barras || "producto"}` : ""}
-                  size={88}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs leading-relaxed text-[#52525B] dark:text-[#B7C1D1]">
-                    {refrescando && !imagenUrl
-                      ? "Buscando la foto en el catálogo…"
-                      : "Al vincular con el catálogo se toma la foto del proveedor. También puedes subir la tuya."}
-                  </p>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                    <label
-                      className={`${invSecondaryBtnClass} cursor-pointer ${
-                        saving || subiendoImagen ? "pointer-events-none opacity-60" : ""
-                      }`}
-                    >
-                      <UploadIcon className="h-4 w-4" />
-                      {subiendoImagen ? "Subiendo…" : imagenUrl ? "Cambiar foto" : "Subir foto"}
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="sr-only"
-                        disabled={saving || subiendoImagen}
-                        onChange={(e) => void elegirImagen(e.target.files?.[0])}
-                      />
-                    </label>
-                    {imagenUrl ? (
-                      <button
-                        type="button"
-                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-[#C22B2B] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(194,43,43,0.3)] dark:text-[#F87171] sm:min-h-0 sm:py-2"
-                        onClick={() => setImagenUrl("")}
-                        disabled={saving || subiendoImagen}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                        Quitar foto
-                      </button>
-                    ) : null}
-                  </div>
-                  {imagenError ? (
-                    <p className="mt-2 text-xs text-[#C22B2B] dark:text-[#F87171]" role="alert">
-                      {imagenError}
+              {/* Campos */}
+              <div className="space-y-5">
+                <div>
+                  <span className={inventarioFieldLabelClass}>
+                    Ubicación<span className="ml-0.5 text-[#C22B2B] dark:text-[#F87171]" aria-hidden>*</span>
+                  </span>
+                  <UbicacionPicker
+                    value={ubicacion}
+                    onChange={setUbicacion}
+                    disabled={saving}
+                    invalid={!ubicacion}
+                    label="Ubicación del producto"
+                  />
+                  {!ubicacion ? (
+                    <p className="mt-1.5 text-[12.5px] font-medium text-[#C22B2B] dark:text-[#F87171]">
+                      Este producto aún no tiene ubicación: elige exhibición o almacén.
                     </p>
                   ) : null}
                 </div>
+
+                <Field id={`${titleId}-nombre`} label="Nombre">
+                  <input id={`${titleId}-nombre`} type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} className={invInputLikeClass} disabled={saving} placeholder="Nombre del producto" />
+                </Field>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field id={`${titleId}-marca`} label="Marca">
+                    <input id={`${titleId}-marca`} type="text" value={marca} onChange={(e) => setMarca(e.target.value)} className={invInputLikeClass} disabled={saving} />
+                  </Field>
+                  <Field id={`${titleId}-modelo`} label="Modelo">
+                    <input id={`${titleId}-modelo`} type="text" value={modelo} onChange={(e) => setModelo(e.target.value)} className={`${invInputLikeClass} font-mono`} disabled={saving} />
+                  </Field>
+                  <Field id={`${titleId}-precio`} label="Costo (MXN)" hint="Lo que te costó; se actualiza al importar otra factura.">
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-[#A1A1AA]">$</span>
+                      <input
+                        id={`${titleId}-precio`}
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={precioUnitario}
+                        onChange={(e) => setPrecioUnitario(e.target.value)}
+                        placeholder="0.00"
+                        className={`${invInputLikeClass} pl-7! tabular-nums`}
+                        disabled={saving}
+                      />
+                    </div>
+                  </Field>
+                  <Field id={`${titleId}-seccion`} label="Sección">
+                    <select id={`${titleId}-seccion`} value={seccion} onChange={(e) => setSeccion(e.target.value)} className={invInputLikeClass} disabled={busy}>
+                      <option value="">Sin sección</option>
+                      {INVENTARIO_SECCIONES.map((s) => (
+                        <option key={s.slug} value={s.slug}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="mt-2">
+                      <InventarioSeccionBadge seccion={seccion || null} showEmpty />
+                    </div>
+                  </Field>
+                </div>
+
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label htmlFor={`${titleId}-notas`} className={inventarioFieldLabelClass}>
+                      Características y notas
+                    </label>
+                    {vinculado ? (
+                      <button
+                        type="button"
+                        className={`${linkBtnClass} -mt-1.5 text-[#1B5CFF] hover:bg-[rgba(27,92,255,0.07)] focus-visible:ring-[#1B5CFF]/30 dark:text-[#7EA0FF]`}
+                        onClick={() => void traerCaracteristicas()}
+                        disabled={saving || trayendoFicha}
+                      >
+                        <RefreshCw className={`size-3.5 ${trayendoFicha ? "animate-spin" : ""}`} aria-hidden />
+                        {trayendoFicha ? "Consultando…" : "Traer del catálogo"}
+                      </button>
+                    ) : null}
+                  </div>
+                  <textarea
+                    id={`${titleId}-notas`}
+                    value={notas}
+                    onChange={(e) => setNotas(e.target.value)}
+                    className={invTextareaLikeClass}
+                    disabled={saving}
+                    rows={6}
+                    placeholder={trayendoFicha ? "Buscando la ficha técnica en el catálogo…" : "Ficha técnica: una característica por renglón."}
+                  />
+                  <p className="mt-1.5 text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]" aria-live="polite">
+                    {fichaAviso ??
+                      (vinculado
+                        ? "Se llenan solas con la ficha de SYSCOM o TVC; puedes corregirlas."
+                        : "Vincúlalo con el catálogo (pestaña Catálogo) para traerlas.")}
+                  </p>
+                </div>
               </div>
-            </InventarioFormSection>
+            </div>
+          </section>
 
-            {item && (item.folio_factura || item.proveedor_nombre) ? (
-              <InventarioFormSection
-                titleId={`${titleId}-sec-compra`}
-                eyebrow="Compra"
-                title="Última factura"
-                hint="Se actualiza al importar otra factura de este producto."
-                icon={<BarcodeIcon className={inventarioSectionIconClass} />}
-              >
-                <dl className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <dt className={inventarioFieldLabelClass}>Proveedor</dt>
-                    <dd className="mt-1 text-sm text-[#09090B] dark:text-[#F8FAFC]">
-                      {item.proveedor_nombre || "—"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className={inventarioFieldLabelClass}>Folio</dt>
-                    <dd className="mt-1 font-mono text-sm text-[#09090B] dark:text-[#F8FAFC]">
-                      {item.folio_factura || "—"}
-                    </dd>
-                  </div>
-                </dl>
-              </InventarioFormSection>
-            ) : null}
-
-            <InventarioFormSection
-              titleId={`${titleId}-sec-catalogo`}
-              eyebrow="Paso 2"
-              title="Vincular con el catálogo"
-              hint="Vincula una vez y los siguientes escaneos traerán los datos solos."
-              icon={<LinkIcon className={inventarioSectionIconClass} />}
+          {/* ===== Catálogo ===== */}
+          <section id={panelIdFor("catalogo")} role="tabpanel" aria-labelledby={tabIdFor("catalogo")} hidden={modalTab !== "catalogo"} className="cot-fade space-y-5">
+            <div
+              className={`flex flex-col gap-3 rounded-[16px] border p-4 sm:flex-row sm:items-center ${
+                vinculado
+                  ? "border-[#BFE6D4] bg-[#F1FAF5] dark:border-[#1E5A42] dark:bg-[#0F2A1C]"
+                  : "border-dashed border-[#D4D4D8] bg-[#FAFAFA] dark:border-[#3A4661] dark:bg-[#0F172A]"
+              }`}
             >
-              <p className="text-xs leading-relaxed text-[#52525B] dark:text-[#B7C1D1]">
-                SYSCOM y TVC no indexan el código de barras de la caja, solo su propio modelo. Busca
-                el producto por nombre o modelo.
-              </p>
-
+              <span
+                className={`inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] ${
+                  vinculado ? "bg-[#04724D] text-white dark:bg-[#22A06B]" : "bg-[#F4F4F5] text-[#6E6E77] dark:bg-[#1B2539] dark:text-[#8EA0B8]"
+                }`}
+              >
+                {vinculado ? <Check className="cot-tick size-5" strokeWidth={2.5} aria-hidden /> : <Unlink className="size-5" aria-hidden />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                  {vinculado ? `Vinculado con ${fuenteLabel(fuente)}` : "Sin vincular"}
+                </p>
+                <p className="mt-0.5 text-[12.5px] leading-[18px] text-[#52525B] dark:text-[#B7C1D1]">
+                  {vinculado ? (
+                    <>
+                      Referencia <span className="font-mono">{refExterna}</span> · los siguientes escaneos traen los datos solos.
+                    </>
+                  ) : (
+                    "Búscalo abajo por nombre o modelo: SYSCOM y TVC no indexan el código de barras de la caja."
+                  )}
+                </p>
+              </div>
               {vinculado ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#BFE6D4] bg-[#E9F8F0] px-3 py-2 dark:border-[#1E5A42] dark:bg-[#0F2A1C]">
-                  <span className="text-[#04724D] dark:text-[#4ADE80]" aria-hidden="true">
-                    <CheckIcon className="h-4 w-4" />
-                  </span>
-                  <span className={fuenteBadgeClass(fuente)}>{fuenteLabel(fuente)}</span>
-                  <span className="font-mono text-xs text-[#52525B] dark:text-[#B7C1D1]">
-                    ref {refExterna}
-                  </span>
-                  <div className="ml-auto flex items-center gap-1">
-                    <button
-                      type="button"
-                      className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#04724D] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#04724D]/35 disabled:opacity-60 dark:text-[#4ADE80]"
-                      onClick={() => void refrescarCatalogo()}
-                      disabled={saving || refrescando}
-                    >
-                      <RefreshIcon className="h-3.5 w-3.5" />
-                      {refrescando ? "Consultando…" : "Traer datos del catálogo"}
-                    </button>
-                    <button
-                      type="button"
-                      className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#C22B2B] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(194,43,43,0.3)] dark:text-[#F87171]"
-                      onClick={desvincular}
-                      disabled={saving}
-                    >
-                      <CloseIcon className="h-3.5 w-3.5" />
-                      Quitar vínculo
-                    </button>
-                  </div>
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    type="button"
+                    className={`${linkBtnClass} text-[#04724D] hover:bg-[rgba(4,114,77,0.08)] focus-visible:ring-[#04724D]/30 dark:text-[#4ADE80]`}
+                    onClick={() => void refrescarCatalogo()}
+                    disabled={saving || refrescando}
+                  >
+                    <RefreshCw className={`size-3.5 ${refrescando ? "animate-spin" : ""}`} aria-hidden />
+                    {refrescando ? "Consultando…" : "Completar datos"}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${linkBtnClass} text-[#C22B2B] hover:bg-[#FEF2F2] focus-visible:ring-[#C22B2B]/30 dark:text-[#F87171] dark:hover:bg-[#3F1518]`}
+                    onClick={desvincular}
+                    disabled={saving}
+                  >
+                    <Unlink className="size-3.5" aria-hidden />
+                    Quitar
+                  </button>
                 </div>
               ) : null}
+            </div>
+            {refrescoAviso ? (
+              <p className="cot-fade -mt-2 text-[12.5px] text-[#52525B] dark:text-[#B7C1D1]" role="status">
+                {refrescoAviso}
+              </p>
+            ) : null}
 
-              {refrescoAviso ? (
-                <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]" role="status">
-                  {refrescoAviso}
-                </p>
-              ) : null}
+            {item && (item.folio_factura || item.proveedor_nombre) ? (
+              <dl className="grid grid-cols-2 gap-3 rounded-[14px] border border-[#E7E7EA] p-4 dark:border-[#273244]">
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8EA0B8]">Proveedor</dt>
+                  <dd className="mt-1 text-[14px] text-[#09090B] dark:text-[#F8FAFC]">{item.proveedor_nombre || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8EA0B8]">Última factura</dt>
+                  <dd className="mt-1 font-mono text-[14px] text-[#09090B] dark:text-[#F8FAFC]">{item.folio_factura || "—"}</dd>
+                </div>
+              </dl>
+            ) : null}
 
+            <div>
+              <label htmlFor={`${titleId}-buscar`} className={inventarioFieldLabelClass}>
+                {vinculado ? "Vincular con otro producto" : "Buscar en SYSCOM y TVC"}
+              </label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
-                  <label htmlFor={`${titleId}-buscar`} className="sr-only">
-                    Buscar producto en SYSCOM o TVC
-                  </label>
-                  <span
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]"
-                    aria-hidden="true"
-                  >
-                    <SearchIcon className="h-4 w-4" />
-                  </span>
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]" aria-hidden />
                   <input
                     id={`${titleId}-buscar`}
                     type="search"
@@ -846,277 +947,230 @@ export default function InventarioEditModal({
                     disabled={saving}
                   />
                 </div>
-                <button
-                  type="button"
-                  className={invSecondaryBtnClass}
-                  onClick={() => void buscar(termino)}
-                  disabled={saving || buscando || !terminoValido}
-                >
-                  <SearchIcon className="h-4 w-4" />
+                <button type="button" className={invSecondaryBtnClass} onClick={() => void buscar(termino)} disabled={saving || buscando || !terminoValido}>
+                  {buscando ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Search className="size-4" aria-hidden />}
                   {buscando ? "Buscando…" : "Buscar"}
                 </button>
               </div>
-
               {!terminoValido && termino.trim().length > 0 ? (
-                <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
-                  Escribe al menos {MIN_BUSQUEDA} caracteres.
-                </p>
+                <p className="mt-1.5 text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]">Escribe al menos {MIN_BUSQUEDA} caracteres.</p>
               ) : null}
-
               {busquedaError ? (
-                <p className="text-xs text-[#C22B2B] dark:text-[#F87171]" role="alert">
+                <p className="mt-1.5 text-[12.5px] text-[#C22B2B] dark:text-[#F87171]" role="alert">
                   {busquedaError}
                 </p>
               ) : null}
+            </div>
 
-              <div aria-live="polite" aria-atomic="true">
-                {buscando ? (
-                  <div
-                    className="relative overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#0f172a]"
-                    role="status"
-                    aria-busy="true"
-                  >
-                    <span className="absolute inset-y-0 left-0 w-1 bg-[#1B5CFF] dark:bg-[#4B7CFF]" aria-hidden />
-                    <div className="flex items-start gap-3 px-4 py-3.5 pl-5">
-                      <span className="relative mt-0.5 flex size-10 shrink-0 items-center justify-center">
-                        <span
-                          className="absolute -inset-0.5 rounded-2xl border-2 border-[#1B5CFF]/45 motion-safe:animate-ping"
-                          aria-hidden
-                        />
-                        <span
-                          className="relative flex size-10 items-center justify-center rounded-2xl bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
-                          aria-hidden
-                        >
-                          <SearchIcon className="h-4 w-4" />
-                        </span>
+            <div aria-live="polite" aria-atomic="true">
+              {buscando ? (
+                <ul className="space-y-2" aria-busy="true" aria-label="Buscando en el catálogo">
+                  {[0, 1, 2].map((i) => (
+                    <li key={i} className="flex items-center gap-3 rounded-[12px] border border-[#F0F0F2] p-3 dark:border-[#1F2A3C]" style={{ opacity: 1 - i * 0.25 }}>
+                      <span className="size-10 shrink-0 rounded-lg bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
+                      <span className="flex-1 space-y-2">
+                        <span className="block h-3 w-2/3 rounded-full bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
+                        <span className="block h-2.5 w-1/3 rounded-full bg-[#F4F4F5] motion-safe:animate-pulse dark:bg-[#151E32]" />
                       </span>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1B5CFF] dark:text-[#4B7CFF]">
-                          Escaneando
-                        </p>
-                        <p className="mt-0.5 text-sm font-semibold text-[#09090B] dark:text-[#F8FAFC]">
-                          Buscando en SYSCOM y TVC
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]">
-                          El catálogo puede tardar unos segundos. No cierres el diálogo.
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      className="mx-4 mb-3 h-1 overflow-hidden rounded-full bg-[#E7E7EA] dark:bg-[#273244]"
-                      aria-hidden
-                    >
-                      <div className="h-full w-[62%] rounded-full bg-[#1B5CFF] dark:bg-[#4B7CFF] motion-safe:animate-pulse" />
-                    </div>
-                  </div>
-                ) : candidatos.length > 0 ? (
-                  <ul className="max-h-64 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-                    {candidatos.map((c) => (
-                      <li key={`${c.fuente}-${c.ref_externa}-${c.modelo}`}>
-                        <button
-                          type="button"
-                          className={candidatoRowClass}
-                          onClick={() => vincular(c)}
-                          disabled={saving}
-                        >
-                          <InventarioThumb src={c.imagen_url} alt="" size={40} />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">
-                              {c.nombre || c.modelo}
-                            </span>
-                            <span className="mt-0.5 block truncate text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
-                              {[c.marca, c.modelo].filter(Boolean).join(" · ") || "Sin modelo"}
-                            </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : candidatos.length > 0 ? (
+                <ul className="custom-scrollbar max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {candidatos.map((c, i) => (
+                    <li key={`${c.fuente}-${c.ref_externa}-${c.modelo}`} className="cot-rise" style={{ "--cot-i": Math.min(i, 8) } as CSSProperties}>
+                      <button type="button" className={candidatoRowClass} onClick={() => vincular(c)} disabled={saving}>
+                        <InventarioThumb src={c.imagen_url} alt="" size={40} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-[#09090B] dark:text-[#F8FAFC]">{c.nombre || c.modelo}</span>
+                          <span className="mt-0.5 block truncate text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
+                            {[c.marca, c.modelo].filter(Boolean).join(" · ") || "Sin modelo"}
                           </span>
-                          <span className={fuenteBadgeClass(c.fuente === "manual" ? "desconocido" : c.fuente)}>
-                            {fuenteLabel(c.fuente)}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : busquedaHecha && !buscando ? (
-                  <p className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]">
-                    Sin resultados en SYSCOM ni TVC. Captura los datos a mano abajo.
-                  </p>
-                ) : null}
-              </div>
-            </InventarioFormSection>
-
-            <InventarioFormSection
-              titleId={`${titleId}-sec-datos`}
-              eyebrow="Paso 3"
-              title="Datos del producto"
-              hint="Puedes ajustarlos aunque el ítem venga del catálogo."
-              icon={<TagIcon className={inventarioSectionIconClass} />}
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label htmlFor={`${titleId}-nombre`} className={inventarioFieldLabelClass}>
-                    Nombre
-                  </label>
-                  <input
-                    id={`${titleId}-nombre`}
-                    type="text"
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
-                    className={invInputLikeClass}
-                    disabled={saving}
-                  />
-                </div>
-                <div>
-                  <label htmlFor={`${titleId}-marca`} className={inventarioFieldLabelClass}>
-                    Marca
-                  </label>
-                  <input
-                    id={`${titleId}-marca`}
-                    type="text"
-                    value={marca}
-                    onChange={(e) => setMarca(e.target.value)}
-                    className={invInputLikeClass}
-                    disabled={saving}
-                  />
-                </div>
-                <div>
-                  <label htmlFor={`${titleId}-modelo`} className={inventarioFieldLabelClass}>
-                    Modelo
-                  </label>
-                  <input
-                    id={`${titleId}-modelo`}
-                    type="text"
-                    value={modelo}
-                    onChange={(e) => setModelo(e.target.value)}
-                    className={invInputLikeClass}
-                    disabled={saving}
-                  />
-                </div>
-                <div>
-                  <label htmlFor={`${titleId}-precio`} className={inventarioFieldLabelClass}>
-                    Precio unitario (MXN)
-                  </label>
-                  <input
-                    id={`${titleId}-precio`}
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={precioUnitario}
-                    onChange={(e) => setPrecioUnitario(e.target.value)}
-                    placeholder="Del catálogo o captura manual"
-                    className={invInputLikeClass}
-                    disabled={saving}
-                  />
-                </div>
-                <div>
-                  <label htmlFor={`${titleId}-seccion`} className={inventarioFieldLabelClass}>
-                    Sección
-                  </label>
-                  <select
-                    id={`${titleId}-seccion`}
-                    value={seccion}
-                    onChange={(e) => setSeccion(e.target.value)}
-                    className={invInputLikeClass}
-                    disabled={busy}
-                    aria-describedby={`${titleId}-seccion-hint`}
-                  >
-                    <option value="">Sin sección</option>
-                    {INVENTARIO_SECCIONES.map((s) => (
-                      <option key={s.slug} value={s.slug}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <InventarioSeccionBadge seccion={seccion || null} showEmpty />
-                    <p
-                      id={`${titleId}-seccion-hint`}
-                      className="text-xs text-[#6E6E77] dark:text-[#8EA0B8]"
-                    >
-                      {seccion
-                        ? "Puedes corregirla si el catálogo no acertó."
-                        : "Se intenta llenar desde el catálogo; puedes asignarla aquí."}
-                    </p>
-                  </div>
-                </div>
-                <div className="sm:col-span-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label htmlFor={`${titleId}-notas`} className={inventarioFieldLabelClass}>
-                      Características y notas
-                    </label>
-                    {vinculado ? (
-                      <button
-                        type="button"
-                        className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#1B5CFF] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] disabled:opacity-60 dark:text-[#4B7CFF]"
-                        onClick={() => void traerCaracteristicas()}
-                        disabled={saving || trayendoFicha}
-                      >
-                        <RefreshIcon className="h-3.5 w-3.5" />
-                        {trayendoFicha ? "Consultando…" : "Traer del catálogo"}
+                        </span>
+                        <span className={fuenteBadgeClass(c.fuente === "manual" ? "desconocido" : c.fuente)}>{fuenteLabel(c.fuente)}</span>
                       </button>
-                    ) : null}
-                  </div>
-                  <textarea
-                    id={`${titleId}-notas`}
-                    value={notas}
-                    onChange={(e) => setNotas(e.target.value)}
-                    className={invTextareaLikeClass}
-                    disabled={saving}
-                    rows={6}
-                    placeholder={
-                      trayendoFicha
-                        ? "Buscando la ficha técnica en el catálogo…"
-                        : "Ficha técnica del producto: una característica por renglón."
-                    }
-                  />
-                  <p className="mt-1.5 text-xs text-[#6E6E77] dark:text-[#8EA0B8]" aria-live="polite">
-                    {fichaAviso ??
-                      (vinculado
-                        ? "Se llenan solas con la ficha de SYSCOM o TVC; puedes corregirlas o escribir las tuyas."
-                        : "Captura aquí las características del producto o vincúlalo con el catálogo para traerlas.")}
-                  </p>
-                </div>
-              </div>
-            </InventarioFormSection>
+                    </li>
+                  ))}
+                </ul>
+              ) : busquedaHecha ? (
+                <p className="rounded-[12px] border border-dashed border-[#D4D4D8] px-4 py-6 text-center text-[13px] text-[#6E6E77] dark:border-[#3A4661] dark:text-[#8EA0B8]">
+                  Sin resultados en SYSCOM ni TVC. Captura los datos a mano en la pestaña Datos.
+                </p>
+              ) : null}
+            </div>
+          </section>
 
-            {error ? (
-              <p className="text-sm text-[#C22B2B] dark:text-[#F87171]" role="alert">
-                {error}
+          {/* ===== Existencia ===== */}
+          <section id={panelIdFor("existencia")} role="tabpanel" aria-labelledby={tabIdFor("existencia")} hidden={modalTab !== "existencia"} className="cot-fade space-y-5">
+            <div className="overflow-hidden rounded-[18px] border border-[#E7E7EA] dark:border-[#273244]">
+              <div className="flex flex-col items-center gap-5 bg-[#FAFAFA] px-5 py-7 dark:bg-[#0F172A] sm:flex-row sm:justify-between sm:px-7">
+                <div className="text-center sm:text-left">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9A6B15] dark:text-[#E6A23C]">En piso ahora</p>
+                  <p className="mt-1 flex items-baseline justify-center gap-2 sm:justify-start" aria-live="polite" aria-atomic="true">
+                    <span key={cantidad} className="cot-flash inline-block text-[44px] font-bold leading-none tracking-[-1.5px] tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                      {cantidad}
+                    </span>
+                    <span className="text-[14px] text-[#6E6E77] dark:text-[#8EA0B8]">{cantidad === 1 ? "unidad" : "unidades"}</span>
+                  </p>
+                  <p className="mt-1 text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]">Guardado: {cantidadGuardada}</p>
+                </div>
+                {canAdjustStock ? (
+                  <div className="flex w-full items-center gap-2 sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => ajustarExistenciaLocal(-1)}
+                      disabled={busy || !item || cantidad <= 0}
+                      aria-label="Salida: restar una unidad (se aplica al guardar)"
+                      className="cot-press inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-[14px] border border-[#E6A23C]/45 bg-[rgba(230,162,60,0.10)] px-5 text-[15px] font-semibold text-[#9A6B15] hover:bg-[rgba(230,162,60,0.18)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#E6A23C]/30 disabled:cursor-not-allowed disabled:opacity-45 dark:text-[#E6A23C] sm:flex-none"
+                    >
+                      <Minus className="size-5" aria-hidden />
+                      Salida
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => ajustarExistenciaLocal(1)}
+                      disabled={busy || !item}
+                      aria-label="Entrada: sumar una unidad (se aplica al guardar)"
+                      className="cot-press inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-[14px] border border-[#04724D] bg-[#04724D] px-5 text-[15px] font-semibold text-white hover:bg-[#035c3e] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#04724D]/30 disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none"
+                    >
+                      <Plus className="size-5" aria-hidden />
+                      Entrada
+                    </button>
+                  </div>
+                ) : (
+                  <p className="max-w-[16rem] text-center text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8] sm:text-right">
+                    Necesitas permiso de crear en Inventario para meter o sacar.
+                  </p>
+                )}
+              </div>
+              {deltaExistencia !== 0 ? (
+                <p
+                  className="cot-fade flex items-center gap-2 border-t border-[#F0D7A3] bg-[#FFF8EB] px-5 py-3 text-[13px] text-[#8A5D0F] dark:border-[rgba(230,162,60,0.3)] dark:bg-[rgba(230,162,60,0.10)] dark:text-[#E6A23C] sm:px-7"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {deltaExistencia > 0 ? <ArrowDownToLine className="size-4 shrink-0" aria-hidden /> : <ArrowUpFromLine className="size-4 shrink-0" aria-hidden />}
+                  Al guardar se {deltaExistencia > 0 ? "registrarán" : "sacarán"} {Math.abs(deltaExistencia)}{" "}
+                  {Math.abs(deltaExistencia) === 1 ? "unidad" : "unidades"} (mismo historial que el escáner).
+                </p>
+              ) : null}
+            </div>
+
+            {canAdjustStock ? (
+              <div>
+                <div className="flex items-end justify-between gap-2">
+                  <label htmlFor={`${titleId}-nota-salida`} className={inventarioFieldLabelClass}>
+                    Motivo de la salida <span className="font-normal text-[#6E6E77] dark:text-[#8EA0B8]">(opcional)</span>
+                  </label>
+                  <span className="mb-1.5 text-[11px] tabular-nums text-[#6E6E77] dark:text-[#8EA0B8]">
+                    {notaSalida.length}/{NOTA_MAX}
+                  </span>
+                </div>
+                <textarea
+                  id={`${titleId}-nota-salida`}
+                  value={notaSalida}
+                  onChange={(e) => setNotaSalida(e.target.value.slice(0, NOTA_MAX))}
+                  maxLength={NOTA_MAX}
+                  rows={3}
+                  disabled={busy}
+                  autoComplete="off"
+                  placeholder="Ej. Entrega a obra Norte, préstamo a técnico, merma en almacén…"
+                  className={invNotaSalidaTextareaClass}
+                />
+                <p className="mt-1.5 text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]">Se aplica a las salidas pendientes al guardar.</p>
+              </div>
+            ) : null}
+            {ajusteAviso ? (
+              <p className="cot-fade text-[13px] text-[#04724D] dark:text-[#4ADE80]" role="status" aria-live="polite">
+                {ajusteAviso}
               </p>
             ) : null}
+          </section>
+
+          {/* ===== Historial (se carga al abrir la pestaña) ===== */}
+          {modalTab === "historial" && item ? (
+            <div className="cot-fade">
+              <InventarioItemHistorialTab item={item} refreshKey={historialRefreshKey} labelledBy={tabIdFor("historial")} panelId={panelIdFor("historial")} />
             </div>
-          </div>
+          ) : null}
         </div>
 
-        {modalTab === "ficha" ? (
-          <footer className={invModalFooterClass}>
-            <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end sm:gap-3">
-              <button type="button" className={invSecondaryBtnClass} onClick={onClose} disabled={busy}>
-                <CloseIcon className="h-4 w-4" />
-                Cancelar
-              </button>
-              <button type="submit" className={invPrimaryBtnClass} disabled={busy || !item}>
-                <CheckIcon className="h-4 w-4" />
-                {aplicandoExistencia
-                  ? "Registrando existencia…"
-                  : saving
-                    ? "Guardando…"
-                    : deltaExistencia !== 0
-                      ? `Guardar (${deltaExistencia > 0 ? "+" : ""}${deltaExistencia})`
-                      : "Guardar"}
-              </button>
-            </div>
-          </footer>
-        ) : (
-          <footer className={invModalFooterClass}>
-            <div className="flex justify-end">
-              <button type="button" className={invSecondaryBtnClass} onClick={onClose}>
-                <CloseIcon className="h-4 w-4" />
-                Cerrar
-              </button>
-            </div>
-          </footer>
-        )}
+        {/* ---------------- Pie ---------------- */}
+        <footer className="flex shrink-0 flex-col gap-3 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p className="text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]" aria-live="polite">
+            {dirty ? (
+              <span className="cot-fade inline-flex items-center gap-1.5 font-medium text-[#9A6B15] dark:text-[#E6A23C]">
+                <span className="size-1.5 rounded-full bg-current" aria-hidden />
+                Cambios sin guardar
+              </span>
+            ) : (
+              "Sin cambios"
+            )}
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <button type="button" className={invSecondaryBtnClass} onClick={onClose} disabled={busy}>
+              {dirty ? "Descartar" : "Cerrar"}
+            </button>
+            <button type="submit" className={invPrimaryBtnClass} disabled={busy || !item || !dirty}>
+              {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
+              {aplicandoExistencia
+                ? "Registrando existencia…"
+                : saving
+                  ? "Guardando…"
+                  : deltaExistencia !== 0
+                    ? `Guardar (${deltaExistencia > 0 ? "+" : ""}${deltaExistencia})`
+                    : "Guardar cambios"}
+            </button>
+          </div>
+        </footer>
       </form>
     </Modal>
+  );
+}
+
+/** Indicador de la tira superior. */
+function Kpi({
+  i,
+  label,
+  sub,
+  subTone,
+  action,
+  children,
+}: {
+  i: number;
+  label: string;
+  sub?: string;
+  subTone?: "error";
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="cot-rise min-w-0 rounded-[12px] border border-[#E7E7EA] bg-white px-3 py-2.5 dark:border-[#273244] dark:bg-[#111827]"
+      style={{ "--cot-i": i } as CSSProperties}
+    >
+      <div className="flex items-center justify-between gap-1">
+        <p className="truncate text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8EA0B8]">{label}</p>
+        {action}
+      </div>
+      <div className="mt-0.5 flex min-h-7 items-baseline">{children}</div>
+      {sub ? (
+        <p className={`mt-0.5 truncate text-[11px] ${subTone === "error" ? "text-[#C22B2B] dark:text-[#F87171]" : "text-[#6E6E77] dark:text-[#8EA0B8]"}`} title={sub}>
+          {sub}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {
+  return (
+    <div>
+      <label htmlFor={id} className={inventarioFieldLabelClass}>
+        {label}
+      </label>
+      {children}
+      {hint ? <p className="mt-1.5 text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]">{hint}</p> : null}
+    </div>
   );
 }

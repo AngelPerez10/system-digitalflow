@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime, time
+from decimal import Decimal, InvalidOperation
 from time import monotonic
 
 from django.db import IntegrityError, transaction
@@ -19,10 +20,12 @@ from apps.ordenes.image_services import cloudinary, delete_cloudinary_resource, 
 from apps.users.permissions import InventarioPermission
 
 from .enrichment import (
+    actualizar_precio_mercado,
     aplicar_seccion_desde_catalogo,
     enrich_from_catalogs,
     fetch_catalog_detail,
     search_catalogs,
+    sincronizar_precios_mercado,
     sincronizar_secciones_pendientes,
 )
 from .invoice_import import (
@@ -31,6 +34,7 @@ from .invoice_import import (
     FacturaYaImportada,
     PendienteCantidadInvalida,
     ProveedorNoSoportado,
+    UbicacionRequerida,
     importar_factura,
     previsualizar_factura,
     recibir_pendiente,
@@ -125,6 +129,7 @@ class ScanView(APIView):
 
         modo = serializer.validated_data['modo']
         nota = (serializer.validated_data.get('nota') or '').strip()[:255]
+        ubicacion = serializer.validated_data.get('ubicacion') or ''
         creado = False
         enriquecido = False
 
@@ -149,7 +154,17 @@ class ScanView(APIView):
                 item.cantidad -= 1
             else:
                 if item is None:
-                    item = InventarioItem(codigo_barras=codigo, cantidad=0)
+                    # Alta nueva: la ubicación es obligatoria (se pide antes de
+                    # consultar el catálogo para no gastar la llamada).
+                    if not ubicacion:
+                        return Response(
+                            {
+                                'detail': 'Indica si el producto va a exhibición o almacén.',
+                                'code': 'ubicacion_requerida',
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    item = InventarioItem(codigo_barras=codigo, cantidad=0, ubicacion=ubicacion)
                     enrich_data = enrich_from_catalogs(codigo)
                     if enrich_data:
                         enriquecido = True
@@ -158,8 +173,6 @@ class ScanView(APIView):
                             if value is None or value == '':
                                 continue
                             if field == 'precio_unitario':
-                                from decimal import Decimal, InvalidOperation
-
                                 try:
                                     item.precio_unitario = Decimal(str(value))
                                 except (InvalidOperation, TypeError, ValueError):
@@ -169,6 +182,14 @@ class ScanView(APIView):
                         # El catálogo describe el producto; el ítem es nuevo, así
                         # que las notas están vacías y no se pisa nada del operador.
                         item.notas = enrich_data.get('caracteristicas') or ''
+                        # Precio de venta de hoy: la lista del proveedor.
+                        lista = enrich_data.get('precio_lista')
+                        if lista and item.fuente in ('syscom', 'tvc'):
+                            try:
+                                item.precio_mercado = Decimal(str(lista))
+                                item.precio_mercado_actualizado = timezone.now()
+                            except (InvalidOperation, TypeError, ValueError):
+                                pass
                     creado = True
                     item.cantidad += 1
                     try:
@@ -183,6 +204,8 @@ class ScanView(APIView):
                         item.cantidad += 1
                         item.save()
                 else:
+                    if ubicacion and not item.ubicacion:
+                        item.ubicacion = ubicacion
                     item.cantidad += 1
                     item.save()
 
@@ -317,6 +340,43 @@ class InventarioSincronizarSeccionesView(APIView):
             limit = 40
         resultado = sincronizar_secciones_pendientes(limit=limit)
         return Response(resultado, status=status.HTTP_200_OK)
+
+
+class InventarioSincronizarPreciosView(APIView):
+    """Refresca el precio de mercado (SYSCOM/TVC) de los ítems más desactualizados.
+
+    Requiere `inventario.view`: es mantenimiento de datos, igual que las secciones.
+    """
+
+    permission_classes = [IsAuthenticated, _InventarioViewPermission]
+
+    def post(self, request):
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            limit = int(data.get('limit')) if data.get('limit') is not None else 6
+        except (TypeError, ValueError):
+            limit = 6
+        # Ítems visibles en pantalla: se consultan primero.
+        ids_raw = data.get('ids') if isinstance(data.get('ids'), list) else []
+        ids = [int(v) for v in ids_raw if str(v).isdigit()][:100]
+        return Response(sincronizar_precios_mercado(limit=limit, ids=ids or None), status=status.HTTP_200_OK)
+
+
+class InventarioItemPrecioMercadoView(APIView):
+    """POST: consulta ya el precio de mercado de un ítem (botón «Actualizar»)."""
+
+    permission_classes = [IsAuthenticated, _InventarioViewPermission]
+
+    def post(self, request, pk):
+        item = get_object_or_404(InventarioItem, pk=pk)
+        if (item.fuente or '') not in ('syscom', 'tvc'):
+            return Response(
+                {'detail': 'Solo los productos de SYSCOM o TVC tienen precio de mercado.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        actualizar_precio_mercado(item)
+        item.refresh_from_db()
+        return Response(InventarioItemSerializer(item).data, status=status.HTTP_200_OK)
 
 
 class InventarioStatsView(APIView):
@@ -584,7 +644,10 @@ def _factura_error_response(exc: Exception) -> Response:
         code = status.HTTP_409_CONFLICT
     else:
         code = status.HTTP_501_NOT_IMPLEMENTED
-    return Response({'detail': str(exc)}, status=code)
+    body = {'detail': str(exc)}
+    if isinstance(exc, UbicacionRequerida):
+        body['code'] = 'ubicacion_requerida'
+    return Response(body, status=code)
 
 
 _FACTURA_ERRORES = (FacturaInvalida, FacturaNoEncontrada, FacturaYaImportada, ProveedorNoSoportado)
@@ -681,6 +744,12 @@ class InventarioRecibirPendienteView(APIView):
                 pendiente_id=pk,
                 cantidad=serializer.validated_data.get('cantidad'),
                 usuario=request.user,
+                ubicacion=serializer.validated_data.get('ubicacion') or '',
+            )
+        except UbicacionRequerida as exc:
+            return Response(
+                {'detail': str(exc), 'code': 'ubicacion_requerida'},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except InventarioPendiente.DoesNotExist:
             return Response(

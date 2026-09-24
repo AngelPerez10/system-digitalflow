@@ -4,8 +4,11 @@ from __future__ import annotations
 import html
 import logging
 import re
+import threading
 import urllib.parse
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+from time import monotonic
 
 import requests
 from django.conf import settings
@@ -24,7 +27,11 @@ _TAG_RE = re.compile(r'<[^>]+>')
 # \xa0 viene de los &nbsp; de SYSCOM y no lo cubre \s en modo ASCII.
 _BLANK_RE = re.compile(r'[^\S\n]+')
 
+# Tipo de cambio SYSCOM en caché por proceso, con caducidad: el precio de
+# mercado debe reflejar los cambios del dólar sin pedirlo en cada producto.
+_SYSCOM_TC_TTL_SECONDS = 60 * 60
 _syscom_tc_cache: Decimal | None = None
+_syscom_tc_cache_at: float = 0.0
 
 
 def _norm(value: str) -> str:
@@ -45,8 +52,8 @@ def _as_decimal(value: object) -> Decimal | None:
 
 def _get_syscom_tipo_cambio() -> Decimal | None:
     """Tipo de cambio 'normal' de SYSCOM (cache en proceso)."""
-    global _syscom_tc_cache
-    if _syscom_tc_cache is not None:
+    global _syscom_tc_cache, _syscom_tc_cache_at
+    if _syscom_tc_cache is not None and monotonic() - _syscom_tc_cache_at < _SYSCOM_TC_TTL_SECONDS:
         return _syscom_tc_cache
     from apps.productos.syscom_views import _get_syscom_token, _syscom_get
 
@@ -68,6 +75,7 @@ def _get_syscom_tipo_cambio() -> Decimal | None:
     if tc is None or tc <= 0:
         return None
     _syscom_tc_cache = tc
+    _syscom_tc_cache_at = monotonic()
     return tc
 
 
@@ -132,6 +140,38 @@ def _extract_precio_unitario(raw: dict, fuente: str) -> Decimal | None:
     return None
 
 
+def _extract_precio_lista(raw: dict, fuente: str) -> Decimal | None:
+    """Precio de venta (lista del proveedor) en MXN con IVA.
+
+    SYSCOM publica en USD: `precio_lista` (si falta, especial y luego
+    descuento) × tipo de cambio × IVA. TVC ya trae `precio_mxn` desde su
+    `list_price`.
+    """
+    origen = (fuente or '').strip().lower()
+    precios = raw.get('precios') if isinstance(raw.get('precios'), dict) else {}
+
+    if origen == 'syscom':
+        usd = None
+        for clave in ('precio_lista', 'precio_especial', 'precio_descuento'):
+            valor = _as_decimal(precios.get(clave))
+            if valor is not None and valor > 0:
+                usd = valor
+                break
+        if usd is None:
+            directo = _as_decimal(raw.get('precio_mxn'))
+            return directo.quantize(Decimal('0.01')) if directo and directo > 0 else None
+        tc = _get_syscom_tipo_cambio()
+        if tc is None:
+            return None
+        return (usd * tc * IVA_MX).quantize(Decimal('0.01'))
+
+    directo = _as_decimal(raw.get('precio_mxn'))
+    if directo is not None and directo > 0:
+        return directo.quantize(Decimal('0.01'))
+    lista = _as_decimal(precios.get('precio_lista') or raw.get('list_price'))
+    return lista.quantize(Decimal('0.01')) if lista and lista > 0 else None
+
+
 def _plain_text(value: object) -> str:
     """Convierte a texto plano: SYSCOM devuelve la descripción en HTML."""
     texto = _SALTO_RE.sub('\n', str(value or ''))
@@ -179,6 +219,7 @@ def _map_product(raw: dict, fuente: str) -> dict:
     if not imagen.startswith(('http://', 'https://')):
         imagen = ''
     precio = _extract_precio_unitario(raw, fuente)
+    lista = _extract_precio_lista(raw, fuente)
     seccion = map_producto_to_seccion(raw)
     return {
         'nombre': nombre,
@@ -190,6 +231,8 @@ def _map_product(raw: dict, fuente: str) -> dict:
         'caracteristicas': _extract_caracteristicas(raw),
         # String para JSON estable en /catalogo/; el scan lo convierte a Decimal.
         'precio_unitario': format(precio, 'f') if precio is not None else None,
+        # Precio de venta (lista del proveedor): alimenta `precio_mercado` del ítem.
+        'precio_lista': format(lista, 'f') if lista is not None else None,
         'seccion': seccion,
     }
 
@@ -455,4 +498,159 @@ def sincronizar_secciones_pendientes(limit: int = 40) -> dict:
         'revisados': revisados,
         'actualizados': actualizados,
         'pendientes_restantes': InventarioItem.objects.filter(seccion='').count(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Precio de mercado (SYSCOM / TVC)
+# ---------------------------------------------------------------------------
+
+PRECIO_MERCADO_MAX_EDAD = timedelta(hours=3)
+# Si el proveedor no respondió, se reintenta pronto en vez de esperar la edad completa.
+PRECIO_MERCADO_REINTENTO = timedelta(minutes=30)
+# Consultas simultáneas al proveedor por lote (red, no base de datos).
+_PRECIO_WORKERS = 6
+
+_SIN_RESPUESTA = object()
+
+
+def _consultar_precio_lista(fuente: str, ref: str, modelo: str):
+    """Precio de lista del proveedor, None si no publica, `_SIN_RESPUESTA` si no respondió.
+
+    Solo red: se puede llamar desde hilos (no toca la base de datos).
+    """
+    from django.db import connections
+
+    try:
+        detalle = fetch_catalog_detail(fuente, ref, modelo)
+    except Exception:  # fetch_catalog_detail ya registra; defensa extra en hilos
+        logger.exception('Precio de lista %s ref=%s', fuente, ref)
+        return _SIN_RESPUESTA
+    finally:
+        # En hilos del lote: no dejar conexiones abiertas si algo tocó la BD.
+        if threading.current_thread() is not threading.main_thread():
+            connections.close_all()
+    if detalle is None:
+        return _SIN_RESPUESTA
+    precio = _as_decimal(detalle.get('precio_lista'))
+    if precio is None or precio <= 0:
+        return None
+    return precio.quantize(Decimal('0.01'))
+
+
+def _datos_consulta(item) -> tuple[str, str, str] | None:
+    fuente = (getattr(item, 'fuente', '') or '').strip().lower()
+    ref = (getattr(item, 'ref_externa', '') or '').strip()
+    modelo = (getattr(item, 'modelo', '') or '').strip() or (getattr(item, 'codigo_barras', '') or '').strip()
+    if fuente not in {'syscom', 'tvc'} or not (ref or modelo):
+        return None
+    return fuente, ref, modelo
+
+
+def _guardar_precio(item, resultado) -> bool:
+    """Persiste el resultado de la consulta. Devuelve True si el precio cambió."""
+    from django.utils import timezone
+
+    ahora = timezone.now()
+    if resultado is _SIN_RESPUESTA:
+        # Reintento en ~30 min: se registra como si se hubiera revisado hace
+        # (edad máxima − reintento).
+        item.precio_mercado_actualizado = ahora - (PRECIO_MERCADO_MAX_EDAD - PRECIO_MERCADO_REINTENTO)
+        item.save(update_fields=['precio_mercado_actualizado'])
+        return False
+    if resultado is None:
+        # El proveedor no publica precio de lista: revisado, sin precio.
+        item.precio_mercado_actualizado = ahora
+        item.save(update_fields=['precio_mercado_actualizado'])
+        return False
+
+    cambio = item.precio_mercado != resultado
+    campos = ['precio_mercado_actualizado']
+    if cambio:
+        if item.precio_mercado is not None:
+            item.precio_mercado_anterior = item.precio_mercado
+            campos.append('precio_mercado_anterior')
+        item.precio_mercado = resultado
+        campos.append('precio_mercado')
+    item.precio_mercado_actualizado = ahora
+    item.save(update_fields=campos)
+    return cambio
+
+
+def actualizar_precio_mercado(item) -> bool:
+    """Consulta el precio de venta actual (lista del proveedor) y lo guarda en el ítem.
+
+    `precio_mercado` guarda el precio de lista en MXN con IVA. Si cambia,
+    el valor previo queda en `precio_mercado_anterior` para mostrar si subió o
+    bajó. Devuelve True si el precio cambió. Nunca lanza hacia el caller.
+    """
+    datos = _datos_consulta(item)
+    if datos is None:
+        return False
+    return _guardar_precio(item, _consultar_precio_lista(*datos))
+
+
+def sincronizar_precios_mercado(limit: int = 6, ids: list[int] | None = None) -> dict:
+    """Refresca el precio de venta de los ítems de proveedor más desactualizados.
+
+    - Solo toca los no revisados en `PRECIO_MERCADO_MAX_EDAD`.
+    - `ids` (p. ej. los visibles en pantalla) van primero.
+    - Las consultas al proveedor corren en paralelo; las escrituras, en este hilo.
+
+    Devuelve también los valores nuevos de cada ítem revisado para que la
+    pantalla los pinte sin recargar la lista.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from django.db.models import F, Q
+    from django.utils import timezone
+
+    from .models import InventarioItem
+
+    limite = max(1, min(int(limit or 6), 30))
+    corte = timezone.now() - PRECIO_MERCADO_MAX_EDAD
+    vencidos = InventarioItem.objects.filter(fuente__in=['syscom', 'tvc']).filter(
+        Q(precio_mercado_actualizado__isnull=True) | Q(precio_mercado_actualizado__lt=corte)
+    )
+    orden = F('precio_mercado_actualizado').asc(nulls_first=True)
+
+    lote: list = []
+    if ids:
+        lote = list(vencidos.filter(id__in=ids).order_by(orden)[:limite])
+    if len(lote) < limite:
+        ya = [i.id for i in lote]
+        lote += list(vencidos.exclude(id__in=ya).order_by(orden)[: limite - len(lote)])
+
+    consultas = [(item, _datos_consulta(item)) for item in lote]
+    con_datos = [(item, datos) for item, datos in consultas if datos is not None]
+    resultados: dict[int, object] = {}
+    if con_datos:
+        with ThreadPoolExecutor(max_workers=min(_PRECIO_WORKERS, len(con_datos))) as pool:
+            futuros = {item.id: pool.submit(_consultar_precio_lista, *datos) for item, datos in con_datos}
+        resultados = {item_id: futuro.result() for item_id, futuro in futuros.items()}
+
+    actualizados = 0
+    items = []
+    for item, datos in consultas:
+        # Sin datos para consultar: se marca revisado para no volver a pedirlo.
+        resultado = resultados.get(item.id) if datos is not None else None
+        if _guardar_precio(item, resultado):
+            actualizados += 1
+        items.append(
+            {
+                'id': item.id,
+                'precio_mercado': None if item.precio_mercado is None else format(item.precio_mercado, 'f'),
+                'precio_mercado_anterior': (
+                    None if item.precio_mercado_anterior is None else format(item.precio_mercado_anterior, 'f')
+                ),
+                'precio_mercado_actualizado': item.precio_mercado_actualizado.isoformat()
+                if item.precio_mercado_actualizado
+                else None,
+            }
+        )
+    return {
+        'revisados': len(lote),
+        'actualizados': actualizados,
+        'pendientes_restantes': vencidos.count(),
+        'items': items,
     }

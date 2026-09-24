@@ -99,8 +99,8 @@ class FacturaRecepcionTests(APITestCase):
 
         res = self._importar(
             [
-                {'indice': 0, 'modelo': 'DS1LN5ESB', 'recibida': 3},
-                {'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 0},
+                {'indice': 0, 'modelo': 'DS1LN5ESB', 'recibida': 3, 'ubicacion': 'almacen'},
+                {'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 0, 'ubicacion': 'almacen'},
             ]
         )
 
@@ -122,7 +122,7 @@ class FacturaRecepcionTests(APITestCase):
     @patch(FETCH)
     def test_linea_omitida_se_considera_no_recibida(self, mock_fetch):
         mock_fetch.return_value = _factura()
-        res = self._importar([{'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 1}])
+        res = self._importar([{'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 1, 'ubicacion': 'almacen'}])
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(InventarioPendiente.objects.get().modelo, 'DS1LN5ESB')
 
@@ -131,8 +131,8 @@ class FacturaRecepcionTests(APITestCase):
         mock_fetch.return_value = _factura()
         self._importar(
             [
-                {'indice': 0, 'modelo': 'DS1LN5ESB', 'recibida': 99},
-                {'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 1},
+                {'indice': 0, 'modelo': 'DS1LN5ESB', 'recibida': 99, 'ubicacion': 'almacen'},
+                {'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 1, 'ubicacion': 'almacen'},
             ]
         )
         self.assertEqual(InventarioItem.objects.get(codigo_barras='DS1LN5ESB').cantidad, 4)
@@ -141,7 +141,7 @@ class FacturaRecepcionTests(APITestCase):
     @patch(FETCH)
     def test_factura_cambiada_no_aplica_la_seleccion(self, mock_fetch):
         mock_fetch.return_value = _factura()
-        res = self._importar([{'indice': 0, 'modelo': 'OTRO-MODELO', 'recibida': 1}])
+        res = self._importar([{'indice': 0, 'modelo': 'OTRO-MODELO', 'recibida': 1, 'ubicacion': 'almacen'}])
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(InventarioImportacion.objects.exists())
         self.assertFalse(InventarioItem.objects.exists())
@@ -158,11 +158,11 @@ class FacturaRecepcionTests(APITestCase):
     @patch(FETCH)
     def test_recibir_pendiente_parcial_y_total(self, mock_fetch):
         mock_fetch.return_value = _factura()
-        self._importar([{'indice': 0, 'modelo': 'DS1LN5ESB', 'recibida': 0}, {'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 1}])
+        self._importar([{'indice': 0, 'modelo': 'DS1LN5ESB', 'recibida': 0, 'ubicacion': 'almacen'}, {'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 1, 'ubicacion': 'almacen'}])
         pendiente = InventarioPendiente.objects.get(modelo='DS1LN5ESB')
         self.assertEqual(pendiente.cantidad, 4)
 
-        res = self.client.post(f'/api/inventario/pendientes/{pendiente.id}/recibir/', {'cantidad': 1}, format='json')
+        res = self.client.post(f'/api/inventario/pendientes/{pendiente.id}/recibir/', {'cantidad': 1, 'ubicacion': 'exhibicion'}, format='json')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['recibidas'], 1)
         self.assertEqual(res.data['pendiente']['cantidad'], 3)
@@ -184,7 +184,7 @@ class FacturaRecepcionTests(APITestCase):
     @patch(FETCH)
     def test_recibir_mas_de_lo_pendiente_es_400(self, mock_fetch):
         mock_fetch.return_value = _factura()
-        self._importar([{'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 1}])
+        self._importar([{'indice': 1, 'modelo': 'DS-KV6113', 'recibida': 1, 'ubicacion': 'almacen'}])
         pendiente = InventarioPendiente.objects.get()
         res = self.client.post(f'/api/inventario/pendientes/{pendiente.id}/recibir/', {'cantidad': 9}, format='json')
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
