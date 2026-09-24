@@ -79,8 +79,10 @@ class CotizacionSerializer(serializers.ModelSerializer):
     cliente_telefono = serializers.CharField(source='cliente_id.telefono', read_only=True)
     creado_por_username = serializers.CharField(source='creado_por.username', read_only=True)
     creado_por_full_name = serializers.SerializerMethodField()
+    creado_por_avatar_url = serializers.SerializerMethodField()
     actualizado_por_username = serializers.CharField(source='actualizado_por.username', read_only=True)
     actualizado_por_full_name = serializers.SerializerMethodField()
+    actualizado_por_avatar_url = serializers.SerializerMethodField()
     enviado_por_username = serializers.CharField(source='enviado_por.username', read_only=True)
     enviado_por_full_name = serializers.SerializerMethodField()
 
@@ -177,6 +179,20 @@ class CotizacionSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    @staticmethod
+    def _avatar_de(user) -> str:
+        """Foto de perfil del usuario (la app muestra sus iniciales si viene vacía)."""
+        if not user:
+            return ''
+        perfil = getattr(user, 'permissions_profile', None)
+        return (getattr(perfil, 'avatar_url', '') or '').strip()
+
+    def get_creado_por_avatar_url(self, obj):
+        return self._avatar_de(getattr(obj, 'creado_por', None))
+
+    def get_actualizado_por_avatar_url(self, obj):
+        return self._avatar_de(getattr(obj, 'actualizado_por', None))
+
     def get_creado_por_full_name(self, obj):
         if obj.creado_por:
             first = obj.creado_por.first_name
@@ -235,9 +251,11 @@ class CotizacionSerializer(serializers.ModelSerializer):
             'creado_por',
             'creado_por_username',
             'creado_por_full_name',
+            'creado_por_avatar_url',
             'actualizado_por',
             'actualizado_por_username',
             'actualizado_por_full_name',
+            'actualizado_por_avatar_url',
             'fecha_creacion',
             'fecha_actualizacion',
             'enviado_por',
@@ -276,6 +294,16 @@ class CotizacionSerializer(serializers.ModelSerializer):
 
         totals = self._calculate_totals(items_data, validated_data)
         validated_data.update(totals)
+
+        # Sin `terminos` en el payload (la app móvil): los de la marca por defecto.
+        # La web siempre los manda, aunque sea vacíos, así que no le afecta.
+        initial = self.initial_data if isinstance(getattr(self, 'initial_data', None), dict) else {}
+        if 'terminos' not in initial:
+            from apps.common.marca import get_marca_nombre
+
+            from .terminos_default import terminos_cotizacion_default
+
+            validated_data['terminos'] = terminos_cotizacion_default(get_marca_nombre())
 
         cot = Cotizacion.objects.create(creado_por=user, **validated_data)
         for i, item in enumerate(items_data or []):

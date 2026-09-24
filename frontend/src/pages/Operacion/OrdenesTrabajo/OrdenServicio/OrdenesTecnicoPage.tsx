@@ -1102,6 +1102,9 @@ export default function OrdenesTecnico() {
           tecnico: tecnicoDisplayLabel(usuarios, formData.tecnico_asignado) || undefined,
           prioridad: ({ alta: "Alta", media: "Media", baja: "Baja" } as Record<string, string>)[formData.prioridad_pool],
         }}
+        ordenCompletada={["resuelto", "cancelada"].includes(
+          String(formData.status || "").toLowerCase()
+        )}
         canOrdenesEdit={canOrdenesEdit}
         canOrdenesCreate={canOrdenesCreate}
       >

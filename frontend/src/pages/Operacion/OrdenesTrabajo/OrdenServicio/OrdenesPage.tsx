@@ -1690,6 +1690,10 @@ export default function Ordenes() {
             tecnico: tecnicoDisplayLabel(usuarios, formData.tecnico_asignado) || undefined,
             prioridad: ({ alta: "Alta", media: "Media", baja: "Baja" } as Record<string, string>)[formData.prioridad_pool],
           }}
+          ordenCompletada={
+            ["resuelto", "cancelada"].includes(String(formData.status || "").toLowerCase()) ||
+            String(statusAdministrativo || "").toLowerCase() === "cerrado"
+          }
           showCalificacionTab={isAdmin && !!editingOrden}
         >
           {activeTab === "cliente" ? (

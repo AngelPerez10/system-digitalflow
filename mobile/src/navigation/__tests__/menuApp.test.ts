@@ -1,5 +1,5 @@
 import { agruparNavItems, type NavItem } from '@/components/AppNavbar';
-import { construirMenu, MENU_APP } from '../menuApp';
+import { construirMenu, MENU_APP, rutaInicial } from '../menuApp';
 
 const item = (key: string, grupo?: string, extra: Partial<NavItem> = {}): NavItem => ({
   key,
@@ -62,5 +62,13 @@ describe('construirMenu', () => {
     items.find((i) => i.key === 'proyectos')?.onPress();
     const entrada = MENU_APP.find((e) => e.key === 'proyectos');
     expect(navegar).toHaveBeenCalledWith(entrada?.ruta, 'replace');
+  });
+});
+
+describe('rutaInicial', () => {
+  it('entra a la primera vista con permiso', () => {
+    expect(rutaInicial(() => true)).toBe('/ordenes');
+    expect(rutaInicial((m) => m === 'cotizaciones')).toBe('/cotizaciones');
+    expect(rutaInicial(() => false)).toBe('/ordenes');
   });
 });

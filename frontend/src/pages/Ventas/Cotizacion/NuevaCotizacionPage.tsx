@@ -194,7 +194,7 @@ function SectionCard({
       id={id}
       aria-labelledby={headingId}
       style={{ "--cot-i": order } as CSSProperties}
-      className={`cot-rise scroll-mt-24 rounded-2xl border border-[#E4E4E7] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827] ${
+      className={`cot-rise min-w-0 max-w-full scroll-mt-24 overflow-x-clip rounded-2xl border border-[#E4E4E7] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827] ${
         raised ? "relative z-200" : "relative"
       }`}
     >
@@ -227,7 +227,7 @@ function SectionCard({
         </div>
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </header>
-      <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
+      <div className="min-w-0 px-4 py-5 sm:px-6 sm:py-6">{children}</div>
     </section>
   );
 }
@@ -262,7 +262,7 @@ function FieldLabel({
 
 function SuffixInput({ suffix, prefix, children }: { suffix?: string; prefix?: string; children: ReactNode }) {
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       {prefix && (
         <span
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-medium text-[#A1A1AA] dark:text-[#64748B]"
@@ -2810,7 +2810,7 @@ export default function NuevaCotizacionPage() {
           <>
             {/* ============================ Encabezado ============================ */}
             <header
-              className="cot-rise overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827]"
+              className="cot-rise min-w-0 max-w-full rounded-2xl border border-[#E4E4E7] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827]"
               style={{ "--cot-i": 0 } as CSSProperties}
             >
               {/* Banda marina */}
@@ -2929,8 +2929,8 @@ export default function NuevaCotizacionPage() {
                 </dl>
               </div>
 
-              {/* Progreso */}
-              <nav aria-label="Secciones de la cotización" className="relative">
+              {/* Progreso: 2×2 en móvil para no cortar el 4.º paso; fila en sm+ */}
+              <nav aria-label="Secciones de la cotización" className="relative min-w-0">
                 <div
                   className="h-0.5 bg-[#F0F0F2] dark:bg-[#1F2A3C]"
                   role="progressbar"
@@ -2944,44 +2944,42 @@ export default function NuevaCotizacionPage() {
                     style={{ transform: `scaleX(${pasosObligatoriosListos / pasosObligatorios})` }}
                   />
                 </div>
-                <div className="overflow-x-auto">
-                  <ol className="flex min-w-max items-center gap-1 p-1.5 sm:min-w-0">
-                    {steps.map((s, i) => (
-                      <li key={s.id} className="flex flex-1 items-center">
-                        <button
-                          type="button"
-                          onClick={() => scrollToSection(s.id)}
-                          className="cot-press flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-[#1B2539]"
+                <ol className="grid grid-cols-2 gap-1 p-1.5 sm:flex sm:min-w-0 sm:items-center sm:gap-0.5">
+                  {steps.map((s, i) => (
+                    <li key={s.id} className="min-w-0 sm:flex sm:flex-1 sm:items-center">
+                      <button
+                        type="button"
+                        onClick={() => scrollToSection(s.id)}
+                        className="cot-press flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-[#1B2539] sm:gap-2.5 sm:px-3"
+                      >
+                        <span
+                          className={`inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums transition-colors duration-300 ${
+                            s.done
+                              ? "bg-[#04724D] text-white dark:bg-[#22A06B]"
+                              : "bg-[#F4F4F5] text-[#52525B] dark:bg-[#1B2539] dark:text-[#B7C1D1]"
+                          }`}
+                          aria-hidden
                         >
-                          <span
-                            className={`inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums transition-colors duration-300 ${
-                              s.done
-                                ? "bg-[#04724D] text-white dark:bg-[#22A06B]"
-                                : "bg-[#F4F4F5] text-[#52525B] dark:bg-[#1B2539] dark:text-[#B7C1D1]"
-                            }`}
-                            aria-hidden
-                          >
-                            {s.done ? <Check className="cot-tick size-3.5" strokeWidth={3} /> : i + 1}
+                          {s.done ? <Check className="cot-tick size-3.5" strokeWidth={3} /> : i + 1}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[13px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                            {s.label}
                           </span>
-                          <span className="min-w-0">
-                            <span className="block text-[13px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
-                              {s.label}
-                            </span>
-                            <span className="block text-[11px] text-[#71717A] dark:text-[#8EA0B8]">
-                              {s.done ? "Listo" : s.optional ? "Opcional" : "Pendiente"}
-                            </span>
+                          <span className="block truncate text-[11px] text-[#71717A] dark:text-[#8EA0B8]">
+                            {s.done ? "Listo" : s.optional ? "Opcional" : "Pendiente"}
                           </span>
-                        </button>
-                        {i < steps.length - 1 && (
-                          <ChevronRight
-                            className="mx-0.5 hidden size-4 shrink-0 text-[#D4D4D8] dark:text-[#3A4661] md:block"
-                            aria-hidden
-                          />
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
+                        </span>
+                      </button>
+                      {i < steps.length - 1 && (
+                        <ChevronRight
+                          className="mx-0.5 hidden size-4 shrink-0 text-[#D4D4D8] dark:text-[#3A4661] md:block"
+                          aria-hidden
+                        />
+                      )}
+                    </li>
+                  ))}
+                </ol>
               </nav>
             </header>
 
@@ -2997,7 +2995,7 @@ export default function NuevaCotizacionPage() {
                   done={clienteStepDone}
                   raised={clienteOpen || tipoTrabajoOpen}
                 >
-                  <div className="space-y-6">
+                  <div className="min-w-0 space-y-6">
                     {/* Cliente */}
                     <div>
                       <FieldLabel htmlFor="cot-cliente-input" required>
@@ -3131,7 +3129,7 @@ export default function NuevaCotizacionPage() {
                     </div>
 
                     {/* Contacto */}
-                    <fieldset className="space-y-3">
+                    <fieldset className="min-w-0 max-w-full space-y-3">
                       <legend className={subgroupTitleClass}>Contacto</legend>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         <div>
@@ -3213,14 +3211,17 @@ export default function NuevaCotizacionPage() {
                     <div className="h-px bg-[#F0F0F2] dark:bg-[#1F2A3C]" aria-hidden />
 
                     {/* Clasificación */}
-                    <fieldset className="space-y-3">
+                    <fieldset className="min-w-0 max-w-full space-y-3">
                       <legend className={subgroupTitleClass}>Clasificación</legend>
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div>
+                      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="min-w-0">
                           <FieldLabel htmlFor="tipo-trabajo-trigger" required>
                             Tipo de trabajo
                           </FieldLabel>
-                          <div ref={tipoTrabajoRef} className={`relative ${tipoTrabajoOpen ? "z-100" : "z-0"}`}>
+                          <div
+                            ref={tipoTrabajoRef}
+                            className={`relative min-w-0 ${tipoTrabajoOpen ? "z-100" : "z-0"}`}
+                          >
                             <button
                               id="tipo-trabajo-trigger"
                               type="button"
@@ -3363,12 +3364,12 @@ export default function NuevaCotizacionPage() {
                           )}
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                           <FieldLabel>Status</FieldLabel>
                           <div
                             role="radiogroup"
                             aria-label="Status de la cotización"
-                            className="grid min-h-11 grid-cols-3 gap-1 rounded-[10px] border border-[#E4E4E7] bg-[#F4F4F5] p-1 dark:border-[#273244] dark:bg-[#0F172A]"
+                            className="grid min-h-11 w-full min-w-0 grid-cols-3 gap-0.5 rounded-[10px] border border-[#E4E4E7] bg-[#F4F4F5] p-1 dark:border-[#273244] dark:bg-[#0F172A] sm:gap-1"
                           >
                             {STATUS_OPTIONS.map((opt) => {
                               const active = String(status).toUpperCase() === opt.value;
@@ -3379,17 +3380,17 @@ export default function NuevaCotizacionPage() {
                                   role="radio"
                                   aria-checked={active}
                                   onClick={() => setStatus(opt.value)}
-                                  className={`cot-press inline-flex items-center justify-center gap-1.5 rounded-[7px] px-2 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 ${
+                                  className={`cot-press inline-flex min-w-0 items-center justify-center gap-1 rounded-[7px] px-1 text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 sm:gap-1.5 sm:px-2 sm:text-[13px] ${
                                     active
                                       ? "bg-white text-[#09090B] shadow-[0_1px_3px_rgba(9,9,11,0.12)] dark:bg-[#1B2539] dark:text-[#F8FAFC]"
                                       : "text-[#71717A] hover:text-[#3F3F46] dark:text-[#8EA0B8] dark:hover:text-[#D6DEEA]"
                                   }`}
                                 >
                                   <span
-                                    className={`size-1.5 rounded-full ${statusMeta[opt.value]?.dot ?? ""} ${active ? "" : "opacity-50"}`}
+                                    className={`size-1.5 shrink-0 rounded-full ${statusMeta[opt.value]?.dot ?? ""} ${active ? "" : "opacity-50"}`}
                                     aria-hidden
                                   />
-                                  {opt.label}
+                                  <span className="truncate">{opt.label}</span>
                                 </button>
                               );
                             })}
@@ -3447,7 +3448,7 @@ export default function NuevaCotizacionPage() {
                     <div className="h-px bg-[#F0F0F2] dark:bg-[#1F2A3C]" aria-hidden />
 
                     {/* Condiciones comerciales */}
-                    <fieldset className="space-y-3">
+                    <fieldset className="min-w-0 max-w-full space-y-3">
                       <legend className={subgroupTitleClass}>Condiciones comerciales</legend>
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
@@ -3536,13 +3537,13 @@ export default function NuevaCotizacionPage() {
                   <div className="space-y-5">
                     {/* Compositor de partida */}
                     <div
-                      className={`rounded-xl border transition-colors ${
+                      className={`min-w-0 overflow-hidden rounded-xl border transition-colors ${
                         editingConceptoId
                           ? "border-[#BBD0FF] bg-[#F7F9FF] dark:border-[#3A4A6B] dark:bg-[#151E32]"
                           : "border-[#E4E4E7] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0F172A]/60"
                       }`}
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 px-3 pt-4 sm:px-4">
                         {editingConceptoId ? (
                           <p className="inline-flex items-center gap-2 text-[13px] font-medium text-[#1244D1] dark:text-[#9BB6FF]">
                             <Pencil className="size-4" aria-hidden />
@@ -3552,14 +3553,19 @@ export default function NuevaCotizacionPage() {
                           <div
                             role="tablist"
                             aria-label="Tipo de partida"
-                            className="inline-flex rounded-[10px] border border-[#E4E4E7] bg-white p-1 dark:border-[#273244] dark:bg-[#111827]"
+                            className="inline-flex max-w-full min-w-0 flex-wrap rounded-[10px] border border-[#E4E4E7] bg-white p-1 dark:border-[#273244] dark:bg-[#111827]"
                           >
                             {(
                               [
-                                { value: "producto", label: "Producto", Icon: Package },
-                                { value: "concepto", label: "Concepto / servicio", Icon: Wrench },
+                                { value: "producto", label: "Producto", shortLabel: "Producto", Icon: Package },
+                                {
+                                  value: "concepto",
+                                  label: "Concepto / servicio",
+                                  shortLabel: "Concepto",
+                                  Icon: Wrench,
+                                },
                               ] as const
-                            ).map(({ value, label, Icon }) => {
+                            ).map(({ value, label, shortLabel, Icon }) => {
                               const active = composerMode === value;
                               return (
                                 <button
@@ -3567,15 +3573,17 @@ export default function NuevaCotizacionPage() {
                                   type="button"
                                   role="tab"
                                   aria-selected={active}
+                                  title={label}
                                   onClick={() => switchComposerMode(value)}
-                                  className={`cot-press inline-flex min-h-9 items-center gap-2 rounded-[7px] px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 ${
+                                  className={`cot-press inline-flex min-h-9 min-w-0 items-center gap-1.5 rounded-[7px] px-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 sm:gap-2 sm:px-3 ${
                                     active
                                       ? "bg-[#17235B] text-white dark:bg-[#1B2A63]"
                                       : "text-[#71717A] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:text-[#F8FAFC]"
                                   }`}
                                 >
-                                  <Icon className="size-4" aria-hidden />
-                                  {label}
+                                  <Icon className="size-4 shrink-0" aria-hidden />
+                                  <span className="sm:hidden">{shortLabel}</span>
+                                  <span className="hidden sm:inline">{label}</span>
                                 </button>
                               );
                             })}
@@ -3607,7 +3615,7 @@ export default function NuevaCotizacionPage() {
                         </div>
                       </div>
 
-                      <div className="space-y-4 p-4">
+                      <div className="min-w-0 space-y-4 p-3 sm:p-4">
                         {/* Qué se vende */}
                         {composerMode === "producto" ? (
                           <div key="producto" className="cot-fade">
@@ -3696,10 +3704,10 @@ export default function NuevaCotizacionPage() {
                         )}
 
                         {/* Precio y condiciones */}
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-12">
-                          <div className="col-span-2 sm:col-span-3">
+                        <div className="grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-12">
+                          <div className="min-w-0 min-[360px]:col-span-2 sm:col-span-3">
                             <FieldLabel htmlFor="cot-cantidad">Cantidad</FieldLabel>
-                            <div className="flex min-h-11 items-stretch overflow-hidden rounded-[10px] border border-[#E4E4E7] bg-white focus-within:border-[#1B5CFF] focus-within:ring-4 focus-within:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:focus-within:border-[#4B7CFF]">
+                            <div className="flex min-h-11 min-w-0 items-stretch overflow-hidden rounded-[10px] border border-[#E4E4E7] bg-white focus-within:border-[#1B5CFF] focus-within:ring-4 focus-within:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:focus-within:border-[#4B7CFF]">
                               <button
                                 type="button"
                                 onClick={() => setCantidad((q) => Math.max(1, toNumber(q, 1) - 1))}
@@ -3730,7 +3738,7 @@ export default function NuevaCotizacionPage() {
                             </div>
                           </div>
 
-                          <div className="col-span-1 sm:col-span-4">
+                          <div className="min-w-0 sm:col-span-4">
                             <FieldLabel htmlFor="cot-precio-lista">Precio de lista</FieldLabel>
                             <SuffixInput prefix="$">
                               <input
@@ -3747,7 +3755,7 @@ export default function NuevaCotizacionPage() {
                             </SuffixInput>
                           </div>
 
-                          <div className="col-span-1 sm:col-span-2">
+                          <div className="min-w-0 sm:col-span-2">
                             <FieldLabel htmlFor="cot-descuento">Descuento</FieldLabel>
                             <SuffixInput suffix="%">
                               <input
@@ -3766,7 +3774,7 @@ export default function NuevaCotizacionPage() {
                           </div>
 
                           {categorias.length > 0 && (
-                            <div className="col-span-2 sm:col-span-3">
+                            <div className="min-w-0 min-[360px]:col-span-2 sm:col-span-3">
                               <FieldLabel htmlFor="cot-categoria">Categoría</FieldLabel>
                               <select
                                 id="cot-categoria"
@@ -3820,9 +3828,9 @@ export default function NuevaCotizacionPage() {
                       </div>
 
                       {/* Pie del compositor: vista previa + agregar */}
-                      <div className="flex flex-col gap-3 border-t border-[#E4E4E7] px-4 py-3.5 dark:border-[#273244] sm:flex-row sm:items-center sm:justify-between">
-                        <dl className="flex items-baseline gap-6">
-                          <div>
+                      <div className="flex flex-col gap-3 border-t border-[#E4E4E7] px-3 py-3.5 dark:border-[#273244] sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                        <dl className="flex min-w-0 flex-wrap items-baseline gap-x-6 gap-y-2">
+                          <div className="min-w-0">
                             <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#71717A] dark:text-[#8EA0B8]">
                               Unitario{preview.sinIvaEfectivo ? " sin IVA" : ""}
                             </dt>
@@ -3830,7 +3838,7 @@ export default function NuevaCotizacionPage() {
                               {formatMoney(preview.puBase)}
                             </dd>
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#71717A] dark:text-[#8EA0B8]">
                               Importe
                             </dt>
@@ -3846,7 +3854,7 @@ export default function NuevaCotizacionPage() {
                           onClick={addConcepto}
                           disabled={!canAddConcepto}
                           title={!clienteId ? "Selecciona primero un cliente" : undefined}
-                          className={`${primaryActionInlineBtnClass} sm:min-w-44`}
+                          className={`${primaryActionInlineBtnClass} w-full! sm:w-auto! sm:min-w-44`}
                         >
                           {editingConceptoId ? (
                             <>
@@ -4151,10 +4159,10 @@ export default function NuevaCotizacionPage() {
             </div>
 
             {/* ============================ Barra móvil ============================ */}
-            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E4E4E7] bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-3 backdrop-blur-md dark:border-[#273244] dark:bg-[#111827]/95 lg:hidden">
-              <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] text-[#71717A] dark:text-[#8EA0B8]">
+            <div className="fixed inset-x-0 bottom-0 z-40 max-w-full border-t border-[#E4E4E7] bg-white/95 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-3 backdrop-blur-md dark:border-[#273244] dark:bg-[#111827]/95 sm:px-4 lg:hidden">
+              <div className="mx-auto flex max-w-2xl min-w-0 items-center justify-between gap-2 sm:gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11px] text-[#71717A] dark:text-[#8EA0B8]">
                     Total · {computed.lines.length} {computed.lines.length === 1 ? "partida" : "partidas"}
                   </p>
                   <p className="truncate text-[18px] font-semibold tabular-nums tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
@@ -4170,7 +4178,7 @@ export default function NuevaCotizacionPage() {
                     void handleSaveCotizacion(true);
                   }}
                   title={saveDisabledReason}
-                  className={`${primaryActionInlineBtnClass} w-auto! shrink-0`}
+                  className={`${primaryActionInlineBtnClass} w-auto! max-w-[45%] shrink-0`}
                 >
                   <Save className="size-4" aria-hidden />
                   {isEditingRoute ? "Actualizar" : "Guardar"}

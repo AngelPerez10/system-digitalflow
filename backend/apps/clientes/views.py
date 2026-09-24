@@ -15,7 +15,11 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError as DrfValidationError
 
-from apps.users.permissions import ModulePermission, user_has_any_ordenes_access
+from apps.users.permissions import (
+    ModulePermission,
+    user_has_any_cotizaciones_access,
+    user_has_any_ordenes_access,
+)
 
 from .models import Cliente, ClienteContacto, ClienteDireccion, ClienteDocumento
 from .serializers import (
@@ -65,7 +69,8 @@ class ClientesCatalogPermission(ClientesModulePermission):
         if method in ('GET', 'HEAD', 'OPTIONS'):
             perms_obj = getattr(user, 'permissions_profile', None)
             permissions = getattr(perms_obj, 'permissions', None) or {}
-            if user_has_any_ordenes_access(permissions):
+            # También quien cotiza: elige al cliente de la cotización.
+            if user_has_any_ordenes_access(permissions) or user_has_any_cotizaciones_access(permissions):
                 return True
         return super().has_permission(request, view)
 

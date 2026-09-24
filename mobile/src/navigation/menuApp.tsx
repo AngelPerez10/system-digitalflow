@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Href } from 'expo-router';
-import { IconOrdenes, IconProyectos, type NavItem } from '@/components/AppNavbar';
+import { IconCotizaciones, IconOrdenes, IconProyectos, type NavItem } from '@/components/AppNavbar';
 
 /**
  * Catálogo de vistas del menú de la app del técnico. Agregar una vista nueva
@@ -51,7 +51,28 @@ export const MENU_APP: readonly MenuEntrada[] = [
     navegacion: 'replace',
     icon: (color) => <IconProyectos color={color} />,
   },
+  {
+    key: 'cotizaciones',
+    label: 'Cotizaciones',
+    hint: 'Crear y dar seguimiento',
+    grupo: 'Ventas',
+    modulo: 'cotizaciones',
+    // Cast: los tipos de rutas de expo-router se regeneran al arrancar el servidor.
+    ruta: '/cotizaciones' as Href,
+    seccion: 'cotizaciones',
+    navegacion: 'replace',
+    icon: (color) => <IconCotizaciones color={color} />,
+  },
 ];
+
+/**
+ * Primera vista del menú que el usuario puede ver: a dónde entra al iniciar
+ * sesión. Quien solo cotiza cae en Cotizaciones, no en un listado de órdenes
+ * que el servidor le negaría.
+ */
+export function rutaInicial(puedeVer: (modulo: string) => boolean): Href {
+  return MENU_APP.find((e) => puedeVer(e.modulo))?.ruta ?? '/ordenes';
+}
 
 /** Traduce el catálogo a `NavItem` para las entradas que el usuario puede ver. */
 export function construirMenu(opciones: {

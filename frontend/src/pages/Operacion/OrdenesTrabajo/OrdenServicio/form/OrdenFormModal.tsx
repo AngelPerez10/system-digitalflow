@@ -124,6 +124,11 @@ export type OrdenFormModalProps = {
   showCalificacionTab?: boolean;
   /** Resumen en vivo en la barra lateral (escritorio). */
   summary?: OrdenFormModalSummary;
+  /**
+   * Orden ya cerrada (resuelta / cancelada / admin cerrado):
+   * todos los pasos del stepper salen palomeados.
+   */
+  ordenCompletada?: boolean;
   children: ReactNode;
 };
 
@@ -150,6 +155,7 @@ export default function OrdenFormModal({
   canOrdenesCreate = true,
   showCalificacionTab = false,
   summary,
+  ordenCompletada = false,
   children,
 }: OrdenFormModalProps) {
   const saveBusy = isSaving || uploadingPhotos;
@@ -351,12 +357,14 @@ export default function OrdenFormModal({
               >
                 {TAB_ORDER.map((tab, i) => {
                   const active = activeTab === tab;
-                  const done = isStepperTab && i < stepIndex;
+                  // Progreso de navegación O orden ya cerrada → paloma en todos los pasos.
+                  const done = ordenCompletada || (isStepperTab && i < stepIndex);
                   const { label, hint } = STEP_META[tab];
                   return (
                     <button
                       key={tab}
                       {...tabButtonProps(tab)}
+                      aria-label={done ? `${label}, completado` : undefined}
                       className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 lg:w-full ${
                         active
                           ? "bg-white shadow-[0_1px_3px_rgba(9,9,11,0.08)] ring-1 ring-[#E4E4E7] dark:bg-[#111827] dark:ring-[#273244]"

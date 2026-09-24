@@ -27,7 +27,8 @@ class ServiciosPermission(ModulePermission):
         if method in ('GET', 'HEAD', 'OPTIONS'):
             perms_obj = getattr(user, 'permissions_profile', None)
             permissions = getattr(perms_obj, 'permissions', None) or {}
-            if user_has_any_ordenes_access(permissions):
+            # Catálogo de servicios y conceptos: también lo lee quien cotiza.
+            if user_has_any_ordenes_access(permissions) or user_has_any_cotizaciones_access(permissions):
                 return True
         return super().has_permission(request, view)
 

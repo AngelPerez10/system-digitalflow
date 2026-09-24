@@ -15,10 +15,21 @@ from PIL import Image as PILImage
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from datetime import timedelta
+
+from django.core import signing
+from rest_framework.exceptions import NotFound
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.common.document_folio import FOLIO_SERIE_COT, format_document_folio
+from apps.common.pdf_enlace import (
+    PDF_ENLACE_MAX_AGE,
+    PDF_TOKEN_REGEX,
+    como_descarga,
+    crear_token_pdf,
+    leer_token_pdf,
+)
 from apps.common.pdf_html import subtotal_iva_display_split as _subtotal_iva_display_split
 from apps.common.pdf_images import safe_http_image_bytes as _safe_http_image_bytes
 from apps.ordenes.email_pdf import (
@@ -501,6 +512,9 @@ def _build_cotizacion_excel_bytes(cotizacion: Cotizacion) -> bytes:
     return bio.getvalue()
 
 
+COTIZACION_PDF_SALT = 'cotizaciones.pdf-compartido'
+
+
 class CotizacionesPermission(ModulePermission):
     """Permission class for cotizaciones module."""
     module_key = 'cotizaciones'
@@ -534,8 +548,11 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     ordering = ['-idx']
 
     def get_permissions(self):
-        if self.action in ('enviar_pdf', 'correo_sugerido'):
+        if self.action in ('enviar_pdf', 'correo_sugerido', 'pdf_enlace'):
             return [IsAuthenticated(), CotizacionesSendPdfPermission()]
+        if self.action == 'pdf_compartido':
+            # El token firmado es la credencial (se abre desde WhatsApp o el navegador).
+            return [AllowAny()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -553,7 +570,11 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             ),
             'tipo_trabajo',
         )
-        queryset = queryset.select_related('cliente_id', 'creado_por', 'actualizado_por')
+        queryset = queryset.select_related(
+            'cliente_id',
+            'creado_por__permissions_profile',
+            'actualizado_por__permissions_profile',
+        )
         user = getattr(self.request, 'user', None)
         if user and getattr(user, 'is_authenticated', False):
             own_only = user_module_own_only(user, 'cotizaciones')
@@ -606,13 +627,54 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
+        methods=['post'],
+        url_path='pdf-enlace',
+    )
+    def pdf_enlace(self, request, pk=None):
+        """Enlace firmado (7 días) al PDF, para compartirlo o abrirlo sin sesión."""
+        cotizacion = self.get_object()
+        token = crear_token_pdf(COTIZACION_PDF_SALT, cotizacion.pk)
+        url = request.build_absolute_uri(f'/api/cotizaciones/pdf-compartido/{token}/')
+        expira = timezone.now() + timedelta(seconds=PDF_ENLACE_MAX_AGE)
+        idx = format_document_folio(FOLIO_SERIE_COT, getattr(cotizacion, 'idx', None) or cotizacion.id)
+        return Response(
+            {'url': url, 'expira': expira.isoformat(), 'filename': f'Cotizacion_{idx}.pdf'}
+        )
+
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path=rf'pdf-compartido/(?P<token>{PDF_TOKEN_REGEX})',
+        authentication_classes=[],
+    )
+    def pdf_compartido(self, request, token=None):
+        """PDF de la cotización a partir de un enlace firmado de `pdf_enlace`."""
+        try:
+            cotizacion_id = leer_token_pdf(COTIZACION_PDF_SALT, token or '')
+        except signing.SignatureExpired:
+            return Response(
+                {'detail': 'Este enlace ya expiró. Pide uno nuevo a quien te lo envió.'},
+                status=410,
+            )
+        except signing.BadSignature:
+            raise NotFound()
+        cotizacion = Cotizacion.objects.filter(pk=cotizacion_id).first()
+        if not cotizacion:
+            raise NotFound()
+        return self._pdf_response(cotizacion, request)
+
+    @action(
+        detail=True,
         methods=['get'],
         url_path='pdf',
     )
     def pdf(self, request, pk=None):
+        return self._pdf_response(self.get_object(), request)
+
+    def _pdf_response(self, cotizacion: Cotizacion, request):
+        """PDF de la cotización (o su HTML si no hay motor de PDF / se pide vista previa)."""
         from .pdf_opciones import parse_pdf_opciones_from_cotizacion
 
-        cotizacion = self.get_object()
         pdf_opciones = parse_pdf_opciones_from_cotizacion(cotizacion)
 
         html = self._generate_pdf_html(cotizacion, pdf_opciones=pdf_opciones)
@@ -639,12 +701,12 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         try:
             pdf_bytes = render_html_to_pdf(html, size="A4", landscape=False, timeout=90)
         except PdfRenderError as e:
-            logger.exception("PDF render failed for cotizacion %s: %s", pk, e.detail)
+            logger.exception("PDF render failed for cotizacion %s: %s", cotizacion.pk, e.detail)
             return Response({"detail": "No se pudo generar el PDF."}, status=502)
 
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
-        return response
+        return como_descarga(response, filename, request)
 
     @action(
         detail=True,

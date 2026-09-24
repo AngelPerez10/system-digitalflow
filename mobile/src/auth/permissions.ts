@@ -48,3 +48,21 @@ export function ownsOrden(
   if (!user || !orden) return false;
   return orden.tecnico_asignado === user.id || orden.creado_por === user.id;
 }
+
+export function canCreateModule(
+  permissions: ModulePermissions,
+  user: SessionUser | null,
+  moduleKey: string,
+): boolean {
+  if (isAdmin(user)) return true;
+  return modulePermissions(permissions, moduleKey).create === true;
+}
+
+export function canDeleteModule(
+  permissions: ModulePermissions,
+  user: SessionUser | null,
+  moduleKey: string,
+): boolean {
+  if (isAdmin(user)) return true;
+  return modulePermissions(permissions, moduleKey).delete === true;
+}

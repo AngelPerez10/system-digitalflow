@@ -3,17 +3,21 @@ import { StyleSheet } from 'react-native';
 import { Redirect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '@/auth/SessionProvider';
+import { canViewModule } from '@/auth/permissions';
 import { AccesoForm } from '@/features/auth/AccesoForm';
 import { LoadingState } from '@/components/StateViews';
+import { rutaInicial } from '@/navigation/menuApp';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /** Acceso para técnicos de campo. */
 export default function LoginScreen() {
-  const { status } = useSession();
+  const { status, user, permissions } = useSession();
   const { colors } = useTheme();
 
   if (status === 'loading') return <LoadingState label="Restaurando sesión…" />;
-  if (status === 'signedIn') return <Redirect href="/ordenes" />;
+  if (status === 'signedIn') {
+    return <Redirect href={rutaInicial((modulo) => canViewModule(permissions, user, modulo))} />;
+  }
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.canvas }]} edges={['bottom']}>

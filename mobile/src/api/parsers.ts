@@ -27,11 +27,11 @@ import {
 
 /** Normalizadores tolerantes: la API puede mandar `null` en casi todo. */
 
-function asRecord(value: unknown): Record<string, unknown> {
+export function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-function asString(value: unknown): string | null {
+export function asString(value: unknown): string | null {
   if (typeof value === 'string') {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
@@ -40,7 +40,7 @@ function asString(value: unknown): string | null {
   return null;
 }
 
-function asNumber(value: unknown): number | null {
+export function asNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value);
@@ -49,7 +49,7 @@ function asNumber(value: unknown): number | null {
   return null;
 }
 
-function asBool(value: unknown): boolean {
+export function asBool(value: unknown): boolean {
   return value === true || value === 'true' || value === 1;
 }
 

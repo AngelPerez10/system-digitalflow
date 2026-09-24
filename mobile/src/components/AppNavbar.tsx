@@ -116,6 +116,27 @@ export function IconOrdenes({ color, size = 20 }: { color: string; size?: number
   );
 }
 
+/** Documento con signo de pesos: cotizaciones. */
+export function IconCotizaciones({ color, size = 20 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5l-5-5Z"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M14 3.5v5h5M13.6 12.2c-.4-.5-1-.8-1.7-.8-1 0-1.7.5-1.7 1.2 0 1.7 3.6.9 3.6 2.7 0 .7-.8 1.3-1.9 1.3-.8 0-1.5-.3-1.9-.9M12 10.4v1M12 16.6v1"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function IconProyectos({ color, size = 20 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
