@@ -10,6 +10,7 @@ from .views import (
     my_permissions,
     my_signature,
     token_refresh_view,
+    user_avatar,
     user_permissions,
     user_signature,
 )
@@ -28,4 +29,5 @@ urlpatterns = [
     path('me/signature/', my_signature, name='my-signature'),
     path('users/accounts/<int:user_id>/permissions/', user_permissions, name='user-permissions'),
     path('users/accounts/<int:user_id>/signature/', user_signature, name='user-signature'),
+    path('users/accounts/<int:user_id>/avatar/', user_avatar, name='user-avatar'),
 ]

@@ -1,22 +1,12 @@
-import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
+import { useId, type ReactNode } from "react";
+import { Ban, Satellite } from "lucide-react";
 import SearchableSelect from "@/components/form/SearchableSelect";
-import {
-  erpFormInputClass,
-  erpSelectFieldClass,
-} from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
-
-const erpFormPanelClass =
-  "rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#111827] sm:p-5";
+import { Field } from "../shared/ProyectoUi";
+import { focusRing, input, select } from "../shared/proyectoTokens";
 import type { InstalacionFormValue, InstalacionSubtipo } from "./proyectoInstalacionTypes";
 
-const SUBTIPOS_INSTALACION = [
-  { value: "", label: "Seleccionar tipo de instalación..." },
-  { value: "gps", label: "GPS" },
-];
-
 const TIPOS_VEHICULO = [
-  { value: "", label: "Seleccionar..." },
+  { value: "", label: "Seleccionar…" },
   { value: "auto", label: "Auto" },
   { value: "camioneta", label: "Camioneta" },
   { value: "camion", label: "Camión" },
@@ -28,7 +18,7 @@ const TIPOS_VEHICULO = [
 ];
 
 const TIPOS_GPS = [
-  { value: "", label: "Seleccionar..." },
+  { value: "", label: "Seleccionar…" },
   { value: "antarix-gps-kitgpsdt16", label: "Antarix GPS - KITGPSDT16" },
   { value: "jimiiot-kitgpsvl103", label: "JIMIIOT - KITGPSVL103" },
   { value: "topflytech-kitgpstlw2-6bl", label: "TopFlyTech - KITGPSTLW2-6BL" },
@@ -44,28 +34,28 @@ const TIPOS_GPS = [
 ];
 
 const TIPOS_CHIP = [
-  { value: "", label: "Seleccionar..." },
+  { value: "", label: "Seleccionar…" },
   { value: "telcel", label: "Telcel" },
   { value: "m2m", label: "M2M" },
   { value: "yobi", label: "Yobi" },
 ];
 
 const TIPOS_PLATAFORMA = [
-  { value: "", label: "Seleccionar..." },
+  { value: "", label: "Seleccionar…" },
   { value: "tracksolidpro", label: "Tracksolidpro" },
   { value: "wialon", label: "Wialon" },
   { value: "Antarix", label: "Antarix" },
 ];
 
 const TIPOS_CORTE = [
-  { value: "", label: "Seleccionar..." },
+  { value: "", label: "Seleccionar…" },
   { value: "sin_corte", label: "Sin corte" },
   { value: "bomba_combustible", label: "Bomba de combustible" },
   { value: "switch_principal", label: "Switch principal" },
 ];
 
 const SI_NO = [
-  { value: "", label: "Seleccionar..." },
+  { value: "", label: "Seleccionar…" },
   { value: "si", label: "Sí" },
   { value: "no", label: "No" },
 ];
@@ -93,26 +83,17 @@ function SelectField({
   disabled?: boolean;
   required?: boolean;
 }) {
+  const id = useId();
   return (
-    <div>
-      <Label className="!mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:!text-xs">
-        {label} {required ? <span className="text-red-500">*</span> : null}
-      </Label>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          className={erpSelectFieldClass}
-        >
-          {options.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
+    <Field label={label} htmlFor={id} required={required}>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className={select}>
+        {options.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </select>
+    </Field>
   );
 }
 
@@ -122,32 +103,46 @@ function TextField({
   onChange,
   placeholder,
   disabled,
-  required,
+  inputMode,
+  mono,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   disabled?: boolean;
-  required?: boolean;
+  inputMode?: "numeric" | "tel" | "text";
+  mono?: boolean;
 }) {
+  const id = useId();
   return (
-    <div>
-      <Label className="!mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 sm:!text-xs">
-        {label} {required ? <span className="text-red-500">*</span> : null}
-      </Label>
-      <Input
+    <Field label={label} htmlFor={id}>
+      <input
+        id={id}
         value={value}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className={erpFormInputClass}
+        inputMode={inputMode}
+        autoComplete="off"
+        className={`${input} ${mono ? "font-mono tracking-tight" : ""}`}
       />
-    </div>
+    </Field>
   );
 }
 
-/** Formulario GPS controlado — la página/modal es dueña del fetch/save. */
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <fieldset className="cot-fade min-w-0 border-0 p-0">
+      <legend className="mb-3 text-[12px] font-semibold uppercase tracking-[0.1em] text-[#71717A] dark:text-[#8EA0B8]">
+        {title}
+      </legend>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+    </fieldset>
+  );
+}
+
+/** Ficha de instalación controlada — el modal es dueño del fetch/save. */
 export default function InstalacionForm({
   value,
   subtipo,
@@ -155,257 +150,162 @@ export default function InstalacionForm({
   onSubtipoChange,
   disabled = false,
 }: InstalacionFormProps) {
-  const setField = (field: keyof InstalacionFormValue, next: string) => {
-    onChange({ ...value, [field]: next });
-  };
+  const setField = (field: keyof InstalacionFormValue) => (next: string) => onChange({ ...value, [field]: next });
+  const tipoLabelId = useId();
 
-  const esTelcel = value.tipo_chip === "telcel";
+  const opciones: { value: InstalacionSubtipo; label: string; hint: string; icon: ReactNode }[] = [
+    { value: "", label: "Sin instalación", hint: "No se registra ficha", icon: <Ban className="size-4" aria-hidden /> },
+    { value: "gps", label: "GPS vehicular", hint: "Equipo, chip y accesorios", icon: <Satellite className="size-4" aria-hidden /> },
+  ];
 
   return (
-    <div className="space-y-5">
-      <div className={erpFormPanelClass}>
-        <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-3 dark:border-[#334155]">
-          <svg
-            className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden
-          >
-            <path
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tipo de Instalación</h4>
-        </div>
-        <div className="pt-4">
-          <SelectField
-            label="Tipo de instalación"
-            value={subtipo}
-            onChange={(v) => onSubtipoChange(v === "gps" ? "gps" : "")}
-            options={SUBTIPOS_INSTALACION}
-            disabled={disabled}
-            required
-          />
+    <div className="space-y-6">
+      <div>
+        <p id={tipoLabelId} className="mb-2 text-[13px] font-medium text-[#3F3F46] dark:text-[#D6DEEA]">
+          Tipo de instalación
+        </p>
+        <div role="radiogroup" aria-labelledby={tipoLabelId} className="grid gap-2 sm:grid-cols-2">
+          {opciones.map((opt) => {
+            const active = subtipo === opt.value;
+            return (
+              <button
+                key={opt.value || "none"}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                disabled={disabled}
+                onClick={() => onSubtipoChange(opt.value)}
+                className={`cot-press flex items-center gap-3 rounded-[14px] border p-3 text-left disabled:cursor-not-allowed disabled:opacity-60 ${focusRing} ${
+                  active
+                    ? "border-[#BFD3FF] bg-[#F5F8FF] ring-1 ring-[#BFD3FF] dark:border-[#2C3F7A] dark:bg-[#1B2A63]/40 dark:ring-[#2C3F7A]"
+                    : "border-[#E4E4E7] bg-white hover:border-[#D3D3D8] dark:border-[#273244] dark:bg-[#0F172A]"
+                }`}
+              >
+                <span
+                  className={`inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] transition-colors duration-200 ${
+                    active
+                      ? "bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
+                      : "bg-[#F4F4F5] text-[#52525B] dark:bg-[#1B2539] dark:text-[#B7C1D1]"
+                  }`}
+                >
+                  {opt.icon}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{opt.label}</span>
+                  <span className="block text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{opt.hint}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {subtipo === "gps" ? (
         <>
-          <div className={erpFormPanelClass}>
-            <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-3 dark:border-[#334155]">
-              <svg
-                className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Instalación GPS</h4>
-            </div>
+          <Group title="Vehículo">
+            <SelectField
+              label="Tipo de vehículo"
+              value={value.tipo_vehiculo}
+              onChange={setField("tipo_vehiculo")}
+              options={TIPOS_VEHICULO}
+              disabled={disabled}
+              required
+            />
+            <TextField label="Placas" value={value.placas} onChange={setField("placas")} placeholder="ABC-123-D" disabled={disabled} mono />
+            <TextField label="Marca" value={value.marca} onChange={setField("marca")} placeholder="Nissan" disabled={disabled} />
+            <TextField label="Modelo" value={value.modelo} onChange={setField("modelo")} placeholder="NP300" disabled={disabled} />
+            <TextField label="Año" value={value.anio} onChange={setField("anio")} placeholder="2024" disabled={disabled} inputMode="numeric" />
+            <TextField label="Color" value={value.color} onChange={setField("color")} placeholder="Blanco" disabled={disabled} />
+          </Group>
 
-            <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
-              <SelectField
-                label="Tipo de vehículo"
-                value={value.tipo_vehiculo}
-                onChange={(v) => setField("tipo_vehiculo", v)}
-                options={TIPOS_VEHICULO}
-                disabled={disabled}
-                required
-              />
-              <TextField
-                label="Placas"
-                value={value.placas}
-                onChange={(v) => setField("placas", v)}
-                placeholder="ABC-123-D"
-                disabled={disabled}
-              />
-              <TextField
-                label="Marca"
-                value={value.marca}
-                onChange={(v) => setField("marca", v)}
-                placeholder="Teltonika"
-                disabled={disabled}
-              />
-              <TextField
-                label="Modelo"
-                value={value.modelo}
-                onChange={(v) => setField("modelo", v)}
-                placeholder="FMB920"
-                disabled={disabled}
-              />
-              <TextField
-                label="Año"
-                value={value.anio}
-                onChange={(v) => setField("anio", v)}
-                placeholder="Año del vehículo"
-                disabled={disabled}
-              />
-              <TextField
-                label="Color del vehículo"
-                value={value.color}
-                onChange={(v) => setField("color", v)}
-                placeholder="Color del vehículo"
-                disabled={disabled}
-              />
-              <SearchableSelect
-                label="Tipo de GPS"
-                value={value.tipo_gps}
-                onChange={(v) => setField("tipo_gps", v)}
-                options={TIPOS_GPS}
-                disabled={disabled}
-                required
-                placeholder="Buscar GPS..."
-              />
-              <SelectField
-                label="Tipo de chip"
-                value={value.tipo_chip}
-                onChange={(v) => setField("tipo_chip", v)}
-                options={TIPOS_CHIP}
-                disabled={disabled}
-                required
-              />
-              {esTelcel ? (
-                <TextField
-                  label="Teléfono"
-                  value={value.telefono}
-                  onChange={(v) => setField("telefono", v)}
-                  placeholder="Ej: 10 dígitos"
-                  disabled={disabled}
-                />
-              ) : null}
-              <SelectField
-                label="Tipo de plataforma"
-                value={value.tipo_plataforma}
-                onChange={(v) => setField("tipo_plataforma", v)}
-                options={TIPOS_PLATAFORMA}
-                disabled={disabled}
-              />
-              <SelectField
-                label="Tipo de corte"
-                value={value.tipo_corte}
-                onChange={(v) => setField("tipo_corte", v)}
-                options={TIPOS_CORTE}
-                disabled={disabled}
-              />
-              <TextField
-                label="Ubicación del corte"
-                value={value.ubicacion_corte}
-                onChange={(v) => setField("ubicacion_corte", v)}
-                placeholder="Ej: Cerca del tablero"
-                disabled={disabled}
-              />
-              <TextField
-                label="Color de cable cortado"
-                value={value.color_cable_cortado}
-                onChange={(v) => setField("color_cable_cortado", v)}
-                placeholder="Ej: Negro"
-                disabled={disabled}
-              />
-              <TextField
-                label="IMEI"
-                value={value.imei}
-                onChange={(v) => setField("imei", v)}
-                placeholder="15 dígitos"
-                disabled={disabled}
-              />
-              <TextField
-                label="ICC"
-                value={value.icc}
-                onChange={(v) => setField("icc", v)}
-                placeholder="20 dígitos"
-                disabled={disabled}
-              />
-            </div>
-          </div>
+          <Group title="Equipo GPS y línea">
+            <SearchableSelect
+              label="Tipo de GPS"
+              value={value.tipo_gps}
+              onChange={setField("tipo_gps")}
+              options={TIPOS_GPS}
+              disabled={disabled}
+              required
+              placeholder="Buscar GPS…"
+            />
+            <SelectField
+              label="Tipo de chip"
+              value={value.tipo_chip}
+              onChange={setField("tipo_chip")}
+              options={TIPOS_CHIP}
+              disabled={disabled}
+              required
+            />
+            {value.tipo_chip === "telcel" ? (
+              <TextField label="Teléfono" value={value.telefono} onChange={setField("telefono")} placeholder="10 dígitos" disabled={disabled} inputMode="tel" mono />
+            ) : null}
+            <SelectField
+              label="Plataforma"
+              value={value.tipo_plataforma}
+              onChange={setField("tipo_plataforma")}
+              options={TIPOS_PLATAFORMA}
+              disabled={disabled}
+            />
+            <TextField label="IMEI" value={value.imei} onChange={setField("imei")} placeholder="15 dígitos" disabled={disabled} inputMode="numeric" mono />
+            <TextField label="ICC" value={value.icc} onChange={setField("icc")} placeholder="20 dígitos" disabled={disabled} inputMode="numeric" mono />
+          </Group>
 
-          <div className={erpFormPanelClass}>
-            <div className="flex items-center gap-2 border-b border-[#E7E7EA] pb-3 dark:border-[#334155]">
-              <svg
-                className="h-5 w-5 text-[#1B5CFF] dark:text-[#4B7CFF]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden
-              >
-                <path
-                  d="M9 3H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 3v18m0 0h10a2 2 0 002-2V9m0 0H9m0-3h2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Equipos adicionales</h4>
-            </div>
-            <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
-              <SelectField
-                label="Botón de pánico"
-                value={value.boton_panico}
-                onChange={(v) => setField("boton_panico", v)}
-                options={SI_NO}
-                disabled={disabled}
-              />
-              {value.boton_panico === "si" ? (
-                <TextField
-                  label="Ubicación del botón"
-                  value={value.ubicacion_boton_panico}
-                  onChange={(v) => setField("ubicacion_boton_panico", v)}
-                  placeholder="Ej: Debajo del volante"
-                  disabled={disabled}
-                />
-              ) : null}
-              <SelectField
-                label="Micrófono"
-                value={value.microfono}
-                onChange={(v) => setField("microfono", v)}
-                options={SI_NO}
-                disabled={disabled}
-              />
-              {value.microfono === "si" ? (
-                <TextField
-                  label="Ubicación del micrófono"
-                  value={value.ubicacion_microfono}
-                  onChange={(v) => setField("ubicacion_microfono", v)}
-                  placeholder="Ej: Visera del conductor"
-                  disabled={disabled}
-                />
-              ) : null}
+          <Group title="Corte de motor">
+            <SelectField label="Tipo de corte" value={value.tipo_corte} onChange={setField("tipo_corte")} options={TIPOS_CORTE} disabled={disabled} />
+            <TextField
+              label="Ubicación del corte"
+              value={value.ubicacion_corte}
+              onChange={setField("ubicacion_corte")}
+              placeholder="Cerca del tablero"
+              disabled={disabled}
+            />
+            <TextField
+              label="Color de cable cortado"
+              value={value.color_cable_cortado}
+              onChange={setField("color_cable_cortado")}
+              placeholder="Negro"
+              disabled={disabled}
+            />
+          </Group>
+
+          <Group title="Accesorios">
+            <SelectField label="Botón de pánico" value={value.boton_panico} onChange={setField("boton_panico")} options={SI_NO} disabled={disabled} />
+            {value.boton_panico === "si" ? (
               <TextField
-                label="Temperatura"
-                value={value.temperatura}
-                onChange={(v) => setField("temperatura", v)}
-                placeholder="Ej: Sensor externo"
+                label="Ubicación del botón"
+                value={value.ubicacion_boton_panico}
+                onChange={setField("ubicacion_boton_panico")}
+                placeholder="Debajo del volante"
                 disabled={disabled}
               />
+            ) : null}
+            <SelectField label="Micrófono" value={value.microfono} onChange={setField("microfono")} options={SI_NO} disabled={disabled} />
+            {value.microfono === "si" ? (
               <TextField
-                label="Humedad"
-                value={value.humedad}
-                onChange={(v) => setField("humedad", v)}
-                placeholder="Ej: Sensor interno"
+                label="Ubicación del micrófono"
+                value={value.ubicacion_microfono}
+                onChange={setField("ubicacion_microfono")}
+                placeholder="Visera del conductor"
                 disabled={disabled}
               />
-              <TextField
-                label="Contacto magnético"
-                value={value.contacto_magnetico}
-                onChange={(v) => setField("contacto_magnetico", v)}
-                placeholder="Ej: Puerta principal"
-                disabled={disabled}
-              />
-              <TextField
-                label="Identificación de conductores"
-                value={value.identificacion_conductores}
-                onChange={(v) => setField("identificacion_conductores", v)}
-                placeholder="Ej: Tarjeta RFID"
-                disabled={disabled}
-              />
-            </div>
-          </div>
+            ) : null}
+            <TextField label="Temperatura" value={value.temperatura} onChange={setField("temperatura")} placeholder="Sensor externo" disabled={disabled} />
+            <TextField label="Humedad" value={value.humedad} onChange={setField("humedad")} placeholder="Sensor interno" disabled={disabled} />
+            <TextField
+              label="Contacto magnético"
+              value={value.contacto_magnetico}
+              onChange={setField("contacto_magnetico")}
+              placeholder="Puerta principal"
+              disabled={disabled}
+            />
+            <TextField
+              label="Identificación de conductores"
+              value={value.identificacion_conductores}
+              onChange={setField("identificacion_conductores")}
+              placeholder="Tarjeta RFID"
+              disabled={disabled}
+            />
+          </Group>
         </>
       ) : null}
     </div>

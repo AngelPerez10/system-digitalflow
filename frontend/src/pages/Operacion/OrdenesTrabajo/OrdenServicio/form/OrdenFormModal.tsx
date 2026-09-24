@@ -319,7 +319,7 @@ export default function OrdenFormModal({
         <X className="size-5" aria-hidden />
       </button>
         {/* ============================ Barra lateral ============================ */}
-        <aside className="custom-scrollbar flex shrink-0 flex-col border-b border-[#F0F0F2] bg-[#FAFAFA] dark:border-[#1F2A3C] dark:bg-[#0B1220] lg:w-[280px] lg:overflow-y-auto lg:border-b-0 lg:border-r">
+        <aside className="custom-scrollbar flex shrink-0 flex-col border-b border-[#F0F0F2] bg-[#FAFAFA] dark:border-[#1F2A3C] dark:bg-[#0B1220] lg:w-70 lg:overflow-y-auto lg:border-b-0 lg:border-r">
           <div className="flex items-center gap-3 px-5 pb-3 pr-16 pt-5 lg:block lg:px-6 lg:pb-5 lg:pr-6 lg:pt-6">
             <span
               className="cot-tick inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#17235B] text-[#E6A23C] dark:bg-[#1B2A63] lg:size-11"

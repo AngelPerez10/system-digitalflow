@@ -18,7 +18,11 @@ import type {
 import { FOLIO_SERIE, formatDocumentFolio, resolveDocumentFolio } from "@/utils/documentFolio";
 
 export function emptyPersona(): ProyectoPersonaAsignada {
-  return { id: null, nombre: "" };
+  return { id: null, nombre: "", avatar_url: "" };
+}
+
+function personaAvatarUrl(raw: unknown): string {
+  return typeof raw === "string" ? raw.trim() : "";
 }
 
 /**
@@ -43,7 +47,7 @@ export function normalizeTecnicosAsignados(raw: unknown): ProyectoTecnicoAsignad
   const out: ProyectoTecnicoAsignado[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
-    const rec = item as { id?: unknown; nombre?: unknown; responsable?: unknown };
+    const rec = item as { id?: unknown; nombre?: unknown; responsable?: unknown; avatar_url?: unknown };
     const id = Number(rec.id);
     if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
     seen.add(id);
@@ -51,6 +55,7 @@ export function normalizeTecnicosAsignados(raw: unknown): ProyectoTecnicoAsignad
       id,
       nombre: String(rec.nombre || "").trim(),
       responsable: Boolean(rec.responsable),
+      avatar_url: personaAvatarUrl(rec.avatar_url),
     });
   }
   if (!out.length) return [];
@@ -70,11 +75,15 @@ export function normalizeAuxiliaresAsignados(raw: unknown): ProyectoPersonaAsign
   const out: ProyectoPersonaAsignada[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
-    const rec = item as { id?: unknown; nombre?: unknown };
+    const rec = item as { id?: unknown; nombre?: unknown; avatar_url?: unknown };
     const id = Number(rec.id);
     if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
     seen.add(id);
-    out.push({ id, nombre: String(rec.nombre || "").trim() });
+    out.push({
+      id,
+      nombre: String(rec.nombre || "").trim(),
+      avatar_url: personaAvatarUrl(rec.avatar_url),
+    });
   }
   return out;
 }
@@ -98,12 +107,16 @@ export function auxiliaresFromLegacy(
 export function responsableFromTecnicos(tecnicos: ProyectoTecnicoAsignado[]): ProyectoPersonaAsignada {
   const list = normalizeTecnicosAsignados(tecnicos);
   const r = list.find((t) => t.responsable) || list[0];
-  return r ? { id: r.id, nombre: r.nombre } : emptyPersona();
+  return r
+    ? { id: r.id, nombre: r.nombre, avatar_url: r.avatar_url || "" }
+    : emptyPersona();
 }
 
 export function primerAuxiliar(auxiliares: ProyectoPersonaAsignada[]): ProyectoPersonaAsignada {
   const list = normalizeAuxiliaresAsignados(auxiliares);
-  return list[0] ? { id: list[0].id, nombre: list[0].nombre } : emptyPersona();
+  return list[0]
+    ? { id: list[0].id, nombre: list[0].nombre, avatar_url: list[0].avatar_url || "" }
+    : emptyPersona();
 }
 
 /** Normaliza lista de tipos de trabajo sin duplicar por id. */

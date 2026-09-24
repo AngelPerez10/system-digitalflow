@@ -1579,6 +1579,12 @@ class OrdenViewSet(viewsets.ModelViewSet):
         include_sensitive = bool(
             getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
         )
+        avatares = {
+            uid: (url or "").strip()
+            for uid, url in UserPermissions.objects.filter(user_id__in=eligible_ids).values_list(
+                "user_id", "avatar_url"
+            )
+        }
         data = []
         for u in qs:
             row = {
@@ -1586,6 +1592,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 'username': u.username or '',
                 'first_name': u.first_name or '',
                 'last_name': u.last_name or '',
+                'avatar_url': avatares.get(u.id, ''),
             }
             if include_sensitive:
                 row['email'] = u.email or ''

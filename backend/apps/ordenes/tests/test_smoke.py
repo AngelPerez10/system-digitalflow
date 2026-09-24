@@ -158,6 +158,23 @@ class OrdenesSmokeTests(APITestCase):
         row = next(item for item in response.data if item["id"] == staff.id)
         self.assertEqual(row["email"], "admin@example.com")
         self.assertTrue(row["is_staff"])
+        self.assertIn("avatar_url", row)
+
+    def test_tecnico_opciones_incluye_avatar_url(self):
+        other = User.objects.create_user(
+            username="foto_tecnico",
+            password="test-pass-123",
+            is_staff=True,
+        )
+        UserPermissions.objects.create(
+            user=other,
+            permissions={"ordenes": {"view": True}},
+            avatar_url="https://cdn.example/foto.jpg",
+        )
+        response = self.client.get("/api/ordenes/tecnico-opciones/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = next(item for item in response.data if item["id"] == other.id)
+        self.assertEqual(row["avatar_url"], "https://cdn.example/foto.jpg")
 
 
 class OrdenesListFilterTests(APITestCase):

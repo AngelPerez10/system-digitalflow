@@ -1,13 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { erpInputLikeClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
-import {
-  normalizeAuxiliaresAsignados,
-  normalizeTecnicosAsignados,
-} from "../../shared/proyectoFormUtils";
+import { Check, ChevronDown, Crown, Search, X } from "lucide-react";
+import { normalizeAuxiliaresAsignados, normalizeTecnicosAsignados } from "../../shared/proyectoFormUtils";
+import { Avatar } from "../../shared/ProyectoUi";
+import { fieldLabel, focusRing, input } from "../../shared/proyectoTokens";
 import type { ProyectoPersonaAsignada, ProyectoTecnicoAsignado } from "../../shared/proyectoTypes";
-import { proyectoFieldLabelClass } from "../../shared/proyectoPageStyles";
 
-type Opcion = { value: string; label: string };
+type Opcion = { value: string; label: string; avatarUrl?: string };
 
 type TecnicosProps = {
   mode: "tecnicos";
@@ -33,18 +31,9 @@ type AuxiliaresProps = {
 
 type Props = TecnicosProps | AuxiliaresProps;
 
-function initialsFromName(nombre: string): string {
-  const parts = String(nombre || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (!parts.length) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
-}
-
 /**
- * Multi-select de técnicos (tarjeta naranja = responsable) o auxiliares.
+ * Multi-select de técnicos (uno responsable) o auxiliares.
+ * La lista se despliega en línea para no quedar recortada por la tarjeta.
  */
 export function ProyectoAsignadosMultiField(props: Props) {
   const {
@@ -53,7 +42,7 @@ export function ProyectoAsignadosMultiField(props: Props) {
     options,
     disabled = false,
     excludeIds = [],
-    placeholder = mode === "tecnicos" ? "Buscar y agregar técnicos…" : "Buscar y agregar auxiliares…",
+    placeholder = mode === "tecnicos" ? "Agregar técnicos…" : "Agregar auxiliares…",
   } = props;
 
   const listboxId = useId();
@@ -61,8 +50,9 @@ export function ProyectoAsignadosMultiField(props: Props) {
   const hintId = useId();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const exclude = useMemo(() => new Set(excludeIds.filter((id) => Number.isFinite(id))), [excludeIds]);
 
@@ -75,31 +65,16 @@ export function ProyectoAsignadosMultiField(props: Props) {
     [mode, props.value]
   );
 
-  const selectedIds = useMemo(() => {
-    if (mode === "tecnicos") return new Set(tecnicos.map((t) => Number(t.id)));
-    return new Set(auxiliares.map((a) => Number(a.id)));
-  }, [auxiliares, mode, tecnicos]);
+  const selected = mode === "tecnicos" ? tecnicos : auxiliares;
+  const selectedIds = useMemo(() => new Set(selected.map((p) => Number(p.id))), [selected]);
 
-  const responsable = useMemo(
-    () => tecnicos.find((t) => t.responsable) || tecnicos[0] || null,
-    [tecnicos]
+  const ordered = useMemo(
+    () =>
+      mode === "tecnicos"
+        ? [...tecnicos].sort((a, b) => Number(b.responsable) - Number(a.responsable))
+        : auxiliares,
+    [mode, tecnicos, auxiliares]
   );
-
-  const sortedTecnicos = useMemo(
-    () => [...tecnicos].sort((a, b) => Number(b.responsable) - Number(a.responsable)),
-    [tecnicos]
-  );
-
-  const triggerLabel = useMemo(() => {
-    if (mode === "tecnicos") {
-      if (!tecnicos.length) return placeholder;
-      if (tecnicos.length === 1) return "1 técnico seleccionado";
-      return `${tecnicos.length} técnicos seleccionados`;
-    }
-    if (!auxiliares.length) return placeholder;
-    if (auxiliares.length === 1) return "1 auxiliar seleccionado";
-    return `${auxiliares.length} auxiliares seleccionados`;
-  }, [auxiliares.length, mode, placeholder, tecnicos.length]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -112,17 +87,28 @@ export function ProyectoAsignadosMultiField(props: Props) {
   }, [exclude, options, search]);
 
   useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    if (!open) {
+      setSearch("");
+      return;
+    }
+    requestAnimationFrame(() => searchRef.current?.focus());
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  useEffect(() => {
-    if (open) requestAnimationFrame(() => searchRef.current?.focus());
-    else setSearch("");
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      // No cerrar el modal del proyecto: solo la lista.
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey, true);
+    };
   }, [open]);
 
   const toggle = (opt: Opcion) => {
@@ -139,7 +125,12 @@ export function ProyectoAsignadosMultiField(props: Props) {
       props.onChange(
         normalizeTecnicosAsignados([
           ...current,
-          { id, nombre: opt.label, responsable: current.length === 0 },
+          {
+            id,
+            nombre: opt.label,
+            responsable: current.length === 0,
+            avatar_url: opt.avatarUrl || "",
+          },
         ])
       );
       return;
@@ -150,14 +141,12 @@ export function ProyectoAsignadosMultiField(props: Props) {
       props.onChange(current.filter((a) => a.id !== id));
       return;
     }
-    props.onChange([...current, { id, nombre: opt.label }]);
+    props.onChange([...current, { id, nombre: opt.label, avatar_url: opt.avatarUrl || "" }]);
   };
 
   const markResponsable = (id: number) => {
     if (disabled || mode !== "tecnicos") return;
-    props.onChange(
-      normalizeTecnicosAsignados(props.value).map((t) => ({ ...t, responsable: t.id === id }))
-    );
+    props.onChange(normalizeTecnicosAsignados(props.value).map((t) => ({ ...t, responsable: t.id === id })));
   };
 
   const remove = (id: number) => {
@@ -170,258 +159,172 @@ export function ProyectoAsignadosMultiField(props: Props) {
   };
 
   return (
-    <div className="min-w-0 space-y-2.5">
+    <div ref={rootRef} className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">
-        <p id={labelId} className={`${proyectoFieldLabelClass} mb-0`}>
+        <p id={labelId} className={fieldLabel}>
           {label}
         </p>
-        {mode === "tecnicos" && responsable ? (
-          <p
-            className="max-w-[55%] truncate text-[11px] font-semibold text-[#1244D1] dark:text-[#4B7CFF]"
-            aria-live="polite"
-          >
-            Resp. {responsable.nombre || `#${responsable.id}`}
-          </p>
-        ) : null}
+        <span className="text-[12px] tabular-nums text-[#71717A] dark:text-[#8EA0B8]">{selected.length}</span>
       </div>
+      <p id={hintId} className="sr-only">
+        {mode === "tecnicos"
+          ? "Marca un responsable: su firma aparece en el PDF."
+          : "Auxiliares del equipo en campo."}
+      </p>
 
-      {mode === "tecnicos" ? (
-        <p id={hintId} className="text-[11px] leading-snug text-[#6E6E77] dark:text-[#8ea0b8]">
-          Marca <span className="font-semibold text-[#1244D1] dark:text-[#4B7CFF]">un</span> responsable
-          (firma y referencia del proyecto).
-        </p>
-      ) : (
-        <p id={hintId} className="text-[11px] leading-snug text-[#6E6E77] dark:text-[#8ea0b8]">
-          Auxiliares del equipo en campo. Todos ven el proyecto.
-        </p>
-      )}
-
-      <div className="relative" ref={ref}>
-        <button
-          type="button"
-          className={`${erpInputLikeClass} flex w-full items-center justify-between gap-2 text-left ${
-            disabled ? "cursor-not-allowed opacity-70" : ""
-          }`}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          aria-controls={listboxId}
-          aria-labelledby={labelId}
-          aria-describedby={hintId}
-          disabled={disabled}
-          onClick={() => !disabled && setOpen((v) => !v)}
+      {ordered.length > 0 ? (
+        <ul
+          className="mb-2 space-y-1.5"
+          role={mode === "tecnicos" ? "radiogroup" : undefined}
+          aria-label={mode === "tecnicos" ? "Técnico responsable" : "Auxiliares asignados"}
         >
-          <span
-            className={
-              selectedIds.size
-                ? "text-[#09090B] dark:text-[#f8fafc]"
-                : "text-[#a8a29e] dark:text-[#64748b]"
-            }
-          >
-            {triggerLabel}
-          </span>
-          <span className="flex items-center gap-1.5">
-            {selectedIds.size > 0 ? (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[#1B5CFF]/15 px-1.5 text-[10px] font-bold tabular-nums text-[#1244D1] dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]">
-                {selectedIds.size}
-              </span>
-            ) : null}
-            <svg className="h-4 w-4 shrink-0 opacity-60" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-              <path
-                fillRule="evenodd"
-                d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </span>
-        </button>
-
-        {open && !disabled ? (
-          <div
-            id={listboxId}
-            role="listbox"
-            aria-multiselectable
-            aria-labelledby={labelId}
-            className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-[#E7E7EA] bg-white p-2 shadow-lg dark:border-[#334155] dark:bg-[#0f172a]"
-          >
-            <input
-              ref={searchRef}
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre…"
-              className={`${erpInputLikeClass} mb-2`}
-              aria-label={`Buscar en ${label}`}
-            />
-            {filtered.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">Sin resultados</p>
-            ) : (
-              <ul className="space-y-0.5">
-                {filtered.map((opt) => {
-                  const id = Number(opt.value);
-                  const checked = selectedIds.has(id);
-                  return (
-                    <li key={opt.value}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={checked}
-                        className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition ${
-                          checked
-                            ? "bg-[#1B5CFF]/10 font-medium text-[#09090B] dark:text-[#f8fafc]"
-                            : "text-[#52525B] hover:bg-[#f5f0e8] dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]"
-                        }`}
-                        onClick={() => toggle(opt)}
-                      >
-                        <span
-                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
-                            checked
-                              ? "border-[#1B5CFF] bg-[#1B5CFF] text-white"
-                              : "border-[#D3D3D8] dark:border-[#475569]"
-                          }`}
-                          aria-hidden
-                        >
-                          {checked ? "✓" : ""}
-                        </span>
-                        <span
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#f5f0e8] text-[10px] font-bold text-[#57534e] dark:bg-[#1e293b] dark:text-[#94a3b8]"
-                          aria-hidden
-                        >
-                          {initialsFromName(opt.label)}
-                        </span>
-                        <span className="min-w-0 truncate">{opt.label}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      {mode === "tecnicos" && sortedTecnicos.length > 0 ? (
-        <ul className="space-y-2" role="radiogroup" aria-label="Técnico responsable">
-          {sortedTecnicos.map((person) => {
+          {ordered.map((person) => {
             const id = Number(person.id);
             const name = person.nombre || `#${id}`;
-            const isResp = Boolean(person.responsable);
-            return (
-              <li key={id}>
-                <div
-                  className={
-                    isResp
-                      ? "rounded-xl border border-[#1B5CFF]/45 bg-gradient-to-r from-[#F1F5FF] to-[#FFFFFF] p-3 shadow-sm dark:border-[#1B5CFF]/40 dark:from-[#1B5CFF]/15 dark:to-[#0f172a]"
-                      : "rounded-xl border border-[#E7E7EA]/90 bg-[#FAFAFA]/70 p-2.5 dark:border-[#334155] dark:bg-[#0f172a]/50"
-                  }
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className={
-                        isResp
-                          ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-[11px] font-bold text-white shadow-sm"
-                          : "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#E7E7EA] text-[11px] font-bold text-[#52525B] dark:bg-[#1e293b] dark:text-[#94a3b8]"
-                      }
-                      aria-hidden
-                    >
-                      {initialsFromName(name)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="truncate text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
-                          {name}
-                        </p>
-                        {isResp ? (
-                          <span className="inline-flex items-center rounded-full border border-[#1B5CFF]/35 bg-[#1B5CFF]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#1244D1] dark:border-[#1B5CFF]/40 dark:bg-[#1B5CFF]/20 dark:text-[#4B7CFF]">
-                            Responsable
-                          </span>
-                        ) : null}
-                      </div>
-                      {isResp ? (
-                        <p className="mt-0.5 text-[11px] text-[#1244D1]/90 dark:text-[#4B7CFF]/90">
-                          Firma y referencia del equipo
-                        </p>
-                      ) : !disabled ? (
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={false}
-                          className="mt-0.5 min-h-6 text-left text-[11px] font-semibold text-[#1B5CFF] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35"
-                          onClick={() => markResponsable(id)}
-                        >
-                          Hacer responsable
-                        </button>
-                      ) : (
-                        <p className="mt-0.5 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">Técnico del equipo</p>
-                      )}
-                      {isResp ? (
-                        <span className="sr-only" role="radio" aria-checked={true}>
-                          {name} es el responsable
-                        </span>
-                      ) : null}
-                    </div>
-                    {!disabled ? (
-                      <button
-                        type="button"
-                        className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-[#6E6E77] transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
-                        aria-label={`Quitar a ${name} de técnicos`}
-                        onClick={() => remove(id)}
-                      >
-                        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                          <path
-                            fillRule="evenodd"
-                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-
-      {mode === "auxiliares" && auxiliares.length > 0 ? (
-        <ul className="space-y-1.5" aria-label="Auxiliares seleccionados">
-          {auxiliares.map((person) => {
-            const id = Number(person.id);
-            const name = person.nombre || `#${id}`;
+            const isResp = mode === "tecnicos" && Boolean((person as ProyectoTecnicoAsignado).responsable);
             return (
               <li
                 key={id}
-                className="flex items-center gap-2.5 rounded-xl border border-[#E7E7EA]/90 bg-[#FAFAFA]/70 px-2.5 py-2 dark:border-[#334155] dark:bg-[#0f172a]/50"
+                className={`cot-pop flex min-h-12 items-center gap-2.5 rounded-2xl border px-2.5 py-1.5 transition-colors duration-200 ${
+                  isResp
+                    ? "border-[#D7E3FF] bg-[#F5F8FF] dark:border-[#2C3F7A] dark:bg-[#1B2A63]/30"
+                    : "border-[#F0F0F2] bg-[#FAFAFA] dark:border-[#1F2A3C] dark:bg-[#0F172A]/60"
+                }`}
               >
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#E7E7EA] text-[10px] font-bold text-[#52525B] dark:bg-[#1e293b] dark:text-[#94a3b8]"
-                  aria-hidden
-                >
-                  {initialsFromName(name)}
-                </span>
-                <p className="min-w-0 flex-1 truncate text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
-                  {name}
-                </p>
+                <Avatar person={{ id, nombre: name, avatar_url: person.avatar_url }} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{name}</p>
+                  {mode === "tecnicos" ? (
+                    isResp ? (
+                      <p className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#1244D1] dark:text-[#9BB6FF]">
+                        <Crown className="size-3" aria-hidden />
+                        Responsable
+                        <span className="sr-only" role="radio" aria-checked="true">
+                          {name} es el responsable
+                        </span>
+                      </p>
+                    ) : !disabled ? (
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={false}
+                        onClick={() => markResponsable(id)}
+                        className="rounded-lg text-[12px] font-medium text-[#71717A] hover:text-[#1B5CFF] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 dark:text-[#8EA0B8] dark:hover:text-[#7EA0FF]"
+                      >
+                        Hacer responsable
+                      </button>
+                    ) : (
+                      <p className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">Técnico</p>
+                    )
+                  ) : null}
+                </div>
                 {!disabled ? (
                   <button
                     type="button"
-                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-[#6E6E77] transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/50 dark:hover:bg-rose-950/40"
-                    aria-label={`Quitar a ${name} de auxiliares`}
+                    className={`cot-press inline-flex size-9 shrink-0 items-center justify-center rounded-[9px] text-[#A1A1AA] hover:bg-[#FEF2F2] hover:text-[#C22B2B] dark:hover:bg-[#3F1518] dark:hover:text-[#F87171] ${focusRing}`}
+                    aria-label={`Quitar a ${name}`}
                     onClick={() => remove(id)}
                   >
-                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                      <path
-                        fillRule="evenodd"
-                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <X className="size-4" aria-hidden />
                   </button>
                 ) : null}
               </li>
             );
           })}
         </ul>
+      ) : disabled ? (
+        <p className="mb-2 rounded-2xl border border-dashed border-[#E4E4E7] px-3 py-3 text-[13px] text-[#71717A] dark:border-[#273244] dark:text-[#8EA0B8]">
+          Sin {mode === "tecnicos" ? "técnicos" : "auxiliares"} asignados.
+        </p>
+      ) : null}
+
+      {!disabled ? (
+        <>
+          <button
+            ref={triggerRef}
+            type="button"
+            className={`cot-press flex min-h-11 w-full items-center justify-between gap-2 rounded-[10px] border border-dashed px-3.5 text-left text-[14px] font-medium ${focusRing} ${
+              open
+                ? "border-[#1B5CFF] bg-[#F5F8FF] text-[#1244D1] dark:border-[#4B7CFF] dark:bg-[#1B2A63]/40 dark:text-[#C9D7FF]"
+                : "border-[#D4D4D8] text-[#52525B] hover:border-[#BFD3FF] hover:text-[#1244D1] dark:border-[#3A4661] dark:text-[#B7C1D1] dark:hover:text-[#C9D7FF]"
+            }`}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            aria-controls={listboxId}
+            aria-labelledby={labelId}
+            aria-describedby={hintId}
+            onClick={() => setOpen((v) => !v)}
+          >
+            {placeholder}
+            <ChevronDown
+              className={`size-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+              aria-hidden
+            />
+          </button>
+
+          {open ? (
+            <div className="cot-pop mt-1.5 overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white shadow-[0_12px_32px_-16px_rgba(9,9,11,0.3)] dark:border-[#273244] dark:bg-[#111827]">
+              <div className="relative border-b border-[#F0F0F2] p-2 dark:border-[#1F2A3C]">
+                <Search className="pointer-events-none absolute left-5 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]" aria-hidden />
+                <input
+                  ref={searchRef}
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por nombre…"
+                  className={`${input} h-10! pl-9`}
+                  aria-label={`Buscar en ${label}`}
+                  aria-controls={listboxId}
+                />
+              </div>
+              <ul
+                id={listboxId}
+                role="listbox"
+                aria-multiselectable
+                aria-labelledby={labelId}
+                className="custom-scrollbar max-h-56 overflow-y-auto p-1"
+              >
+                {filtered.length === 0 ? (
+                  <li className="px-3 py-3 text-[13px] text-[#71717A] dark:text-[#8EA0B8]">Sin resultados</li>
+                ) : (
+                  filtered.map((opt) => {
+                    const id = Number(opt.value);
+                    const checked = selectedIds.has(id);
+                    return (
+                      <li key={opt.value} role="option" aria-selected={checked}>
+                        <button
+                          type="button"
+                          className={`flex min-h-11 w-full items-center gap-2.5 rounded-[9px] px-2 text-left text-[14px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40 ${
+                            checked
+                              ? "bg-[#F5F8FF] font-medium text-[#1244D1] dark:bg-[#1B2A63]/50 dark:text-[#C9D7FF]"
+                              : "text-[#18181B] hover:bg-[#F4F4F5] dark:text-[#D6DEEA] dark:hover:bg-white/4"
+                          }`}
+                          onClick={() => toggle(opt)}
+                        >
+                          <Avatar
+                            person={{ id, nombre: opt.label, avatar_url: opt.avatarUrl }}
+                            size="sm"
+                          />
+                          <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                          <span
+                            className={`inline-flex size-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-150 ${
+                              checked
+                                ? "border-[#1B5CFF] bg-[#1B5CFF] text-white dark:border-[#4B7CFF] dark:bg-[#4B7CFF]"
+                                : "border-[#D3D3D8] dark:border-[#3A4661]"
+                            }`}
+                            aria-hidden
+                          >
+                            {checked ? <Check className="cot-tick size-3" strokeWidth={3} /> : null}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

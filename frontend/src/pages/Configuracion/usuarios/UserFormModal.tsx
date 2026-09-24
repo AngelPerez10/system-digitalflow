@@ -2,7 +2,7 @@
  * Alta y edición de usuarios.
  *
  * Alta: un solo formulario (rol → identidad → contraseña).
- * Edición: pestañas Cuenta · Seguridad · Correo · Firma. Los paneles quedan
+ * Edición: pestañas Cuenta (con foto de perfil) · Seguridad · Correo · Firma. Los paneles quedan
  * montados y se ocultan con `hidden`, así el trazo de la firma y lo capturado
  * no se pierden al cambiar de pestaña, y la entrada `cot-fade` se repite
  * al mostrarse.
@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import {
   displayName,
   emptyUserForm,
+  initialsOf,
   errorMessage,
   generatePassword,
   isAdminUser,
@@ -47,6 +48,7 @@ import {
   type UserSignaturePayload,
 } from './usuariosModel';
 import { Field, InlineAlert, PasswordField, StatusPill } from './usuariosUi';
+import { UserPhotoField } from './UserPhotoField';
 import { btn, eyebrowClass, focusRing, formModalShellClass, hintClass } from './usuariosStyles';
 
 type Props = {
@@ -103,6 +105,10 @@ export default function UserFormModal({ open, mode, user, canDelegatePerms, onCl
   const [sigSaving, setSigSaving] = useState(false);
   const [sigError, setSigError] = useState<string | null>(null);
   const [confirmSig, setConfirmSig] = useState(false);
+
+  /** Foto guardada en el servidor y foto nueva pendiente de subir (data URL). */
+  const [photoUrl, setPhotoUrl] = useState(user?.avatar_url || '');
+  const [photoPending, setPhotoPending] = useState('');
 
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const busy = saving || clearingSmtp || sigSaving;
@@ -206,11 +212,25 @@ export default function UserFormModal({ open, mode, user, canDelegatePerms, onCl
         setSignature(dataSig?.url || '');
       }
 
+      let avatarUrl = photoUrl;
+      if (photoPending) {
+        const resPhoto = await fetchApi(`/api/users/accounts/${user.id}/avatar/`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatar: photoPending }),
+        });
+        const dataPhoto = (await resPhoto.json().catch(() => null)) as { avatar_url?: string; detail?: string } | null;
+        if (!resPhoto.ok) throw new Error(dataPhoto?.detail || 'Error al guardar la foto de perfil');
+        avatarUrl = dataPhoto?.avatar_url || '';
+        setPhotoUrl(avatarUrl);
+        setPhotoPending('');
+      }
+
       const wasAdmin = !!user.is_superuser || !!user.is_staff;
       if (!wasAdmin && form.role === 'admin' && canDelegatePerms) {
         await seedAdminPerms(user.id);
       }
-      onSaved(data as UserAccount, 'Usuario actualizado');
+      onSaved({ ...(data as UserAccount), avatar_url: avatarUrl }, 'Usuario actualizado');
     } catch (e) {
       showError(errorMessage(e));
     } finally {
@@ -257,6 +277,15 @@ export default function UserFormModal({ open, mode, user, canDelegatePerms, onCl
       setSigSaving(false);
       setConfirmSig(false);
     }
+  };
+
+  const removeStoredPhoto = async () => {
+    if (!user) return;
+    const res = await fetchApi(`/api/users/accounts/${user.id}/avatar/`, { method: 'DELETE' });
+    const data = (await res.json().catch(() => null)) as { detail?: string } | null;
+    if (!res.ok) throw new Error(data?.detail || 'No se pudo quitar la foto');
+    setPhotoUrl('');
+    onPatched(user.id, { avatar_url: '' }, 'Foto de perfil eliminada');
   };
 
   const suggestPassword = () => {
@@ -572,6 +601,19 @@ export default function UserFormModal({ open, mode, user, canDelegatePerms, onCl
   const panels: Record<FormTab, ReactNode> = {
     cuenta: (
       <div className="space-y-7">
+        {user ? (
+          <UserPhotoField
+            storedUrl={photoUrl}
+            pending={photoPending}
+            onPendingChange={setPhotoPending}
+            onRemoveStored={removeStoredPhoto}
+            name={`${form.first_name} ${form.last_name}`.trim() || displayName(user)}
+            username={form.username.trim() || user.username}
+            initials={initialsOf({ ...user, first_name: form.first_name, last_name: form.last_name, username: form.username })}
+            admin={form.role === 'admin'}
+            disabled={saving}
+          />
+        ) : null}
         {rolePicker}
         {identity}
       </div>
@@ -609,7 +651,7 @@ export default function UserFormModal({ open, mode, user, canDelegatePerms, onCl
           titleId={titleId}
           description={
             isEdit && user
-              ? `@${user.username} · Actualiza sus datos, acceso, correo de envío o firma.`
+              ? `@${user.username} · Actualiza su foto, datos, acceso, correo de envío o firma.`
               : 'Crea una cuenta de Técnico o Administrador con una contraseña segura.'
           }
           descriptionId={descId}

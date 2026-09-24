@@ -143,6 +143,41 @@ def _delete_avatar_public_id(public_id: str) -> None:
     _delete_signature_public_id(public_id)
 
 
+def _apply_avatar(perms_obj, user_id: int, raw) -> Response | None:
+    """Guarda o quita la foto de perfil. `raw` = data URL (subir) o '' (quitar).
+
+    Devuelve una respuesta 400 si la imagen no es válida; `None` si todo salió bien.
+    Compartido por `/me/` (foto propia) y `users/accounts/<id>/avatar/` (admin).
+    """
+    avatar = (raw or '').strip()
+    if avatar == '':
+        _delete_avatar_public_id(perms_obj.avatar_public_id)
+        perms_obj.avatar_url = ''
+        perms_obj.avatar_public_id = ''
+        perms_obj.save(update_fields=['avatar_url', 'avatar_public_id', 'updated_at'])
+        return None
+    if not _is_data_url(avatar):
+        return Response(
+            {'detail': 'La foto debe ser una imagen en base64 (data URL).'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        _delete_avatar_public_id(perms_obj.avatar_public_id)
+        url, public_id = _upload_avatar_data_url(user_id, avatar)
+    except ValueError:
+        return Response({'detail': 'Imagen inválida. Use formato JPEG, PNG o WebP.'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        logger.exception("Avatar upload failed for user %s", user_id)
+        return Response(
+            {'detail': 'Error al procesar la imagen. Intente con otra foto o más tarde.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    perms_obj.avatar_url = url
+    perms_obj.avatar_public_id = public_id
+    perms_obj.save(update_fields=['avatar_url', 'avatar_public_id', 'updated_at'])
+    return None
+
+
 class UserAccountViewSet(viewsets.ModelViewSet):
     """CRUD de cuentas del **equipo interno** (técnicos y administradores).
 
@@ -403,32 +438,9 @@ def me(request):
             user.email = email[:254]
 
     if 'avatar' in request.data and perms_obj is not None:
-        avatar = (request.data.get('avatar') or '').strip()
-        if avatar == '':
-            _delete_avatar_public_id(perms_obj.avatar_public_id)
-            perms_obj.avatar_url = ''
-            perms_obj.avatar_public_id = ''
-            perms_obj.save(update_fields=['avatar_url', 'avatar_public_id', 'updated_at'])
-        elif _is_data_url(avatar):
-            try:
-                _delete_avatar_public_id(perms_obj.avatar_public_id)
-                url, public_id = _upload_avatar_data_url(user.id, avatar)
-                perms_obj.avatar_url = url
-                perms_obj.avatar_public_id = public_id
-                perms_obj.save(update_fields=['avatar_url', 'avatar_public_id', 'updated_at'])
-            except ValueError:
-                return Response({'detail': 'Imagen inválida. Use formato JPEG, PNG o WebP.'}, status=status.HTTP_400_BAD_REQUEST)
-            except Exception:
-                logger.exception("Avatar upload failed for user %s", getattr(user, 'pk', '?'))
-                return Response(
-                    {'detail': 'Error al procesar la imagen. Intente con otra foto o más tarde.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        else:
-            return Response(
-                {'detail': 'La foto debe ser una imagen en base64 (data URL).'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        error = _apply_avatar(perms_obj, user.id, request.data.get('avatar'))
+        if error is not None:
+            return error
 
     user.save()
     user = User.objects.select_related('permissions_profile', 'smtp_credentials').get(pk=user.pk)
@@ -512,6 +524,28 @@ def user_permissions(request, user_id: int):
         obj.permissions = perms
         obj.save(update_fields=['permissions', 'updated_at'])
     return Response(UserPermissionsSerializer(obj).data)
+
+
+@api_view(['PUT', 'DELETE'])
+@permission_classes([IsAdminUser])
+def user_avatar(request, user_id: int):
+    """Foto de perfil de otro usuario del equipo (solo administradores).
+
+    PUT `{avatar: <data URL>}` la reemplaza; DELETE (o `avatar: ''`) la quita.
+    """
+    User = get_user_model()
+    user = User.objects.filter(id=user_id).first()
+    if not user or _es_cuenta_portal_cliente(user):
+        return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    perms_obj, _ = UserPermissions.objects.get_or_create(user=user)
+    raw = '' if request.method == 'DELETE' else request.data.get('avatar')
+    if request.method == 'PUT' and not (raw or '').strip():
+        return Response({'detail': 'Envía una imagen o usa DELETE para quitar la foto.'}, status=status.HTTP_400_BAD_REQUEST)
+    error = _apply_avatar(perms_obj, user.id, raw)
+    if error is not None:
+        return error
+    return Response({'avatar_url': perms_obj.avatar_url})
 
 
 def _can_read_user_signature(request, target_user_id: int) -> bool:

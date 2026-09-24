@@ -1,19 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useDropzone, type FileRejection } from "react-dropzone";
-import { Modal } from "@/components/ui/modal";
-import { getPublicIdFromUrl } from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
-import {
-  deleteProyectoImageFromCloudinary,
-} from "../../shared/proyectoImageApi";
-import {
-  collectProyectoImageFiles,
-  PROYECTO_IMAGE_ACCEPT,
-  proyectoImageRejectMessage,
-  uploadProyectoImageBatch,
-} from "../../shared/proyectoImageUpload";
-import { proyectoSectionHintClass } from "../../shared/proyectoPageStyles";
+import { useState, type CSSProperties } from "react";
+import { ImageOff, ImagePlus, Trash2, X } from "lucide-react";
+import { AppConfirmDialog } from "@/components/ui/modal-kit/ModalKit";
+import { Notice, ProgressBar } from "../../shared/ProyectoUi";
+import { focusRing, fontSans } from "../../shared/proyectoTokens";
+import { ProyectoImageLightbox } from "./ProyectoImageLightbox";
+import { useProyectoImageUploader } from "./useProyectoImageUploader";
 
-const PROYECTO_MAX_FOTOS = 10;
+export const PROYECTO_MAX_FOTOS = 10;
 const PROYECTO_FOTOS_FOLDER = "proyectos/evidencias";
 
 type Props = {
@@ -22,303 +15,138 @@ type Props = {
   disabled?: boolean;
 };
 
-/**
- * Evidencia fotográfica vía `/api/proyectos/upload-image/`.
- * Pensado para técnicos en celular (MIME vacío / HEIC / varias fotos a la vez).
- */
+/** Evidencia fotográfica del proyecto (hasta 10 fotos). */
 export function ProyectoEvidenciasField({ urls, onChange, disabled = false }: Props) {
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
-  const [uploadError, setUploadError] = useState("");
-  const [deleting, setDeleting] = useState(false);
-  const [brokenUrls, setBrokenUrls] = useState<Record<string, boolean>>({});
-  const [preview, setPreview] = useState<{ open: boolean; url: string; index: number }>({
-    open: false,
-    url: "",
-    index: -1,
-  });
-  const [confirmDelete, setConfirmDelete] = useState<{
-    open: boolean;
-    index: number | null;
-    url: string | null;
-  }>({ open: false, index: null, url: null });
-
-  const urlsRef = useRef(Array.isArray(urls) ? urls : []);
-  const uploadingRef = useRef(false);
-
-  // No pisar urlsRef con props viejas mientras hay una subida en curso.
-  useEffect(() => {
-    if (!uploadingRef.current) {
-      urlsRef.current = Array.isArray(urls) ? urls : [];
-    }
-  }, [urls]);
-
-  const onDrop = useCallback(
-    async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
-      if (disabled || uploadingRef.current) return;
-      setUploadError("");
-
-      if (fileRejections.length) {
-        const first = fileRejections[0]?.file;
-        setUploadError(proyectoImageRejectMessage(first?.name));
-      }
-
-      const remaining = PROYECTO_MAX_FOTOS - urlsRef.current.length;
-      if (remaining <= 0) {
-        setUploadError(`Ya alcanzaste el máximo de ${PROYECTO_MAX_FOTOS} fotos.`);
-        return;
-      }
-
-      const { files, heicFiles } = collectProyectoImageFiles(
-        acceptedFiles,
-        fileRejections.map((r) => r.file),
-        remaining
-      );
-
-      if (heicFiles.length && !files.length) {
-        setUploadError(proyectoImageRejectMessage(heicFiles[0]?.name));
-        return;
-      }
-
-      if (!files.length) {
-        if (!fileRejections.length) {
-          setUploadError("No se encontraron imágenes para subir.");
-        }
-        return;
-      }
-
-      uploadingRef.current = true;
-      setUploading(true);
-      setUploadProgress({ done: 0, total: files.length });
-      try {
-        const { failures } = await uploadProyectoImageBatch({
-          files,
-          folder: PROYECTO_FOTOS_FOLDER,
-          maxTotal: PROYECTO_MAX_FOTOS,
-          getCurrentUrls: () => urlsRef.current,
-          onUrlsChange: (next) => {
-            urlsRef.current = next;
-            onChange(next);
-          },
-          onProgress: setUploadProgress,
-        });
-
-        const allFailures = [...failures];
-        if (heicFiles.length) {
-          allFailures.push(proyectoImageRejectMessage(heicFiles[0]?.name));
-        }
-        if (allFailures.length) {
-          setUploadError(
-            allFailures.length === 1
-              ? allFailures[0]
-              : `No se pudieron subir ${allFailures.length} imagen(es). ${allFailures[0]}`
-          );
-        }
-      } finally {
-        uploadingRef.current = false;
-        setUploading(false);
-        setUploadProgress(null);
-      }
-    },
-    [disabled, onChange]
-  );
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    multiple: true,
-    maxFiles: PROYECTO_MAX_FOTOS,
-    disabled: disabled || uploading,
-    accept: PROYECTO_IMAGE_ACCEPT,
+  const safeUrls = Array.isArray(urls) ? urls : [];
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [broken, setBroken] = useState<Record<string, boolean>>({});
+  const up = useProyectoImageUploader({
+    urls: safeUrls,
+    onChange,
+    maxTotal: PROYECTO_MAX_FOTOS,
+    folder: PROYECTO_FOTOS_FOLDER,
+    disabled,
   });
 
-  const handleDelete = async () => {
-    if (confirmDelete.index == null || !confirmDelete.url) return;
-    const index = confirmDelete.index;
-    const url = confirmDelete.url;
-    const updated = urlsRef.current.filter((_, i) => i !== index);
-
-    setDeleting(true);
-    try {
-      const publicId = getPublicIdFromUrl(url);
-      if (publicId) {
-        await deleteProyectoImageFromCloudinary(publicId);
-      }
-    } catch (err) {
-      console.error("Error al eliminar evidencia de proyecto:", err);
-    } finally {
-      urlsRef.current = updated;
-      onChange(updated);
-      setConfirmDelete({ open: false, index: null, url: null });
-      setDeleting(false);
-    }
-  };
-
-  const displayUrls = Array.isArray(urls) ? urls : [];
+  const full = up.remaining <= 0;
 
   return (
-    <div className="space-y-3">
-      <p className={proyectoSectionHintClass}>
-        Máximo {PROYECTO_MAX_FOTOS} fotos · JPG o PNG en celular. 
-        Sube de a pocas si la red es lenta; guarda el proyecto al terminar.
-      </p>
-
-      {uploadError ? (
-        <p
-          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
-          role="alert"
-        >
-          {uploadError}
-        </p>
+    <div className="space-y-4">
+      {up.error ? (
+        <Notice tone="danger" role="alert">
+          {up.error}
+        </Notice>
       ) : null}
 
-      {!disabled ? (
-        <div className="cursor-pointer rounded-xl border border-dashed border-[#D3D3D8] transition hover:border-[#1B5CFF] dark:border-[#334155] dark:hover:border-[#1B5CFF]">
-          <div
-            {...getRootProps()}
-            className={`rounded-xl p-4 sm:p-5 ${
-              isDragActive
-                ? "border-[#1B5CFF] bg-[#F1F5FF] dark:bg-[#1e293b]"
-                : "bg-[#FAFAFA]/80 dark:bg-[#0f172a]/40"
+      {!disabled && !full ? (
+        <div
+          {...up.getRootProps({
+            className: `cot-press group flex cursor-pointer flex-col items-center justify-center rounded-[16px] border-2 border-dashed px-4 py-7 text-center transition-colors duration-200 ${focusRing} ${
+              up.isDragActive
+                ? "border-[#1B5CFF] bg-[#F5F8FF] dark:border-[#4B7CFF] dark:bg-[#1B2A63]/40"
+                : "border-[#E4E4E7] bg-[#FAFAFA] hover:border-[#BFD3FF] hover:bg-[#F5F8FF] dark:border-[#273244] dark:bg-[#0F172A]/50 dark:hover:border-[#2C3F7A]"
+            }`,
+          })}
+          role="button"
+          aria-label="Subir evidencia fotográfica"
+          aria-busy={up.uploading}
+        >
+          <input {...up.getInputProps()} />
+          <span
+            className={`mb-3 inline-flex size-12 items-center justify-center rounded-2xl bg-white text-[#1B5CFF] ring-1 ring-[#E4E4E7] transition-transform duration-200 group-hover:-translate-y-0.5 motion-reduce:transition-none dark:bg-[#111827] dark:text-[#7EA0FF] dark:ring-[#273244] ${
+              up.isDragActive ? "-translate-y-0.5" : ""
             }`}
-            role="button"
-            tabIndex={0}
-            aria-label="Subir evidencia fotográfica"
-            aria-busy={uploading}
           >
-            <input {...getInputProps()} />
-            <div className="m-0 flex flex-col items-center">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f0e8] text-[#57534e] dark:bg-[#1e293b] dark:text-[#94a3b8]">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                  <path d="M12 16V4m0 0 4 4m-4-4L8 8M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-[#1c1917] dark:text-[#f8fafc]">
-                {uploading
-                  ? uploadProgress
-                    ? `Subiendo ${uploadProgress.done} de ${uploadProgress.total}…`
-                    : "Subiendo…"
-                  : isDragActive
-                    ? "Suelta aquí para subir"
-                    : `Toca para elegir o tomar fotos (máx. ${PROYECTO_MAX_FOTOS})`}
-              </p>
-              <p className="mt-1 text-center text-[12px] text-[#78716c] dark:text-[#8ea0b8]">
-                JPG / PNG · {displayUrls.length}/{PROYECTO_MAX_FOTOS}
-              </p>
-            </div>
-          </div>
+            <ImagePlus className="size-5" aria-hidden />
+          </span>
+          <p className="text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+            {up.uploading
+              ? up.progress
+                ? `Subiendo ${up.progress.done} de ${up.progress.total}…`
+                : "Subiendo…"
+              : up.isDragActive
+                ? "Suelta para subir"
+                : "Toca para tomar o elegir fotos"}
+          </p>
+          <p className="mt-1 text-[12.5px] text-[#71717A] dark:text-[#8EA0B8]">
+            JPG o PNG · quedan {up.remaining} de {PROYECTO_MAX_FOTOS}
+          </p>
+          {up.uploading && up.progress ? (
+            <ProgressBar
+              value={(up.progress.done / up.progress.total) * 100}
+              className="mt-3 w-40"
+              label="Progreso de subida"
+            />
+          ) : null}
         </div>
       ) : null}
 
-      {uploading ? (
-        <p className="text-sm text-[#57534e] dark:text-[#b7c1d1]" role="status" aria-live="polite">
-          {uploadProgress
-            ? `Procesando foto ${Math.min(uploadProgress.done + 1, uploadProgress.total)} de ${uploadProgress.total}. No cierres el modal.`
-            : "Subiendo fotos… no cierres el modal."}
+      {up.uploading ? (
+        <p className="sr-only" role="status" aria-live="polite">
+          Subiendo fotos, no cierres la ventana.
         </p>
       ) : null}
 
-      {displayUrls.length > 0 ? (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5" aria-label="Evidencias del proyecto">
-          {displayUrls.map((url, index) => (
-            <li key={`${url}-${index}`} className="group relative">
+      {safeUrls.length > 0 ? (
+        <ul className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5" aria-label="Evidencias del proyecto">
+          {safeUrls.map((url, index) => (
+            <li key={`${url}-${index}`} className="cot-pop group relative aspect-square" style={{ "--cot-i": index } as CSSProperties}>
               <button
                 type="button"
-                onClick={() => setPreview({ open: true, url, index })}
-                className="block w-full cursor-zoom-in overflow-hidden rounded-lg border-2 border-[#E7E7EA] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:border-[#334155]"
-                aria-label={`Ver evidencia ${index + 1} en tamaño completo`}
+                onClick={() => setPreviewIndex(index)}
+                className={`block h-full w-full cursor-zoom-in overflow-hidden rounded-[12px] bg-[#F4F4F5] ring-1 ring-[#E4E4E7] dark:bg-[#1B2539] dark:ring-[#273244] ${focusRing}`}
+                aria-label={`Ver evidencia ${index + 1}`}
               >
-                {brokenUrls[url] ? (
-                  <div className="flex h-24 w-full items-center justify-center bg-[#f5f0e8] px-2 text-center text-[11px] text-[#78716c] dark:bg-[#1e293b] dark:text-[#8ea0b8]">
-                    No se pudo mostrar la miniatura
-                  </div>
+                {broken[url] ? (
+                  <span className="flex h-full w-full items-center justify-center text-[#A1A1AA]">
+                    <ImageOff className="size-5" aria-hidden />
+                  </span>
                 ) : (
                   <img
                     src={url}
                     alt={`Evidencia ${index + 1}`}
-                    className="pointer-events-none h-24 w-full object-cover"
+                    className="pointer-events-none h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04] motion-reduce:transition-none"
                     loading="lazy"
                     decoding="async"
                     referrerPolicy="no-referrer"
-                    onError={() => setBrokenUrls((prev) => ({ ...prev, [url]: true }))}
+                    onError={() => setBroken((prev) => ({ ...prev, [url]: true }))}
                   />
                 )}
               </button>
               {!disabled ? (
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmDelete({ open: true, index, url });
-                  }}
-                  className="absolute top-1 right-1 z-[1] flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full bg-rose-600 text-white opacity-100 transition hover:bg-rose-700 sm:h-7 sm:w-7 sm:min-h-0 sm:min-w-0 sm:opacity-0 sm:group-hover:opacity-100"
+                  onClick={() => up.requestDelete(index, url)}
+                  className="absolute right-1.5 top-1.5 inline-flex size-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-opacity duration-150 hover:bg-[#C22B2B] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:opacity-0 sm:group-hover:opacity-100"
                   aria-label={`Eliminar evidencia ${index + 1}`}
-                  title="Eliminar imagen"
+                  title="Eliminar"
                 >
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                    <path
-                      fillRule="evenodd"
-                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <X className="size-4" aria-hidden />
                 </button>
               ) : null}
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="text-sm text-[#78716c] dark:text-[#8ea0b8]" role="status">
+      ) : disabled || full ? null : (
+        <p className="text-[13px] text-[#71717A] dark:text-[#8EA0B8]" role="status">
           Aún no hay evidencias.
         </p>
       )}
 
-      <Modal
-        isOpen={preview.open}
-        onClose={() => setPreview({ open: false, url: "", index: -1 })}
-        ariaLabel={`Evidencia ${preview.index + 1}`}
-        className="w-full max-w-3xl overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FFFFFF] p-0 dark:border-[#273244] dark:bg-[#111a2b]"
-      >
-        <div className="p-3 sm:p-4">
-          {preview.url ? (
-            <img
-              src={preview.url}
-              alt={`Evidencia ${preview.index + 1} ampliada`}
-              className="max-h-[75vh] w-full object-contain"
-              referrerPolicy="no-referrer"
-            />
-          ) : null}
-        </div>
-      </Modal>
+      <ProyectoImageLightbox urls={safeUrls} index={previewIndex} onIndexChange={setPreviewIndex} label="Evidencia" />
 
-      <Modal
-        isOpen={confirmDelete.open}
-        onClose={() => !deleting && setConfirmDelete({ open: false, index: null, url: null })}
-        ariaLabel="Confirmar eliminación de evidencia"
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FFFFFF] p-5 dark:border-[#273244] dark:bg-[#111a2b]"
-      >
-        <h3 className="text-base font-semibold text-[#1c1917] dark:text-[#f8fafc]">Eliminar evidencia</h3>
-        <p className="mt-2 text-sm text-[#57534e] dark:text-[#b7c1d1]">
-          ¿Seguro que deseas eliminar esta foto? Esta acción no se puede deshacer.
-        </p>
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            disabled={deleting}
-            className="rounded-lg border border-[#E7E7EA] bg-white px-3 py-2 text-sm font-semibold dark:border-[#334155] dark:bg-[#0f172a]"
-            onClick={() => setConfirmDelete({ open: false, index: null, url: null })}
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={deleting}
-            className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
-            onClick={() => void handleDelete()}
-          >
-            {deleting ? "Eliminando…" : "Eliminar"}
-          </button>
-        </div>
-      </Modal>
+      <AppConfirmDialog
+        open={up.pendingDelete != null}
+        onClose={up.cancelDelete}
+        onConfirm={up.confirmDelete}
+        tone="danger"
+        icon={<Trash2 className="size-5" />}
+        title="Eliminar evidencia"
+        description="La foto se borra del almacenamiento. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        busyLabel="Eliminando…"
+        className={fontSans}
+      />
     </div>
   );
 }

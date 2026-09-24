@@ -1,36 +1,24 @@
-import { useId } from "react";
+import { useId, type KeyboardEvent } from "react";
+import { ArrowLeft, ArrowRight, Check, FolderKanban, Trash2, X } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import Alert from "@/components/ui/alert/Alert";
+import { AppConfirmDialog, AppModalContext, AppSpinner } from "@/components/ui/modal-kit/ModalKit";
 import { useAuth } from "@/context/AuthContext";
-import {
-  erpDangerBtnClass,
-  erpDeleteModalClass,
-  erpDeleteModalPanelClass,
-  erpModalBodyClass,
-  erpModalFooterClass,
-  erpModalFormScrollClass,
-  erpModalSansStyle,
-  erpModalSecondaryBtnClass,
-  erpModalShellClass,
-  erpModalTabClass,
-  erpModalTabListClass,
-} from "../../OrdenesTrabajo/ordenTrabajoStyles";
-import {
-  claudeBodyClass as erpBodyClass,
-  erpSecondaryBtnClass,
-  erpSubheadingClass,
-} from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
-import {
-  OrdenFormModalHeader,
-  OrdenModalPrimaryButton,
-} from "../../OrdenesTrabajo/OrdenTrabajoModals";
-import { ProyectoFormInstalacionesPanel, type ProyectoInstalacionDraft } from "../instalaciones";
+import { displayProyectoFolio } from "../shared/proyectoFormUtils";
+import { EstadoPill, ProgressBar } from "../shared/ProyectoUi";
+import { btn, fontSans } from "../shared/proyectoTokens";
+import type { ProyectoInstalacionDraft } from "../instalaciones";
 import { ProyectoCotizacionPickerModal } from "./cotizaciones/ProyectoCotizacionPickerModal";
-import { ProyectoClienteTab } from "./tabs/ProyectoClienteTab";
-import { ProyectoOperacionTab } from "./tabs/ProyectoOperacionTab";
-import { ProyectoPresupuestoTab } from "./tabs/ProyectoPresupuestoTab";
-import { useProyectoFormState, type ProyectoFormTab } from "./useProyectoFormState";
 import { ProyectoSyscomModeloPicker } from "./fields/ProyectoSyscomModeloPicker";
+import { ProyectoStepChips, ProyectoStepRail } from "./ProyectoFormSteps";
+import { PROYECTO_STEPS } from "./proyectoSteps";
+import { ProyectoCampoTab } from "./tabs/ProyectoCampoTab";
+import { ProyectoCierreTab } from "./tabs/ProyectoCierreTab";
+import { ProyectoEquiposTab } from "./tabs/ProyectoEquiposTab";
+import { ProyectoGeneralTab } from "./tabs/ProyectoGeneralTab";
+import { ProyectoInstalacionTab } from "./tabs/ProyectoInstalacionTab";
+import { ProyectoPlaneacionTab } from "./tabs/ProyectoPlaneacionTab";
+import { PROYECTO_TAB_ORDER, useProyectoFormState, type ProyectoFormTab } from "./useProyectoFormState";
 import type { ProyectoDraft } from "../shared/proyectoTypes";
 
 export type ProyectoFormModalAlert = {
@@ -45,6 +33,8 @@ type ProyectoFormModalProps = {
   editing: boolean;
   /** ID del proyecto en edición; null/undefined en alta nueva. */
   proyectoId?: number | null;
+  /** Folio del proyecto en edición (encabezado). */
+  folio?: string | null;
   initialDraft: ProyectoDraft;
   onClose: () => void;
   onSave: (
@@ -61,17 +51,13 @@ type ProyectoFormModalProps = {
   isSaving?: boolean;
 };
 
-const FORM_TABS: { id: ProyectoFormTab; label: string; step: string }[] = [
-  { id: "cliente", label: "Cliente", step: "Paso 1" },
-  { id: "instalaciones", label: "Instalaciones", step: "Paso 2" },
-  { id: "operacion", label: "Operación", step: "Paso 3" },
-  { id: "presupuesto", label: "Presupuesto", step: "Paso 4" },
-];
+const modalShell = `${fontSans} flex h-[min(94dvh,58rem)] w-full flex-col overflow-hidden rounded-t-[22px] border border-[#E7E7EA] bg-white! p-0 shadow-[0_32px_80px_-24px_rgba(9,9,11,0.45)] dark:border-[#273244] dark:bg-[#111827]! sm:h-[min(92dvh,58rem)] sm:w-[min(96vw,74rem)] sm:max-w-none sm:rounded-[22px]`;
 
 export default function ProyectoFormModal({
   open,
   editing,
   proyectoId = null,
+  folio = null,
   initialDraft,
   onClose,
   onSave,
@@ -79,133 +65,74 @@ export default function ProyectoFormModal({
   isSaving = false,
 }: ProyectoFormModalProps) {
   const { isAdmin } = useAuth();
-  const clearCotizacionesTitleId = useId();
-
+  const titleId = useId();
+  const form = useProyectoFormState({ open, proyectoId: proyectoId ?? null, initialDraft, onSave });
   const {
     formRef,
     formScrollRef,
     activeTab,
-    setActiveTab,
+    selectTab,
+    stepState,
+    saveNow,
     goToNextTab,
     goToPrevTab,
-    handleTabKeyDown,
+    handleSubmit,
     tabIds,
     panelIds,
-    instalacionDraft,
-    setInstalacionDraft,
     cliente,
-    setCliente,
-    cotizaciones,
-    equipos,
-    tiposTrabajo,
-    setTiposTrabajo,
-    assignedTechnicianLocked,
     status,
-    motivoPausa,
-    setMotivoPausa,
-    motivoCancelacion,
-    setMotivoCancelacion,
-    fechaAutorizacion,
-    setFechaAutorizacion,
-    quienAutorizo,
-    setQuienAutorizo,
-    fechasInicio,
-    fechaDesde,
-    fechaHasta,
-    horaLlegada,
-    setHoraLlegada,
-    horaSalida,
-    setHoraSalida,
-    tecnicosAsignados,
-    setTecnicosAsignados,
-    auxiliaresAsignados,
-    setAuxiliaresAsignados,
-    vehiculoAsignado,
-    setVehiculoAsignado,
-    herramientasGenerales,
-    setHerramientasGenerales,
-    notasPorDia,
     porcentajeAvance,
-    porcentajeExacto,
-    setPorcentajeExacto,
-    incidencias,
-    setIncidencias,
-    requerimientosAdicionales,
-    setRequerimientosAdicionales,
-    requierePresupuestoAdicional,
-    setRequierePresupuestoAdicional,
-    cotizacionAdicional,
-    setCotizacionAdicional,
-    monitoreo,
-    setMonitoreo,
-    statusAdministrativo,
-    setStatusAdministrativo,
-    fechaEnvioAdmin,
-    setFechaEnvioAdmin,
-    evidenciasUrls,
-    setEvidenciasUrls,
-    firmaClienteUrl,
-    setFirmaClienteUrl,
-    firmaTecnicoUrl,
-    tecnicoSignatureUrl,
-    closeBlockedMessage,
-    setCloseBlockedMessage,
-    servicios,
-    catalogError,
-    notasLiveMessage,
-    clienteStepError,
-    setClienteStepError,
-    operacionErrors,
-    notaDiaErrors,
-    horaSalidaError,
-    setHoraSalidaError,
-    presupuestoCargado,
-    equiposPorCotizacion,
-    tecnicoOptions,
+    assignedTechnicianLocked,
+    cotizaciones,
     pickerOpen,
     setPickerOpen,
     confirmClearCotizaciones,
     setConfirmClearCotizaciones,
-    pickerTarget,
-    pickerTab,
-    setPickerTab,
-    pickerSearch,
-    setPickerSearch,
-    setPickerResults,
-    pickerLoading,
-    pickerError,
-    setPickerError,
-    pickerLoadingId,
-    cotizacionesFiltradas,
     modeloPickerLineaId,
     setModeloPickerLineaId,
     equipoParaModeloPicker,
-    handleSubmit,
-    handleStatusChange,
-    handleCargarCotizacion,
-    openCotizacionPicker,
-    handleQuitarCotizacion,
-    handleLimpiarPresupuesto,
-    updateEquipo,
-    handleSelectModeloSyscom,
-    handleRestaurarModeloOriginal,
-    diasRangoCount,
-    setFechaRangoStart,
-    setFechaRangoEnd,
-    addNotaDia,
-    removeNotaDia,
-    updateNotaDia,
-    updateNotaDiaImagenes,
-    setPorcentajeAvanceSafe,
-    handlePorcentajeExactoChange,
-    stampHoraLlegada,
-    stampHoraSalida,
-  } = useProyectoFormState({
-    open,
-    proyectoId: proyectoId ?? null,
-    initialDraft,
-    onSave,
-  });
+  } = form;
+
+  const stepIndex = PROYECTO_TAB_ORDER.indexOf(activeTab);
+  const step = PROYECTO_STEPS[stepIndex];
+  const isFirst = stepIndex === 0;
+  const isLast = stepIndex === PROYECTO_TAB_ORDER.length - 1;
+
+  const blockedEscape = pickerOpen || Boolean(modeloPickerLineaId) || confirmClearCotizaciones || isSaving;
+
+  /** Flechas entre pasos: enfoca el botón visible (riel en escritorio, chip en móvil). */
+  const onStepKeyDown = (e: KeyboardEvent<HTMLButtonElement>, current: ProyectoFormTab) => {
+    const idx = PROYECTO_TAB_ORDER.indexOf(current);
+    const last = PROYECTO_TAB_ORDER.length - 1;
+    const map: Record<string, number> = {
+      ArrowDown: idx === last ? 0 : idx + 1,
+      ArrowRight: idx === last ? 0 : idx + 1,
+      ArrowUp: idx === 0 ? last : idx - 1,
+      ArrowLeft: idx === 0 ? last : idx - 1,
+      Home: 0,
+      End: last,
+    };
+    if (!(e.key in map)) return;
+    e.preventDefault();
+    const next = PROYECTO_TAB_ORDER[map[e.key]];
+    selectTab(next);
+    requestAnimationFrame(() => {
+      const candidates = [document.getElementById(tabIds[next]), document.getElementById(`${tabIds[next]}-m`)];
+      candidates.find((el) => el && el.getClientRects().length > 0)?.focus();
+    });
+  };
+
+  const stepProps = {
+    activeTab,
+    stepState,
+    tabIds,
+    panelIds,
+    disabled: isSaving,
+    onSelect: selectTab,
+    onKeyDown: onStepKeyDown,
+  };
+
+  const saveLabel = isSaving ? "Guardando…" : editing ? "Guardar cambios" : "Crear proyecto";
 
   return (
     <>
@@ -214,358 +141,218 @@ export default function ProyectoFormModal({
         isOpen={open}
         onClose={onClose}
         closeOnBackdropClick={false}
-        closeOnEscape={!pickerOpen && !modeloPickerLineaId && !confirmClearCotizaciones && !isSaving}
-        ariaLabel={`${editing ? "Editar" : "Nuevo"} proyecto`}
-        className={erpModalShellClass}
+        closeOnEscape={!blockedEscape}
+        showCloseButton={false}
+        ariaLabelledBy={titleId}
+        className={modalShell}
       >
-        <div
-          className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
-          style={erpModalSansStyle}
-        >
-        <OrdenFormModalHeader
-          editing={editing}
-          contextLabel="Operación · Proyectos"
-          title={`${editing ? "Editar" : "Nuevo"} proyecto`}
-          subtitle="Captura y revisa los datos antes de guardar"
-        />
+        {/* Encabezado vivo: refleja cliente, status y avance mientras se edita. */}
+        <header className="cot-sheen relative shrink-0 overflow-hidden bg-[#17235B] text-white dark:bg-[#1B2A63]">
+          <div className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-[#E6A23C]/15 blur-3xl" aria-hidden />
+          <div className="relative flex items-start gap-3.5 px-5 pb-4 pr-16 pt-5 sm:px-6">
+            <span
+              className="hidden size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C] sm:inline-flex"
+              aria-hidden
+            >
+              <FolderKanban className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">
+                  {editing ? `Proyecto ${displayProyectoFolio(folio)}` : "Nuevo proyecto"}
+                </p>
+                {editing ? <EstadoPill key={status} estado={status} size="sm" className="cot-pop ring-white/20" /> : null}
+              </div>
+              <h2
+                id={titleId}
+                className="mt-1 truncate text-[20px] font-semibold leading-tight tracking-[-0.5px] sm:text-[22px]"
+                title={cliente}
+              >
+                {cliente.trim() || (editing ? "Proyecto sin cliente" : "Nuevo proyecto")}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              aria-label="Cerrar ventana"
+              className="cot-press absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-[10px] text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-40"
+            >
+              <X className="size-5" aria-hidden />
+            </button>
+          </div>
+          {editing ? (
+            <div className="relative flex items-center gap-3 px-5 pb-4 sm:px-6">
+              <ProgressBar
+                value={porcentajeAvance}
+                barClass="bg-[#E6A23C]"
+                className="flex-1 bg-white/10!"
+                label="Avance del proyecto"
+              />
+              <span key={porcentajeAvance} className="cot-flash w-11 text-right text-[13px] font-semibold tabular-nums text-white/85">
+                {porcentajeAvance}%
+              </span>
+            </div>
+          ) : null}
+        </header>
 
-        <div className={erpModalBodyClass}>
-          <form ref={formRef} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1">
+          <aside className="hidden w-64 shrink-0 flex-col border-r border-[#F0F0F2] bg-[#FAFAFA] p-3 dark:border-[#1F2A3C] dark:bg-[#0F172A]/60 md:flex">
+            <ProyectoStepRail {...stepProps} />
+            {assignedTechnicianLocked ? (
+              <p className="mt-auto rounded-[12px] bg-white px-3 py-2.5 text-[12px] leading-relaxed text-[#6E6E77] ring-1 ring-[#F0F0F2] dark:bg-[#111827] dark:text-[#8EA0B8] dark:ring-[#1F2A3C]">
+                Cotizaciones, tipos de trabajo, fecha de autorización y equipo asignado los define la oficina. Tú registras campo, equipos y cierre.
+              </p>
+            ) : null}
+          </aside>
+
+          <form ref={formRef} onSubmit={handleSubmit} className="flex min-h-0 min-w-0 flex-1 flex-col" noValidate>
+            <div className="shrink-0 border-b border-[#F0F0F2] px-3 py-2.5 dark:border-[#1F2A3C] md:hidden">
+              <ProyectoStepChips {...stepProps} />
+            </div>
+
             <div
               ref={formScrollRef}
-              className={erpModalFormScrollClass}
+              className="custom-scrollbar erp-modal-form-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[#F7F7F8] dark:bg-[#0B1220]"
               data-proyecto-form-scroll
               data-signature-scroll-lock
             >
-              {modalAlert?.show ? (
-                <div className="mb-4" role="alert">
-                  <Alert
-                    variant={modalAlert.variant}
-                    title={modalAlert.title}
-                    message={modalAlert.message}
-                    showLink={false}
-                    placement="inline"
-                  />
-                </div>
-              ) : null}
+              <div className="mx-auto w-full max-w-4xl space-y-4 p-3 sm:p-5 lg:p-6">
+                {modalAlert?.show ? (
+                  <div role="alert">
+                    <Alert
+                      variant={modalAlert.variant}
+                      title={modalAlert.title}
+                      message={modalAlert.message}
+                      showLink={false}
+                      placement="inline"
+                    />
+                  </div>
+                ) : null}
 
-              <div
-                className={erpModalTabListClass}
-                role="tablist"
-                aria-label="Secciones del proyecto"
-              >
-                {FORM_TABS.map((tab, index) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    id={tabIds[tab.id]}
-                    role="tab"
-                    tabIndex={activeTab === tab.id ? 0 : -1}
-                    aria-selected={activeTab === tab.id}
-                    aria-controls={panelIds[tab.id]}
-                    disabled={isSaving}
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                      setClienteStepError("");
-                    }}
-                    onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
-                    className={erpModalTabClass(activeTab === tab.id)}
-                  >
-                    <span className="tabular-nums opacity-70 sm:hidden" aria-hidden>
-                      {index + 1}.
+                <div key={activeTab} id={panelIds[activeTab]} role="tabpanel" aria-labelledby={tabIds[activeTab]} className="space-y-4">
+                  <div className="cot-fade hidden items-center gap-3 px-1 pt-1 sm:flex">
+                    <span
+                      className="inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-white text-[#1B5CFF] ring-1 ring-[#E4E4E7] dark:bg-[#111827] dark:text-[#7EA0FF] dark:ring-[#273244]"
+                      aria-hidden
+                    >
+                      <step.icon className="size-5" />
                     </span>
-                    <span className="ml-1 sm:ml-0">{tab.label}</span>
-                    <span className="sr-only"> ({tab.step})</span>
-                  </button>
-                ))}
-              </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] dark:text-[#7EA0FF]">
+                        Paso {stepIndex + 1} de {PROYECTO_TAB_ORDER.length}
+                      </p>
+                      <p className="text-[20px] font-semibold leading-tight tracking-[-0.4px] text-[#09090B] dark:text-[#F8FAFC]">
+                        {step.label}
+                      </p>
+                    </div>
+                  </div>
 
-              {activeTab === "cliente" && (
-                <ProyectoClienteTab
-                  panelId={panelIds.cliente}
-                  labelledBy={tabIds.cliente}
-                  cliente={cliente}
-                  setCliente={setCliente}
-                  clienteStepError={clienteStepError}
-                  setClienteStepError={setClienteStepError}
-                  quienAutorizo={quienAutorizo}
-                  setQuienAutorizo={setQuienAutorizo}
-                  presupuestoCargado={presupuestoCargado}
-                  cotizaciones={cotizaciones}
-                  setConfirmClearCotizaciones={setConfirmClearCotizaciones}
-                  openCotizacionPicker={openCotizacionPicker}
-                  handleQuitarCotizacion={handleQuitarCotizacion}
-                  assignedTechnicianLocked={assignedTechnicianLocked}
-                  isAdmin={isAdmin}
-                  statusAdministrativo={statusAdministrativo}
-                  setStatusAdministrativo={setStatusAdministrativo}
-                  fechaEnvioAdmin={fechaEnvioAdmin}
-                  setFechaEnvioAdmin={setFechaEnvioAdmin}
-                />
-              )}
-
-              {activeTab === "operacion" && (
-                <ProyectoOperacionTab
-                  panelId={panelIds.operacion}
-                  labelledBy={tabIds.operacion}
-                  editing={editing}
-                  catalogError={catalogError}
-                  servicios={servicios}
-                  tiposTrabajo={tiposTrabajo}
-                  setTiposTrabajo={setTiposTrabajo}
-                  assignedTechnicianLocked={assignedTechnicianLocked}
-                  status={status}
-                  handleStatusChange={handleStatusChange}
-                  isAdmin={isAdmin}
-                  motivoPausa={motivoPausa}
-                  setMotivoPausa={setMotivoPausa}
-                  motivoCancelacion={motivoCancelacion}
-                  setMotivoCancelacion={setMotivoCancelacion}
-                  statusChangedByName={initialDraft.statusChangedByName}
-                  statusChangedAt={initialDraft.statusChangedAt}
-                  creadoPorName={initialDraft.creadoPorName}
-                  createdAt={initialDraft.createdAt}
-                  fechaAutorizacion={fechaAutorizacion}
-                  setFechaAutorizacion={setFechaAutorizacion}
-                  horaLlegada={horaLlegada}
-                  setHoraLlegada={setHoraLlegada}
-                  horaSalida={horaSalida}
-                  setHoraSalida={setHoraSalida}
-                  horaSalidaError={horaSalidaError}
-                  setHoraSalidaError={setHoraSalidaError}
-                  stampHoraLlegada={stampHoraLlegada}
-                  stampHoraSalida={stampHoraSalida}
-                  fechaDesde={fechaDesde}
-                  fechaHasta={fechaHasta}
-                  setFechaRangoStart={setFechaRangoStart}
-                  setFechaRangoEnd={setFechaRangoEnd}
-                  operacionErrors={operacionErrors}
-                  notaDiaErrors={notaDiaErrors}
-                  diasRangoCount={diasRangoCount}
-                  fechasInicio={fechasInicio}
-                  tecnicosAsignados={tecnicosAsignados}
-                  setTecnicosAsignados={setTecnicosAsignados}
-                  auxiliaresAsignados={auxiliaresAsignados}
-                  setAuxiliaresAsignados={setAuxiliaresAsignados}
-                  vehiculoAsignado={vehiculoAsignado}
-                  setVehiculoAsignado={setVehiculoAsignado}
-                  herramientasGenerales={herramientasGenerales}
-                  setHerramientasGenerales={setHerramientasGenerales}
-                  tecnicoOptions={tecnicoOptions}
-                  notasPorDia={notasPorDia}
-                  notasLiveMessage={notasLiveMessage}
-                  addNotaDia={addNotaDia}
-                  removeNotaDia={removeNotaDia}
-                  updateNotaDia={updateNotaDia}
-                  updateNotaDiaImagenes={updateNotaDiaImagenes}
-                  porcentajeAvance={porcentajeAvance}
-                  porcentajeExacto={porcentajeExacto}
-                  setPorcentajeAvanceSafe={setPorcentajeAvanceSafe}
-                  handlePorcentajeExactoChange={handlePorcentajeExactoChange}
-                  setPorcentajeExacto={setPorcentajeExacto}
-                  closeBlockedMessage={closeBlockedMessage}
-                  setCloseBlockedMessage={setCloseBlockedMessage}
-                  incidencias={incidencias}
-                  setIncidencias={setIncidencias}
-                  requerimientosAdicionales={requerimientosAdicionales}
-                  setRequerimientosAdicionales={setRequerimientosAdicionales}
-                  requierePresupuestoAdicional={requierePresupuestoAdicional}
-                  setRequierePresupuestoAdicional={setRequierePresupuestoAdicional}
-                  cotizacionAdicional={cotizacionAdicional}
-                  setCotizacionAdicional={setCotizacionAdicional}
-                  monitoreo={monitoreo}
-                  setMonitoreo={setMonitoreo}
-                  openCotizacionPicker={openCotizacionPicker}
-                  evidenciasUrls={evidenciasUrls}
-                  setEvidenciasUrls={setEvidenciasUrls}
-                  firmaClienteUrl={firmaClienteUrl}
-                  setFirmaClienteUrl={setFirmaClienteUrl}
-                  firmaTecnicoUrl={firmaTecnicoUrl}
-                  tecnicoSignatureUrl={tecnicoSignatureUrl}
-                />
-              )}
-
-              {activeTab === "presupuesto" && (
-                <ProyectoPresupuestoTab
-                  panelId={panelIds.presupuesto}
-                  labelledBy={tabIds.presupuesto}
-                  presupuestoCargado={presupuestoCargado}
-                  cotizaciones={cotizaciones}
-                  isAdmin={isAdmin}
-                  equipos={equipos}
-                  equiposPorCotizacion={equiposPorCotizacion}
-                  onUpdateEquipo={updateEquipo}
-                  onCambiarModelo={setModeloPickerLineaId}
-                  onRestaurarModelo={handleRestaurarModeloOriginal}
-                />
-              )}
-
-              {activeTab === "instalaciones" && (
-                <div
-                  id={panelIds.instalaciones}
-                  role="tabpanel"
-                  aria-labelledby={tabIds.instalaciones}
-                  className="space-y-5"
-                >
-                  <ProyectoFormInstalacionesPanel
-                    proyectoId={proyectoId ?? null}
-                    active={activeTab === "instalaciones"}
-                    draft={instalacionDraft}
-                    onDraftChange={setInstalacionDraft}
-                  />
+                  {activeTab === "general" ? <ProyectoGeneralTab form={form} isAdmin={isAdmin} /> : null}
+                  {activeTab === "planeacion" ? <ProyectoPlaneacionTab form={form} editing={editing} /> : null}
+                  {activeTab === "equipos" ? <ProyectoEquiposTab form={form} isAdmin={isAdmin} /> : null}
+                  {activeTab === "instalacion" ? <ProyectoInstalacionTab form={form} proyectoId={proyectoId ?? null} /> : null}
+                  {activeTab === "campo" ? (
+                    <ProyectoCampoTab form={form} isAdmin={isAdmin} editing={editing} initialDraft={initialDraft} />
+                  ) : null}
+                  {activeTab === "cierre" ? <ProyectoCierreTab form={form} /> : null}
                 </div>
-              )}
+              </div>
             </div>
-          </form>
 
-          <footer className={erpModalFooterClass}>
-            {/* En móvil: Cancelar/Anterior + Siguiente/Guardar en 2 columnas (targets ≥44px). */}
-            <div className="grid grid-cols-2 gap-2.5 sm:flex sm:justify-end sm:gap-3">
+            {/* Celular: rejilla a todo el ancho ([←] [Siguiente] [Guardar]); escritorio: acciones a la derecha. */}
+            <footer
+              className={`grid shrink-0 gap-2 border-t border-[#F0F0F2] bg-white px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#1F2A3C] dark:bg-[#111827] sm:flex sm:items-center sm:px-5 sm:pb-3 ${
+                !isLast && editing ? "grid-cols-[2.75rem_1fr_1fr]" : "grid-cols-[2.75rem_1fr]"
+              }`}
+            >
               <button
                 type="button"
                 disabled={isSaving}
-                onClick={activeTab === "cliente" ? onClose : goToPrevTab}
-                className={erpModalSecondaryBtnClass}
+                onClick={isFirst ? onClose : goToPrevTab}
+                className={`${btn.secondary} px-0 sm:px-4`}
+                aria-label={isFirst ? "Cancelar" : "Paso anterior"}
+                title={isFirst ? "Cancelar" : "Paso anterior"}
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                  {activeTab === "cliente" ? (
-                    <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                  ) : (
-                    <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
-                  )}
-                </svg>
-                <span className="truncate">{activeTab === "cliente" ? "Cancelar" : "Anterior"}</span>
+                {isFirst ? <X aria-hidden /> : <ArrowLeft aria-hidden />}
+                <span className="hidden sm:inline">{isFirst ? "Cancelar" : "Anterior"}</span>
               </button>
-              {activeTab !== "presupuesto" ? (
-                <OrdenModalPrimaryButton
+
+              <span className="hidden flex-1 text-center text-[12.5px] text-[#71717A] dark:text-[#8EA0B8] lg:block" aria-hidden>
+                Paso {stepIndex + 1} de {PROYECTO_TAB_ORDER.length} · {step.label}
+              </span>
+
+              {!isLast ? (
+                <button
                   type="button"
                   disabled={isSaving}
                   onClick={(e) => {
                     e.preventDefault();
-                    e.stopPropagation();
                     goToNextTab(true);
                   }}
+                  className={`${editing ? btn.secondary : btn.primary} px-3 sm:ml-auto lg:ml-0`}
                 >
-                  <svg
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    aria-hidden
-                  >
-                    <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
                   Siguiente
-                </OrdenModalPrimaryButton>
-              ) : (
-                <OrdenModalPrimaryButton
+                  <ArrowRight aria-hidden />
+                </button>
+              ) : null}
+              {editing || isLast ? (
+                <button
                   type="button"
                   disabled={!cliente.trim() || isSaving}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    formRef.current?.requestSubmit();
-                  }}
+                  aria-busy={isSaving || undefined}
+                  onClick={() => void saveNow()}
+                  className={`${btn.primary} px-3 ${isLast ? "sm:ml-auto lg:ml-0" : ""}`}
                 >
-                  {isSaving ? (
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                      <path d="M22 12a10 10 0 0 1-10 10" strokeLinecap="round" />
-                    </svg>
-                  ) : (
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      aria-hidden
-                    >
-                      <path d="M5 12l4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                  <span className="truncate sm:hidden">
-                    {isSaving ? "Guardando…" : editing ? "Guardar" : "Crear"}
-                  </span>
-                  <span className="hidden truncate sm:inline">
-                    {isSaving ? "Guardando…" : editing ? "Guardar cambios" : "Crear proyecto"}
-                  </span>
-                </OrdenModalPrimaryButton>
-              )}
-            </div>
-          </footer>
-        </div>
+                  {isSaving ? <AppSpinner /> : <Check aria-hidden />}
+                  <span className="sm:hidden">{isSaving ? "Guardando…" : editing ? "Guardar" : "Crear"}</span>
+                  <span className="hidden sm:inline">{saveLabel}</span>
+                </button>
+              ) : null}
+            </footer>
+          </form>
         </div>
       </Modal>
 
       <ProyectoCotizacionPickerModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        pickerTarget={pickerTarget}
-        pickerTab={pickerTab}
-        setPickerTab={setPickerTab}
-        pickerSearch={pickerSearch}
-        setPickerSearch={setPickerSearch}
-        setPickerResults={setPickerResults}
-        setPickerError={setPickerError}
-        pickerLoading={pickerLoading}
-        pickerError={pickerError}
-        cotizacionesFiltradas={cotizacionesFiltradas}
-        pickerLoadingId={pickerLoadingId}
-        onSelect={handleCargarCotizacion}
+        pickerTarget={form.pickerTarget}
+        pickerTab={form.pickerTab}
+        setPickerTab={form.setPickerTab}
+        pickerSearch={form.pickerSearch}
+        setPickerSearch={form.setPickerSearch}
+        setPickerResults={form.setPickerResults}
+        setPickerError={form.setPickerError}
+        pickerLoading={form.pickerLoading}
+        pickerError={form.pickerError}
+        cotizacionesFiltradas={form.cotizacionesFiltradas}
+        pickerLoadingId={form.pickerLoadingId}
+        onSelect={form.handleCargarCotizacion}
       />
 
-      <Modal
-        isOpen={confirmClearCotizaciones}
+      <AppConfirmDialog
+        open={confirmClearCotizaciones}
         onClose={() => setConfirmClearCotizaciones(false)}
-        closeOnBackdropClick={false}
-        closeOnEscape
-        showCloseButton={false}
-        ariaLabelledBy={clearCotizacionesTitleId}
-        className={`${erpDeleteModalClass} z-100000`}
-      >
-        <div className={erpDeleteModalPanelClass} style={erpModalSansStyle}>
-          <div className="mb-4 flex flex-col items-center text-center">
-            <span
-              className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
-              aria-hidden
-            >
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path
-                  d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <h3 id={clearCotizacionesTitleId} className={erpSubheadingClass}>
-              Quitar todas las cotizaciones
-            </h3>
-            <p className={`mt-2 text-sm ${erpBodyClass}`}>
-              Se eliminarán {cotizaciones.length}{" "}
-              {cotizaciones.length === 1 ? "cotización" : "cotizaciones"} del proyecto, junto con su presupuesto y el
-              seguimiento de equipos. Esta acción no se puede deshacer.
-            </p>
-          </div>
-          <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-center sm:gap-3">
-            <button
-              type="button"
-              onClick={() => setConfirmClearCotizaciones(false)}
-              className={`${erpSecondaryBtnClass} sm:min-w-28`}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleLimpiarPresupuesto}
-              className={`${erpDangerBtnClass} sm:min-w-28 sm:flex-none`}
-            >
-              Sí, quitar todas
-            </button>
-          </div>
-        </div>
-      </Modal>
+        onConfirm={form.handleLimpiarPresupuesto}
+        tone="danger"
+        icon={<Trash2 className="size-5" />}
+        title="Quitar todas las cotizaciones"
+        description="Se quitarán del proyecto junto con su presupuesto y el seguimiento de equipos."
+        detail={
+          <AppModalContext
+            rows={[
+              {
+                label: "Cotizaciones vinculadas",
+                value: cotizaciones.length.toLocaleString("es-MX"),
+                strong: true,
+              },
+            ]}
+          />
+        }
+        confirmLabel="Sí, quitar todas"
+        className={fontSans}
+      />
 
       <ProyectoSyscomModeloPicker
         open={Boolean(equipoParaModeloPicker)}
@@ -573,7 +360,7 @@ export default function ProyectoFormModal({
         modeloActual={equipoParaModeloPicker?.modelo ?? ""}
         fuentePreferida={equipoParaModeloPicker?.fuenteProducto}
         onClose={() => setModeloPickerLineaId(null)}
-        onSelect={handleSelectModeloSyscom}
+        onSelect={form.handleSelectModeloSyscom}
       />
     </>
   );

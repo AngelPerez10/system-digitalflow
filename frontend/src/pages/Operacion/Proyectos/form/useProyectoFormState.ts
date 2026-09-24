@@ -28,6 +28,7 @@ import {
   reindexCotizacionBloques,
   responsableFromTecnicos,
   tiposTrabajoFromLegacy,
+  proyectoTieneTipoAlarmas,
 } from "../shared/proyectoFormUtils";
 import type {
   ProyectoCotizacionBloque,
@@ -49,9 +50,28 @@ import {
   toHttpsImageUrl,
 } from "@/pages/Operacion/shared/tecnicoSignatureDisplay";
 
-export type ProyectoFormTab = "cliente" | "operacion" | "presupuesto" | "instalaciones";
+/**
+ * Pasos del modal. Planeación la captura la oficina; Campo y Cierre, el técnico.
+ * - general: cliente, cotizaciones y seguimiento administrativo
+ * - planeacion: tipos de trabajo, fechas y equipo de campo (validación obligatoria)
+ * - equipos: presupuesto sin precios + entrega/instalación
+ * - instalacion: ficha GPS
+ * - campo: status, horario, bitácora, avance e incidencias
+ * - cierre: evidencias y firmas
+ */
+export type ProyectoFormTab = "general" | "planeacion" | "equipos" | "instalacion" | "campo" | "cierre";
 
-const TAB_ORDER: ProyectoFormTab[] = ["cliente", "instalaciones", "operacion", "presupuesto"];
+export const PROYECTO_TAB_ORDER: ProyectoFormTab[] = [
+  "general",
+  "planeacion",
+  "equipos",
+  "instalacion",
+  "campo",
+  "cierre",
+];
+const TAB_ORDER = PROYECTO_TAB_ORDER;
+
+export type ProyectoStepState = "done" | "error" | "idle";
 
 function personaNombreFromUser(u: {
   id: number;
@@ -83,14 +103,9 @@ export function useProyectoFormState({
   onSave,
 }: UseProyectoFormStateArgs) {
   const { user, isAdmin } = useAuth();
-  const clienteTabId = useId();
-  const operacionTabId = useId();
-  const presupuestoTabId = useId();
-  const instalacionesTabId = useId();
-  const clientePanelId = useId();
-  const operacionPanelId = useId();
-  const presupuestoPanelId = useId();
-  const instalacionesPanelId = useId();
+  const idBase = useId();
+  /** El técnico que reabre un proyecto llega directo a su trabajo de campo. */
+  const initialTab: ProyectoFormTab = proyectoId != null && !isAdmin ? "campo" : "general";
 
   const focusNotaIdRef = useRef<string | null>(null);
   const formScrollRef = useRef<HTMLDivElement | null>(null);
@@ -111,7 +126,7 @@ export function useProyectoFormState({
   });
   const [notaDiaErrors, setNotaDiaErrors] = useState<Record<string, string>>({});
 
-  const [activeTab, setActiveTab] = useState<ProyectoFormTab>("cliente");
+  const [activeTab, setActiveTab] = useState<ProyectoFormTab>(initialTab);
   const activeTabRef = useRef<ProyectoFormTab>(activeTab);
   activeTabRef.current = activeTab;
 
@@ -250,12 +265,17 @@ export function useProyectoFormState({
   );
 
   const tecnicoOptions = useMemo(
-    () => tecnicos.map((t) => ({ value: String(t.id), label: t.nombre })),
+    () =>
+      tecnicos.map((t) => ({
+        value: String(t.id),
+        label: t.nombre,
+        avatarUrl: t.avatar_url || "",
+      })),
     [tecnicos]
   );
 
   const resetFromInitial = useCallback(() => {
-    setActiveTab("cliente");
+    setActiveTab(initialTab);
     setCliente(initialDraft.cliente);
     setClienteId(initialDraft.clienteId);
     const bloques = normalizeDraftCotizaciones(initialDraft);
@@ -332,7 +352,7 @@ export function useProyectoFormState({
     resetPicker();
     setModeloPickerLineaId(null);
     setCatalogError("");
-  }, [initialDraft, resetPicker]);
+  }, [initialDraft, initialTab, resetPicker]);
 
   useEffect(() => {
     if (open) resetFromInitial();
@@ -378,11 +398,20 @@ export function useProyectoFormState({
           const rows = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
           const mapped: TecnicoOpcion[] = rows
             .filter((u: { id?: number }) => u && u.id != null)
-            .map((u: { id: number; first_name?: string; last_name?: string; email?: string }) => ({
-              id: Number(u.id),
-              nombre: personaNombreFromUser(u),
-              email: u.email,
-            }));
+            .map(
+              (u: {
+                id: number;
+                first_name?: string;
+                last_name?: string;
+                email?: string;
+                avatar_url?: string;
+              }) => ({
+                id: Number(u.id),
+                nombre: personaNombreFromUser(u),
+                email: u.email,
+                avatar_url: String(u.avatar_url || "").trim(),
+              })
+            );
           setTecnicos(mapped);
         } else {
           setTecnicos([]);
@@ -553,11 +582,12 @@ export function useProyectoFormState({
     initialDraft.createdAt,
   ]);
 
-  const updateEquipo = (lineaId: string, patch: Partial<ProyectoEquipoLinea>) => {
+  // Estable: las filas de equipo están memorizadas y solo se repintan si cambian.
+  const updateEquipo = useCallback((lineaId: string, patch: Partial<ProyectoEquipoLinea>) => {
     setEquipos((prev) =>
       prev.map((eq) => (eq.lineaId !== lineaId ? eq : applyProyectoEquipoPatch(eq, patch)))
     );
-  };
+  }, []);
 
   const handleSelectModeloSyscom = (producto: SyscomModeloSeleccionado) => {
     if (!modeloPickerLineaId) return;
@@ -641,19 +671,24 @@ export function useProyectoFormState({
     setNotasLiveMessage(`Día ${nextCount} agregado a la bitácora`);
   };
 
-  const removeNotaDia = (index: number) => {
-    if (notasPorDia.length <= 1) {
+  // Handlers estables (vía ref): cada día de la bitácora está memorizado y no se
+  // repinta cuando se escribe en otro.
+  const notasRef = useRef(notasPorDia);
+  notasRef.current = notasPorDia;
+
+  const removeNotaDia = useCallback((index: number) => {
+    const count = notasRef.current.length;
+    if (count <= 1) {
       setNotasPorDia([createEmptyNotaDia()]);
       setNotasLiveMessage("Nota del día 1 vaciada");
       return;
     }
-    const remaining = notasPorDia.length - 1;
     setNotasPorDia((prev) => prev.filter((_, i) => i !== index));
-    setNotasLiveMessage(`Día ${index + 1} eliminado. Quedan ${remaining} jornadas`);
-  };
+    setNotasLiveMessage(`Día ${index + 1} eliminado. Quedan ${count - 1} jornadas`);
+  }, []);
 
-  const updateNotaDia = (index: number, nota: string) => {
-    const id = notasPorDia[index]?.id;
+  const updateNotaDia = useCallback((index: number, nota: string) => {
+    const id = notasRef.current[index]?.id;
     setNotasPorDia((prev) => prev.map((n, i) => (i === index ? { ...n, nota } : n)));
     if (id && String(nota).trim().length >= NOTA_DIA_MIN_CHARS) {
       setNotaDiaErrors((errs) => {
@@ -663,13 +698,13 @@ export function useProyectoFormState({
         return rest;
       });
     }
-  };
+  }, []);
 
-  const updateNotaDiaImagenes = (index: number, imagenesUrls: string[]) => {
+  const updateNotaDiaImagenes = useCallback((index: number, imagenesUrls: string[]) => {
     setNotasPorDia((prev) =>
       prev.map((n, i) => (i === index ? { ...n, imagenesUrls: imagenesUrls.slice(0, 2) } : n))
     );
-  };
+  }, []);
 
   useEffect(() => {
     const id = focusNotaIdRef.current;
@@ -717,7 +752,7 @@ export function useProyectoFormState({
       if (!check.ok) {
         // No mutar status: el chip se queda en el valor anterior a propósito.
         setCloseBlockedMessage(check.message);
-        setActiveTab("operacion");
+        setActiveTab("campo");
         focusCloseBlockedAlert();
         return;
       }
@@ -727,7 +762,7 @@ export function useProyectoFormState({
         setCloseBlockedMessage(
           `Completa la bitácora (mínimo ${NOTA_DIA_MIN_CHARS} caracteres por día) antes de cerrar.`
         );
-        setActiveTab("operacion");
+        setActiveTab("campo");
         // Resumen junto al status + foco al primer día incompleto (WCAG error recovery).
         window.setTimeout(() => {
           document.getElementById("proyecto-close-blocked")?.scrollIntoView({
@@ -746,19 +781,43 @@ export function useProyectoFormState({
     if (next !== "cancelado") setMotivoCancelacion("");
   };
 
-  const tabIds: Record<ProyectoFormTab, string> = {
-    cliente: clienteTabId,
-    operacion: operacionTabId,
-    presupuesto: presupuestoTabId,
-    instalaciones: instalacionesTabId,
-  };
+  const tabIds = useMemo(
+    () =>
+      Object.fromEntries(TAB_ORDER.map((t) => [t, `${idBase}-tab-${t}`])) as Record<ProyectoFormTab, string>,
+    [idBase]
+  );
 
-  const panelIds: Record<ProyectoFormTab, string> = {
-    cliente: clientePanelId,
-    operacion: operacionPanelId,
-    presupuesto: presupuestoPanelId,
-    instalaciones: instalacionesPanelId,
-  };
+  const panelIds = useMemo(
+    () =>
+      Object.fromEntries(TAB_ORDER.map((t) => [t, `${idBase}-panel-${t}`])) as Record<ProyectoFormTab, string>,
+    [idBase]
+  );
+
+  /** Lleva a un paso y enfoca un campo cuando ya está pintado. */
+  const jumpTo = useCallback((tab: ProyectoFormTab, focusId?: string) => {
+    setActiveTab(tab);
+    activeTabRef.current = tab;
+    // Dos frames: el panel del paso se monta en el primero.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (focusId) {
+          const el = document.getElementById(focusId);
+          el?.focus();
+          el?.scrollIntoView({ block: "center", behavior: "smooth" });
+        } else {
+          formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      })
+    );
+  }, []);
+
+  const selectTab = useCallback(
+    (tab: ProyectoFormTab) => {
+      setClienteStepError("");
+      jumpTo(tab);
+    },
+    [jumpTo]
+  );
 
   const goToNextTab = useCallback(
     (fromPointer?: boolean) => {
@@ -766,7 +825,7 @@ export function useProyectoFormState({
       const idx = TAB_ORDER.indexOf(current);
       if (idx < 0 || idx >= TAB_ORDER.length - 1) return;
 
-      if (current === "cliente" && !cliente.trim()) {
+      if (current === "general" && !cliente.trim()) {
         setClienteStepError("Escribe el nombre del cliente para continuar.");
         requestAnimationFrame(() => {
           document.getElementById("proyecto-modal-cliente")?.focus();
@@ -774,7 +833,7 @@ export function useProyectoFormState({
         return;
       }
 
-      if (current === "operacion") {
+      if (current === "planeacion") {
         const check = validateProyectoOperacionRequired({
           tiposTrabajo,
           fechaAutorizacion,
@@ -783,42 +842,27 @@ export function useProyectoFormState({
         });
         setOperacionErrors(check.errors);
         if (!check.ok) {
-          setNotaDiaErrors({});
           requestAnimationFrame(() => {
             document.getElementById(check.firstFieldId)?.focus();
           });
           return;
         }
-        setNotaDiaErrors({});
       }
 
       setClienteStepError("");
-      const apply = () => {
-        const next = TAB_ORDER[idx + 1];
-        setActiveTab(next);
-        activeTabRef.current = next;
-        requestAnimationFrame(() => {
-          formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        });
-      };
-
+      const apply = () => jumpTo(TAB_ORDER[idx + 1]);
       if (fromPointer) window.setTimeout(apply, 0);
       else apply();
     },
-    [cliente, tiposTrabajo, fechaAutorizacion, fechaDesde, monitoreo]
+    [cliente, tiposTrabajo, fechaAutorizacion, fechaDesde, monitoreo, jumpTo]
   );
 
   const goToPrevTab = useCallback(() => {
     const idx = TAB_ORDER.indexOf(activeTabRef.current);
     if (idx <= 0) return;
-    const prev = TAB_ORDER[idx - 1];
-    setActiveTab(prev);
-    activeTabRef.current = prev;
     setClienteStepError("");
-    requestAnimationFrame(() => {
-      formScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    });
-  }, []);
+    jumpTo(TAB_ORDER[idx - 1]);
+  }, [jumpTo]);
 
   const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, current: ProyectoFormTab) => {
     const idx = TAB_ORDER.indexOf(current);
@@ -846,18 +890,14 @@ export function useProyectoFormState({
     });
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (activeTabRef.current !== "presupuesto") {
-      goToNextTab(true);
-      return;
-    }
+  /**
+   * Valida todo el proyecto (sin importar el paso visible) y guarda.
+   * Si algo falla, lleva al paso correspondiente y enfoca el campo.
+   */
+  const saveNow = async () => {
     if (!cliente.trim()) {
-      setActiveTab("cliente");
       setClienteStepError("Escribe el nombre del cliente para continuar.");
-      requestAnimationFrame(() => {
-        document.getElementById("proyecto-modal-cliente")?.focus();
-      });
+      jumpTo("general", "proyecto-modal-cliente");
       return;
     }
     const operacionCheck = validateProyectoOperacionRequired({
@@ -868,31 +908,21 @@ export function useProyectoFormState({
     });
     setOperacionErrors(operacionCheck.errors);
     if (!operacionCheck.ok) {
-      setNotaDiaErrors({});
-      setActiveTab("operacion");
-      requestAnimationFrame(() => {
-        document.getElementById(operacionCheck.firstFieldId)?.focus();
-      });
+      jumpTo("planeacion", operacionCheck.firstFieldId);
       return;
     }
     const notasCheck = validateNotasPorDiaMinLength(notasPorDia, { status });
     setNotaDiaErrors(notasCheck.errorsById);
     if (!notasCheck.ok) {
-      setActiveTab("operacion");
-      requestAnimationFrame(() => {
-        document.getElementById(notasCheck.firstFieldId)?.focus();
-      });
+      jumpTo("campo", notasCheck.firstFieldId);
       return;
     }
     if (status === "pausado" && !motivoPausa.trim()) {
-      setActiveTab("operacion");
+      jumpTo("campo", "proyecto-motivo-pausa");
       return;
     }
     if (status === "cancelado" && !motivoCancelacion.trim()) {
-      setActiveTab("operacion");
-      requestAnimationFrame(() => {
-        document.getElementById("proyecto-motivo-cancelacion")?.focus();
-      });
+      jumpTo("campo", "proyecto-motivo-cancelacion");
       return;
     }
     const draft = buildCurrentDraft();
@@ -900,12 +930,7 @@ export function useProyectoFormState({
       const check = canCerrarProyecto(draft);
       if (!check.ok) {
         setCloseBlockedMessage(check.message);
-        setActiveTab("operacion");
-        window.setTimeout(() => {
-          const el = document.getElementById("proyecto-close-blocked");
-          el?.focus();
-          el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        }, 0);
+        jumpTo("campo", "proyecto-close-blocked");
         return;
       }
     }
@@ -915,9 +940,60 @@ export function useProyectoFormState({
         omitTechnicianLockedFields: assignedTechnicianLocked,
       });
     } catch {
-      // El padre muestra el toast; el modal permanece abierto.
+      // El padre muestra el aviso; el modal permanece abierto.
     }
   };
+
+  /** Enter dentro del formulario avanza de paso; en el último, guarda. */
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (activeTabRef.current !== TAB_ORDER[TAB_ORDER.length - 1]) {
+      goToNextTab(true);
+      return;
+    }
+    await saveNow();
+  };
+
+  /** Estado visual de cada paso en el riel (completo / con error / pendiente). */
+  const stepState = useMemo<Record<ProyectoFormTab, ProyectoStepState>>(() => {
+    const hasOperacionError = Boolean(
+      operacionErrors.tipos || operacionErrors.fechaAuth || operacionErrors.fechaDesde || operacionErrors.monitoreo
+    );
+    const planeacionOk =
+      tiposTrabajo.length > 0 &&
+      Boolean(fechaAutorizacion) &&
+      Boolean(fechaDesde) &&
+      (!proyectoTieneTipoAlarmas(tiposTrabajo) || monitoreo != null);
+    const notasOk =
+      notasPorDia.length > 0 && notasPorDia.every((n) => n.nota.trim().length >= NOTA_DIA_MIN_CHARS);
+    const campoError = Boolean(closeBlockedMessage) || Object.keys(notaDiaErrors).length > 0;
+    return {
+      general: clienteStepError ? "error" : cliente.trim() && cotizaciones.length > 0 ? "done" : "idle",
+      planeacion: hasOperacionError ? "error" : planeacionOk ? "done" : "idle",
+      equipos:
+        equipos.length > 0 && equipos.every((eq) => eq.estadoInstalacion === "instalado") ? "done" : "idle",
+      instalacion: instalacionDraft.subtipo ? "done" : "idle",
+      campo: campoError ? "error" : notasOk && Boolean(horaLlegada) ? "done" : "idle",
+      cierre: evidenciasUrls.length > 0 && Boolean(firmaClienteUrl) ? "done" : "idle",
+    };
+  }, [
+    operacionErrors,
+    tiposTrabajo,
+    fechaAutorizacion,
+    fechaDesde,
+    monitoreo,
+    notasPorDia,
+    closeBlockedMessage,
+    notaDiaErrors,
+    clienteStepError,
+    cliente,
+    cotizaciones.length,
+    equipos,
+    instalacionDraft.subtipo,
+    horaLlegada,
+    evidenciasUrls.length,
+    firmaClienteUrl,
+  ]);
 
   const stampHoraLlegada = () => {
     setHoraLlegada(getDeviceTimeHHMM());
@@ -941,6 +1017,9 @@ export function useProyectoFormState({
     formScrollRef,
     activeTab,
     setActiveTab,
+    selectTab,
+    stepState,
+    saveNow,
     goToNextTab,
     goToPrevTab,
     handleTabKeyDown,
@@ -1068,3 +1147,6 @@ export function useProyectoFormState({
     stampHoraSalida,
   };
 }
+
+/** API completa del formulario; las pestañas toman solo lo que usan. */
+export type ProyectoFormApi = ReturnType<typeof useProyectoFormState>;

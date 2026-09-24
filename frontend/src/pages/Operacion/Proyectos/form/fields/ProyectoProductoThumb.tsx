@@ -9,9 +9,9 @@ type Props = {
 };
 
 const sizeClass = {
-  sm: "h-9 w-9",
-  md: "h-12 w-12",
-  lg: "h-14 w-14",
+  sm: "size-9 rounded-[8px]",
+  md: "size-12 rounded-[10px]",
+  lg: "size-14 rounded-[12px]",
 } as const;
 
 /**
@@ -30,18 +30,18 @@ export function ProyectoProductoThumb({ src, alt, size = "md", className = "" }:
 
   return (
     <span
-      className={`inline-flex ${sizeClass[size]} shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#334155] dark:bg-[#0f172a]/60 ${className}`}
+      className={`inline-flex ${sizeClass[size]} shrink-0 items-center justify-center overflow-hidden border border-[#F0F0F2] bg-white dark:border-[#1F2A3C] dark:bg-[#0F172A] ${className}`}
     >
       {showImg ? (
         <img
           src={resolved!}
           alt={alt}
-          className="h-full w-full object-contain p-0.5"
+          className="h-full w-full object-contain p-1"
           loading="lazy"
           onError={() => setBroken(true)}
         />
       ) : (
-        <span className="text-[10px] font-semibold uppercase text-[#a8a29e] dark:text-[#64748b]" aria-hidden>
+        <span className="text-[12px] font-semibold uppercase text-[#A1A1AA] dark:text-[#64748B]" aria-hidden>
           {initial}
         </span>
       )}

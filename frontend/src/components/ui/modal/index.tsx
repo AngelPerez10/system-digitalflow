@@ -60,6 +60,10 @@ export const Modal: React.FC<ModalProps> = ({
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         if (!closeOnEscape) return;
+        // Con diálogos apilados, Escape solo cierra el de encima.
+        const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+        const top = dialogs[dialogs.length - 1];
+        if (top && modalRef.current && top !== modalRef.current) return;
         onClose();
       }
     };

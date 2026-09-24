@@ -1,14 +1,8 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Modal } from "@/components/ui/modal";
-import Label from "@/components/form/Label";
-import {
-  claudeBodyClass as erpBodyClass,
-  erpInputLikeClass,
-  erpSecondaryBtnClass,
-  sectionLabelOrangeClass as erpSectionLabelClass,
-  erpSubheadingClass,
-} from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
-import { erpModalSansStyle } from "../../../OrdenesTrabajo/ordenTrabajoStyles";
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+import { ChevronRight, PackageSearch, Search } from "lucide-react";
+import { btn, focusRing, input } from "../../shared/proyectoTokens";
+import { PickerTabs, ProyectoPickerShell } from "./ProyectoPickerShell";
+import { ProyectoProductoThumb } from "./ProyectoProductoThumb";
 import { fetchProductosManualesCatalogo } from "@/pages/Ventas/Cotizacion/shared/cotizacionApi";
 import type { ProductoManualCatalogo } from "@/pages/Ventas/Cotizacion/shared/cotizacionFormTypes";
 import {
@@ -17,12 +11,6 @@ import {
   getCatalogProductoImageUrl,
   type SyscomProducto,
 } from "@/pages/ProductosYServicios/syscomCatalog";
-import {
-  proyectoEmptyPanelClass,
-  proyectoPickerModalBodyClass,
-  proyectoPickerModalClass,
-  proyectoPickerModalHeaderClass,
-} from "../../shared/proyectoPageStyles";
 
 export type CatalogFuentePicker = "syscom" | "tvc" | "manual";
 
@@ -88,19 +76,6 @@ function formatManualLabel(p: ProductoManualCatalogo): string {
   return `Manual #${p.id}`;
 }
 
-function fuenteBadgeClass(fuente: CatalogFuentePicker): string {
-  const base =
-    "inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider";
-  switch (fuente) {
-    case "tvc":
-      return `${base} border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-700/50 dark:bg-sky-950/40 dark:text-sky-300`;
-    case "manual":
-      return `${base} border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-700/40 dark:bg-violet-950/35 dark:text-violet-300`;
-    default:
-      return `${base} border-[#1B5CFF]/30 bg-[#F1F5FF] text-[#1244D1] dark:border-[#1B5CFF]/40 dark:bg-[#1B5CFF]/15 dark:text-[#4B7CFF]`;
-  }
-}
-
 function catalogToRow(p: SyscomProducto, fuente: CatalogFuentePicker): ResultadoRow {
   const label = formatModeloLabel(p);
   const imagenUrl = getCatalogProductoImageUrl({ ...p, fuente }) || undefined;
@@ -158,9 +133,7 @@ export function ProyectoSyscomModeloPicker({
   onClose,
   onSelect,
 }: Props) {
-  const titleId = useId();
   const searchId = useId();
-  const tabsId = useId();
   const searchGenRef = useRef(0);
   const [fuente, setFuente] = useState<CatalogFuentePicker>("syscom");
   const [search, setSearch] = useState("");
@@ -283,183 +256,108 @@ export function ProyectoSyscomModeloPicker({
     (fuente === "manual" ? manualLoaded : search.trim().length >= 2);
 
   return (
-    <Modal
-      isOpen={open}
+    <ProyectoPickerShell
+      open={open}
       onClose={onClose}
-      closeOnEscape
-      mobileBottomSheet
-      ariaLabelledBy={titleId}
-      className={proyectoPickerModalClass}
-    >
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden" style={erpModalSansStyle}>
-      <header className={proyectoPickerModalHeaderClass}>
-        <div className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-[#1B5CFF]" aria-hidden />
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-white shadow-sm">
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" aria-hidden>
-              <path
-                d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          <div className="min-w-0">
-            <p className={erpSectionLabelClass}>Proyectos · Catálogo de productos</p>
-            <h3 id={titleId} className={`mt-1 ${erpSubheadingClass}`}>
-              Cambiar modelo
-            </h3>
-            <p className={`${erpBodyClass} mt-1 text-sm`}>
-              Elige un producto de Syscom, TVC o Manual para reemplazar{" "}
-              <span className="font-medium text-[#09090B] dark:text-[#f8fafc]">
-                {equipoLabel || modeloActual}
-              </span>
-              .
-            </p>
-          </div>
-        </div>
-      </header>
-
-      <div className={proyectoPickerModalBodyClass}>
-        <div
-          role="tablist"
-          aria-label="Fuente del catálogo"
-          id={tabsId}
-          className="flex flex-wrap gap-1 rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] p-1 dark:border-[#334155] dark:bg-[#0b1220]"
-        >
-          {FUENTES.map((tab) => {
-            const selected = fuente === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                id={`${tabsId}-${tab.id}`}
-                aria-selected={selected}
-                tabIndex={selected ? 0 : -1}
-                className={`min-h-9 flex-1 rounded-lg px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/35 sm:flex-none sm:min-w-22 ${
-                  selected
-                    ? "bg-white text-[#1244D1] shadow-sm dark:bg-[#1e293b] dark:text-[#4B7CFF]"
-                    : "text-[#52525B] hover:bg-white/70 dark:text-[#cbd5e1] dark:hover:bg-[#1e293b]/50"
-                }`}
-                onClick={() => {
-                  setFuente(tab.id);
-                  setError("");
-                  setCatalogRows([]);
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div
-          role="tabpanel"
-          aria-labelledby={`${tabsId}-${fuente}`}
-          className="mt-4"
-        >
-          <div>
-            <Label htmlFor={searchId}>
+      icon={<PackageSearch />}
+      eyebrow="Proyecto · Catálogo"
+      title="Cambiar modelo"
+      description={
+        <>
+          Reemplaza <span className="font-medium text-[#09090B] dark:text-[#F8FAFC]">{equipoLabel || modeloActual}</span>{" "}
+          por un producto de Syscom, TVC o del catálogo manual.
+        </>
+      }
+      toolbar={
+        <>
+          <PickerTabs
+            label="Fuente del catálogo"
+            value={fuente}
+            options={FUENTES}
+            onChange={(id) => {
+              setFuente(id);
+              setError("");
+              setCatalogRows([]);
+            }}
+          />
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]" aria-hidden />
+            <label htmlFor={searchId} className="sr-only">
               {fuente === "manual" ? "Filtrar productos manuales" : `Buscar en ${fuenteLabel}`}
-            </Label>
+            </label>
             <input
               id={searchId}
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={
-                fuente === "manual"
-                  ? "Nombre, marca, modelo o ID…"
-                  : "Modelo, marca o descripción…"
-              }
-              className={`${erpInputLikeClass} mt-1.5`}
+              placeholder={fuente === "manual" ? "Nombre, marca, modelo o ID…" : `Buscar en ${fuenteLabel}: modelo, marca…`}
+              className={`${input} pl-10`}
               autoComplete="off"
               autoFocus
             />
-            <p className="mt-1.5 text-[11px] text-[#6E6E77] dark:text-[#8ea0b8]">
-              {fuente === "manual"
-                ? "Mismos productos manuales que en Cotización."
-                : `Escribe al menos 2 caracteres. Catálogo ${fuenteLabel} (mismo que Productos / Cotización).`}
-            </p>
           </div>
+        </>
+      }
+      footer={
+        <button type="button" className={btn.secondary} onClick={onClose}>
+          Cancelar
+        </button>
+      }
+    >
+      <div role="status" aria-live="polite" className="px-3">
+        {error ? (
+          <p className="py-2 text-[13px] text-[#B42323] dark:text-[#F87171]" role="alert">
+            {error}
+          </p>
+        ) : needsMinChars ? (
+          <p className="py-8 text-center text-[14px] text-[#71717A] dark:text-[#8EA0B8]">
+            Escribe al menos 2 caracteres para buscar en {fuenteLabel}.
+          </p>
+        ) : showEmpty ? (
+          <p className="py-8 text-center text-[14px] text-[#71717A] dark:text-[#8EA0B8]">
+            {fuente === "manual" && !search.trim()
+              ? "No hay productos manuales registrados."
+              : `Sin resultados para «${search.trim()}».`}
+          </p>
+        ) : null}
+      </div>
 
-          <div className="mt-4" role="status" aria-live="polite">
-            {isBusy ? (
-              <p className="text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
-                {fuente === "manual" ? "Cargando productos manuales…" : `Buscando en ${fuenteLabel}…`}
-              </p>
-            ) : null}
-            {error ? (
-              <p className="text-sm text-rose-700 dark:text-rose-300" role="alert">
-                {error}
-              </p>
-            ) : null}
-            {needsMinChars && !error ? (
-              <p className="text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
-                Escribe al menos 2 caracteres para buscar en {fuenteLabel}.
-              </p>
-            ) : null}
-          </div>
-
-          <ul className="mt-3 space-y-2" role="listbox" aria-label={`Productos ${fuenteLabel}`}>
-            {showEmpty ? (
-              <li className={`${proyectoEmptyPanelClass} py-6`} role="status">
-                {fuente === "manual" && !search.trim()
-                  ? "No hay productos manuales registrados."
-                  : `Sin resultados para “${search.trim() || "…"}”.`}
+      <ul className="space-y-1" role="listbox" aria-label={`Productos ${fuenteLabel}`} aria-busy={isBusy || undefined}>
+        {isBusy
+          ? Array.from({ length: 4 }, (_, i) => (
+              <li key={i} className="flex items-center gap-3 px-3 py-2.5" aria-hidden style={{ opacity: 1 - i * 0.18 }}>
+                <span className="size-12 rounded-[10px] bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
+                <span className="flex-1 space-y-2">
+                  <span className="block h-3.5 w-2/3 rounded-full bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
+                  <span className="block h-3 w-1/3 rounded-full bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
+                </span>
               </li>
-            ) : null}
-
-            {results.map((row) => {
-              const img = row.imagenUrl;
-              return (
-                <li key={row.key}>
-                  <button
-                    type="button"
-                    role="option"
-                    className="flex w-full items-center gap-3 rounded-xl border border-[#E7E7EA] bg-[#FFFFFF] px-3 py-2.5 text-left transition-colors hover:border-[#1B5CFF]/40 hover:bg-[#F1F5FF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/25 dark:border-[#334155] dark:bg-[#111a2b] dark:hover:bg-[#1e293b]/60"
-                    onClick={() => onSelect(row.payload)}
-                  >
-                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#334155] dark:bg-[#0f172a]">
-                      {img ? (
-                        <img src={img} alt="" className="h-full w-full object-contain" loading="lazy" />
-                      ) : (
-                        <span className="text-[10px] text-[#a8a29e]" aria-hidden>
-                          —
-                        </span>
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-1.5">
-                        <span className={fuenteBadgeClass(row.fuente)}>{fuenteLabel}</span>
-                        <span className="truncate text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
-                          {row.label}
-                        </span>
-                      </span>
-                      {row.subtitle ? (
-                        <span className="mt-0.5 block truncate text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
-                          {row.subtitle}
-                        </span>
-                      ) : null}
-                      <span className="mt-0.5 block text-[10px] tabular-nums text-[#a8a29e] dark:text-[#64748b]">
-                        {row.meta}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-
-        <div className="mt-5 flex justify-end border-t border-[#E7E7EA] pt-4 dark:border-[#334155]">
-          <button type="button" className={erpSecondaryBtnClass} onClick={onClose}>
-            Cancelar
-          </button>
-        </div>
-      </div>
-      </div>
-    </Modal>
+            ))
+          : results.map((row, i) => (
+              <li key={row.key} className="cot-rise" style={{ "--cot-i": Math.min(i, 8) } as CSSProperties}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  className={`group flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-left transition-colors duration-150 hover:bg-[#F5F8FF] dark:hover:bg-[#1B2A63]/30 ${focusRing}`}
+                  onClick={() => onSelect(row.payload)}
+                >
+                  <ProyectoProductoThumb src={row.imagenUrl} alt="" size="md" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{row.label}</span>
+                    {row.subtitle ? (
+                      <span className="block truncate text-[12.5px] text-[#71717A] dark:text-[#8EA0B8]">{row.subtitle}</span>
+                    ) : null}
+                    <span className="block truncate font-mono text-[11.5px] text-[#A1A1AA] dark:text-[#64748B]">{row.meta}</span>
+                  </span>
+                  <ChevronRight
+                    className="size-4 shrink-0 text-[#A1A1AA] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[#1B5CFF] motion-reduce:transition-none"
+                    aria-hidden
+                  />
+                </button>
+              </li>
+            ))}
+      </ul>
+    </ProyectoPickerShell>
   );
 }

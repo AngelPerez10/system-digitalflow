@@ -70,6 +70,8 @@ export type ProyectoEstado = "en_proceso" | "pausado" | "cerrado" | "cancelado";
 export type ProyectoPersonaAsignada = {
   id: number | null;
   nombre: string;
+  /** Foto de perfil (solo lectura desde API; no se persiste en el JSON del proyecto). */
+  avatar_url?: string;
 };
 
 /** Técnico en lista multi; exactamente uno con responsable=true si hay ≥1. */
@@ -188,4 +190,5 @@ export type TecnicoOpcion = {
   id: number;
   nombre: string;
   email?: string;
+  avatar_url?: string;
 };

@@ -1,8 +1,8 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { erpInputLikeClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { PROYECTO_TIPOS_TRABAJO_FIELD_ID } from "../../shared/proyectoOperacionValidation";
-import { proyectoFieldLabelClass } from "../../shared/proyectoPageStyles";
+import { Check, ChevronDown, X } from "lucide-react";
+import { fieldError, fieldLabel, focusRing, input, inputInvalid, requiredMark } from "../../shared/proyectoTokens";
 import type { ProyectoTipoTrabajo } from "../../shared/proyectoTypes";
 
 type ServicioOpcion = { id: number; nombre: string };
@@ -143,7 +143,7 @@ export function ProyectoTiposTrabajoField({
       ? createPortal(
           <div
             ref={menuRef}
-            className="fixed overflow-hidden rounded-xl border border-[#E7E7EA] bg-white shadow-[0_20px_48px_-18px_rgba(9,9,11,0.42)] dark:border-[#334155] dark:bg-[#111a2b] dark:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.65)]"
+            className="cot-pop fixed overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white shadow-[0_20px_48px_-18px_rgba(9,9,11,0.42)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.65)]"
             style={{
               top: menuCoords.top,
               left: menuCoords.left,
@@ -153,13 +153,13 @@ export function ProyectoTiposTrabajoField({
               fontFamily: "Geist, Outfit, system-ui, sans-serif",
             }}
           >
-            <div className="border-b border-[#E7E7EA] p-2 dark:border-[#334155]">
+            <div className="border-b border-[#F0F0F2] p-2 dark:border-[#1F2A3C]">
               <input
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Filtrar servicios…"
-                className={erpInputLikeClass}
+                className={`${input} h-10!`}
                 aria-label="Filtrar tipos de trabajo"
                 autoFocus
               />
@@ -169,11 +169,11 @@ export function ProyectoTiposTrabajoField({
               role="listbox"
               aria-multiselectable
               aria-labelledby={labelId}
-              className="max-h-56 overflow-auto py-1"
+              className="max-h-56 overflow-auto p-1"
               style={{ maxHeight: Math.max(120, menuCoords.maxHeight - (value.length > 0 ? 108 : 60)) }}
             >
               {filtered.length === 0 ? (
-                <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Sin resultados</li>
+                <li className="px-3 py-3 text-[13px] text-[#71717A] dark:text-[#8EA0B8]">Sin resultados</li>
               ) : (
                 filtered.map((s) => {
                   const checked = selectedIds.has(s.id);
@@ -181,22 +181,18 @@ export function ProyectoTiposTrabajoField({
                     <li key={s.id} role="option" aria-selected={checked}>
                       <button
                         type="button"
-                        className="flex w-full min-h-11 items-center gap-2 px-3 py-2 text-left text-sm text-[#09090B] hover:bg-[#F1F5FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40 dark:text-[#e5e7eb] dark:hover:bg-[#1B5CFF]/10"
+                        className={`flex min-h-10 w-full items-center gap-2.5 rounded-[9px] px-2.5 text-left text-[14px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1B5CFF]/40 ${checked ? "bg-[#F5F8FF] font-medium text-[#1244D1] dark:bg-[#1B2A63]/50 dark:text-[#C9D7FF]" : "text-[#18181B] hover:bg-[#F4F4F5] dark:text-[#D6DEEA] dark:hover:bg-white/[0.04]"}`}
                         onClick={() => toggle(s)}
                       >
                         <span
-                          className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                          className={`inline-flex size-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-150 ${
                             checked
-                              ? "border-[#1B5CFF] bg-[#1B5CFF] text-white"
-                              : "border-[#D3D3D8] dark:border-[#475569]"
+                              ? "border-[#1B5CFF] bg-[#1B5CFF] text-white dark:border-[#4B7CFF] dark:bg-[#4B7CFF]"
+                              : "border-[#D3D3D8] dark:border-[#3A4661]"
                           }`}
                           aria-hidden
                         >
-                          {checked ? (
-                            <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor">
-                              <path d="M2.5 6.5l2.5 2.5 4.5-5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          ) : null}
+                          {checked ? <Check className="cot-tick size-3" strokeWidth={3} /> : null}
                         </span>
                         <span className="min-w-0 truncate">{s.nombre}</span>
                       </button>
@@ -206,22 +202,20 @@ export function ProyectoTiposTrabajoField({
               )}
             </ul>
             {value.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 border-t border-[#E7E7EA] p-2 dark:border-[#334155]">
+              <div className="flex flex-wrap gap-1.5 border-t border-[#F0F0F2] p-2 dark:border-[#1F2A3C]">
                 {value.map((t) => (
                   <span
                     key={t.id}
-                    className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#1B5CFF]/15 px-2 py-0.5 text-[11px] font-medium text-[#1244D1] dark:menu-dropdown-badge-active dark:text-[#4B7CFF]"
+                    className="inline-flex h-7 max-w-full items-center gap-0.5 rounded-full bg-[#EEF3FF] pl-2.5 text-[12px] font-medium text-[#1244D1] dark:bg-[#1B2A63] dark:text-[#C9D7FF]"
                   >
                     <span className="truncate">{t.nombre || `#${t.id}`}</span>
                     <button
                       type="button"
-                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full hover:bg-[#1B5CFF]/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40"
+                      className="inline-flex size-7 shrink-0 items-center justify-center rounded-full hover:bg-[#1B5CFF]/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40"
                       aria-label={`Quitar ${t.nombre || t.id}`}
                       onClick={() => onChange(value.filter((x) => x.id !== t.id))}
                     >
-                      <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" aria-hidden>
-                        <path d="M3 3l6 6M9 3L3 9" strokeWidth="1.6" strokeLinecap="round" />
-                      </svg>
+                      <X className="size-3" aria-hidden />
                     </button>
                   </span>
                 ))}
@@ -234,11 +228,10 @@ export function ProyectoTiposTrabajoField({
 
   return (
     <div ref={rootRef}>
-      <p id={labelId} className={proyectoFieldLabelClass}>
+      <p id={labelId} className={fieldLabel}>
         {label}
         {required ? (
-          <span className="text-rose-600" aria-hidden>
-            {" "}
+          <span className={requiredMark} aria-hidden>
             *
           </span>
         ) : null}
@@ -248,9 +241,9 @@ export function ProyectoTiposTrabajoField({
           ref={triggerRef}
           type="button"
           id={PROYECTO_TIPOS_TRABAJO_FIELD_ID}
-          className={`${erpInputLikeClass} flex w-full items-center justify-between gap-2 text-left ${
-            disabled ? "cursor-not-allowed opacity-70" : ""
-          } ${error ? "border-rose-400 dark:border-rose-500/60" : ""}`}
+          className={`${input} flex h-auto! min-h-11 items-center justify-between gap-2 py-1.5 text-left ${focusRing} ${
+            disabled ? "cursor-not-allowed bg-[#FAFAFA] dark:bg-[#111827]" : "cursor-pointer"
+          } ${error ? inputInvalid : ""} ${open ? "border-[#1B5CFF]! ring-4 ring-[rgba(27,92,255,0.14)]" : ""}`}
           aria-labelledby={labelId}
           aria-haspopup="listbox"
           aria-expanded={open}
@@ -265,34 +258,31 @@ export function ProyectoTiposTrabajoField({
             setSearch("");
           }}
         >
-          <span
-            className={
-              value.length === 0
-                ? "truncate text-[#a8a29e] dark:text-[#8ea0b8]"
-                : "truncate text-[#09090B] dark:text-[#e5e7eb]"
-            }
-          >
-            {display || placeholder}
-          </span>
-          <svg
-            className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-            viewBox="0 0 20 20"
-            fill="currentColor"
+          {value.length === 0 ? (
+            <span className="truncate text-[#A1A1AA] dark:text-[#64748B]">{placeholder}</span>
+          ) : (
+            <span className="flex min-w-0 flex-wrap gap-1.5" aria-label={display}>
+              {value.map((t) => (
+                <span
+                  key={t.id}
+                  className="cot-pop inline-flex h-7 max-w-[14rem] items-center rounded-full bg-[#EEF3FF] px-2.5 text-[13px] font-medium text-[#1244D1] dark:bg-[#1B2A63] dark:text-[#C9D7FF]"
+                >
+                  <span className="truncate">{t.nombre || servicios.find((s) => s.id === t.id)?.nombre || `#${t.id}`}</span>
+                </span>
+              ))}
+            </span>
+          )}
+          <ChevronDown
+            className={`size-4 shrink-0 text-[#A1A1AA] transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
             aria-hidden
-          >
-            <path
-              fillRule="evenodd"
-              d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-              clipRule="evenodd"
-            />
-          </svg>
+          />
         </button>
         {menu}
       </div>
       {error ? (
         <p
           id={`${PROYECTO_TIPOS_TRABAJO_FIELD_ID}-error`}
-          className="mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400"
+          className={fieldError}
           role="alert"
         >
           {error}

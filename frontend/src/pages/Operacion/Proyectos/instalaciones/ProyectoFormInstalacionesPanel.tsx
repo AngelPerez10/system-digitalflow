@@ -1,14 +1,9 @@
-import { useEffect, useId, useState } from "react";
-import { PencilIcon, TrashBinIcon } from "@/icons";
-import { Modal } from "@/components/ui/modal";
-import {
-  erpDangerBtnClass,
-  erpDeleteModalClass,
-  erpDeleteModalPanelClass,
-} from "../../OrdenesTrabajo/ordenTrabajoStyles";
-import { erpSecondaryBtnClass } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import { useEffect, useState, type CSSProperties } from "react";
+import { ListOrdered, Pencil, Satellite, Trash2 } from "lucide-react";
+import { AppConfirmDialog, AppModalContext } from "@/components/ui/modal-kit/ModalKit";
+import { Notice, SectionCard } from "../shared/ProyectoUi";
+import { btn, btnSm, emptyPanel, fontSans, iconBtn, iconBtnDanger } from "../shared/proyectoTokens";
 import InstalacionForm from "./InstalacionForm";
-import { InstalacionFormSection } from "./InstalacionFormSection";
 import {
   deleteProyectoInstalacion,
   isProyectoInstalacionApiError,
@@ -26,16 +21,6 @@ import {
   type ProyectoInstalacionDraft,
   type ProyectoInstalacionRow,
 } from "./proyectoInstalacionTypes";
-import {
-  instalacionDangerActionClass,
-  instalacionFolioBadgeClass,
-  instalacionGhostActionClass,
-  instalacionListCardClass,
-  instalacionListCardEditingClass,
-  instalacionTipoBadgeClass,
-  proyectoEmptyPanelClass,
-  proyectoSectionIconClass,
-} from "./instalacionStyles";
 
 export type { ProyectoInstalacionDraft };
 
@@ -50,8 +35,8 @@ type Props = {
 };
 
 /**
- * Pestaña Instalaciones: misma jerarquía visual que Cliente / Operación
- * (eyebrow + título + tarjeta). Lista registrada + ficha de datos.
+ * Paso «Instalación»: fichas ya registradas + ficha en captura.
+ * La ficha se guarda junto con el proyecto (botón Guardar del pie).
  */
 export function ProyectoFormInstalacionesPanel({
   proyectoId,
@@ -60,56 +45,42 @@ export function ProyectoFormInstalacionesPanel({
   draft,
   onDraftChange,
 }: Props) {
-  const deleteTitleId = useId();
-  const listStatusId = useId();
-  const formStatusId = useId();
-
   const [rows, setRows] = useState<ProyectoInstalacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [deletingRow, setDeletingRow] = useState<ProyectoInstalacionRow | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const editingId = draft.editingId ?? null;
 
-  const reload = async () => {
+  useEffect(() => {
+    if (!active) return;
     if (proyectoId == null) {
       setRows([]);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     setError("");
-    try {
-      const data = await listProyectoInstalaciones(proyectoId);
-      setRows(data);
-    } catch (err) {
-      console.error("Error al cargar instalaciones del proyecto:", err);
-      setError(
-        isProyectoInstalacionApiError(err)
-          ? err.message
-          : "No se pudieron cargar las instalaciones."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!active) return;
-    void reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when tab/proyecto changes
+    listProyectoInstalaciones(proyectoId)
+      .then((data) => {
+        if (!cancelled) setRows(data);
+      })
+      .catch((err) => {
+        console.error("Error al cargar instalaciones del proyecto:", err);
+        if (!cancelled) {
+          setError(isProyectoInstalacionApiError(err) ? err.message : "No se pudieron cargar las instalaciones.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [active, proyectoId]);
 
-  const setForm = (form: InstalacionFormValue) => {
-    onDraftChange({ ...draft, form });
-  };
-
-  const setSubtipo = (subtipo: InstalacionSubtipo) => {
-    onDraftChange({ ...draft, subtipo });
-  };
-
-  const resetDraft = () => {
-    onDraftChange({ form: { ...EMPTY_INSTALACION_FORM }, subtipo: "", editingId: null });
-  };
+  const setForm = (form: InstalacionFormValue) => onDraftChange({ ...draft, form });
+  const setSubtipo = (subtipo: InstalacionSubtipo) => onDraftChange({ ...draft, subtipo });
+  const resetDraft = () => onDraftChange({ form: { ...EMPTY_INSTALACION_FORM }, subtipo: "", editingId: null });
 
   const openEdit = (row: ProyectoInstalacionRow) => {
     onDraftChange({
@@ -119,134 +90,107 @@ export function ProyectoFormInstalacionesPanel({
     });
     setError("");
     requestAnimationFrame(() => {
-      document.getElementById("proyecto-sec-instalacion-datos")?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
+      document.getElementById("proyecto-sec-instalacion-datos")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   };
 
   const confirmDelete = async () => {
     if (!deletingRow) return;
-    setDeleting(true);
+    const target = deletingRow;
     try {
-      await deleteProyectoInstalacion(deletingRow.id);
-      setRows((prev) => prev.filter((r) => r.id !== deletingRow.id));
-      if (editingId === deletingRow.id) resetDraft();
-      setDeletingRow(null);
+      await deleteProyectoInstalacion(target.id);
+      setRows((prev) => prev.filter((r) => r.id !== target.id));
+      if (editingId === target.id) resetDraft();
     } catch (err) {
       console.error("Error al eliminar instalación:", err);
-      setError(
-        isProyectoInstalacionApiError(err) ? err.message : "No se pudo eliminar la instalación."
-      );
-    } finally {
-      setDeleting(false);
+      setError(isProyectoInstalacionApiError(err) ? err.message : "No se pudo eliminar la instalación.");
     }
   };
 
-  const iconList = (
-    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" strokeLinecap="round" />
-    </svg>
-  );
-
-  const iconGps = (
-    <svg className={proyectoSectionIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  );
-
-  const formEyebrow = editingId != null ? "Editando" : proyectoId == null ? "Paso 2" : "Nueva";
-  const formTitle = editingId != null ? "Editar instalación" : "Datos de la instalación";
-  const formHint =
-    editingId != null
-      ? "Modifica los campos y pulsa Guardar en el pie del modal."
-      : "Completa la ficha GPS; se registra al guardar el proyecto abajo.";
+  const editingFolio = editingId != null ? displayInstalacionFolio(rows.find((r) => r.id === editingId)?.idx) : "";
 
   return (
-    <div className="space-y-5">
+    <>
+      {error ? (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      ) : null}
+
       {proyectoId != null ? (
-        <InstalacionFormSection
-          titleId="proyecto-sec-instalaciones-lista"
-          eyebrow="Registro"
-          title="Instalaciones del proyecto"
+        <SectionCard
+          id="proyecto-sec-instalaciones-lista"
+          index={0}
+          title="Fichas registradas"
+          icon={<ListOrdered />}
           hint={
-            rows.length > 0
-              ? `${rows.length} ${rows.length === 1 ? "ficha registrada" : "fichas registradas"}.`
-              : "Aún no hay fichas; usa el formulario de abajo para agregar la primera."
+            loading
+              ? "Cargando…"
+              : rows.length
+                ? `${rows.length} ${rows.length === 1 ? "ficha" : "fichas"} en este proyecto.`
+                : "Aún no hay fichas; captura la primera abajo."
           }
-          icon={iconList}
-          card={!loading && rows.length > 0}
+          flush
         >
           {loading ? (
-            <div
-              id={listStatusId}
-              className={proyectoEmptyPanelClass}
-              role="status"
-              aria-live="polite"
-            >
-              <p className="text-sm text-gray-600 dark:text-gray-300">Cargando instalaciones…</p>
+            <div className="space-y-2 p-4 sm:p-5" role="status" aria-label="Cargando instalaciones">
+              {[0, 1].map((i) => (
+                <span key={i} className="block h-14 rounded-[12px] bg-[#F4F4F5] motion-safe:animate-pulse dark:bg-[#1B2539]" />
+              ))}
             </div>
-          ) : rows.length === 0 ? (
-            <div className={proyectoEmptyPanelClass} role="status">
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                No hay instalaciones guardadas en este proyecto.
-              </p>
-              <p className="mt-1.5 text-xs text-[#6E6E77] dark:text-[#8ea0b8]">
-                Completa los datos GPS abajo y pulsa Guardar en el pie del modal.
-              </p>
-            </div>
-          ) : (
-            <ul className="space-y-3" aria-label="Instalaciones del proyecto">
-              {rows.map((row) => {
+          ) : rows.length === 0 ? null : (
+            <ul className="divide-y divide-[#F0F0F2] dark:divide-[#1F2A3C]" aria-label="Instalaciones del proyecto">
+              {rows.map((row, i) => {
                 const folio = displayInstalacionFolio(row.idx);
                 const isEditing = editingId === row.id;
-                const tipo = subtipoFromPayload(row.payload);
                 return (
                   <li
                     key={row.id}
-                    className={`${instalacionListCardClass}${isEditing ? ` ${instalacionListCardEditingClass}` : ""}`}
+                    className={`cot-rise flex items-center gap-3 px-4 py-3 transition-colors duration-200 sm:px-5 ${
+                      isEditing ? "bg-[#F5F8FF] dark:bg-[#1B2A63]/30" : ""
+                    }`}
+                    style={{ "--cot-i": i } as CSSProperties}
                   >
-                    <div className="min-w-0">
+                    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]">
+                      <Satellite className="size-4" aria-hidden />
+                    </span>
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={instalacionFolioBadgeClass}>{folio}</span>
-                        {tipo === "gps" ? (
-                          <span className={instalacionTipoBadgeClass}>GPS</span>
+                        <span className="font-mono text-[13px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{folio}</span>
+                        {subtipoFromPayload(row.payload) === "gps" ? (
+                          <span className="inline-flex h-5 items-center rounded-full bg-[#F4F4F5] px-2 text-[11px] font-semibold text-[#52525B] dark:bg-white/[0.06] dark:text-[#B7C1D1]">
+                            GPS
+                          </span>
                         ) : null}
                         {isEditing ? (
-                          <span
-                            className="text-[10px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:text-[#4B7CFF]"
-                            aria-current="true"
-                          >
+                          <span className="cot-pop text-[11px] font-semibold uppercase tracking-[0.08em] text-[#1B5CFF] dark:text-[#7EA0FF]" aria-current="true">
                             En edición
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        Placas {payloadPlacas(row.payload)}
-                        {" · "}
-                        IMEI {payloadImei(row.payload)}
+                      <p className="mt-0.5 truncate text-[12.5px] text-[#71717A] dark:text-[#8EA0B8]">
+                        Placas {payloadPlacas(row.payload)} · IMEI {payloadImei(row.payload)}
                       </p>
                     </div>
                     {!disabled ? (
-                      <div className="flex shrink-0 items-center gap-1.5">
+                      <div className="flex shrink-0 gap-1.5">
                         <button
                           type="button"
-                          className={instalacionGhostActionClass}
+                          className={iconBtn}
                           aria-label={`Editar ${folio}`}
                           aria-pressed={isEditing}
                           onClick={() => openEdit(row)}
                         >
-                          <PencilIcon className="h-4 w-4" aria-hidden />
+                          <Pencil aria-hidden />
                         </button>
                         <button
                           type="button"
-                          className={instalacionDangerActionClass}
+                          className={iconBtnDanger}
                           aria-label={`Eliminar ${folio}`}
                           aria-haspopup="dialog"
                           onClick={() => setDeletingRow(row)}
                         >
-                          <TrashBinIcon className="h-4 w-4" aria-hidden />
+                          <Trash2 aria-hidden />
                         </button>
                       </div>
                     ) : null}
@@ -255,33 +199,35 @@ export function ProyectoFormInstalacionesPanel({
               })}
             </ul>
           )}
-        </InstalacionFormSection>
+        </SectionCard>
       ) : null}
 
-      <InstalacionFormSection
-        titleId="proyecto-sec-instalacion-datos"
-        eyebrow={formEyebrow}
-        title={formTitle}
-        hint={formHint}
-        icon={iconGps}
+      <SectionCard
+        id="proyecto-sec-instalacion-datos"
+        index={1}
+        title={editingId != null ? `Editar ${editingFolio}` : "Nueva ficha de instalación"}
+        icon={<Satellite />}
+        hint={
+          editingId != null
+            ? "Los cambios se aplican al guardar el proyecto."
+            : "Opcional. Si eliges un tipo, la ficha se registra al guardar el proyecto."
+        }
+        actions={
+          editingId != null && !disabled ? (
+            <button type="button" className={`${btn.secondary} ${btnSm}`} onClick={resetDraft}>
+              Cancelar edición
+            </button>
+          ) : null
+        }
       >
-        <div
-          id={formStatusId}
-          className="sr-only"
-          role="status"
-          aria-live="polite"
-        >
-          {editingId != null
-            ? `Editando ${displayInstalacionFolio(rows.find((r) => r.id === editingId)?.idx)}`
-            : "Formulario de nueva instalación"}
-        </div>
-
-        {error ? (
-          <p className="mb-1 text-sm font-medium text-rose-600 dark:text-rose-400" role="alert">
-            {error}
+        <p className="sr-only" role="status" aria-live="polite">
+          {editingId != null ? `Editando ${editingFolio}` : "Formulario de nueva instalación"}
+        </p>
+        {proyectoId == null && !draft.subtipo ? (
+          <p className={`${emptyPanel} py-5! text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]`}>
+            Si este proyecto incluye la instalación de un GPS, elige el tipo para capturar la ficha.
           </p>
         ) : null}
-
         <InstalacionForm
           value={draft.form}
           subtipo={draft.subtipo}
@@ -289,79 +235,31 @@ export function ProyectoFormInstalacionesPanel({
           onSubtipoChange={setSubtipo}
           disabled={disabled}
         />
+      </SectionCard>
 
-        <div className="mt-1 flex flex-col gap-3 border-t border-gray-100 pt-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-          <div
-            className="rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/90 px-3.5 py-3 dark:border-[#334155] dark:bg-[#0f172a]/40"
-            role="note"
-          >
-            <p className="text-xs leading-relaxed text-[#6E6E77] dark:text-[#8ea0b8]">
-              {editingId != null ? (
-                <>
-                  Los cambios de esta ficha se aplican al pulsar{" "}
-                  <strong className="font-semibold text-[#09090B] dark:text-[#f8fafc]">Guardar</strong>{" "}
-                  en el pie del modal.
-                </>
-              ) : (
-                <>
-                  Al pulsar{" "}
-                  <strong className="font-semibold text-[#09090B] dark:text-[#f8fafc]">Guardar</strong>{" "}
-                  en el pie del modal se guarda el proyecto y, si elegiste un tipo, también esta ficha
-                  GPS.
-                </>
-              )}
-            </p>
-          </div>
-          {editingId != null && !disabled ? (
-            <button type="button" className={erpSecondaryBtnClass} onClick={resetDraft}>
-              Cancelar edición
-            </button>
-          ) : null}
-        </div>
-      </InstalacionFormSection>
-
-      <Modal
-        isOpen={Boolean(deletingRow)}
-        onClose={() => {
-          if (!deleting) setDeletingRow(null);
-        }}
-        closeOnBackdropClick={!deleting}
-        closeOnEscape={!deleting}
-        showCloseButton={!deleting}
-        ariaLabelledBy={deleteTitleId}
-        className={`${erpDeleteModalClass} z-[100003]`}
-      >
-        <div className={erpDeleteModalPanelClass}>
-          <h3
-            id={deleteTitleId}
-            className="text-center text-base font-semibold text-[#09090B] dark:text-[#f8fafc]"
-          >
-            Eliminar instalación
-          </h3>
-          <p className="mt-2 text-center text-sm text-[#52525B] dark:text-[#94a3b8]">
-            ¿Eliminar {deletingRow ? displayInstalacionFolio(deletingRow.idx) : "esta instalación"}?
-            Esta acción no se puede deshacer.
-          </p>
-          <div className="mt-5 flex justify-end gap-2">
-            <button
-              type="button"
-              className={erpSecondaryBtnClass}
-              disabled={deleting}
-              onClick={() => setDeletingRow(null)}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              className={erpDangerBtnClass}
-              disabled={deleting}
-              onClick={() => void confirmDelete()}
-            >
-              {deleting ? "Eliminando…" : "Eliminar"}
-            </button>
-          </div>
-        </div>
-      </Modal>
-    </div>
+      <AppConfirmDialog
+        open={Boolean(deletingRow)}
+        onClose={() => setDeletingRow(null)}
+        onConfirm={confirmDelete}
+        tone="danger"
+        icon={<Trash2 className="size-5" />}
+        title="Eliminar instalación"
+        description="La ficha se elimina de inmediato, sin esperar a guardar el proyecto. Esta acción no se puede deshacer."
+        detail={
+          deletingRow ? (
+            <AppModalContext
+              rows={[
+                { label: "Ficha", value: displayInstalacionFolio(deletingRow.idx), strong: true },
+                { label: "Placas", value: payloadPlacas(deletingRow.payload) },
+                { label: "IMEI", value: payloadImei(deletingRow.payload) },
+              ]}
+            />
+          ) : null
+        }
+        confirmLabel="Eliminar"
+        busyLabel="Eliminando…"
+        className={fontSans}
+      />
+    </>
   );
 }
