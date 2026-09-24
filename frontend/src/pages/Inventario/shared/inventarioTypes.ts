@@ -118,4 +118,59 @@ export type ImportarFacturaResponse = {
   actualizados: number;
   movimientos: number;
   items: InventarioItem[];
+  /** Líneas (o parte de ellas) que no llegaron y quedaron en espera. */
+  pendientes: InventarioPendiente[];
+};
+
+/** Línea de la factura antes de importarla (vista previa para marcar lo recibido). */
+export type FacturaPreviewLinea = {
+  indice: number;
+  ref_externa: string;
+  modelo: string;
+  nombre: string;
+  marca: string;
+  imagen_url: string;
+  caracteristicas: string;
+  cantidad: number;
+  precio_unitario: string | null;
+  /** Ítem que ya existe en inventario para esta línea (null = se creará). */
+  en_inventario: { id: number; cantidad: number } | null;
+};
+
+export type FacturaPreview = {
+  proveedor: FacturaProveedor;
+  folio: string;
+  lineas: FacturaPreviewLinea[];
+};
+
+/** Unidades que llegaron de una línea de la vista previa. */
+export type RecepcionLinea = {
+  indice: number;
+  modelo: string;
+  recibida: number;
+};
+
+/** Producto facturado que aún no llega: fuera del inventario hasta recibirlo. */
+export type InventarioPendiente = {
+  id: number;
+  proveedor: FacturaProveedor;
+  folio: string;
+  ref_externa: string;
+  modelo: string;
+  nombre: string;
+  marca: string;
+  imagen_url: string;
+  precio_unitario: string | null;
+  /** Unidades que siguen sin llegar. */
+  cantidad: number;
+  /** Unidades de la línea original de la factura. */
+  cantidad_facturada: number;
+  creado_en: string;
+};
+
+export type RecibirPendienteResponse = {
+  recibidas: number;
+  item: InventarioItem;
+  /** null cuando ya se recibió todo. */
+  pendiente: InventarioPendiente | null;
 };

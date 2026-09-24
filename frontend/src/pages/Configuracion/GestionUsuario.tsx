@@ -28,7 +28,7 @@ import {
   type Role,
   type UserAccount,
 } from './usuarios/usuariosModel';
-import { Toast, type ToastState } from './usuarios/usuariosUi';
+import Alert from '@/components/ui/alert/Alert';
 import {
   btn,
   btnSm,
@@ -71,7 +71,7 @@ export default function UserProfiles() {
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState>(null);
+  const [toast, setToast] = useState<{ id: number; tone: 'success' | 'error'; message: string } | null>(null);
 
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
@@ -502,7 +502,15 @@ export default function UserProfiles() {
         busyLabel="Eliminando…"
       />
 
-      <Toast toast={toast} onDismiss={dismissToast} />
+      {toast ? (
+        <Alert
+          key={toast.id}
+          variant={toast.tone}
+          title={toast.tone === 'success' ? toast.message : 'No se pudo completar'}
+          message={toast.tone === 'success' ? '' : toast.message}
+          onClose={dismissToast}
+        />
+      ) : null}
     </>
   );
 }

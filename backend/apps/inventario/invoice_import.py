@@ -12,7 +12,12 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 
 from .enrichment import _plain_text
-from .models import InventarioImportacion, InventarioItem, InventarioMovimiento
+from .models import (
+    InventarioImportacion,
+    InventarioItem,
+    InventarioMovimiento,
+    InventarioPendiente,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -286,8 +291,57 @@ def _aplicar_ficha(
     item.precio_unitario = linea.precio_unitario
 
 
-def importar_factura(*, proveedor: str, folio: str, usuario) -> dict:
-    """Importa la factura: crea/actualiza ítems, movimientos +N y registra la importación."""
+def _dar_entrada(
+    *,
+    origen: str,
+    linea: FacturaLinea,
+    cantidad: int,
+    folio: str,
+    proveedor_cliente,
+    usuario,
+    nota: str,
+) -> tuple[InventarioItem, bool]:
+    """Crea/actualiza el ítem de la línea, suma `cantidad` y registra la entrada.
+
+    Debe llamarse dentro de `transaction.atomic()`. Devuelve (ítem, creado).
+    """
+    item = _buscar_item(origen, linea)
+    creado = item is None
+    if creado:
+        codigo = linea.modelo or f'{origen.upper()}:{linea.ref_externa}'
+        item = InventarioItem(codigo_barras=codigo, cantidad=0)
+
+    _aplicar_ficha(
+        item, linea, origen, creado=creado, folio=folio, proveedor_cliente=proveedor_cliente
+    )
+    item.cantidad += cantidad
+    try:
+        with transaction.atomic():
+            item.save()
+    except IntegrityError:
+        # Carrera al crear el mismo modelo: reusa el existente.
+        item = InventarioItem.objects.select_for_update().get(
+            codigo_barras=linea.modelo or item.codigo_barras
+        )
+        creado = False
+        _aplicar_ficha(
+            item, linea, origen, creado=False, folio=folio, proveedor_cliente=proveedor_cliente
+        )
+        item.cantidad += cantidad
+        item.save()
+
+    InventarioMovimiento.objects.create(
+        item=item,
+        tipo=InventarioMovimiento.Tipo.ENTRADA,
+        cantidad=cantidad,
+        usuario=usuario,
+        nota=nota[:255],
+    )
+    return item, creado
+
+
+def _validar_nueva_importacion(proveedor: str, folio: str) -> tuple[str, FacturaDetalle, str]:
+    """Valida proveedor/folio, descarta folios ya importados y trae la factura."""
     origen = (proveedor or '').strip().lower()
     folio_norm = normalize_folio(folio)
     if origen not in PROVEEDORES:
@@ -303,77 +357,141 @@ def importar_factura(*, proveedor: str, folio: str, usuario) -> dict:
 
     if InventarioImportacion.objects.filter(proveedor=origen, folio=folio_oficial).exists():
         raise FacturaYaImportada(f'La factura {folio_oficial} ya se importó.')
+    return origen, detalle, folio_oficial
+
+
+def _item_existente(origen: str, linea: FacturaLinea) -> InventarioItem | None:
+    """Como `_buscar_item`, sin bloqueo (solo lectura para la vista previa)."""
+    if linea.ref_externa:
+        hallado = InventarioItem.objects.filter(fuente=origen, ref_externa=linea.ref_externa).first()
+        if hallado:
+            return hallado
+    if linea.modelo:
+        return InventarioItem.objects.filter(codigo_barras=linea.modelo).first()
+    return None
+
+
+def previsualizar_factura(*, proveedor: str, folio: str) -> dict:
+    """Trae las líneas de la factura sin tocar el inventario (para marcar lo recibido)."""
+    origen, detalle, folio_oficial = _validar_nueva_importacion(proveedor, folio)
+    lineas = []
+    for indice, linea in enumerate(detalle.lineas):
+        existente = _item_existente(origen, linea)
+        lineas.append(
+            {
+                'indice': indice,
+                'ref_externa': linea.ref_externa,
+                'modelo': linea.modelo,
+                'nombre': linea.nombre,
+                'marca': linea.marca,
+                'imagen_url': linea.imagen_url,
+                'caracteristicas': linea.caracteristicas,
+                'cantidad': linea.cantidad,
+                'precio_unitario': linea.precio_unitario,
+                'en_inventario': (
+                    {'id': existente.id, 'cantidad': existente.cantidad} if existente else None
+                ),
+            }
+        )
+    return {'proveedor': origen, 'folio': folio_oficial, 'lineas': lineas}
+
+
+def _cantidades_recibidas(detalle: FacturaDetalle, recepcion: list[dict] | None) -> list[int]:
+    """Unidades recibidas por línea. Sin `recepcion` → todo llegó (compatibilidad).
+
+    Cada entrada de `recepcion` es {indice, modelo, recibida}. El `modelo` se
+    compara con la factura recién consultada para no aplicar la selección a una
+    línea distinta si la factura cambió entre la vista previa y la confirmación.
+    Las líneas no incluidas se consideran no recibidas.
+    """
+    if recepcion is None:
+        return [linea.cantidad for linea in detalle.lineas]
+
+    recibidas = [0] * len(detalle.lineas)
+    vistos: set[int] = set()
+    for entrada in recepcion:
+        indice = entrada['indice']
+        if indice < 0 or indice >= len(detalle.lineas) or indice in vistos:
+            raise FacturaInvalida('La selección no corresponde a la factura. Vuelve a cargarla.')
+        linea = detalle.lineas[indice]
+        if (entrada.get('modelo') or '') != linea.modelo:
+            raise FacturaInvalida('La factura cambió desde que la cargaste. Vuelve a cargarla.')
+        vistos.add(indice)
+        recibidas[indice] = max(0, min(int(entrada['recibida']), linea.cantidad))
+    return recibidas
+
+
+def importar_factura(
+    *, proveedor: str, folio: str, usuario, recepcion: list[dict] | None = None
+) -> dict:
+    """Importa la factura: da entrada a lo recibido y deja el resto en espera.
+
+    Lo recibido crea/actualiza ítems con movimientos +N. Lo que no llegó se
+    guarda como `InventarioPendiente` (no suma existencias). El folio queda
+    registrado para no importarlo dos veces.
+    """
+    origen, detalle, folio_oficial = _validar_nueva_importacion(proveedor, folio)
+    recibidas = _cantidades_recibidas(detalle, recepcion)
 
     creados = 0
     actualizados = 0
+    movimientos = 0
     items_afectados: list[InventarioItem] = []
+    pendientes: list[InventarioPendiente] = []
 
     with transaction.atomic():
-        # Doble check bajo lock de fila de importación (unique + IntegrityError).
+        # Doble check dentro de la transacción (unique + IntegrityError).
         if InventarioImportacion.objects.filter(proveedor=origen, folio=folio_oficial).exists():
             raise FacturaYaImportada(f'La factura {folio_oficial} ya se importó.')
+        try:
+            with transaction.atomic():
+                importacion = InventarioImportacion.objects.create(
+                    proveedor=origen,
+                    folio=folio_oficial,
+                    usuario=usuario,
+                )
+        except IntegrityError as exc:
+            raise FacturaYaImportada(f'La factura {folio_oficial} ya se importó.') from exc
 
         proveedor_cliente = obtener_o_crear_proveedor(origen)
 
-        for linea in detalle.lineas:
-            item = _buscar_item(origen, linea)
-            creado = item is None
-            if creado:
-                codigo = linea.modelo or f'{origen.upper()}:{linea.ref_externa}'
-                item = InventarioItem(codigo_barras=codigo, cantidad=0)
-                creados += 1
-            else:
-                actualizados += 1
-
-            _aplicar_ficha(
-                item,
-                linea,
-                origen,
-                creado=creado,
-                folio=folio_oficial,
-                proveedor_cliente=proveedor_cliente,
-            )
-            item.cantidad += linea.cantidad
-            try:
-                item.save()
-            except IntegrityError:
-                # Carrera al crear el mismo modelo: reusa el existente.
-                item = (
-                    InventarioItem.objects.select_for_update()
-                    .get(codigo_barras=linea.modelo or item.codigo_barras)
-                )
-                creado = False
-                actualizados += 1
-                if creados:
-                    creados -= 1
-                _aplicar_ficha(
-                    item,
-                    linea,
-                    origen,
-                    creado=False,
+        for linea, recibida in zip(detalle.lineas, recibidas):
+            if recibida > 0:
+                item, creado = _dar_entrada(
+                    origen=origen,
+                    linea=linea,
+                    cantidad=recibida,
                     folio=folio_oficial,
                     proveedor_cliente=proveedor_cliente,
+                    usuario=usuario,
+                    nota=f'Importación {origen.upper()} {folio_oficial}',
                 )
-                item.cantidad += linea.cantidad
-                item.save()
+                if creado:
+                    creados += 1
+                else:
+                    actualizados += 1
+                movimientos += 1
+                items_afectados.append(item)
 
-            InventarioMovimiento.objects.create(
-                item=item,
-                tipo=InventarioMovimiento.Tipo.ENTRADA,
-                cantidad=linea.cantidad,
-                usuario=usuario,
-                nota=f'Importación {origen.upper()} {folio_oficial}'[:255],
-            )
-            items_afectados.append(item)
-
-        try:
-            importacion = InventarioImportacion.objects.create(
-                proveedor=origen,
-                folio=folio_oficial,
-                usuario=usuario,
-            )
-        except IntegrityError as exc:
-            raise FacturaYaImportada(f'La factura {folio_oficial} ya se importó.') from exc
+            faltante = linea.cantidad - recibida
+            if faltante > 0:
+                pendientes.append(
+                    InventarioPendiente.objects.create(
+                        importacion=importacion,
+                        proveedor=origen,
+                        folio=folio_oficial,
+                        ref_externa=linea.ref_externa,
+                        modelo=linea.modelo,
+                        nombre=linea.nombre,
+                        marca=linea.marca,
+                        imagen_url=linea.imagen_url,
+                        caracteristicas=linea.caracteristicas,
+                        precio_unitario=linea.precio_unitario,
+                        cantidad=faltante,
+                        cantidad_facturada=linea.cantidad,
+                        usuario=usuario,
+                    )
+                )
 
     return {
         'importacion_id': importacion.id,
@@ -381,6 +499,50 @@ def importar_factura(*, proveedor: str, folio: str, usuario) -> dict:
         'folio': folio_oficial,
         'creados': creados,
         'actualizados': actualizados,
-        'movimientos': len(detalle.lineas),
+        'movimientos': movimientos,
         'items': items_afectados,
+        'pendientes': pendientes,
     }
+
+
+class PendienteCantidadInvalida(Exception):
+    """Se pidió recibir más unidades de las que siguen en espera (o cero)."""
+
+
+def recibir_pendiente(*, pendiente_id: int, cantidad: int | None, usuario) -> dict:
+    """Da entrada a un producto en espera (todo o parte). Si se completa, sale de la lista."""
+    with transaction.atomic():
+        pendiente = InventarioPendiente.objects.select_for_update().get(pk=pendiente_id)
+        recibir = pendiente.cantidad if cantidad is None else cantidad
+        if recibir <= 0 or recibir > pendiente.cantidad:
+            raise PendienteCantidadInvalida(
+                f'Puedes recibir entre 1 y {pendiente.cantidad} unidades.'
+            )
+        linea = FacturaLinea(
+            ref_externa=pendiente.ref_externa,
+            modelo=pendiente.modelo,
+            nombre=pendiente.nombre,
+            marca=pendiente.marca,
+            imagen_url=pendiente.imagen_url,
+            cantidad=pendiente.cantidad,
+            caracteristicas=pendiente.caracteristicas,
+            precio_unitario=pendiente.precio_unitario,
+        )
+        item, _creado = _dar_entrada(
+            origen=pendiente.proveedor,
+            linea=linea,
+            cantidad=recibir,
+            folio=pendiente.folio,
+            proveedor_cliente=obtener_o_crear_proveedor(pendiente.proveedor),
+            usuario=usuario,
+            nota=f'Recepción pendiente {pendiente.proveedor.upper()} {pendiente.folio}',
+        )
+        restante = pendiente.cantidad - recibir
+        if restante > 0:
+            pendiente.cantidad = restante
+            pendiente.save(update_fields=['cantidad'])
+            quedan = pendiente
+        else:
+            pendiente.delete()
+            quedan = None
+    return {'item': item, 'recibidas': recibir, 'pendiente': quedan}

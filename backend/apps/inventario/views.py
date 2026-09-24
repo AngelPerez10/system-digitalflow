@@ -29,12 +29,18 @@ from .invoice_import import (
     FacturaInvalida,
     FacturaNoEncontrada,
     FacturaYaImportada,
+    PendienteCantidadInvalida,
     ProveedorNoSoportado,
     importar_factura,
+    previsualizar_factura,
+    recibir_pendiente,
 )
-from .models import InventarioItem, InventarioMovimiento
+from .models import InventarioItem, InventarioMovimiento, InventarioPendiente
 from .serializers import (
     ImportarFacturaSerializer,
+    InventarioPendienteSerializer,
+    PrevisualizarFacturaSerializer,
+    RecibirPendienteSerializer,
     InventarioItemPatchSerializer,
     InventarioItemSerializer,
     InventarioMovimientoSerializer,
@@ -568,28 +574,61 @@ class InventarioCatalogoDetallePorRefView(APIView):
         return Response(detalle)
 
 
+def _factura_error_response(exc: Exception) -> Response:
+    """Traduce los errores del servicio de facturas a respuestas HTTP."""
+    if isinstance(exc, FacturaInvalida):
+        code = status.HTTP_400_BAD_REQUEST
+    elif isinstance(exc, FacturaNoEncontrada):
+        code = status.HTTP_404_NOT_FOUND
+    elif isinstance(exc, FacturaYaImportada):
+        code = status.HTTP_409_CONFLICT
+    else:
+        code = status.HTTP_501_NOT_IMPLEMENTED
+    return Response({'detail': str(exc)}, status=code)
+
+
+_FACTURA_ERRORES = (FacturaInvalida, FacturaNoEncontrada, FacturaYaImportada, ProveedorNoSoportado)
+
+
+class InventarioPrevisualizarFacturaView(APIView):
+    """Líneas de la factura para marcar lo recibido. No modifica el inventario."""
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def post(self, request):
+        serializer = PrevisualizarFacturaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            resultado = previsualizar_factura(
+                proveedor=serializer.validated_data['proveedor'],
+                folio=serializer.validated_data['folio'],
+            )
+        except _FACTURA_ERRORES as exc:
+            return _factura_error_response(exc)
+        for linea in resultado['lineas']:
+            precio = linea['precio_unitario']
+            linea['precio_unitario'] = None if precio is None else str(precio)
+        return Response(resultado, status=status.HTTP_200_OK)
+
+
 class InventarioImportarFacturaView(APIView):
-    """Importa todos los productos de una factura de proveedor (SYSCOM hoy; TVC después)."""
+    """Importa una factura: da entrada a lo recibido y deja el resto en espera."""
 
     permission_classes = [IsAuthenticated, InventarioPermission]
 
     def post(self, request):
         serializer = ImportarFacturaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        recepcion = serializer.validated_data.get('recepcion')
         try:
             resultado = importar_factura(
                 proveedor=serializer.validated_data['proveedor'],
                 folio=serializer.validated_data['folio'],
                 usuario=request.user,
+                recepcion=list(recepcion) if recepcion is not None else None,
             )
-        except FacturaInvalida as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        except FacturaNoEncontrada as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_404_NOT_FOUND)
-        except FacturaYaImportada as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
-        except ProveedorNoSoportado as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        except _FACTURA_ERRORES as exc:
+            return _factura_error_response(exc)
 
         return Response(
             {
@@ -600,6 +639,62 @@ class InventarioImportarFacturaView(APIView):
                 'actualizados': resultado['actualizados'],
                 'movimientos': resultado['movimientos'],
                 'items': InventarioItemSerializer(resultado['items'], many=True).data,
+                'pendientes': InventarioPendienteSerializer(resultado['pendientes'], many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class InventarioPendienteListView(APIView):
+    """Productos facturados que aún no llegan (fuera del inventario)."""
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def get(self, request):
+        queryset = InventarioPendiente.objects.all()
+        return Response(InventarioPendienteSerializer(queryset, many=True).data)
+
+
+class InventarioPendienteDetailView(APIView):
+    """DELETE: descarta un producto en espera (no llegará). Requiere permiso de eliminar."""
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def delete(self, request, pk):
+        pendiente = get_object_or_404(InventarioPendiente, pk=pk)
+        self.check_object_permissions(request, pendiente)
+        pendiente.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InventarioRecibirPendienteView(APIView):
+    """POST: da entrada a un producto en espera (todo o parte)."""
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def post(self, request, pk):
+        get_object_or_404(InventarioPendiente, pk=pk)
+        serializer = RecibirPendienteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            resultado = recibir_pendiente(
+                pendiente_id=pk,
+                cantidad=serializer.validated_data.get('cantidad'),
+                usuario=request.user,
+            )
+        except InventarioPendiente.DoesNotExist:
+            return Response(
+                {'detail': 'Ese producto ya no está en espera.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except PendienteCantidadInvalida as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        quedan = resultado['pendiente']
+        return Response(
+            {
+                'recibidas': resultado['recibidas'],
+                'item': InventarioItemSerializer(resultado['item']).data,
+                'pendiente': InventarioPendienteSerializer(quedan).data if quedan else None,
             },
             status=status.HTTP_200_OK,
         )

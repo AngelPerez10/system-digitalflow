@@ -132,3 +132,46 @@ class InventarioImportacion(models.Model):
 
     def __str__(self):
         return f'{self.proveedor}:{self.folio}'
+
+
+class InventarioPendiente(models.Model):
+    """Línea de factura que aún no llega: queda en espera, fuera del inventario.
+
+    Guarda la ficha de la línea tal como vino en la factura para poder darle
+    entrada después (recibir) sin volver a consultar al proveedor.
+    """
+
+    importacion = models.ForeignKey(
+        InventarioImportacion, on_delete=models.CASCADE, related_name='pendientes'
+    )
+    proveedor = models.CharField(max_length=20, choices=InventarioImportacion.Proveedor.choices)
+    folio = models.CharField(max_length=64, db_index=True)
+    ref_externa = models.CharField(max_length=120, blank=True, default='')
+    modelo = models.CharField(max_length=120, blank=True, default='')
+    nombre = models.CharField(max_length=255, blank=True, default='')
+    marca = models.CharField(max_length=120, blank=True, default='')
+    imagen_url = models.URLField(max_length=500, blank=True, default='')
+    caracteristicas = models.TextField(blank=True, default='')
+    precio_unitario = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    # Unidades que siguen sin llegar (baja al recibir parcialmente).
+    cantidad = models.PositiveIntegerField()
+    # Unidades facturadas en la línea original (referencia visual).
+    cantidad_facturada = models.PositiveIntegerField()
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='inventario_pendientes',
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-creado_en', 'id']
+        verbose_name = 'Producto en espera'
+        verbose_name_plural = 'Productos en espera'
+
+    def __str__(self):
+        return f'{self.folio} · {self.modelo or self.ref_externa} ({self.cantidad})'

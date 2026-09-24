@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
+import "@/components/ui/modal-kit/motion.css";
 import ComponentCard from "@/components/common/ComponentCard";
+import Alert, { type AlertVariant } from "@/components/ui/alert/Alert";
 import { useAuth } from "@/context/AuthContext";
 import {
   invBreadcrumbCurrentClass,
@@ -26,15 +28,20 @@ import InventarioEditModal from "./components/InventarioEditModal";
 import InventarioImportFacturaBar from "./components/InventarioImportFacturaBar";
 import InventarioItemsTable from "./components/InventarioItemsTable";
 import InventarioMovimientosList from "./components/InventarioMovimientosList";
+import InventarioPendientesDrawer from "./components/InventarioPendientesDrawer";
 import InventarioPagination from "./components/InventarioPagination";
 import InventarioScanBar from "./components/InventarioScanBar";
 import InventarioSeccionChips from "./components/InventarioSeccionChips";
 import InventarioStats from "./components/InventarioStats";
 import { BarcodeIcon, SearchIcon } from "./components/inventarioIcons";
+import { Clock3 } from "lucide-react";
 import {
   deleteInventarioItem,
+  descartarInventarioPendiente,
   fetchInventarioStats,
   importarFactura,
+  listInventarioPendientes,
+  recibirInventarioPendiente,
   listInventarioItems,
   listInventarioMovimientos,
   patchInventarioItem,
@@ -47,7 +54,9 @@ import type {
   InventarioItem,
   InventarioItemPatch,
   InventarioMovimiento,
+  InventarioPendiente,
   InventarioStats as InventarioStatsData,
+  RecepcionLinea,
   ScanModo,
 } from "./shared/inventarioTypes";
 import { shouldAcceptScan } from "./shared/scanDebounce";
@@ -99,6 +108,16 @@ export default function InventarioPage() {
     sin_identificar: 0,
     movimientos_hoy: 0,
   });
+
+  const [pendientes, setPendientes] = useState<InventarioPendiente[]>([]);
+  const [pendientesOpen, setPendientesOpen] = useState(false);
+  /** Confirmación global (arriba a la derecha) para lo que se guarda. */
+  const [notice, setNotice] = useState<{ id: number; variant: AlertVariant; title: string; message: string } | null>(
+    null,
+  );
+  const notify = useCallback((title: string, message: string, variant: AlertVariant = "success") => {
+    setNotice({ id: Date.now(), variant, title, message });
+  }, []);
 
   const lastScanRef = useRef<{ code: string; at: number } | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -155,9 +174,18 @@ export default function InventarioPage() {
     }
   }, []);
 
+  const loadPendientes = useCallback(async () => {
+    try {
+      setPendientes(await listInventarioPendientes());
+    } catch {
+      // La lista de espera es secundaria; no bloquea la pantalla.
+    }
+  }, []);
+
   useEffect(() => {
     void loadStats();
-  }, [loadStats]);
+    void loadPendientes();
+  }, [loadStats, loadPendientes]);
 
   // Al abrir: rellena secciones vacías desde SYSCOM (ítems viejos).
   // Sin ref de “ya corrí”: en Strict Mode el primer efecto se cancela y el segundo debe volver a sincronizar.
@@ -276,7 +304,7 @@ export default function InventarioPage() {
         setFilterItem(null);
         setMovimientosPage(1);
       }
-      setScanStatus(`Ítem eliminado: ${item.nombre || item.codigo_barras}`);
+      notify("Ítem eliminado", item.nombre || item.codigo_barras);
     await Promise.all([
       loadItems(debouncedSearch, itemsPage, seccionFiltro),
       loadMovimientos(
@@ -299,7 +327,7 @@ export default function InventarioPage() {
       setItems((prev) => prev.map((row) => (row.id === id ? updated : row)));
       if (filterItem?.id === id) setFilterItem(updated);
       setEditItem(updated);
-      setScanStatus(`Ítem actualizado: ${updated.nombre || updated.codigo_barras}`);
+      notify("Cambios guardados", updated.nombre || updated.codigo_barras);
       await loadStats();
     } finally {
       setSavingEdit(false);
@@ -314,17 +342,23 @@ export default function InventarioPage() {
     if (filterItem?.id === updated.id) {
       setFilterItem((prev) => (prev ? { ...prev, cantidad: updated.cantidad } : prev));
     }
-    setScanStatus(
-      `Existencia actualizada: ${updated.nombre || updated.codigo_barras} → ${updated.cantidad}`,
-    );
+    notify("Existencia actualizada", `${updated.nombre || updated.codigo_barras}: ${updated.cantidad} en existencia`);
     void loadMovimientos(filterItem?.id ?? null, movimientosPage);
     void loadStats();
   };
 
-  const handleImportFactura = async (proveedor: FacturaProveedor, folio: string) => {
-    const result = await importarFactura(proveedor, folio);
-    setScanStatus(
-      `Factura ${result.folio} importada: ${result.creados} nuevos, ${result.actualizados} actualizados`,
+  const handleImportFactura = async (
+    proveedor: FacturaProveedor,
+    folio: string,
+    recepcion: RecepcionLinea[],
+  ) => {
+    const result = await importarFactura(proveedor, folio, recepcion);
+    const espera = result.pendientes.length
+      ? ` · ${result.pendientes.length} en espera`
+      : " · todo entró al inventario";
+    notify(
+      `Factura ${result.folio} importada`,
+      `${result.creados} nuevos, ${result.actualizados} actualizados${espera}`,
     );
     setItemsPage(1);
     setMovimientosPage(1);
@@ -332,8 +366,29 @@ export default function InventarioPage() {
       loadItems(debouncedSearch, 1, seccionFiltro),
       loadMovimientos(filterItem?.id ?? null, 1),
       loadStats(),
+      loadPendientes(),
     ]);
     return result;
+  };
+
+  const handleRecibirPendiente = async (p: InventarioPendiente, cantidad: number) => {
+    const res = await recibirInventarioPendiente(p.id, cantidad);
+    setPendientes((prev) =>
+      res.pendiente
+        ? prev.map((row) => (row.id === p.id ? (res.pendiente as InventarioPendiente) : row))
+        : prev.filter((row) => row.id !== p.id),
+    );
+    notify(
+      "Entrada registrada",
+      `${res.item.nombre || res.item.codigo_barras}: +${res.recibidas} (existencia ${res.item.cantidad})`,
+    );
+    await refreshLists();
+  };
+
+  const handleDescartarPendiente = async (p: InventarioPendiente) => {
+    await descartarInventarioPendiente(p.id);
+    setPendientes((prev) => prev.filter((row) => row.id !== p.id));
+    notify("Quitado de la lista de espera", p.nombre || p.modelo, "info");
   };
 
   return (
@@ -368,6 +423,34 @@ export default function InventarioPage() {
                 </div>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPendientesOpen(true)}
+                  aria-label={`Productos en espera: ${pendientes.length}`}
+                  className={`cot-press relative inline-flex h-11 items-center gap-2 rounded-full pl-2 pr-4 text-[14px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+                    pendientes.length
+                      ? "bg-[#E6A23C] text-[#17235B] shadow-[0_8px_20px_-10px_rgba(230,162,60,0.9)] hover:bg-[#F0B454]"
+                      : "bg-white/10 text-white/85 hover:bg-white/[0.16]"
+                  }`}
+                >
+                  <span
+                    className={`relative inline-flex size-8 items-center justify-center rounded-full ${
+                      pendientes.length ? "bg-[#17235B]/10" : "bg-white/10"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    <Clock3 className="size-[18px]" />
+                    {pendientes.length ? (
+                      <span
+                        key={pendientes.length}
+                        className="cot-tick absolute -right-1.5 -top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#C22B2B] px-1 text-[11px] font-bold tabular-nums text-white ring-2 ring-[#E6A23C]"
+                      >
+                        {pendientes.length > 99 ? "99+" : pendientes.length}
+                      </span>
+                    ) : null}
+                  </span>
+                  En espera
+                </button>
                 <span className={invHeroChipClass}>
                   <span className="size-1.5 rounded-full bg-[#4ADE80]" aria-hidden="true" />
                   {stats.total_items.toLocaleString("es-MX")} códigos
@@ -411,6 +494,7 @@ export default function InventarioPage() {
               />
             </div>
           ) : null}
+
 
           <div className="mt-4">
             <InventarioStats
@@ -514,6 +598,26 @@ export default function InventarioPage() {
         onSave={handleSaveEdit}
         onItemUpdated={handleItemUpdatedFromModal}
       />
+
+      <InventarioPendientesDrawer
+        open={pendientesOpen}
+        onClose={() => setPendientesOpen(false)}
+        pendientes={pendientes}
+        canReceive={canCreate}
+        canDiscard={canDelete}
+        onReceive={handleRecibirPendiente}
+        onDiscard={handleDescartarPendiente}
+      />
+
+      {notice ? (
+        <Alert
+          key={notice.id}
+          variant={notice.variant}
+          title={notice.title}
+          message={notice.message}
+          onClose={() => setNotice(null)}
+        />
+      ) : null}
 
       <InventarioDeleteModal
         item={deleteItem}

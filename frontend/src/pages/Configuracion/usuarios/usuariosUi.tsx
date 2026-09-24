@@ -8,12 +8,12 @@
  * Movimiento: solo `transform`/`opacity` (clases `cot-*` de modal-kit/motion.css)
  * y transiciones de color; todo se apaga con `prefers-reduced-motion`.
  */
-import { useEffect, useId, useState, type CSSProperties, type InputHTMLAttributes, type ReactNode } from 'react';
-import { CircleAlert, CircleCheck, Eye, EyeOff, Info, Loader2, X } from 'lucide-react';
+import { useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { CircleAlert, Eye, EyeOff, Info, Loader2 } from 'lucide-react';
 import { resolveMediaUrl } from '@/config/api';
 import { cn } from '@/lib/utils';
 import { initialsOf, isAdminUser, type UserAccount } from './usuariosModel';
-import { focusRing, fontSans, hintClass, inputClass, labelClass } from './usuariosStyles';
+import { focusRing, hintClass, inputClass, labelClass } from './usuariosStyles';
 
 /* --------------------------------------------------------------------------
    Campos
@@ -249,53 +249,6 @@ export function InlineAlert({ tone = 'error', title, children }: { tone?: 'error
         {title ? <p className="font-semibold">{title}</p> : null}
         <div className={title ? 'mt-0.5' : undefined}>{children}</div>
       </div>
-    </div>
-  );
-}
-
-export type ToastState = { id: number; tone: 'success' | 'error'; message: string } | null;
-
-/** Aviso flotante (abajo a la derecha). Se cierra solo; el error dura más. `onDismiss` debe ser estable. */
-export function Toast({ toast, onDismiss }: { toast: ToastState; onDismiss: () => void }) {
-  useEffect(() => {
-    if (!toast) return;
-    const id = window.setTimeout(onDismiss, toast.tone === 'error' ? 6000 : 4000);
-    return () => window.clearTimeout(id);
-  }, [toast, onDismiss]);
-
-  return (
-    <div
-      className={cn(fontSans, 'pointer-events-none fixed inset-x-3 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[100000] flex justify-center sm:inset-x-auto sm:right-6 sm:justify-end')}
-      aria-live={toast?.tone === 'error' ? 'assertive' : 'polite'}
-      role="status"
-    >
-      {toast ? (
-        <div
-          key={toast.id}
-          className={cn(
-            'cot-pop pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-[14px] border bg-white py-3 pl-4 pr-2 shadow-[0_18px_40px_-18px_rgba(9,9,11,0.45)] dark:bg-[#151E32]',
-            toast.tone === 'error' ? 'border-[#F6CFCF] dark:border-[#7F1D1D]' : 'border-[#BFE6D4] dark:border-[#1E5A42]',
-          )}
-          style={{ transformOrigin: 'bottom center' } as CSSProperties}
-        >
-          {toast.tone === 'error' ? (
-            <CircleAlert className="mt-0.5 size-5 shrink-0 text-[#C22B2B] dark:text-[#F87171]" aria-hidden />
-          ) : (
-            <CircleCheck className="cot-tick mt-0.5 size-5 shrink-0 text-[#04724D] dark:text-[#4ADE80]" aria-hidden />
-          )}
-          <p className="min-w-0 flex-1 pt-px text-[14px] font-medium leading-[20px] text-[#09090B] dark:text-[#F8FAFC]">
-            {toast.message}
-          </p>
-          <button
-            type="button"
-            onClick={onDismiss}
-            aria-label="Cerrar aviso"
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-[#A1A1AA] transition-colors hover:bg-[#F4F4F5] hover:text-[#3F3F46] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-[#1B2539] dark:hover:text-[#D6DEEA]"
-          >
-            <X className="size-4" aria-hidden />
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }

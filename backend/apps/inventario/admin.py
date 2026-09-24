@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import InventarioImportacion, InventarioItem, InventarioMovimiento
+from .models import InventarioImportacion, InventarioItem, InventarioMovimiento, InventarioPendiente
 
 
 @admin.register(InventarioItem)
@@ -31,3 +31,10 @@ class InventarioImportacionAdmin(admin.ModelAdmin):
     list_display = ['proveedor', 'folio', 'usuario', 'creado_en']
     list_filter = ['proveedor', 'creado_en']
     search_fields = ['folio']
+
+
+@admin.register(InventarioPendiente)
+class InventarioPendienteAdmin(admin.ModelAdmin):
+    list_display = ['folio', 'modelo', 'nombre', 'cantidad', 'cantidad_facturada', 'creado_en']
+    list_filter = ['proveedor']
+    search_fields = ['folio', 'modelo', 'nombre']

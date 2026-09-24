@@ -37,6 +37,26 @@ urlpatterns = [
         name='inventario-catalogo-detalle',
     ),
     path(
+        'inventario/importar-factura/previsualizar/',
+        views.InventarioPrevisualizarFacturaView.as_view(),
+        name='inventario-importar-factura-previsualizar',
+    ),
+    path(
+        'inventario/pendientes/',
+        views.InventarioPendienteListView.as_view(),
+        name='inventario-pendientes',
+    ),
+    path(
+        'inventario/pendientes/<int:pk>/',
+        views.InventarioPendienteDetailView.as_view(),
+        name='inventario-pendiente-detail',
+    ),
+    path(
+        'inventario/pendientes/<int:pk>/recibir/',
+        views.InventarioRecibirPendienteView.as_view(),
+        name='inventario-pendiente-recibir',
+    ),
+    path(
         'inventario/importar-factura/',
         views.InventarioImportarFacturaView.as_view(),
         name='inventario-importar-factura',

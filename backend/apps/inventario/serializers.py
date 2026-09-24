@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import InventarioItem, InventarioMovimiento
+from .models import InventarioItem, InventarioMovimiento, InventarioPendiente
 
 
 class InventarioItemSerializer(serializers.ModelSerializer):
@@ -107,9 +107,49 @@ class ScanSerializer(serializers.Serializer):
     )
 
 
+class PrevisualizarFacturaSerializer(serializers.Serializer):
+    proveedor = serializers.ChoiceField(choices=['syscom', 'tvc'])
+    folio = serializers.CharField(required=True, max_length=64)
+
+
+class RecepcionLineaSerializer(serializers.Serializer):
+    """Unidades que llegaron de una línea de la factura (por índice de la vista previa)."""
+
+    indice = serializers.IntegerField(min_value=0)
+    modelo = serializers.CharField(required=False, allow_blank=True, max_length=120, default='')
+    recibida = serializers.IntegerField(min_value=0)
+
+
 class ImportarFacturaSerializer(serializers.Serializer):
     proveedor = serializers.ChoiceField(choices=['syscom', 'tvc'])
     folio = serializers.CharField(required=True, max_length=64)
+    # Opcional: sin `recepcion` se da entrada a toda la factura (comportamiento previo).
+    recepcion = RecepcionLineaSerializer(many=True, required=False)
+
+
+class RecibirPendienteSerializer(serializers.Serializer):
+    # Sin cantidad → se reciben todas las unidades en espera.
+    cantidad = serializers.IntegerField(required=False, min_value=1)
+
+
+class InventarioPendienteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventarioPendiente
+        fields = [
+            'id',
+            'proveedor',
+            'folio',
+            'ref_externa',
+            'modelo',
+            'nombre',
+            'marca',
+            'imagen_url',
+            'precio_unitario',
+            'cantidad',
+            'cantidad_facturada',
+            'creado_en',
+        ]
+        read_only_fields = fields
 
 
 class RegistrarCatalogoSerializer(serializers.Serializer):

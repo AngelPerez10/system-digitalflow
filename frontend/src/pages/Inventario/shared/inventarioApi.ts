@@ -1,8 +1,12 @@
 import { fetchApi } from "@/config/api";
 import type {
   CatalogoCandidato,
+  FacturaPreview,
   FacturaProveedor,
   ImportarFacturaResponse,
+  InventarioPendiente,
+  RecepcionLinea,
+  RecibirPendienteResponse,
   InventarioFuente,
   InventarioItem,
   InventarioItemPatch,
@@ -189,17 +193,62 @@ export async function fetchCatalogoDetallePorRef(
 }
 
 /** Importa todos los productos de una factura de proveedor (SYSCOM hoy; TVC después). */
-export async function importarFactura(
+/** Trae las líneas de la factura sin tocar el inventario. */
+export async function previsualizarFactura(
   proveedor: FacturaProveedor,
   folio: string,
-): Promise<ImportarFacturaResponse> {
-  const res = await fetchApi("/api/inventario/importar-factura/", {
+): Promise<FacturaPreview> {
+  const res = await fetchApi("/api/inventario/importar-factura/previsualizar/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ proveedor, folio: folio.trim() }),
   });
   if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as FacturaPreview;
+}
+
+/**
+ * Importa la factura. Con `recepcion`, solo da entrada a lo recibido y deja el
+ * resto en espera; sin ella, importa todo (comportamiento anterior).
+ */
+export async function importarFactura(
+  proveedor: FacturaProveedor,
+  folio: string,
+  recepcion?: RecepcionLinea[],
+): Promise<ImportarFacturaResponse> {
+  const res = await fetchApi("/api/inventario/importar-factura/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ proveedor, folio: folio.trim(), ...(recepcion ? { recepcion } : {}) }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
   return (await res.json()) as ImportarFacturaResponse;
+}
+
+export async function listInventarioPendientes(): Promise<InventarioPendiente[]> {
+  const res = await fetchApi("/api/inventario/pendientes/", { method: "GET" });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as InventarioPendiente[];
+}
+
+/** Da entrada a un producto en espera; sin `cantidad` recibe todas sus unidades. */
+export async function recibirInventarioPendiente(
+  id: number,
+  cantidad?: number,
+): Promise<RecibirPendienteResponse> {
+  const res = await fetchApi(`/api/inventario/pendientes/${id}/recibir/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cantidad != null ? { cantidad } : {}),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as RecibirPendienteResponse;
+}
+
+/** Descarta un producto en espera (no llegará). No toca el inventario. */
+export async function descartarInventarioPendiente(id: number): Promise<void> {
+  const res = await fetchApi(`/api/inventario/pendientes/${id}/`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await readError(res));
 }
 
 export async function listInventarioMovimientos(
