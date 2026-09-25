@@ -59,6 +59,21 @@ class Proyecto(models.Model):
         related_name="proyectos_status_cambiado",
     )
 
+    # --- Liquidación ---
+    # Marca administrativa independiente del status: quién ya cobró/pagó este
+    # proyecto. Solo la puede tocar quien tenga el permiso JSON `liquidar` en
+    # el módulo proyectos (ver apps.users.permissions) — sin bypass de
+    # staff/admin a propósito, y sin relación con el permiso `edit`.
+    liquidado = models.BooleanField(default=False, db_index=True)
+    liquidado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="proyectos_liquidados",
+    )
+    liquidado_at = models.DateTimeField(null=True, blank=True)
+
     tipo_trabajo_id = models.IntegerField(null=True, blank=True)
     tipo_trabajo_nombre = models.CharField(max_length=255, blank=True, default="")
     # Varios servicios; legacy id/nombre se sincronizan al primero.

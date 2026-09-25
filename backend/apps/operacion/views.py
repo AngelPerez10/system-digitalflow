@@ -29,6 +29,7 @@ from apps.ordenes.image_services import (
 )
 from apps.users.permissions import (
     ProyectosAttachmentPermission,
+    ProyectosLiquidarPermission,
     ProyectosPermission,
     ProyectosSendPdfPermission,
     user_module_own_only,
@@ -163,6 +164,11 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         if self.action == "pdf_compartido":
             # El token firmado es la credencial (se abre desde WhatsApp o el navegador).
             return [AllowAny()]
+        if self.action == "liquidar":
+            # Exclusivo de quien tenga `liquidar=true` explícito; sin bypass
+            # de staff/superuser y sin depender de `edit` (ver el comentario
+            # en ProyectosLiquidarPermission).
+            return [IsAuthenticated(), ProyectosLiquidarPermission()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -268,6 +274,32 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         html = self._generate_pdf_html(proyecto)
         filename = _proyecto_pdf_filename(proyecto)
         return como_descarga(_pdf_response_from_html(html, filename), filename, request)
+
+    @action(detail=True, methods=["patch"], url_path="liquidar")
+    def liquidar(self, request, pk=None):
+        """Marca/desmarca `liquidado`. Ruta aparte del PATCH normal: no exige
+        `edit`, solo `liquidar` (ver ProyectosLiquidarPermission, sin bypass
+        de staff/superuser). Se fetcha directo, sin `get_object()`, para no
+        chocar con el scope own_only del equipo del proyecto.
+        """
+        proyecto = Proyecto.objects.filter(pk=pk).first()
+        if proyecto is None:
+            raise NotFound()
+
+        liquidado = request.data.get("liquidado")
+        if not isinstance(liquidado, bool):
+            raise DRFValidationError({"liquidado": "Debe ser true o false."})
+
+        if liquidado and proyecto.status != "cerrado":
+            return Response(
+                {"detail": "Solo se puede liquidar un proyecto cerrado."}, status=409
+            )
+
+        proyecto.liquidado = liquidado
+        proyecto.liquidado_por = request.user if liquidado else None
+        proyecto.liquidado_at = timezone.now() if liquidado else None
+        proyecto.save(update_fields=["liquidado", "liquidado_por", "liquidado_at"])
+        return Response(self.get_serializer(proyecto).data)
 
     @action(detail=True, methods=["get"], url_path="correo-sugerido")
     def correo_sugerido(self, request, pk=None):

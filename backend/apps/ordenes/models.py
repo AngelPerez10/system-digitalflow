@@ -98,6 +98,21 @@ class Orden(models.Model):
     )
     tomada_at = models.DateTimeField(null=True, blank=True)
 
+    # --- Liquidación ---
+    # Marca administrativa independiente del status: quién ya cobró/pagó esta
+    # orden. Solo la puede tocar quien tenga el permiso JSON `liquidar` en el
+    # módulo órdenes (ver apps.users.permissions) — sin bypass de staff/admin
+    # a propósito, y sin relación con el permiso `edit`.
+    liquidado = models.BooleanField(default=False, db_index=True)
+    liquidado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordenes_liquidadas',
+    )
+    liquidado_at = models.DateTimeField(null=True, blank=True)
+
     # Seguimiento de oficina (independiente del status del técnico)
     status_administrativo = models.CharField(
         max_length=20,

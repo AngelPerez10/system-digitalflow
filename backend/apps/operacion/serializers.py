@@ -114,6 +114,11 @@ class ProyectoSerializer(serializers.ModelSerializer):
     )
     status_changed_by_full_name = serializers.SerializerMethodField()
     status_changed_by_avatar_url = serializers.SerializerMethodField()
+    liquidado_por_username = serializers.CharField(
+        source="liquidado_por.username", read_only=True, allow_null=True
+    )
+    liquidado_por_full_name = serializers.SerializerMethodField()
+    liquidado_por_avatar_url = serializers.SerializerMethodField()
 
     @staticmethod
     def _user_display_name(user) -> str:
@@ -140,6 +145,15 @@ class ProyectoSerializer(serializers.ModelSerializer):
             return ""
         return self._avatares_equipo({int(user.pk)}).get(int(user.pk), "")
 
+    def get_liquidado_por_full_name(self, obj) -> str:
+        return self._user_display_name(getattr(obj, "liquidado_por", None))
+
+    def get_liquidado_por_avatar_url(self, obj) -> str:
+        user = getattr(obj, "liquidado_por", None)
+        if not user:
+            return ""
+        return self._avatares_equipo({int(user.pk)}).get(int(user.pk), "")
+
     class Meta:
         model = Proyecto
         fields = [
@@ -156,6 +170,12 @@ class ProyectoSerializer(serializers.ModelSerializer):
             "status_changed_by_username",
             "status_changed_by_full_name",
             "status_changed_by_avatar_url",
+            "liquidado",
+            "liquidado_por",
+            "liquidado_at",
+            "liquidado_por_username",
+            "liquidado_por_full_name",
+            "liquidado_por_avatar_url",
             "tipo_trabajo_id",
             "tipo_trabajo_nombre",
             "tipos_trabajo",
@@ -218,6 +238,12 @@ class ProyectoSerializer(serializers.ModelSerializer):
             "status_changed_by_username",
             "status_changed_by_full_name",
             "status_changed_by_avatar_url",
+            "liquidado",
+            "liquidado_por",
+            "liquidado_at",
+            "liquidado_por_username",
+            "liquidado_por_full_name",
+            "liquidado_por_avatar_url",
             "created_at",
             "updated_at",
         ]

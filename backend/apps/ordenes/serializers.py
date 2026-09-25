@@ -46,6 +46,11 @@ class OrdenSerializer(serializers.ModelSerializer):
     )
     status_changed_by_full_name = serializers.SerializerMethodField()
     status_changed_by_avatar_url = serializers.SerializerMethodField()
+    liquidado_por_username = serializers.CharField(
+        source='liquidado_por.username', read_only=True, allow_null=True
+    )
+    liquidado_por_full_name = serializers.SerializerMethodField()
+    liquidado_por_avatar_url = serializers.SerializerMethodField()
     tipo_orden = serializers.SerializerMethodField()
     levantamiento_tipo = serializers.SerializerMethodField()
     equipos_inventario_total = serializers.SerializerMethodField()
@@ -235,6 +240,12 @@ class OrdenSerializer(serializers.ModelSerializer):
     def get_status_changed_by_avatar_url(self, obj):
         return self._avatar_de(getattr(obj, 'status_changed_by', None))
 
+    def get_liquidado_por_full_name(self, obj):
+        return self._user_display_name(obj.liquidado_por)
+
+    def get_liquidado_por_avatar_url(self, obj):
+        return self._avatar_de(getattr(obj, 'liquidado_por', None))
+
     def get_tipo_orden(self, obj):
         if getattr(obj, 'tiene_instalacion', False):
             return 'instalaciones'
@@ -346,6 +357,12 @@ class OrdenSerializer(serializers.ModelSerializer):
             'liberada_at',
             'tomada_por',
             'tomada_at',
+            'liquidado',
+            'liquidado_por',
+            'liquidado_at',
+            'liquidado_por_username',
+            'liquidado_por_full_name',
+            'liquidado_por_avatar_url',
             'comentario_tecnico',
             'status_administrativo',
             'fecha_envio',
@@ -424,6 +441,12 @@ class OrdenSerializer(serializers.ModelSerializer):
             'liberada_at',
             'tomada_por',
             'tomada_at',
+            'liquidado',
+            'liquidado_por',
+            'liquidado_at',
+            'liquidado_por_username',
+            'liquidado_por_full_name',
+            'liquidado_por_avatar_url',
             'fecha_creacion',
             'fecha_actualizacion',
         ]
@@ -478,6 +501,12 @@ class OrdenListSerializer(OrdenSerializer):
             'liberada_at',
             'tomada_por',
             'tomada_at',
+            'liquidado',
+            'liquidado_por',
+            'liquidado_at',
+            'liquidado_por_username',
+            'liquidado_por_full_name',
+            'liquidado_por_avatar_url',
             'comentario_tecnico',
             'status_administrativo',
             'fecha_envio',
@@ -538,6 +567,12 @@ class OrdenListSerializer(OrdenSerializer):
             'liberada_at',
             'tomada_por',
             'tomada_at',
+            'liquidado',
+            'liquidado_por',
+            'liquidado_at',
+            'liquidado_por_username',
+            'liquidado_por_full_name',
+            'liquidado_por_avatar_url',
             'fecha_creacion',
             'fecha_actualizacion',
         ]

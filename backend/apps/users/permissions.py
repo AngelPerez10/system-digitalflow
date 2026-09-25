@@ -371,6 +371,40 @@ class CotizacionesSendPdfPermission(BasePermission):
         return _as_bool_value(module_perms.get('view'), False)
 
 
+class OrdenesLiquidarPermission(BasePermission):
+    """
+    Marcar/desmarcar `liquidado` en órdenes.
+
+    A propósito NO hereda de `ModulePermission` ni da bypass a staff/superuser:
+    esta acción es exclusiva de quien tenga `liquidar=true` explícito en su
+    perfil de permisos, sin excepción. Es independiente del permiso `edit` —
+    alguien con `liquidar` pero sin `edit` no tiene ninguna otra vía para
+    tocar la orden (la acción vive en su propia ruta, aparte de `perform_update`).
+    """
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, 'ordenes')
+        return _as_bool_value(module_perms.get('liquidar'), False)
+
+
+class ProyectosLiquidarPermission(BasePermission):
+    """Análogo a `OrdenesLiquidarPermission`, para el módulo proyectos."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, 'proyectos')
+        return _as_bool_value(module_perms.get('liquidar'), False)
+
+
 class TareasPermission(ModulePermission):
     """Permisos JSON para el módulo Mi Escritorio / Tareas."""
 

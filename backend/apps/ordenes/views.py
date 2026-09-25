@@ -68,6 +68,7 @@ from apps.users.permissions import (
     ModulePermission,
     OrdenesAnyAccessPermission,
     OrdenesAttachmentPermission,
+    OrdenesLiquidarPermission,
     OrdenesPermission,
     OrdenesSendPdfPermission,
     user_has_any_ordenes_access,
@@ -674,6 +675,11 @@ class OrdenViewSet(viewsets.ModelViewSet):
             # Cualquier técnico con acceso al módulo puede soltar/tomar de la
             # bolsa; usar OrdenesAnyAccessPermission evita el mapeo POST→create.
             return [IsAuthenticated(), OrdenesAnyAccessPermission()]
+        if self.action == 'liquidar':
+            # Exclusivo de quien tenga `liquidar=true` explícito; sin bypass
+            # de staff/superuser y sin depender de `edit` (ver el comentario
+            # en OrdenesLiquidarPermission).
+            return [IsAuthenticated(), OrdenesLiquidarPermission()]
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -2189,6 +2195,37 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 'actualizado_por', 'fecha_actualizacion',
             ])
         _notify_orden_tomada(orden, user)
+        return Response(self.get_serializer(orden).data)
+
+    # ------------------------------------------------------------------
+    # Liquidación (marca administrativa, exclusiva de OrdenesLiquidarPermission)
+    # ------------------------------------------------------------------
+    @action(detail=True, methods=['patch'], url_path='liquidar')
+    def liquidar(self, request, pk=None):
+        """Marca/desmarca `liquidado`. Ruta aparte de `perform_update`: no pasa
+        por edit_scope ni requiere el permiso `edit`, solo `liquidar`
+        (ver OrdenesLiquidarPermission, sin bypass de staff/superuser).
+
+        Se fetcha directo (no `get_object`) para no chocar con el scope
+        own_only: quien tiene `liquidar` puede no tener `edit` ni ser dueño.
+        """
+        orden = Orden.objects.filter(pk=pk).first()
+        if orden is None:
+            raise NotFound()
+
+        liquidado = request.data.get('liquidado')
+        if not isinstance(liquidado, bool):
+            raise ValidationError({'liquidado': 'Debe ser true o false.'})
+
+        if liquidado and orden.status != 'resuelto':
+            return Response(
+                {'detail': 'Solo se puede liquidar una orden resuelta.'}, status=409
+            )
+
+        orden.liquidado = liquidado
+        orden.liquidado_por = request.user if liquidado else None
+        orden.liquidado_at = timezone.now() if liquidado else None
+        orden.save(update_fields=['liquidado', 'liquidado_por', 'liquidado_at'])
         return Response(self.get_serializer(orden).data)
 
     @action(detail=False, methods=['get'], url_path='pool')
