@@ -2,8 +2,9 @@
  * Primitivas visuales de Proyectos. Presentacionales: sin fetch ni estado global.
  */
 import { memo, useEffect, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
-import { Lock } from "lucide-react";
+import { Check, CircleDashed, Lock, Undo2 } from "lucide-react";
 import { resolveMediaUrl } from "@/config/api";
+import { formatIsoDateTime } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageUtils";
 import {
   divider,
   fieldError,
@@ -48,6 +49,154 @@ export function EstadoPill({
       {tone.label}
     </span>
   );
+}
+
+/**
+ * Línea secundaria bajo el status (metadato de pago), no una segunda pastilla:
+ * cabe en columnas de ~110 px y no compite con el color del status.
+ */
+/* Grupo con nombre: las filas y tarjetas ya usan `group` y no deben disparar este hover. */
+const liquidarLine =
+  "group/liq -mx-1 inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-md px-1 text-[11.5px] leading-none transition-colors duration-150 motion-reduce:transition-none";
+const liquidarFocus =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B6B5C]/40 dark:focus-visible:ring-[#5EEAD4]/40";
+const liquidarHoverBg = "hover:bg-[#EEF8F5] dark:hover:bg-[rgba(45,212,191,0.1)]";
+
+/**
+ * Marca "Liquidado" (pagado/cobrado). Reutilizada por Órdenes y Proyectos.
+ * Tono teal/esmeralda propio, distinto del verde de "resuelto/cerrado", para
+ * no confundirse con el estado. Quién y cuándo van en el nombre accesible y
+ * en el `title` (la columna de status no da para mostrarlos en línea).
+ *
+ * Interactiva (clicable, para desmarcar) solo si recibe `onClick` — quien no
+ * tiene el permiso `liquidar` solo la ve. Al pasar el mouse/enfocar en modo
+ * interactivo, dentro del mismo sello la palomita cede el lugar a "deshacer"
+ * (mismo tamaño) para anticipar la acción.
+ */
+export function LiquidadoBadge({
+  onClick,
+  liquidadoPorNombre,
+  liquidadoAt,
+  className = "",
+}: {
+  onClick?: () => void;
+  /** Para el detalle "Liquidado por Fulano el dd/mm/aaaa". */
+  liquidadoPorNombre?: string | null;
+  liquidadoAt?: string | null;
+  className?: string;
+}) {
+  const interactive = Boolean(onClick);
+  const quien = (liquidadoPorNombre || "").trim();
+  const cuando = liquidadoAt ? formatIsoDateTime(liquidadoAt) : "";
+  const detalle = quien && cuando ? `Liquidado por ${quien} el ${cuando}` : quien ? `Liquidado por ${quien}` : "Liquidado";
+  const title = interactive ? `${detalle} · clic para quitar la marca` : detalle;
+
+  const content = (
+    <>
+      <span
+        className="cot-tick relative inline-flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#0B6B5C] text-white dark:bg-[#2DD4BF] dark:text-[#052E27]"
+        aria-hidden
+      >
+        <Check
+          className={`size-3 ${
+            interactive
+              ? "transition-[opacity,transform] duration-150 group-hover/liq:-rotate-45 group-hover/liq:opacity-0 group-focus-visible/liq:-rotate-45 group-focus-visible/liq:opacity-0 motion-reduce:transition-none"
+              : ""
+          }`}
+          strokeWidth={3}
+        />
+        {interactive ? (
+          <Undo2
+            className="absolute size-3 rotate-45 opacity-0 transition-[opacity,transform] duration-150 group-hover/liq:rotate-0 group-hover/liq:opacity-100 group-focus-visible/liq:rotate-0 group-focus-visible/liq:opacity-100 motion-reduce:transition-none"
+            strokeWidth={2.75}
+          />
+        ) : null}
+      </span>
+      <span className="font-semibold text-[#0B6B5C] dark:text-[#5EEAD4]">Liquidado</span>
+    </>
+  );
+
+  if (!interactive) {
+    return (
+      <span className={`${liquidarLine} ${className}`} title={title}>
+        <span className="contents" aria-hidden>
+          {content}
+        </span>
+        <span className="sr-only">{detalle}</span>
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={`${detalle}. Quitar marca de liquidado.`}
+      className={`${liquidarLine} ${liquidarFocus} ${liquidarHoverBg} cot-press cursor-pointer ${className}`}
+    >
+      {content}
+    </button>
+  );
+}
+
+/**
+ * Acción discreta para marcar un registro terminal (resuelto/cerrado) como
+ * liquidado. En reposo se lee como pendiente (círculo punteado, gris); al
+ * pasar el mouse o enfocar toma el tono teal y el círculo gira un cuarto.
+ */
+export function LiquidarButton({ onClick, className = "" }: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Marcar como liquidado (pagado/cobrado)"
+      aria-label="Marcar como liquidado"
+      className={`${liquidarLine} ${liquidarFocus} ${liquidarHoverBg} cot-press cursor-pointer font-medium text-[#71717A] hover:text-[#0B6B5C] focus-visible:text-[#0B6B5C] dark:text-[#8EA0B8] dark:hover:text-[#5EEAD4] dark:focus-visible:text-[#5EEAD4] ${className}`}
+    >
+      <CircleDashed
+        className="size-4 shrink-0 transition-transform duration-300 ease-out group-hover/liq:rotate-90 group-focus-visible/liq:rotate-90 motion-reduce:transition-none"
+        strokeWidth={2}
+        aria-hidden
+      />
+      Liquidar
+    </button>
+  );
+}
+
+/**
+ * Combina badge/CTA/nada según el estado. Único punto de verdad para el
+ * control de "Liquidado" en tablas y tarjetas (Órdenes y Proyectos) — el
+ * caller solo decide si el registro está en su status terminal.
+ */
+export function LiquidarControl({
+  liquidado,
+  canLiquidar,
+  liquidadoPorNombre,
+  liquidadoAt,
+  onToggle,
+  className = "",
+}: {
+  liquidado: boolean;
+  canLiquidar: boolean;
+  liquidadoPorNombre?: string | null;
+  liquidadoAt?: string | null;
+  onToggle?: (next: boolean) => void;
+  className?: string;
+}) {
+  if (liquidado) {
+    return (
+      <LiquidadoBadge
+        liquidadoPorNombre={liquidadoPorNombre}
+        liquidadoAt={liquidadoAt}
+        onClick={canLiquidar ? () => onToggle?.(false) : undefined}
+        className={className}
+      />
+    );
+  }
+  if (canLiquidar) {
+    return <LiquidarButton onClick={() => onToggle?.(true)} className={className} />;
+  }
+  return null;
 }
 
 /* --------------------------------------------------------------------------

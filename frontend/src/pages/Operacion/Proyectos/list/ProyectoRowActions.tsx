@@ -10,6 +10,9 @@ export type ProyectoRowHandlers = {
   onDelete: (row: ProyectoRow) => void;
   onPdf: (row: ProyectoRow) => void;
   onEnviarPdf: (row: ProyectoRow) => void;
+  /** Puede marcar/desmarcar "Liquidado" (solo en proyectos cerrados). */
+  canLiquidar?: boolean;
+  onToggleLiquidado?: (row: ProyectoRow, next: boolean) => void;
 };
 
 /** Acciones secundarias de un proyecto (PDF, correo, editar, eliminar). */

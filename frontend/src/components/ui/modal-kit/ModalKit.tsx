@@ -15,7 +15,7 @@ import { Modal } from "@/components/ui/modal";
 import "./motion.css";
 import { appModalBtn } from "./modalKitStyles";
 
-export type AppModalTone = "danger" | "warning" | "info" | "success" | "neutral";
+export type AppModalTone = "danger" | "warning" | "info" | "success" | "neutral" | "teal";
 
 const toneTileClass: Record<AppModalTone, string> = {
   danger:
@@ -27,6 +27,8 @@ const toneTileClass: Record<AppModalTone, string> = {
     "bg-[#E9F8F0] text-[#04724D] ring-[#BFE6D4] dark:bg-[#0F2A1C] dark:text-[#4ADE80] dark:ring-[#1E5A42]",
   neutral:
     "bg-[#F4F4F5] text-[#3F3F46] ring-[#E4E4E7] dark:bg-[#1B2539] dark:text-[#D6DEEA] dark:ring-[#273244]",
+  /** Combina con el badge/CTA "Liquidado" (esmeralda/teal), distinto del azul genérico de `info`. */
+  teal: "bg-[#E9F8F3] text-[#0B6B5C] ring-[#BFE9DD] dark:bg-[rgba(45,212,191,0.12)] dark:text-[#5EEAD4] dark:ring-[rgba(45,212,191,0.28)]",
 };
 
 const sizeClass = {
@@ -251,7 +253,7 @@ type CotConfirmDialogProps = {
   onClose: () => void;
   /** Puede ser asíncrona: el diálogo muestra «trabajando» y espera antes de cerrar. */
   onConfirm: () => void | Promise<unknown>;
-  tone?: Extract<AppModalTone, "danger" | "warning" | "info">;
+  tone?: Extract<AppModalTone, "danger" | "warning" | "info" | "teal">;
   icon: ReactNode;
   title: ReactNode;
   description: ReactNode;
@@ -315,7 +317,9 @@ export function AppConfirmDialog({
           type="button"
           onClick={() => void handleConfirm()}
           disabled={busy}
-          className={tone === "danger" ? appModalBtn.danger : appModalBtn.primary}
+          className={
+            tone === "danger" ? appModalBtn.danger : tone === "teal" ? appModalBtn.teal : appModalBtn.primary
+          }
         >
           {busy ? <AppSpinner /> : null}
           {busy ? busyLabel : confirmLabel}

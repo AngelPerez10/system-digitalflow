@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Rows3, Search, Trash2, X } from "lucide-react";
+import { BadgeCheck, Plus, Rows3, Search, Trash2, Undo2, X } from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { AppConfirmDialog, AppModalContext } from "@/components/ui/modal-kit/ModalKit";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { getCurrentYearMonth } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import { formatIsoDateTime } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageUtils";
 import { fetchTodosLosUsuariosApi } from "../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
 import ProyectoFormModal from "./form/ProyectoFormModal";
 import ProyectoEnviarPdfModal, { type ProyectoEnviarPdfTarget } from "./list/ProyectoEnviarPdfModal";
@@ -26,7 +27,14 @@ import {
   pageCardShellClass,
   pageSearchInputClass,
 } from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
-import { createProyecto, deleteProyecto, listProyectos, updateProyecto, type ProyectoApiError } from "./shared/proyectoApi";
+import {
+  createProyecto,
+  deleteProyecto,
+  listProyectos,
+  toggleLiquidadoProyecto,
+  updateProyecto,
+  type ProyectoApiError,
+} from "./shared/proyectoApi";
 import {
   buildInstalacionPayload,
   createProyectoInstalacion,
@@ -71,7 +79,8 @@ function isProyectoApiError(err: unknown): err is ProyectoApiError {
 export default function ProyectosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { canProyectosCreate, canProyectosEdit, canProyectosDelete, isAdmin } = useProyectosPagePermissions();
+  const { canProyectosCreate, canProyectosEdit, canProyectosDelete, canLiquidarProyectos, isAdmin } =
+    useProyectosPagePermissions();
   const tecnicoView = !isAdmin;
   const emptyDraft = useMemo(() => createEmptyProyectoDraft(), []);
 
@@ -385,6 +394,44 @@ export default function ProyectosPage() {
     }
   };
 
+  /* ------------------------------------------------------------------------
+     Liquidado: acción aparte de la edición normal. Solo la ve/usa quien
+     tiene `proyectos.liquidar` en Gestión de usuarios (sin bypass de admin).
+     ------------------------------------------------------------------------ */
+  const [liquidarTarget, setLiquidarTarget] = useState<{
+    row: ProyectoRow;
+    nextValue: boolean;
+  } | null>(null);
+
+  const handleToggleLiquidado = useCallback((row: ProyectoRow, nextValue: boolean) => {
+    setLiquidarTarget({ row, nextValue });
+  }, []);
+
+  const confirmToggleLiquidado = async () => {
+    if (!liquidarTarget) return;
+    const { row, nextValue } = liquidarTarget;
+    try {
+      const saved = await toggleLiquidadoProyecto(row.id, nextValue);
+      setRows((prev) => prev.map((r) => (r.id === saved.id ? saved : r)));
+      showAlert(
+        "success",
+        nextValue ? "Proyecto liquidado" : "Marca de liquidado quitada",
+        nextValue
+          ? `Se marcó como liquidado ${displayProyectoFolio(row.folio)} (${row.cliente}).`
+          : `Se quitó la marca de liquidado de ${displayProyectoFolio(row.folio)} (${row.cliente}).`,
+        3500
+      );
+    } catch (err) {
+      console.error("Error al togglear liquidado de proyecto:", err);
+      showAlert(
+        "error",
+        "Liquidado",
+        isProyectoApiError(err) ? err.message : "Ocurrió un error inesperado.",
+        4500
+      );
+    }
+  };
+
   const handlers = {
     canEdit: canProyectosEdit,
     canDelete: canProyectosDelete,
@@ -392,6 +439,8 @@ export default function ProyectosPage() {
     onDelete: openDelete,
     onPdf: openPdf,
     onEnviarPdf: openEnviarPdf,
+    canLiquidar: canLiquidarProyectos,
+    onToggleLiquidado: handleToggleLiquidado,
   };
 
   const grouped = !filterStatus;
@@ -620,6 +669,53 @@ export default function ProyectosPage() {
           }
           confirmLabel="Eliminar"
           busyLabel="Eliminando…"
+          className={fontSans}
+        />
+
+        <AppConfirmDialog
+          open={Boolean(liquidarTarget)}
+          onClose={() => setLiquidarTarget(null)}
+          onConfirm={confirmToggleLiquidado}
+          tone="teal"
+          icon={
+            liquidarTarget?.nextValue ? (
+              <BadgeCheck className="size-5" />
+            ) : (
+              <Undo2 className="size-5" />
+            )
+          }
+          title={liquidarTarget?.nextValue ? "Marcar como liquidado" : "Quitar marca de liquidado"}
+          description={
+            liquidarTarget?.nextValue
+              ? "Se marcará este proyecto como liquidado (pagado/cobrado). Podrás desmarcarlo después si es necesario."
+              : "Se quitará la marca de liquidado de este proyecto."
+          }
+          detail={
+            liquidarTarget ? (
+              <AppModalContext
+                rows={[
+                  { label: "Folio", value: displayProyectoFolio(liquidarTarget.row.folio), strong: true },
+                  { label: "Cliente", value: liquidarTarget.row.cliente || "Sin cliente" },
+                  ...(liquidarTarget.nextValue
+                    ? []
+                    : [
+                        {
+                          label: "Liquidado por",
+                          value: (liquidarTarget.row.draft.liquidadoPorNombre || "").trim() || "Sin registro",
+                        },
+                        {
+                          label: "Fecha",
+                          value: liquidarTarget.row.draft.liquidadoAt
+                            ? formatIsoDateTime(liquidarTarget.row.draft.liquidadoAt)
+                            : "Sin registro",
+                        },
+                      ]),
+                ]}
+              />
+            ) : null
+          }
+          confirmLabel={liquidarTarget?.nextValue ? "Marcar liquidado" : "Quitar marca"}
+          busyLabel="Guardando…"
           className={fontSans}
         />
       </div>

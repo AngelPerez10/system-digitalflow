@@ -1,7 +1,9 @@
 ﻿import { useState, useEffect, useId, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
+import { BadgeCheck, Undo2 } from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
+import { AppConfirmDialog, AppModalContext } from "@/components/ui/modal-kit/ModalKit";
 import { fetchApi } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { OrdenesPageStats } from "./list/OrdenesPageStats";
@@ -40,6 +42,7 @@ import {
   fetchTodosLosUsuariosApi,
 } from "./shared/useOrdenesShared";
 import {
+  formatIsoDateTime,
   formatYmdToDMY,
   getNowHHMM,
   parseYearMonth,
@@ -76,6 +79,7 @@ export default function Ordenes() {
     canOrdenesEdit,
     canOrdenesDelete,
     ordenesOwnOnly,
+    canLiquidarOrdenes,
   } = useOrdenesPagePermissions();
   const { user, isAdmin } = useAuth();
 
@@ -480,6 +484,60 @@ export default function Ordenes() {
     setOrdenToDelete(null);
   };
 
+  /* ------------------------------------------------------------------------
+     Liquidado: acción aparte de la edición normal. Solo la ve/usa quien
+     tiene `ordenes.liquidar` en Gestión de usuarios (sin bypass de admin).
+     ------------------------------------------------------------------------ */
+  const [liquidarTarget, setLiquidarTarget] = useState<{
+    orden: Orden;
+    nextValue: boolean;
+  } | null>(null);
+
+  const handleToggleLiquidado = useCallback((orden: Orden, nextValue: boolean) => {
+    setLiquidarTarget({ orden, nextValue });
+  }, []);
+
+  const confirmToggleLiquidado = async () => {
+    if (!liquidarTarget) return;
+    const { orden, nextValue } = liquidarTarget;
+    try {
+      const res = await fetchApi(`/api/ordenes/${orden.id}/liquidar/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ liquidado: nextValue }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const detail =
+          data && typeof data === "object" && typeof (data as Record<string, unknown>).detail === "string"
+            ? String((data as Record<string, unknown>).detail)
+            : null;
+        throw new Error(
+          detail || (nextValue ? "No se pudo marcar como liquidada." : "No se pudo quitar la marca de liquidada.")
+        );
+      }
+      setOrdenes((prev) => prev.map((o) => (o.id === orden.id ? { ...o, ...(data as Partial<Orden>) } : o)));
+      setAlert({
+        show: true,
+        variant: "success",
+        title: nextValue ? "Orden liquidada" : "Marca de liquidada quitada",
+        message: nextValue
+          ? `Se marcó como liquidada la orden ${orden.folio ?? ""} de "${orden.cliente}".`
+          : `Se quitó la marca de liquidada de la orden ${orden.folio ?? ""} de "${orden.cliente}".`,
+      });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
+    } catch (err) {
+      console.error("Error al togglear liquidado de orden:", err);
+      setAlert({
+        show: true,
+        variant: "error",
+        title: "Liquidado",
+        message: err instanceof Error ? err.message : "Ocurrió un error inesperado.",
+      });
+      setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 4500);
+    }
+  };
+
   const handleEdit = async (orden: Orden): Promise<boolean> => {
     if (!canOrdenesEdit) {
       setAlert({
@@ -877,6 +935,8 @@ export default function Ordenes() {
               groupByStatus
               selectedMonth={selectedMonth}
               hideFrom="wide"
+              canLiquidar={canLiquidarOrdenes}
+              onToggleLiquidado={handleToggleLiquidado}
             />
             </div>
             <div className="hidden xl:block">
@@ -887,6 +947,8 @@ export default function Ordenes() {
                 usuarios={usuarios}
                 selectedMonth={selectedMonth}
                 admin={isAdmin}
+                canLiquidar={canLiquidarOrdenes}
+                onToggleLiquidado={handleToggleLiquidado}
                 loading={monthLoading}
                 empty={
                   <div className="flex flex-col items-center py-14 text-center">
@@ -1307,6 +1369,55 @@ export default function Ordenes() {
             onConfirm={handleConfirmDelete}
           />
         )}
+
+        <AppConfirmDialog
+          open={Boolean(liquidarTarget)}
+          onClose={() => setLiquidarTarget(null)}
+          onConfirm={confirmToggleLiquidado}
+          tone="teal"
+          icon={
+            liquidarTarget?.nextValue ? (
+              <BadgeCheck className="size-5" />
+            ) : (
+              <Undo2 className="size-5" />
+            )
+          }
+          title={liquidarTarget?.nextValue ? "Marcar como liquidada" : "Quitar marca de liquidada"}
+          description={
+            liquidarTarget?.nextValue
+              ? "Se marcará esta orden como liquidada (pagada/cobrada). Podrás desmarcarla después si es necesario."
+              : "Se quitará la marca de liquidada de esta orden."
+          }
+          detail={
+            liquidarTarget ? (
+              <AppModalContext
+                rows={[
+                  { label: "Folio", value: liquidarTarget.orden.folio || "—", strong: true },
+                  { label: "Cliente", value: liquidarTarget.orden.cliente || "Sin cliente" },
+                  ...(liquidarTarget.nextValue
+                    ? []
+                    : [
+                        {
+                          label: "Liquidado por",
+                          value:
+                            (liquidarTarget.orden.liquidado_por_full_name ||
+                              liquidarTarget.orden.liquidado_por_username ||
+                              "").trim() || "Sin registro",
+                        },
+                        {
+                          label: "Fecha",
+                          value: liquidarTarget.orden.liquidado_at
+                            ? formatIsoDateTime(liquidarTarget.orden.liquidado_at)
+                            : "Sin registro",
+                        },
+                      ]),
+                ]}
+              />
+            ) : null
+          }
+          confirmLabel={liquidarTarget?.nextValue ? "Marcar liquidada" : "Quitar marca"}
+          busyLabel="Guardando…"
+        />
 
         <OrdenLocationMapModal
           open={showMapModal}

@@ -2,6 +2,7 @@ import { OrdenDetailModal } from "../shared/OrdenDialogs";
 import { memo, useMemo, useState } from "react";
 import { PencilIcon, TrashBinIcon, MailIcon } from "@/icons";
 import { erpMobileCardClass } from "../ordenServicioStyles";
+import { LiquidarControl } from "../../../Proyectos/shared/ProyectoUi";
 import {
   displayOrdenFolio,
   isOrdenCancelada,
@@ -73,6 +74,10 @@ interface MobileOrderCardProps {
   highlightRecentStatus?: boolean;
   /** Mes del listado (YYYY-MM) para marcar órdenes arrastradas. */
   selectedMonth?: string;
+  /** Puede marcar/desmarcar "Liquidado" (solo en órdenes resueltas). */
+  canLiquidar?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onToggleLiquidado?: (orden: any, next: boolean) => void;
 }
 
 export function MobileOrderCard({
@@ -91,6 +96,8 @@ export function MobileOrderCard({
   onNotaChange,
   highlightRecentStatus = false,
   selectedMonth = "",
+  canLiquidar = false,
+  onToggleLiquidado,
 }: MobileOrderCardProps) {
   const [showProblematicaModal, setShowProblematicaModal] = useState(false);
   const fechaInicio = orden.fecha_inicio || orden.fecha_creacion || "";
@@ -184,6 +191,15 @@ export function MobileOrderCard({
               Resuelto recién
             </span>
           )}
+          {isResuelta ? (
+            <LiquidarControl
+              liquidado={Boolean(orden.liquidado)}
+              canLiquidar={Boolean(canLiquidar)}
+              liquidadoPorNombre={orden.liquidado_por_full_name || orden.liquidado_por_username}
+              liquidadoAt={orden.liquidado_at}
+              onToggle={(next) => onToggleLiquidado?.(orden, next)}
+            />
+          ) : null}
           {(statusByName ||
             orden.status_changed_at ||
             orden.creado_por_username ||
@@ -390,6 +406,10 @@ interface MobileOrderListProps {
    * las tarjetas en dos columnas en lugar de una tabla apretada.
    */
   hideFrom?: "md" | "wide";
+  /** Puede marcar/desmarcar "Liquidado" (solo en órdenes resueltas). */
+  canLiquidar?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onToggleLiquidado?: (orden: any, next: boolean) => void;
 }
 
 export const MobileOrderList = memo(function MobileOrderList({
@@ -410,6 +430,8 @@ export const MobileOrderList = memo(function MobileOrderList({
   groupByStatus = false,
   selectedMonth = "",
   hideFrom = "md",
+  canLiquidar = false,
+  onToggleLiquidado,
 }: MobileOrderListProps) {
   const tablet = hideFrom === "wide";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -459,6 +481,8 @@ export const MobileOrderList = memo(function MobileOrderList({
       notaPdf={notasMesPdf[orden.id] ?? ""}
       onNotaChange={onNotaChange}
       highlightRecentStatus={highlightRecentStatus}
+      canLiquidar={canLiquidar}
+      onToggleLiquidado={onToggleLiquidado}
     />
   );
 

@@ -75,6 +75,18 @@ export interface Orden {
   liberada_at?: string | null;
   tomada_por?: number | null;
   tomada_at?: string | null;
+  /**
+   * Marca de liquidación (pagada/cobrada). Independiente de `status`; solo la
+   * puede togglear quien tenga el permiso `liquidar` en Gestión de usuarios
+   * (ver PATCH /api/ordenes/{id}/liquidar/). Solo se muestra en la UI cuando
+   * `status === "resuelto"`.
+   */
+  liquidado?: boolean;
+  liquidado_por?: number | null;
+  liquidado_at?: string | null;
+  liquidado_por_username?: string | null;
+  liquidado_por_full_name?: string | null;
+  liquidado_por_avatar_url?: string | null;
   /** Seguimiento de oficina (solo admins en UI). */
   status_administrativo?: "pendiente" | "en_revision" | "enviado" | "cerrado" | string | null;
   fecha_envio?: string | null;

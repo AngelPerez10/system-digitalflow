@@ -18,6 +18,12 @@ export type ModuleCrudPermissions = {
   delete?: boolean;
   /** Órdenes/proyectos/reportes_mantenimiento: true = solo propios; false = ver todos. */
   own_only?: boolean;
+  /**
+   * Solo órdenes/proyectos: puede marcar/desmarcar "Liquidado". Independiente
+   * de `edit` — a propósito no da bypass a admins, exclusivo de quien tenga
+   * esta casilla activa en Gestión de usuarios.
+   */
+  liquidar?: boolean;
 };
 
 export type Permissions = Record<string, ModuleCrudPermissions>;

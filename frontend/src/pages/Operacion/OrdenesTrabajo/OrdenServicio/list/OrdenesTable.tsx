@@ -14,6 +14,7 @@ import { memo, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowUp, ClipboardList, FileText, Mail, MapPin, MessageSquareText, Pencil, Trash2, Wrench } from "lucide-react";
 import { resolveMediaUrl } from "@/config/api";
 import "@/components/ui/modal-kit/motion.css";
+import { LiquidarControl } from "../../../Proyectos/shared/ProyectoUi";
 import { StatusChangedByChip } from "../../../shared/StatusChangedByChip";
 import { resolveOrdenStatusFallbackName, resolveStatusChangedByName } from "../../../shared/statusChangedBy";
 import { focusRing, folioText, iconBtn, iconBtnDanger } from "../../../Proyectos/shared/proyectoTokens";
@@ -377,6 +378,9 @@ export type OrdenesTableHandlers = {
   onVerProblematica: (texto: string) => void;
   onVerServicios: (servicios: string[]) => void;
   onVerComentario: (texto: string) => void;
+  /** Puede marcar/desmarcar "Liquidado" (solo en órdenes resueltas). */
+  canLiquidar?: boolean;
+  onToggleLiquidado?: (orden: Orden, next: boolean) => void;
 };
 
 type RowProps = {
@@ -411,6 +415,8 @@ const OrdenRow = memo(function OrdenRow({
   onVerProblematica,
   onVerServicios,
   onVerComentario,
+  canLiquidar,
+  onToggleLiquidado,
 }: RowProps) {
   const isResuelta = isOrdenResuelta(orden.status);
   const isCancelada = isOrdenCancelada(orden.status);
@@ -600,6 +606,15 @@ const OrdenRow = memo(function OrdenRow({
           ) : (
             pill
           )}
+          {isResuelta ? (
+            <LiquidarControl
+              liquidado={Boolean(orden.liquidado)}
+              canLiquidar={Boolean(canLiquidar)}
+              liquidadoPorNombre={orden.liquidado_por_full_name || orden.liquidado_por_username}
+              liquidadoAt={orden.liquidado_at}
+              onToggle={(next) => onToggleLiquidado?.(orden, next)}
+            />
+          ) : null}
           {recent ? (
             <span className="cot-pop text-[11.5px] font-semibold text-[#04724D] dark:text-[#86EFAC]">Resuelto recién</span>
           ) : prioridad ? (

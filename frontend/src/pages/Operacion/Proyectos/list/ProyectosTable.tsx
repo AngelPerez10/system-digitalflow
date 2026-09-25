@@ -8,7 +8,7 @@ import {
   proyectoTiposLabels,
 } from "../shared/proyectoListUtils";
 import type { ProyectoStatusSection } from "../shared/proyectoStatusSections";
-import { AvatarStack, EstadoPill, ProgressBar } from "../shared/ProyectoUi";
+import { AvatarStack, EstadoPill, LiquidarControl, ProgressBar } from "../shared/ProyectoUi";
 import { ESTADO_TONE, focusRing, folioText, origenChip, toneForEstado } from "../shared/proyectoTokens";
 import type { ProyectoEstado, ProyectoRow } from "../shared/proyectoTypes";
 import { ProyectoRowActions, type ProyectoRowHandlers } from "./ProyectoRowActions";
@@ -27,7 +27,8 @@ const SECTION_ESTADO: Record<string, ProyectoEstado | null> = {
 type RowProps = { row: ProyectoRow; index: number } & ProyectoRowHandlers;
 
 const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handlers }: RowProps) {
-  const { canEdit, onEdit } = handlers;
+  const { canEdit, onEdit, canLiquidar, onToggleLiquidado } = handlers;
+  const isCerrado = row.estado === "cerrado";
   const team = proyectoTeam(row);
   const tipos = proyectoTiposLabels(row);
   const periodo = proyectoPeriodo(row);
@@ -112,16 +113,27 @@ const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handler
         )}
       </td>
       <td className={td}>
-        <StatusChangedByChip
-          name={row.draft.statusChangedByName}
-          at={row.draft.statusChangedAt}
-          avatarUrl={row.draft.statusChangedByAvatarUrl}
-          fallbackName={row.draft.creadoPorName}
-          fallbackAt={row.draft.createdAt}
-          fallbackAvatarUrl={row.draft.creadoPorAvatarUrl}
-        >
-          <EstadoPill estado={row.estado} size="sm" />
-        </StatusChangedByChip>
+        <div className="flex flex-col items-start gap-1">
+          <StatusChangedByChip
+            name={row.draft.statusChangedByName}
+            at={row.draft.statusChangedAt}
+            avatarUrl={row.draft.statusChangedByAvatarUrl}
+            fallbackName={row.draft.creadoPorName}
+            fallbackAt={row.draft.createdAt}
+            fallbackAvatarUrl={row.draft.creadoPorAvatarUrl}
+          >
+            <EstadoPill estado={row.estado} size="sm" />
+          </StatusChangedByChip>
+          {isCerrado ? (
+            <LiquidarControl
+              liquidado={Boolean(row.draft.liquidado)}
+              canLiquidar={Boolean(canLiquidar)}
+              liquidadoPorNombre={row.draft.liquidadoPorNombre}
+              liquidadoAt={row.draft.liquidadoAt}
+              onToggle={(next) => onToggleLiquidado?.(row, next)}
+            />
+          ) : null}
+        </div>
       </td>
       <td className={`${td} whitespace-nowrap text-[13px] text-[#52525B] dark:text-[#B7C1D1]`}>
         {formatPeriodoLabel(periodo)}

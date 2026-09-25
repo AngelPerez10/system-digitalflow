@@ -119,6 +119,15 @@ export type ProyectoDraft = {
   statusChangedByName: string;
   statusChangedByAvatarUrl: string;
   statusChangedAt: string;
+  /**
+   * Marca de liquidación (pagado/cobrado). Independiente de `status`; solo se
+   * muestra en la UI cuando `status === "cerrado"`, y solo la puede togglear
+   * quien tenga el permiso `liquidar` en Gestión de usuarios.
+   */
+  liquidado: boolean;
+  liquidadoPorNombre: string;
+  liquidadoPorAvatarUrl: string;
+  liquidadoAt: string;
   /** Fallback de auditoría cuando aún no hay sello de status. */
   creadoPorName: string;
   creadoPorAvatarUrl: string;

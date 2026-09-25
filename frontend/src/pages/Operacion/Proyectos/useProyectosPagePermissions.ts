@@ -7,6 +7,11 @@ export function useProyectosPagePermissions() {
   const canProyectosCreate = isAdmin || permissions?.proyectos?.create === true;
   const canProyectosEdit = isAdmin || permissions?.proyectos?.edit === true;
   const canProyectosDelete = isAdmin || permissions?.proyectos?.delete === true;
+  /**
+   * Puede marcar/desmarcar "Liquidado". A propósito SIN bypass de `isAdmin`:
+   * es exclusivo de quien tenga esta casilla activa en Gestión de usuarios.
+   */
+  const canLiquidarProyectos = permissions?.proyectos?.liquidar === true;
 
   return {
     permissions,
@@ -17,5 +22,6 @@ export function useProyectosPagePermissions() {
     canProyectosCreate,
     canProyectosEdit,
     canProyectosDelete,
+    canLiquidarProyectos,
   };
 }

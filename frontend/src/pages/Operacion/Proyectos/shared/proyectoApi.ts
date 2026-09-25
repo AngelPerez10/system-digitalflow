@@ -47,6 +47,12 @@ export type ApiProyecto = {
   status_changed_by_full_name?: string | null;
   status_changed_by_username?: string | null;
   status_changed_by_avatar_url?: string | null;
+  liquidado?: boolean;
+  liquidado_at?: string | null;
+  liquidado_por?: number | null;
+  liquidado_por_full_name?: string | null;
+  liquidado_por_username?: string | null;
+  liquidado_por_avatar_url?: string | null;
   creado_por?: number | null;
   creado_por_username?: string | null;
   creado_por_full_name?: string | null;
@@ -157,6 +163,12 @@ function draftFromApi(api: ApiProyecto): ProyectoDraft {
       api.status_changed_by_full_name || api.status_changed_by_username || "",
     ).trim(),
     statusChangedByAvatarUrl: String(api.status_changed_by_avatar_url || "").trim(),
+    liquidado: Boolean(api.liquidado),
+    liquidadoAt: String(api.liquidado_at || ""),
+    liquidadoPorNombre: String(
+      api.liquidado_por_full_name || api.liquidado_por_username || "",
+    ).trim(),
+    liquidadoPorAvatarUrl: String(api.liquidado_por_avatar_url || "").trim(),
     creadoPorName: String(
       api.creado_por_full_name || api.creado_por_username || "",
     ).trim(),
@@ -430,6 +442,24 @@ export async function updateProyecto(
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(draftToApiPayload(draft, options)),
+  });
+  const api = await parseApiProyecto(res);
+  return proyectoRowFromApi(api);
+}
+
+/**
+ * Marca/desmarca "Liquidado" (pagado/cobrado). Ruta aparte de la edición
+ * normal: solo la puede usar quien tenga el permiso `liquidar` en Gestión de
+ * usuarios (sin bypass de admin), y nunca toca el `status` del proyecto.
+ */
+export async function toggleLiquidadoProyecto(
+  id: string | number,
+  liquidado: boolean
+): Promise<ProyectoRow> {
+  const res = await fetchApi(`/api/proyectos/${id}/liquidar/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ liquidado }),
   });
   const api = await parseApiProyecto(res);
   return proyectoRowFromApi(api);

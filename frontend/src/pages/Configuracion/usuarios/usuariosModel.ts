@@ -12,6 +12,8 @@ export type CrudPerms = {
   edit: boolean;
   delete: boolean;
   own_only?: boolean;
+  /** Solo órdenes/proyectos: puede marcar/desmarcar "Liquidado" (ver LIQUIDABLE_MODULES). */
+  liquidar?: boolean;
 };
 
 export type UserSignaturePayload = {
@@ -112,8 +114,14 @@ export const normalizePerms = (
 ): Required<PermissionsPayload> => {
   const isAdmin = !!options?.isAdmin;
   const base: Required<PermissionsPayload> = {
-    ordenes: { view: true, create: false, edit: false, delete: false, own_only: isAdmin ? false : true },
-    proyectos: { view: false, create: false, edit: false, delete: false, own_only: isAdmin ? false : true },
+    ordenes: {
+      view: true, create: false, edit: false, delete: false,
+      own_only: isAdmin ? false : true, liquidar: false,
+    },
+    proyectos: {
+      view: false, create: false, edit: false, delete: false,
+      own_only: isAdmin ? false : true, liquidar: false,
+    },
     inventario: { view: false, create: false, edit: false, delete: false },
     clientes: { view: true, create: false, edit: false, delete: false },
     productos: { view: true, create: false, edit: false, delete: false },
@@ -141,6 +149,7 @@ export const normalizePerms = (
       edit: safe(src.edit) ?? dst.edit,
       delete: safe(src.delete) ?? dst.delete,
       own_only: safe(src.own_only) ?? dst.own_only,
+      liquidar: safe(src.liquidar) ?? dst.liquidar,
     };
   };
   const out = {} as Required<PermissionsPayload>;
@@ -228,6 +237,13 @@ export const permissionSectionsFor = (isAdmin: boolean): PermissionSection[] =>
  * `false` → ve los de todo el equipo. (Misma semántica en los cuatro.)
  */
 export const SCOPED_MODULES = new Set<ModuleKey>(['ordenes', 'proyectos', 'reportes_mantenimiento', 'cotizaciones']);
+
+/**
+ * Módulos con el permiso especial "Puede liquidar" (fuera de la matriz
+ * Ver/Crear/Editar/Eliminar; se muestra en su propia sección del modal de
+ * permisos, ver UserPermissionsModal).
+ */
+export const LIQUIDABLE_MODULES = new Set<ModuleKey>(['ordenes', 'proyectos']);
 
 export type PermAction = 'view' | 'create' | 'edit' | 'delete';
 

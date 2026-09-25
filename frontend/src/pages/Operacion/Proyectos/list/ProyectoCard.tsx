@@ -8,7 +8,7 @@ import {
   proyectoTeam,
   proyectoTiposLabels,
 } from "../shared/proyectoListUtils";
-import { AvatarStack, EstadoPill, ProgressBar } from "../shared/ProyectoUi";
+import { AvatarStack, EstadoPill, LiquidarControl, ProgressBar } from "../shared/ProyectoUi";
 import { btn, btnSm, focusRing, folioText, metaChip, origenChip, toneForEstado } from "../shared/proyectoTokens";
 import type { ProyectoRow } from "../shared/proyectoTypes";
 import { ProyectoRowActions, type ProyectoRowHandlers } from "./ProyectoRowActions";
@@ -21,7 +21,8 @@ type Props = {
 } & ProyectoRowHandlers;
 
 function ProyectoCardImpl({ row, index, fieldMode, ...handlers }: Props) {
-  const { canEdit, onEdit } = handlers;
+  const { canEdit, onEdit, canLiquidar, onToggleLiquidado } = handlers;
+  const isCerrado = row.estado === "cerrado";
   const tone = toneForEstado(row.estado);
   const team = proyectoTeam(row);
   const periodo = proyectoPeriodo(row);
@@ -39,16 +40,27 @@ function ProyectoCardImpl({ row, index, fieldMode, ...handlers }: Props) {
       <div className="flex flex-1 flex-col gap-3.5 p-4">
         <div className="flex items-center justify-between gap-2">
           <span className={folioText}>{folio}</span>
-          <StatusChangedByChip
-            name={row.draft.statusChangedByName}
-            at={row.draft.statusChangedAt}
-            avatarUrl={row.draft.statusChangedByAvatarUrl}
-            fallbackName={row.draft.creadoPorName}
-            fallbackAt={row.draft.createdAt}
-            fallbackAvatarUrl={row.draft.creadoPorAvatarUrl}
-          >
-            <EstadoPill estado={row.estado} size="sm" />
-          </StatusChangedByChip>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <StatusChangedByChip
+              name={row.draft.statusChangedByName}
+              at={row.draft.statusChangedAt}
+              avatarUrl={row.draft.statusChangedByAvatarUrl}
+              fallbackName={row.draft.creadoPorName}
+              fallbackAt={row.draft.createdAt}
+              fallbackAvatarUrl={row.draft.creadoPorAvatarUrl}
+            >
+              <EstadoPill estado={row.estado} size="sm" />
+            </StatusChangedByChip>
+            {isCerrado ? (
+              <LiquidarControl
+                liquidado={Boolean(row.draft.liquidado)}
+                canLiquidar={Boolean(canLiquidar)}
+                liquidadoPorNombre={row.draft.liquidadoPorNombre}
+                liquidadoAt={row.draft.liquidadoAt}
+                onToggle={(next) => onToggleLiquidado?.(row, next)}
+              />
+            ) : null}
+          </div>
         </div>
 
         <div className="min-w-0">

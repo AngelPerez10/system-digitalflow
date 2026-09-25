@@ -33,6 +33,12 @@ export function useOrdenesPagePermissions() {
   const ordenesOwnOnly = isOrdenesOwnOnly(permissions, isAdmin);
   /** Gestión de usuarios → «Ver todas las órdenes» (`own_only: false`). */
   const canViewAllOrdenes = !ordenesOwnOnly;
+  /**
+   * Puede marcar/desmarcar "Liquidado". A propósito NO mira `isAdmin`: es
+   * exclusivo de quien tenga esta casilla activa en Gestión de usuarios,
+   * incluso administradores necesitan el permiso explícito.
+   */
+  const canLiquidarOrdenes = permissions?.ordenes?.liquidar === true;
 
   return {
     permissions,
@@ -44,5 +50,6 @@ export function useOrdenesPagePermissions() {
     canOrdenesDelete,
     ordenesOwnOnly,
     canViewAllOrdenes,
+    canLiquidarOrdenes,
   };
 }

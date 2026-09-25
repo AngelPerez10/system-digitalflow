@@ -8,5 +8,7 @@ export const appModalBtn = {
   secondary: `${btnBase} border border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D4D4D8] hover:bg-[#FAFAFA] hover:text-[#09090B] focus-visible:ring-[rgba(27,92,255,0.18)] disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]`,
   primary: `${btnBase} border border-[#1B5CFF] bg-[#1B5CFF] text-white hover:border-[#1244D1] hover:bg-[#1244D1] focus-visible:ring-[rgba(27,92,255,0.25)] disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:bg-[#3B6AF0] dark:disabled:border-[#1A2748] dark:disabled:bg-[#1A2748] dark:disabled:text-[#9BB0F0]`,
   danger: `${btnBase} border border-[#C22B2B] bg-[#C22B2B] text-white hover:border-[#A82424] hover:bg-[#A82424] focus-visible:ring-[rgba(194,43,43,0.25)] disabled:opacity-60 dark:border-[#DC3E3E] dark:bg-[#DC3E3E] dark:hover:bg-[#C22B2B]`,
+  /** Combina con el tono "teal" (acciones sobre "Liquidado"). */
+  teal: `${btnBase} border border-[#0B6B5C] bg-[#0B6B5C] text-white hover:border-[#095A4D] hover:bg-[#095A4D] focus-visible:ring-[rgba(11,107,92,0.25)] disabled:opacity-60 dark:border-[#2DD4BF] dark:bg-[#2DD4BF] dark:text-[#052E27] dark:hover:bg-[#22C6B0]`,
 } as const;
 
