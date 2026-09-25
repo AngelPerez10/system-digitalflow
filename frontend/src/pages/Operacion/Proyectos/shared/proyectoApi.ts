@@ -448,6 +448,27 @@ export async function updateProyecto(
 }
 
 /**
+ * Cambia solo el status (y motivos). Exige `cambiar_status` en Gestión de
+ * usuarios; pensada para quien liquida y también puede mover el flujo.
+ */
+export async function cambiarStatusProyecto(
+  id: string | number,
+  payload: {
+    status: string;
+    motivo_pausa?: string;
+    motivo_cancelacion?: string;
+  },
+): Promise<ProyectoRow> {
+  const res = await fetchApi(`/api/proyectos/${id}/cambiar-status/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const api = await parseApiProyecto(res);
+  return proyectoRowFromApi(api);
+}
+
+/**
  * Marca/desmarca "Liquidado" (pagado/cobrado). Ruta aparte de la edición
  * normal: solo la puede usar quien tenga el permiso `liquidar` en Gestión de
  * usuarios (sin bypass de admin), y nunca toca el `status` del proyecto.

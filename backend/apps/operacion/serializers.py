@@ -6,6 +6,7 @@ from apps.clientes.models import Cliente
 from apps.cotizaciones.models import Cotizacion
 from apps.ordenes.models import Orden
 from apps.users.models import UserPermissions
+from apps.users.permissions import user_can_change_module_status
 
 from .asignados import (
     hydrate_auxiliares_from_legacy,
@@ -533,6 +534,19 @@ class ProyectoSerializer(serializers.ModelSerializer):
             ):
                 raise serializers.ValidationError(
                     {"status": ["Solo un administrador puede cancelar el proyecto."]}
+                )
+
+        # Quien solo liquida no mueve el status (ni con `edit`): exige `cambiar_status`.
+        if "status" in attrs and status_norm != prev_status:
+            if not user_can_change_module_status(user, "proyectos"):
+                raise serializers.ValidationError(
+                    {
+                        "status": [
+                            "No tienes permiso para cambiar el status. "
+                            "Activa «Puede cambiar status» en Gestión de usuarios "
+                            "(independiente de Liquidar)."
+                        ]
+                    }
                 )
 
         if status_norm == "cancelado":

@@ -160,6 +160,7 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
   const notasListas = notasPorDia.filter((n) => n.nota.trim().length >= NOTA_DIA_MIN_CHARS).length;
   const requiereCotAdicional = proyectoRequiereCotizacionAdicional({ requierePresupuestoAdicional, requerimientosAdicionales });
   const opciones = STATUS_OPTIONS.filter((o) => !o.adminOnly || (isAdmin && editing) || status === o.value);
+  const statusLocked = !form.canChangeStatus;
 
   return (
     <>
@@ -168,9 +169,13 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
         index={0}
         title="Status del proyecto"
         icon={<Activity />}
-        hint={`Para cerrar se pide la bitácora completa (mín. ${NOTA_DIA_MIN_CHARS} caracteres por día).${
-          isAdmin && editing ? " Cancelar es solo para administradores." : ""
-        }`}
+        hint={
+          statusLocked
+            ? "No tienes permiso para cambiar el status (activa «Puede cambiar status» en Gestión de usuarios)."
+            : `Para cerrar se pide la bitácora completa (mín. ${NOTA_DIA_MIN_CHARS} caracteres por día).${
+                isAdmin && editing ? " Cancelar es solo para administradores." : ""
+              }`
+        }
         actions={
           editing ? (
             <StatusChangedByChip
@@ -201,8 +206,9 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
                 type="button"
                 role="radio"
                 aria-checked={active}
+                disabled={statusLocked}
                 onClick={() => handleStatusChange(opt.value)}
-                className={`cot-press inline-flex min-h-11 items-center justify-center gap-2 rounded-[9px] px-2 text-[13.5px] font-semibold ${focusRing} ${
+                className={`cot-press inline-flex min-h-11 items-center justify-center gap-2 rounded-[9px] px-2 text-[13.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-55 ${focusRing} ${
                   active ? t.segment : "text-[#52525B] hover:bg-white/70 hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
                 }`}
               >
@@ -235,6 +241,7 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
                 onChange={(e) => setMotivoPausa(e.target.value)}
                 placeholder="¿Por qué se detiene el proyecto?"
                 className={`${input} ${!motivoPausa.trim() ? "border-[#F0D7A3]!" : ""}`}
+                disabled={statusLocked}
                 aria-required="true"
                 aria-invalid={!motivoPausa.trim()}
                 aria-describedby={motivoPausaHintId}
@@ -253,6 +260,7 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
                 onChange={(e) => setMotivoCancelacion(e.target.value)}
                 placeholder="¿Por qué se cancela el proyecto?"
                 className={`${input} ${!motivoCancelacion.trim() ? inputInvalid : ""}`}
+                disabled={statusLocked}
                 aria-required="true"
                 aria-invalid={!motivoCancelacion.trim()}
               />

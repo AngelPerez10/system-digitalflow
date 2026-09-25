@@ -88,3 +88,44 @@ class ProyectosLiquidarTests(APITestCase):
         self.assertEqual(detail.status_code, status.HTTP_200_OK)
         self.assertTrue(detail.data["liquidado"])
         self.assertEqual(detail.data["liquidado_por_username"], "liq_proy_user")
+
+    def test_liquidador_con_edit_no_puede_cambiar_status_sin_flag(self):
+        profile = self.liquidador.permissions_profile
+        profile.permissions = {
+            "proyectos": {
+                "view": True, "create": False, "edit": True, "delete": False,
+                "liquidar": True, "cambiar_status": False,
+            }
+        }
+        profile.save(update_fields=["permissions"])
+        self.liquidador = User.objects.get(pk=self.liquidador.pk)
+        self._auth(self.liquidador)
+        resp = self.client.patch(
+            f"/api/proyectos/{self.en_proceso.id}/",
+            {"status": "pausado", "motivo_pausa": "Espera de material"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", resp.data)
+        self.en_proceso.refresh_from_db()
+        self.assertEqual(self.en_proceso.status, "en_proceso")
+
+    def test_cambiar_status_con_flag_funciona_sin_edit(self):
+        profile = self.liquidador.permissions_profile
+        profile.permissions = {
+            "proyectos": {
+                "view": True, "create": False, "edit": False, "delete": False,
+                "liquidar": True, "cambiar_status": True,
+            }
+        }
+        profile.save(update_fields=["permissions"])
+        self.liquidador = User.objects.get(pk=self.liquidador.pk)
+        self._auth(self.liquidador)
+        resp = self.client.patch(
+            f"/api/proyectos/{self.en_proceso.id}/cambiar-status/",
+            {"status": "pausado", "motivo_pausa": "Espera de material"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.en_proceso.refresh_from_db()
+        self.assertEqual(self.en_proceso.status, "pausado")

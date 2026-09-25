@@ -420,6 +420,8 @@ export type UseOrdenFormDraftOpts = {
   onAfterSaveClose: () => void;
   openEnviarPdfModal: (orden: Orden) => void;
   onSaved?: (orden: Orden) => void | Promise<void>;
+  /** Solo PATCH /cambiar-status/ (sin edición completa del registro). */
+  statusOnly?: boolean;
 };
 
 let adminServiciosLastLoadAt = 0;
@@ -450,6 +452,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     onAfterSaveClose,
     openEnviarPdfModal,
     onSaved,
+    statusOnly = false,
   } = opts;
 
   const formNonceRef = useRef(0);
@@ -1050,6 +1053,56 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
 
       try {
         setIsSaving(true);
+
+        if (statusOnly && editingOrden?.id) {
+          const statusPayload: Record<string, string> = {
+            status: formData.status,
+          };
+          if (formData.status === "pausado") {
+            statusPayload.motivo_pausa = (formData.motivo_pausa || "").trim();
+          }
+          if (formData.status === "cancelada") {
+            statusPayload.motivo_cancelacion = (formData.motivo_cancelacion || "").trim();
+          }
+          const statusRes = await fetchApi(`/api/ordenes/${editingOrden.id}/cambiar-status/`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(statusPayload),
+          });
+          if (!statusRes.ok) {
+            let msg = `No se pudo cambiar el status (HTTP ${statusRes.status}).`;
+            try {
+              const errBody = await statusRes.json();
+              const detail =
+                errBody?.status ||
+                errBody?.detail ||
+                errBody?.motivo_pausa ||
+                errBody?.motivo_cancelacion;
+              if (typeof detail === "string") msg = detail;
+              else if (Array.isArray(detail) && detail[0]) msg = String(detail[0]);
+            } catch {
+              /* cuerpo no JSON */
+            }
+            setModalAlert({ show: true, variant: "error", title: "Status", message: msg });
+            setTimeout(() => setModalAlert((prev) => ({ ...prev, show: false })), 5000);
+            return;
+          }
+          const savedOrden = (await statusRes.json()) as Orden;
+          mergeSavedOrdenInList(savedOrden, variant === "tecnico");
+          await fetchOrdenes();
+          if (savedOrden) await onSaved?.(savedOrden);
+          resetForm();
+          onAfterSaveClose();
+          setAlert({
+            show: true,
+            variant: "success",
+            title: "Status actualizado",
+            message: `Se actualizó el status de la orden de "${ordenCliente}".`,
+          });
+          setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
+          return;
+        }
+
         const path = editingOrden ? `/api/ordenes/${editingOrden.id}/` : "/api/ordenes/";
         const method = editingOrden ? "PUT" : "POST";
 
@@ -1217,6 +1270,7 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
       setModalAlert,
       openEnviarPdfModal,
       uploadingPhotos,
+      statusOnly,
     ],
   );
 

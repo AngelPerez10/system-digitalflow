@@ -68,6 +68,7 @@ from apps.users.permissions import (
     ModulePermission,
     OrdenesAnyAccessPermission,
     OrdenesAttachmentPermission,
+    OrdenesCambiarStatusPermission,
     OrdenesLiquidarPermission,
     OrdenesPermission,
     OrdenesSendPdfPermission,
@@ -680,6 +681,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
             # de staff/superuser y sin depender de `edit` (ver el comentario
             # en OrdenesLiquidarPermission).
             return [IsAuthenticated(), OrdenesLiquidarPermission()]
+        if self.action == 'cambiar_status':
+            return [IsAuthenticated(), OrdenesCambiarStatusPermission()]
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -2226,6 +2229,51 @@ class OrdenViewSet(viewsets.ModelViewSet):
         orden.liquidado_por = request.user if liquidado else None
         orden.liquidado_at = timezone.now() if liquidado else None
         orden.save(update_fields=['liquidado', 'liquidado_por', 'liquidado_at'])
+        return Response(self.get_serializer(orden).data)
+
+    @action(detail=True, methods=['patch'], url_path='cambiar-status')
+    def cambiar_status(self, request, pk=None):
+        """Cambia solo el status (y motivos). Ruta aparte de `edit`: exige
+        `cambiar_status=true` (OrdenesCambiarStatusPermission, sin bypass).
+
+        Pensada para quien liquida y además puede mover el flujo, sin darle
+        edición completa del registro.
+        """
+        orden = Orden.objects.filter(pk=pk).first()
+        if orden is None:
+            raise NotFound()
+
+        new_status = request.data.get('status')
+        if not isinstance(new_status, str) or not new_status.strip():
+            raise ValidationError({'status': 'Indique el nuevo status.'})
+        new_norm = new_status.strip().lower()
+        allowed = {'pendiente', 'pausado', 'resuelto', 'cancelada'}
+        if new_norm not in allowed:
+            raise ValidationError({'status': f'Status inválido. Use uno de: {", ".join(sorted(allowed))}.'})
+
+        prev = str(orden.status or '').strip().lower()
+        if new_norm == 'cancelada' and new_norm != prev:
+            user = request.user
+            if not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+                raise ValidationError({'status': 'Solo un administrador puede cancelar la orden.'})
+
+        payload = {'status': new_norm}
+        if 'motivo_pausa' in request.data:
+            payload['motivo_pausa'] = request.data.get('motivo_pausa')
+        if 'motivo_cancelacion' in request.data:
+            payload['motivo_cancelacion'] = request.data.get('motivo_cancelacion')
+        if new_norm != 'pausado':
+            payload['motivo_pausa'] = ''
+        if new_norm != 'cancelada':
+            payload['motivo_cancelacion'] = ''
+
+        serializer = self.get_serializer(orden, data=payload, partial=True)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        data = _stamp_status_changed_at(data, instance=orden, user=request.user)
+        for key, value in data.items():
+            setattr(orden, key, value)
+        orden.save(update_fields=list(data.keys()))
         return Response(self.get_serializer(orden).data)
 
     @action(detail=False, methods=['get'], url_path='pool')

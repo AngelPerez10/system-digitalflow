@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { applyPermChange, lockedForTecnico, normalizePerms, validateUserForm, emptyUserForm } from './usuariosModel';
+import {
+  applyPermChange,
+  lockedForTecnico,
+  moduleAllowsStatusChange,
+  normalizePerms,
+  validateUserForm,
+  emptyUserForm,
+} from './usuariosModel';
 
 const none = { view: false, create: false, edit: false, delete: false };
 
@@ -8,14 +15,34 @@ describe('applyPermChange', () => {
     expect(applyPermChange(none, 'edit', true)).toMatchObject({ view: true, edit: true });
   });
 
-  it('quitar «Ver» quita todas las acciones y conserva el alcance', () => {
-    const cur = { view: true, create: true, edit: true, delete: true, own_only: true };
-    expect(applyPermChange(cur, 'view', false)).toEqual({ ...none, own_only: true });
+  it('quitar «Ver» quita todas las acciones, flags especiales y conserva el alcance', () => {
+    const cur = {
+      view: true, create: true, edit: true, delete: true,
+      own_only: true, liquidar: true, cambiar_status: true,
+    };
+    expect(applyPermChange(cur, 'view', false)).toEqual({
+      ...none, own_only: true, liquidar: false, cambiar_status: false,
+    });
   });
 
   it('quitar una acción no toca «Ver»', () => {
     const cur = { view: true, create: true, edit: false, delete: false };
     expect(applyPermChange(cur, 'create', false)).toEqual({ ...cur, create: false });
+  });
+});
+
+describe('moduleAllowsStatusChange', () => {
+  it('con cambiar_status permite aunque no tenga edit', () => {
+    expect(moduleAllowsStatusChange({ liquidar: true, cambiar_status: true }, false)).toBe(true);
+  });
+
+  it('con solo liquidar bloquea aunque tenga edit', () => {
+    expect(moduleAllowsStatusChange({ liquidar: true, cambiar_status: false }, true)).toBe(false);
+  });
+
+  it('sin liquidar respeta edit', () => {
+    expect(moduleAllowsStatusChange({ liquidar: false }, true)).toBe(true);
+    expect(moduleAllowsStatusChange({}, false)).toBe(false);
   });
 });
 

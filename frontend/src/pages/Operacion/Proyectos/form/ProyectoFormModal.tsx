@@ -49,6 +49,8 @@ type ProyectoFormModalProps = {
   modalAlert?: ProyectoFormModalAlert;
   /** true mientras se hace el POST/PATCH a la API; deshabilita navegación y muestra spinner en Guardar. */
   isSaving?: boolean;
+  canChangeStatus?: boolean;
+  statusOnly?: boolean;
 };
 
 const modalShell = `${fontSans} flex h-[min(94dvh,58rem)] w-full flex-col overflow-hidden rounded-t-[22px] border border-[#E7E7EA] bg-white! p-0 shadow-[0_32px_80px_-24px_rgba(9,9,11,0.45)] dark:border-[#273244] dark:bg-[#111827]! sm:h-[min(92dvh,58rem)] sm:w-[min(96vw,74rem)] sm:max-w-none sm:rounded-[22px]`;
@@ -63,10 +65,19 @@ export default function ProyectoFormModal({
   onSave,
   modalAlert,
   isSaving = false,
+  canChangeStatus = true,
+  statusOnly = false,
 }: ProyectoFormModalProps) {
   const { isAdmin } = useAuth();
   const titleId = useId();
-  const form = useProyectoFormState({ open, proyectoId: proyectoId ?? null, initialDraft, onSave });
+  const form = useProyectoFormState({
+    open,
+    proyectoId: proyectoId ?? null,
+    initialDraft,
+    onSave,
+    canChangeStatus,
+    statusOnly,
+  });
   const {
     formRef,
     formScrollRef,

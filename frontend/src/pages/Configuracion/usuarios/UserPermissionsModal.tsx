@@ -98,9 +98,36 @@ const ROW_GRID = 'grid grid-cols-4 gap-x-2 sm:grid-cols-[minmax(0,1fr)_repeat(4,
 const headCellClass = 'text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]';
 
 /** Filas de la sección "Permisos especiales" (fuera de la matriz CRUD). */
-const LIQUIDAR_ROWS: { key: ModuleKey; label: string }[] = [
-  { key: 'ordenes', label: 'Puede liquidar Órdenes de trabajo' },
-  { key: 'proyectos', label: 'Puede liquidar Proyectos' },
+const SPECIAL_PERM_ROWS: {
+  key: ModuleKey;
+  flag: 'liquidar' | 'cambiar_status';
+  label: string;
+  hint: string;
+}[] = [
+  {
+    key: 'ordenes',
+    flag: 'liquidar',
+    label: 'Puede liquidar Órdenes de trabajo',
+    hint: 'Marca/desmarca «Liquidado» en órdenes resueltas. No permite cambiar el status.',
+  },
+  {
+    key: 'ordenes',
+    flag: 'cambiar_status',
+    label: 'Puede cambiar status de Órdenes de trabajo',
+    hint: 'Mueve pendiente / pausado / resuelto. Actívalo junto a Liquidar si también debe cambiar el status.',
+  },
+  {
+    key: 'proyectos',
+    flag: 'liquidar',
+    label: 'Puede liquidar Proyectos',
+    hint: 'Marca/desmarca «Liquidado» en proyectos cerrados. No permite cambiar el status.',
+  },
+  {
+    key: 'proyectos',
+    flag: 'cambiar_status',
+    label: 'Puede cambiar status de Proyectos',
+    hint: 'Mueve en proceso / pausado / cerrado. Actívalo junto a Liquidar si también debe cambiar el status.',
+  },
 ];
 
 const TEMPLATES = [
@@ -189,11 +216,11 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
     });
   };
 
-  const setLiquidar = (key: ModuleKey, value: boolean) => {
+  const setSpecialFlag = (key: ModuleKey, flag: 'liquidar' | 'cambiar_status', value: boolean) => {
     if (readOnly) return;
     setPerms((prev) => {
       const next = normalizePerms(prev, { isAdmin: staffAdmin });
-      next[key] = { ...next[key], liquidar: value };
+      next[key] = { ...next[key], [flag]: value };
       return next;
     });
   };
@@ -421,32 +448,55 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
               Permisos especiales
             </h3>
             <p className="mt-1 text-[13px] leading-[18px] text-[#52525B] dark:text-[#B7C1D1]">
-              Marca/desmarca «Liquidado» en órdenes resueltas o proyectos cerrados. Es independiente de Editar: quien
-              tenga esto activo no puede cambiar nada más del registro.
+              Liquidar y cambiar status son independientes entre sí y de Editar. Quien solo liquida no puede
+              mover el status; para ambas acciones activa las dos casillas.
             </p>
-            <ul className="mt-3 space-y-1">
-              {LIQUIDAR_ROWS.map((row) => {
+            <ul className="mt-3 space-y-2">
+              {SPECIAL_PERM_ROWS.map((row) => {
                 const rowPerms = current[row.key] as CrudPerms;
                 const disabled = readOnly || !rowPerms.view;
+                const checked = rowPerms[row.flag] === true;
+                const moduleLabel = row.key === 'ordenes' ? 'Órdenes de trabajo' : 'Proyectos';
+                const id = `perm-special-${row.key}-${row.flag}`;
+                const hintId = `${id}-hint`;
                 return (
-                  <li key={row.key}>
-                    <label
-                      title={!rowPerms.view ? `Actívale «Ver» en ${row.label.replace('Puede liquidar ', '')} primero` : undefined}
+                  <li key={`${row.key}-${row.flag}`}>
+                    <div
+                      title={!rowPerms.view ? `Actívale «Ver» en ${moduleLabel} primero` : undefined}
                       className={cn(
-                        'flex min-h-11 items-center gap-3 rounded-[10px] px-2 py-1.5',
-                        disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+                        'flex min-h-11 items-start gap-3 rounded-[10px] px-2 py-1.5',
+                        disabled && 'opacity-70',
                       )}
                     >
                       <Checkbox
-                        checked={rowPerms.liquidar === true}
+                        id={id}
+                        checked={checked}
                         disabled={disabled}
-                        onChange={(v) => setLiquidar(row.key, v)}
+                        onChange={(v) => setSpecialFlag(row.key, row.flag, v)}
                         label={row.label}
+                        aria-describedby={hintId}
                       />
-                      <span className={cn('text-[14px]', rowPerms.view ? 'text-[#09090B] dark:text-[#F8FAFC]' : 'text-[#A1A1AA] dark:text-[#64748B]')}>
-                        {row.label}
-                      </span>
-                    </label>
+                      <div className="min-w-0 pt-0.5">
+                        <label
+                          htmlFor={id}
+                          className={cn(
+                            'block cursor-pointer text-[14px] leading-snug',
+                            rowPerms.view
+                              ? 'text-[#09090B] dark:text-[#F8FAFC]'
+                              : 'text-[#A1A1AA] dark:text-[#64748B]',
+                            disabled && 'cursor-not-allowed',
+                          )}
+                        >
+                          {row.label}
+                        </label>
+                        <p
+                          id={hintId}
+                          className="mt-0.5 text-[12px] leading-[16px] text-[#71717A] dark:text-[#8EA0B8]"
+                        >
+                          {row.hint}
+                        </p>
+                      </div>
+                    </div>
                   </li>
                 );
               })}
@@ -613,6 +663,8 @@ function Checkbox({
   danger,
   onChange,
   label,
+  id,
+  'aria-describedby': ariaDescribedBy,
 }: {
   checked: boolean;
   indeterminate?: boolean;
@@ -620,6 +672,8 @@ function Checkbox({
   danger?: boolean;
   onChange: (value: boolean) => void;
   label: string;
+  id?: string;
+  'aria-describedby'?: string;
 }) {
   const ref = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -632,10 +686,12 @@ function Checkbox({
     <span className="relative inline-flex size-5 shrink-0">
       <input
         ref={ref}
+        id={id}
         type="checkbox"
         checked={checked}
         disabled={disabled}
         aria-label={label}
+        aria-describedby={ariaDescribedBy}
         onChange={(e) => onChange(e.target.checked)}
         className={cn(
           'peer size-5 cursor-pointer appearance-none rounded-[6px] border-[1.5px] border-[#D4D4D8] bg-white transition-colors duration-150 hover:border-[#A1A1AA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.22)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3A4661] dark:bg-[#0F172A]',

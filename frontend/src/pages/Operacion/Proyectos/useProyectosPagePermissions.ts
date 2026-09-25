@@ -1,4 +1,5 @@
 import { useAuth } from "@/context/AuthContext";
+import { moduleAllowsStatusChange } from "@/pages/Configuracion/usuarios/usuariosModel";
 
 export function useProyectosPagePermissions() {
   const { permissions, loading: authLoading, isAuthenticated, isAdmin } = useAuth();
@@ -12,6 +13,17 @@ export function useProyectosPagePermissions() {
    * es exclusivo de quien tenga esta casilla activa en Gestión de usuarios.
    */
   const canLiquidarProyectos = permissions?.proyectos?.liquidar === true;
+  /**
+   * Puede mover el status operativo. Quien solo liquida queda bloqueado
+   * aunque tenga `edit` (o sea admin); con `cambiar_status` puede.
+   */
+  const canChangeStatusProyectos = moduleAllowsStatusChange(
+    permissions?.proyectos,
+    canProyectosEdit,
+  );
+  /** Solo status (sin edición completa): abre el form en modo lectura + status. */
+  const canStatusOnlyProyectos =
+    !canProyectosEdit && permissions?.proyectos?.cambiar_status === true;
 
   return {
     permissions,
@@ -23,5 +35,7 @@ export function useProyectosPagePermissions() {
     canProyectosEdit,
     canProyectosDelete,
     canLiquidarProyectos,
+    canChangeStatusProyectos,
+    canStatusOnlyProyectos,
   };
 }

@@ -24,6 +24,12 @@ export type ModuleCrudPermissions = {
    * esta casilla activa en Gestión de usuarios.
    */
   liquidar?: boolean;
+  /**
+   * Solo órdenes/proyectos: puede cambiar el status operativo. Independiente
+   * de `liquidar`. Quien tiene `liquidar` sin esta casilla no puede mover el
+   * status (aunque tenga `edit`).
+   */
+  cambiar_status?: boolean;
 };
 
 export type Permissions = Record<string, ModuleCrudPermissions>;

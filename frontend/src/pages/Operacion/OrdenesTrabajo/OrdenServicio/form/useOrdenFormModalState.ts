@@ -14,9 +14,17 @@ export type TipoOrden = "servicio_tecnico" | "levantamiento" | "mantenimiento";
  */
 export type OrdenFormTab = "cliente" | "orden" | "asignacion" | "equipos" | "evidencia" | "calificacion";
 
+const STATUS_RELATED_FIELDS = new Set<OrdenEditableField>([
+  "status",
+  "motivo_pausa",
+  "motivo_cancelacion",
+]);
+
 export function useOrdenFormModalState({
   canCreate,
   canEdit,
+  canChangeStatus = true,
+  statusOnly = false,
   editingOrdenForScope,
   userId,
   isAdmin = false,
@@ -24,6 +32,10 @@ export function useOrdenFormModalState({
 }: {
   canCreate: boolean;
   canEdit: boolean;
+  /** false = bloquear status aunque el resto sea editable (liquidador sin cambiar_status). */
+  canChangeStatus?: boolean;
+  /** true = solo status (sin `edit`); el resto del form queda en solo lectura. */
+  statusOnly?: boolean;
   editingOrdenForScope?: Orden | null;
   userId?: number | null;
   isAdmin?: boolean;
@@ -52,9 +64,16 @@ export function useOrdenFormModalState({
   );
 
   const isFieldReadOnly = useCallback(
-    (field: OrdenEditableField) =>
-      isOrdenFieldReadOnly(field, { isReadOnly, isLimitedEdit }),
-    [isReadOnly, isLimitedEdit],
+    (field: OrdenEditableField) => {
+      if (STATUS_RELATED_FIELDS.has(field)) {
+        if (!canChangeStatus) return true;
+        if (statusOnly) return false;
+      } else if (statusOnly) {
+        return true;
+      }
+      return isOrdenFieldReadOnly(field, { isReadOnly, isLimitedEdit });
+    },
+    [canChangeStatus, statusOnly, isReadOnly, isLimitedEdit],
   );
 
   const tipoOrdenLabel = useMemo(() => {
@@ -100,6 +119,7 @@ export function useOrdenFormModalState({
     isReadOnly,
     isLimitedEdit,
     isFieldReadOnly,
+    statusOnly,
     tipoOrdenLabel,
     openNewOrden,
     resetOrdenModalShell,

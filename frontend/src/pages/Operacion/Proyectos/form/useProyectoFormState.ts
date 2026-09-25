@@ -94,6 +94,10 @@ export type UseProyectoFormStateArgs = {
       omitTechnicianLockedFields?: boolean;
     }
   ) => void | Promise<void>;
+  /** false = no puede mover el status (p. ej. solo liquida). */
+  canChangeStatus?: boolean;
+  /** Solo status: el resto del form queda visualmente bloqueado vía CampoTab. */
+  statusOnly?: boolean;
 };
 
 export function useProyectoFormState({
@@ -101,6 +105,8 @@ export function useProyectoFormState({
   proyectoId,
   initialDraft,
   onSave,
+  canChangeStatus = true,
+  statusOnly = false,
 }: UseProyectoFormStateArgs) {
   const { user, isAdmin } = useAuth();
   const idBase = useId();
@@ -749,6 +755,7 @@ export function useProyectoFormState({
   };
 
   const handleStatusChange = (next: ProyectoEstado) => {
+    if (!canChangeStatus) return;
     if (next === "cerrado") {
       const check = canCerrarProyecto({
         requierePresupuestoAdicional,
@@ -901,6 +908,19 @@ export function useProyectoFormState({
    * Si algo falla, lleva al paso correspondiente y enfoca el campo.
    */
   const saveNow = async () => {
+    if (statusOnly) {
+      if (status === "pausado" && !motivoPausa.trim()) {
+        jumpTo("campo", "proyecto-motivo-pausa");
+        return;
+      }
+      if (status === "cancelado" && !motivoCancelacion.trim()) {
+        jumpTo("campo", "proyecto-motivo-cancelacion");
+        return;
+      }
+      const draft = buildCurrentDraft();
+      await onSave(draft, { omitTechnicianLockedFields: true });
+      return;
+    }
     if (!cliente.trim()) {
       setClienteStepError("Escribe el nombre del cliente para continuar.");
       jumpTo("general", "proyecto-modal-cliente");
@@ -1132,6 +1152,8 @@ export function useProyectoFormState({
     buildCurrentDraft,
     handleSubmit,
     handleStatusChange,
+    canChangeStatus,
+    statusOnly,
     handleCargarCotizacion: cotizacionPicker.handleCargarCotizacion,
     openCotizacionPicker: cotizacionPicker.openCotizacionPicker,
     handleQuitarCotizacion: cotizacionPicker.handleQuitarCotizacion,

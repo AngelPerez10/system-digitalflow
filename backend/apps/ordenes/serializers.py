@@ -2,6 +2,8 @@ import logging
 
 from rest_framework import serializers
 
+from apps.users.permissions import user_can_change_module_status
+
 from .equipos_inventario import normalize_equipos_payload
 from .models import Orden, OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
 from .prioridad import prioridad_pool_efectiva
@@ -114,6 +116,21 @@ class OrdenSerializer(serializers.ModelSerializer):
             ):
                 raise serializers.ValidationError(
                     {"status": "Solo un administrador puede cancelar la orden."}
+                )
+        # Quien solo liquida no puede mover el status (ni con `edit`): exige
+        # la casilla `cambiar_status` en Gestión de usuarios.
+        if "status" in attrs and status_norm != prev_status:
+            request = self.context.get("request")
+            user = getattr(request, "user", None) if request is not None else None
+            if not user_can_change_module_status(user, "ordenes"):
+                raise serializers.ValidationError(
+                    {
+                        "status": (
+                            "No tienes permiso para cambiar el status. "
+                            "Activa «Puede cambiar status» en Gestión de usuarios "
+                            "(independiente de Liquidar)."
+                        )
+                    }
                 )
         if status_norm == "pausado":
             motivo = attrs.get("motivo_pausa", None)

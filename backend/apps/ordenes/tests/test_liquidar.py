@@ -100,3 +100,54 @@ class OrdenesLiquidarTests(APITestCase):
         self.assertEqual(detail.status_code, status.HTTP_200_OK)
         self.assertTrue(detail.data["liquidado"])
         self.assertEqual(detail.data["liquidado_por_username"], "liq_user")
+
+    def test_liquidador_con_edit_no_puede_cambiar_status_sin_flag(self):
+        """liquidar + edit sin cambiar_status → PATCH status rechazado."""
+        profile = self.liquidador.permissions_profile
+        profile.permissions = {
+            "ordenes": {
+                "view": True, "create": False, "edit": True, "delete": False,
+                "own_only": False, "liquidar": True, "cambiar_status": False,
+            }
+        }
+        profile.save(update_fields=["permissions"])
+        self.liquidador = User.objects.get(pk=self.liquidador.pk)
+        self._auth(self.liquidador)
+        resp = self.client.patch(
+            f"/api/ordenes/{self.pendiente.id}/",
+            {"status": "pausado", "motivo_pausa": "Espera de pieza"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", resp.data)
+        self.pendiente.refresh_from_db()
+        self.assertEqual(self.pendiente.status, "pendiente")
+
+    def test_cambiar_status_ruta_dedicada_exige_flag(self):
+        self._auth(self.liquidador)
+        resp = self.client.patch(
+            f"/api/ordenes/{self.pendiente.id}/cambiar-status/",
+            {"status": "pausado", "motivo_pausa": "Espera"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cambiar_status_con_flag_funciona_sin_edit(self):
+        profile = self.liquidador.permissions_profile
+        profile.permissions = {
+            "ordenes": {
+                "view": True, "create": False, "edit": False, "delete": False,
+                "own_only": False, "liquidar": True, "cambiar_status": True,
+            }
+        }
+        profile.save(update_fields=["permissions"])
+        self.liquidador = User.objects.get(pk=self.liquidador.pk)
+        self._auth(self.liquidador)
+        resp = self.client.patch(
+            f"/api/ordenes/{self.pendiente.id}/cambiar-status/",
+            {"status": "pausado", "motivo_pausa": "Espera de pieza"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.pendiente.refresh_from_db()
+        self.assertEqual(self.pendiente.status, "pausado")

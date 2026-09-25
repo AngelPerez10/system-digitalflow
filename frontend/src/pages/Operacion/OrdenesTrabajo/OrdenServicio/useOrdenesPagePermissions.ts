@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import type { Permissions } from "@/context/authTypes";
+import { moduleAllowsStatusChange } from "@/pages/Configuracion/usuarios/usuariosModel";
 
 /** Alinea con `user_module_own_only` del backend para el módulo órdenes. */
 export function isOrdenesOwnOnly(
@@ -39,6 +40,13 @@ export function useOrdenesPagePermissions() {
    * incluso administradores necesitan el permiso explícito.
    */
   const canLiquidarOrdenes = permissions?.ordenes?.liquidar === true;
+  /**
+   * Puede mover el status operativo. Quien solo liquida queda bloqueado
+   * aunque tenga `edit`; con `cambiar_status` puede (via form o ruta dedicada).
+   */
+  const canChangeStatusOrdenes = moduleAllowsStatusChange(permissions?.ordenes, canOrdenesEdit);
+  /** Solo status (sin edición completa): abre el form en modo lectura + status. */
+  const canStatusOnlyOrdenes = !canOrdenesEdit && permissions?.ordenes?.cambiar_status === true;
 
   return {
     permissions,
@@ -51,5 +59,7 @@ export function useOrdenesPagePermissions() {
     ordenesOwnOnly,
     canViewAllOrdenes,
     canLiquidarOrdenes,
+    canChangeStatusOrdenes,
+    canStatusOnlyOrdenes,
   };
 }

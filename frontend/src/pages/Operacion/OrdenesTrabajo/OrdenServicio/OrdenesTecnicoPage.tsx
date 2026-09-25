@@ -64,6 +64,8 @@ export default function OrdenesTecnico() {
     canOrdenesDelete,
     ordenesOwnOnly,
     canViewAllOrdenes,
+    canChangeStatusOrdenes,
+    canStatusOnlyOrdenes,
   } = useOrdenesPagePermissions();
   const { user, isAdmin } = useAuth();
 
@@ -127,11 +129,14 @@ export default function OrdenesTecnico() {
     isReadOnly,
     isLimitedEdit,
     isFieldReadOnly,
+    statusOnly,
     tipoOrdenLabel,
     resetOrdenModalShell,
   } = useOrdenFormModalState({
     canCreate: canOrdenesCreate,
     canEdit: canOrdenesEdit,
+    canChangeStatus: canChangeStatusOrdenes,
+    statusOnly: canStatusOnlyOrdenes,
     userId: user?.id ?? null,
     isAdmin,
     ownOnly: ordenesOwnOnly,
@@ -237,6 +242,7 @@ export default function OrdenesTecnico() {
     setModalAlert,
     onAfterSaveClose: resetOrdenModalShell,
     openEnviarPdfModal,
+    statusOnly,
   });
 
   const confirmDeletePhoto = async (index: number, url: string) => {
@@ -352,7 +358,7 @@ export default function OrdenesTecnico() {
   };
 
   const handleEdit = async (orden: Orden): Promise<boolean> => {
-    if (!canOrdenesEdit) {
+    if (!canOrdenesEdit && !canStatusOnlyOrdenes) {
       setAlert({ show: true, variant: 'warning', title: 'Sin permiso', message: 'No tienes permiso para editar órdenes.' });
       setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 2500);
       return false;
@@ -613,9 +619,9 @@ export default function OrdenesTecnico() {
             formatDate={formatYmdToDMY}
             onPdf={handleOrdenPdf}
             onEnviarPdf={openEnviarPdfModal}
-            onEdit={canOrdenesEdit ? handleEdit : undefined}
+            onEdit={canOrdenesEdit || canStatusOnlyOrdenes ? handleEdit : undefined}
             onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
-            canEdit={canOrdenesEdit}
+            canEdit={canOrdenesEdit || canStatusOnlyOrdenes}
             canDelete={canOrdenesDelete}
             usuarios={usuarios}
             groupByStatus
@@ -640,7 +646,7 @@ export default function OrdenesTecnico() {
                 }
                 onPdf={handleOrdenPdf}
                 onEnviarPdf={openEnviarPdfModal}
-                onEdit={canOrdenesEdit ? handleEdit : undefined}
+                onEdit={canOrdenesEdit || canStatusOnlyOrdenes ? handleEdit : undefined}
                 onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
                 onVerProblematica={(content) => setProblematicaModal({ open: true, content })}
                 onVerServicios={(content) => setServiciosModal({ open: true, content })}

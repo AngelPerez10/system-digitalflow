@@ -14,6 +14,11 @@ export type CrudPerms = {
   own_only?: boolean;
   /** Solo órdenes/proyectos: puede marcar/desmarcar "Liquidado" (ver LIQUIDABLE_MODULES). */
   liquidar?: boolean;
+  /**
+   * Solo órdenes/proyectos: puede cambiar el status operativo.
+   * Independiente de liquidar: si solo tiene liquidar, no mueve el status.
+   */
+  cambiar_status?: boolean;
 };
 
 export type UserSignaturePayload = {
@@ -116,11 +121,11 @@ export const normalizePerms = (
   const base: Required<PermissionsPayload> = {
     ordenes: {
       view: true, create: false, edit: false, delete: false,
-      own_only: isAdmin ? false : true, liquidar: false,
+      own_only: isAdmin ? false : true, liquidar: false, cambiar_status: false,
     },
     proyectos: {
       view: false, create: false, edit: false, delete: false,
-      own_only: isAdmin ? false : true, liquidar: false,
+      own_only: isAdmin ? false : true, liquidar: false, cambiar_status: false,
     },
     inventario: { view: false, create: false, edit: false, delete: false },
     clientes: { view: true, create: false, edit: false, delete: false },
@@ -150,6 +155,7 @@ export const normalizePerms = (
       delete: safe(src.delete) ?? dst.delete,
       own_only: safe(src.own_only) ?? dst.own_only,
       liquidar: safe(src.liquidar) ?? dst.liquidar,
+      cambiar_status: safe(src.cambiar_status) ?? dst.cambiar_status,
     };
   };
   const out = {} as Required<PermissionsPayload>;
@@ -239,11 +245,12 @@ export const permissionSectionsFor = (isAdmin: boolean): PermissionSection[] =>
 export const SCOPED_MODULES = new Set<ModuleKey>(['ordenes', 'proyectos', 'reportes_mantenimiento', 'cotizaciones']);
 
 /**
- * Módulos con el permiso especial "Puede liquidar" (fuera de la matriz
- * Ver/Crear/Editar/Eliminar; se muestra en su propia sección del modal de
- * permisos, ver UserPermissionsModal).
+ * Módulos con permisos especiales (Liquidar / Cambiar status), fuera de la
+ * matriz Ver/Crear/Editar/Eliminar — ver UserPermissionsModal.
  */
 export const LIQUIDABLE_MODULES = new Set<ModuleKey>(['ordenes', 'proyectos']);
+/** Alias semántico: mismos módulos admiten `cambiar_status`. */
+export const STATUSABLE_MODULES = LIQUIDABLE_MODULES;
 
 export type PermAction = 'view' | 'create' | 'edit' | 'delete';
 
@@ -262,14 +269,40 @@ export const lockedForTecnico = (key: ModuleKey, action: PermAction) => key === 
 
 /**
  * Cambio coherente de una casilla: las acciones requieren «Ver», y quitar
- * «Ver» quita las acciones.
+ * «Ver» quita las acciones (y los flags especiales liquidar / cambiar_status).
  */
 export const applyPermChange = (cur: CrudPerms, action: PermAction, value: boolean): CrudPerms => {
   if (action === 'view') {
-    return value ? { ...cur, view: true } : { ...cur, view: false, create: false, edit: false, delete: false };
+    return value
+      ? { ...cur, view: true }
+      : {
+          ...cur,
+          view: false,
+          create: false,
+          edit: false,
+          delete: false,
+          liquidar: false,
+          cambiar_status: false,
+        };
   }
   return { ...cur, [action]: value, view: value ? true : cur.view };
 };
+
+/**
+ * ¿Puede cambiar el status operativo del módulo? Espejo de
+ * `user_can_change_module_status` + la puerta de `edit` en la UI:
+ * - `cambiar_status` → sí (incluso sin `edit`; va por ruta dedicada).
+ * - `liquidar` sin `cambiar_status` → no, aunque tenga `edit`.
+ * - sin `liquidar` → sí solo si tiene `edit` (flujo normal).
+ */
+export function moduleAllowsStatusChange(
+  modulePerms: Pick<CrudPerms, 'liquidar' | 'cambiar_status'> | null | undefined,
+  canEdit: boolean,
+): boolean {
+  if (modulePerms?.cambiar_status === true) return true;
+  if (modulePerms?.liquidar === true) return false;
+  return canEdit;
+}
 
 /* --------------------------------------------------------------------------
    Contraseñas y validación

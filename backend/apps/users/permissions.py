@@ -405,6 +405,53 @@ class ProyectosLiquidarPermission(BasePermission):
         return _as_bool_value(module_perms.get('liquidar'), False)
 
 
+def user_can_change_module_status(user, module_key: str) -> bool:
+    """¿Puede este usuario cambiar el status operativo del módulo?
+
+    - `cambiar_status=true` → sí (casilla explícita en Gestión de usuarios).
+    - `liquidar=true` sin `cambiar_status` → no, aunque tenga `edit`
+      (quien solo liquida no mueve el flujo).
+    - Sin `liquidar` → sí a nivel de esta bandera; el PATCH normal sigue
+      exigiendo `edit` vía `ModulePermission`.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    perms_obj = getattr(user, 'permissions_profile', None)
+    permissions = getattr(perms_obj, 'permissions', None) or {}
+    module_perms = _module_perms_for_key(permissions, module_key)
+    if _as_bool_value(module_perms.get('cambiar_status'), False):
+        return True
+    if _as_bool_value(module_perms.get('liquidar'), False):
+        return False
+    return True
+
+
+class OrdenesCambiarStatusPermission(BasePermission):
+    """Cambio de status vía ruta dedicada. Solo `cambiar_status=true`, sin bypass."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, 'ordenes')
+        return _as_bool_value(module_perms.get('cambiar_status'), False)
+
+
+class ProyectosCambiarStatusPermission(BasePermission):
+    """Análogo a `OrdenesCambiarStatusPermission`, para proyectos."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, 'proyectos')
+        return _as_bool_value(module_perms.get('cambiar_status'), False)
+
+
 class TareasPermission(ModulePermission):
     """Permisos JSON para el módulo Mi Escritorio / Tareas."""
 

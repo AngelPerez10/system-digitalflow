@@ -28,6 +28,7 @@ import {
   pageSearchInputClass,
 } from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import {
+  cambiarStatusProyecto,
   createProyecto,
   deleteProyecto,
   listProyectos,
@@ -79,7 +80,7 @@ function isProyectoApiError(err: unknown): err is ProyectoApiError {
 export default function ProyectosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { canProyectosCreate, canProyectosEdit, canProyectosDelete, canLiquidarProyectos, isAdmin } =
+  const { canProyectosCreate, canProyectosEdit, canProyectosDelete, canLiquidarProyectos, canChangeStatusProyectos, canStatusOnlyProyectos, isAdmin } =
     useProyectosPagePermissions();
   const tecnicoView = !isAdmin;
   const emptyDraft = useMemo(() => createEmptyProyectoDraft(), []);
@@ -275,14 +276,14 @@ export default function ProyectosPage() {
 
   const openEdit = useCallback(
     (row: ProyectoRow) => {
-      if (!canProyectosEdit) {
+      if (!canProyectosEdit && !canStatusOnlyProyectos) {
         showAlert("warning", "Sin permiso", "No tienes permiso para editar proyectos.", 2500);
         return;
       }
       setEditingRow(row);
       setShowModal(true);
     },
-    [canProyectosEdit, showAlert]
+    [canProyectosEdit, canStatusOnlyProyectos, showAlert]
   );
 
   const openDelete = useCallback(
@@ -338,6 +339,22 @@ export default function ProyectosPage() {
     const wasEditing = Boolean(editingRow);
     setIsSavingProyecto(true);
     try {
+      if (canStatusOnlyProyectos && wasEditing && editingRow) {
+        const saved = await cambiarStatusProyecto(editingRow.id, {
+          status: draft.status,
+          motivo_pausa: draft.status === "pausado" ? draft.motivoPausa : "",
+          motivo_cancelacion: draft.status === "cancelado" ? draft.motivoCancelacion : "",
+        });
+        setRows((prev) => prev.map((r) => (r.id === saved.id ? saved : r)));
+        closeModal();
+        showAlert(
+          "success",
+          "Status actualizado",
+          `Se actualizó el status de "${draft.cliente}".`,
+        );
+        return;
+      }
+
       const saved =
         wasEditing && editingRow
           ? await updateProyecto(editingRow.id, draft, {
@@ -433,7 +450,7 @@ export default function ProyectosPage() {
   };
 
   const handlers = {
-    canEdit: canProyectosEdit,
+    canEdit: canProyectosEdit || canStatusOnlyProyectos,
     canDelete: canProyectosDelete,
     onEdit: openEdit,
     onDelete: openDelete,
@@ -646,6 +663,8 @@ export default function ProyectosPage() {
           onSave={handleSave}
           modalAlert={modalAlert}
           isSaving={isSavingProyecto}
+          canChangeStatus={canChangeStatusProyectos}
+          statusOnly={canStatusOnlyProyectos && Boolean(editingRow)}
         />
 
         <AppConfirmDialog

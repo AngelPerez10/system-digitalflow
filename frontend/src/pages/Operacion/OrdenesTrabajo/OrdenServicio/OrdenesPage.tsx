@@ -80,6 +80,8 @@ export default function Ordenes() {
     canOrdenesDelete,
     ordenesOwnOnly,
     canLiquidarOrdenes,
+    canChangeStatusOrdenes,
+    canStatusOnlyOrdenes,
   } = useOrdenesPagePermissions();
   const { user, isAdmin } = useAuth();
 
@@ -135,12 +137,15 @@ export default function Ordenes() {
     isReadOnly,
     isLimitedEdit,
     isFieldReadOnly,
+    statusOnly,
     tipoOrdenLabel,
     openNewOrden,
     resetOrdenModalShell,
   } = useOrdenFormModalState({
     canCreate: canOrdenesCreate,
     canEdit: canOrdenesEdit,
+    canChangeStatus: canChangeStatusOrdenes,
+    statusOnly: canStatusOnlyOrdenes,
     userId: user?.id ?? null,
     isAdmin,
     ownOnly: ordenesOwnOnly,
@@ -390,6 +395,7 @@ export default function Ordenes() {
     setModalAlert,
     onAfterSaveClose: resetOrdenModalShell,
     openEnviarPdfModal,
+    statusOnly,
   });
 
   const confirmDeletePhoto = async (index: number, url: string) => {
@@ -539,7 +545,7 @@ export default function Ordenes() {
   };
 
   const handleEdit = async (orden: Orden): Promise<boolean> => {
-    if (!canOrdenesEdit) {
+    if (!canOrdenesEdit && !canStatusOnlyOrdenes) {
       setAlert({
         show: true,
         variant: "warning",
@@ -926,9 +932,9 @@ export default function Ordenes() {
               formatDate={formatYmdToDMY}
               onPdf={handleOrdenPdf}
               onEnviarPdf={openEnviarPdfModal}
-              onEdit={canOrdenesEdit ? handleEdit : undefined}
+              onEdit={canOrdenesEdit || canStatusOnlyOrdenes ? handleEdit : undefined}
               onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
-              canEdit={canOrdenesEdit}
+              canEdit={canOrdenesEdit || canStatusOnlyOrdenes}
               canDelete={canOrdenesDelete}
               usuarios={usuarios}
               highlightRecentStatus={isAdmin}
@@ -958,7 +964,7 @@ export default function Ordenes() {
                 }
                 onPdf={handleOrdenPdf}
                 onEnviarPdf={openEnviarPdfModal}
-                onEdit={canOrdenesEdit ? handleEdit : undefined}
+                onEdit={canOrdenesEdit || canStatusOnlyOrdenes ? handleEdit : undefined}
                 onDelete={canOrdenesDelete ? handleDeleteClick : undefined}
                 onVerProblematica={(content) => setProblematicaModal({ open: true, content })}
                 onVerServicios={(content) => setServiciosModal({ open: true, content })}

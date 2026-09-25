@@ -29,6 +29,7 @@ from apps.ordenes.image_services import (
 )
 from apps.users.permissions import (
     ProyectosAttachmentPermission,
+    ProyectosCambiarStatusPermission,
     ProyectosLiquidarPermission,
     ProyectosPermission,
     ProyectosSendPdfPermission,
@@ -169,6 +170,8 @@ class ProyectoViewSet(viewsets.ModelViewSet):
             # de staff/superuser y sin depender de `edit` (ver el comentario
             # en ProyectosLiquidarPermission).
             return [IsAuthenticated(), ProyectosLiquidarPermission()]
+        if self.action == "cambiar_status":
+            return [IsAuthenticated(), ProyectosCambiarStatusPermission()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -299,6 +302,43 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         proyecto.liquidado_por = request.user if liquidado else None
         proyecto.liquidado_at = timezone.now() if liquidado else None
         proyecto.save(update_fields=["liquidado", "liquidado_por", "liquidado_at"])
+        return Response(self.get_serializer(proyecto).data)
+
+    @action(detail=True, methods=["patch"], url_path="cambiar-status")
+    def cambiar_status(self, request, pk=None):
+        """Cambia solo el status (y motivos). Exige `cambiar_status=true`
+        (ProyectosCambiarStatusPermission, sin bypass de staff)."""
+        proyecto = Proyecto.objects.filter(pk=pk).first()
+        if proyecto is None:
+            raise NotFound()
+
+        new_status = request.data.get("status")
+        if not isinstance(new_status, str) or not new_status.strip():
+            raise DRFValidationError({"status": "Indique el nuevo status."})
+        new_norm = new_status.strip().lower()
+        allowed = {"en_proceso", "pausado", "cerrado", "cancelado"}
+        if new_norm not in allowed:
+            raise DRFValidationError(
+                {"status": f"Status inválido. Use uno de: {', '.join(sorted(allowed))}."}
+            )
+
+        payload = {"status": new_norm}
+        if "motivo_pausa" in request.data:
+            payload["motivo_pausa"] = request.data.get("motivo_pausa")
+        if "motivo_cancelacion" in request.data:
+            payload["motivo_cancelacion"] = request.data.get("motivo_cancelacion")
+        if new_norm != "pausado":
+            payload["motivo_pausa"] = ""
+        if new_norm != "cancelado":
+            payload["motivo_cancelacion"] = ""
+
+        serializer = self.get_serializer(proyecto, data=payload, partial=True)
+        serializer.is_valid(raise_exception=True)
+        status_overrides = _proyecto_status_change_overrides(serializer, request.user)
+        try:
+            serializer.save(**status_overrides)
+        except DjangoValidationError as exc:
+            _raise_drf_validation(exc)
         return Response(self.get_serializer(proyecto).data)
 
     @action(detail=True, methods=["get"], url_path="correo-sugerido")
