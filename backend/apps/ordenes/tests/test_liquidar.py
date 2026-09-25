@@ -33,6 +33,7 @@ class OrdenesLiquidarTests(APITestCase):
             permissions={"ordenes": {"view": True, "create": True, "edit": True, "delete": True}},
         )
 
+        self.saldo = Orden.objects.create(cliente="Cliente con saldo", status="saldo_pendiente")
         self.resuelta = Orden.objects.create(cliente="Cliente resuelto", status="resuelto")
         self.pendiente = Orden.objects.create(cliente="Cliente pendiente", status="pendiente")
 
@@ -47,56 +48,71 @@ class OrdenesLiquidarTests(APITestCase):
     def test_admin_sin_permiso_explicito_no_puede_liquidar(self):
         """Ser staff/superuser NO basta: liquidar es exclusivo de `liquidar=true`."""
         self._auth(self.admin)
-        resp = self._liquidar(self.resuelta.id, True)
+        resp = self._liquidar(self.saldo.id, True)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.resuelta.refresh_from_db()
-        self.assertFalse(self.resuelta.liquidado)
+        self.saldo.refresh_from_db()
+        self.assertFalse(self.saldo.liquidado)
 
     def test_usuario_con_edit_pero_sin_liquidar_no_puede(self):
         self._auth(self.sin_permiso)
-        resp = self._liquidar(self.resuelta.id, True)
+        resp = self._liquidar(self.saldo.id, True)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_liquidador_marca_y_desmarca(self):
         self._auth(self.liquidador)
-        resp = self._liquidar(self.resuelta.id, True)
+        resp = self._liquidar(self.saldo.id, True)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.resuelta.refresh_from_db()
-        self.assertTrue(self.resuelta.liquidado)
-        self.assertEqual(self.resuelta.liquidado_por_id, self.liquidador.id)
-        self.assertIsNotNone(self.resuelta.liquidado_at)
+        self.saldo.refresh_from_db()
+        self.assertTrue(self.saldo.liquidado)
+        self.assertEqual(self.saldo.liquidado_por_id, self.liquidador.id)
+        self.assertIsNotNone(self.saldo.liquidado_at)
+        self.assertEqual(self.saldo.status, "resuelto")
+        self.assertEqual(self.saldo.status_changed_by_id, self.liquidador.id)
+        self.assertEqual(resp.data.get("status"), "resuelto")
 
+        resp = self._liquidar(self.saldo.id, False)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.saldo.refresh_from_db()
+        self.assertFalse(self.saldo.liquidado)
+        self.assertIsNone(self.saldo.liquidado_por_id)
+        self.assertIsNone(self.saldo.liquidado_at)
+        # Desmarcar no revierte el status: sigue Resuelta.
+        self.assertEqual(self.saldo.status, "resuelto")
+
+    def test_no_se_puede_liquidar_fuera_de_saldo_pendiente(self):
+        self._auth(self.liquidador)
+        for orden in (self.pendiente, self.resuelta):
+            resp = self._liquidar(orden.id, True)
+            self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
+            orden.refresh_from_db()
+            self.assertFalse(orden.liquidado)
+
+    def test_desmarcar_liquidado_historico_en_resuelta(self):
+        """Registros liquidados antes de Saldo pendiente se pueden corregir."""
+        Orden.objects.filter(pk=self.resuelta.pk).update(liquidado=True)
+        self._auth(self.liquidador)
         resp = self._liquidar(self.resuelta.id, False)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.resuelta.refresh_from_db()
         self.assertFalse(self.resuelta.liquidado)
-        self.assertIsNone(self.resuelta.liquidado_por_id)
-        self.assertIsNone(self.resuelta.liquidado_at)
-
-    def test_no_se_puede_liquidar_una_orden_no_resuelta(self):
-        self._auth(self.liquidador)
-        resp = self._liquidar(self.pendiente.id, True)
-        self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
-        self.pendiente.refresh_from_db()
-        self.assertFalse(self.pendiente.liquidado)
 
     def test_liquidado_requiere_booleano(self):
         self._auth(self.liquidador)
-        resp = self._liquidar(self.resuelta.id, "si")
+        resp = self._liquidar(self.saldo.id, "si")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_liquidador_no_puede_editar_otros_campos(self):
         """El aislamiento es por ruta: sin `edit`, el PATCH normal se rechaza."""
         self._auth(self.liquidador)
         resp = self.client.patch(
-            f"/api/ordenes/{self.resuelta.id}/", {"comentario_tecnico": "hackeo"}, format="json"
+            f"/api/ordenes/{self.saldo.id}/", {"comentario_tecnico": "hackeo"}, format="json"
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_liquidado_visible_en_el_detalle(self):
         self._auth(self.liquidador)
-        self._liquidar(self.resuelta.id, True)
-        detail = self.client.get(f"/api/ordenes/{self.resuelta.id}/")
+        self._liquidar(self.saldo.id, True)
+        detail = self.client.get(f"/api/ordenes/{self.saldo.id}/")
         self.assertEqual(detail.status_code, status.HTTP_200_OK)
         self.assertTrue(detail.data["liquidado"])
         self.assertEqual(detail.data["liquidado_por_username"], "liq_user")
@@ -151,3 +167,53 @@ class OrdenesLiquidarTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.pendiente.refresh_from_db()
         self.assertEqual(self.pendiente.status, "pausado")
+
+
+class OrdenesSaldoPendienteTests(APITestCase):
+    """Entrar a `saldo_pendiente` es exclusivo de staff/superuser."""
+
+    def setUp(self):
+        perms = {
+            "ordenes": {
+                "view": True, "create": True, "edit": True, "delete": False,
+                "own_only": False, "cambiar_status": True,
+            }
+        }
+        self.tecnico = User.objects.create_user(username="saldo_tec", password="test-pass-123")
+        UserPermissions.objects.create(user=self.tecnico, permissions=perms)
+        self.admin = User.objects.create_user(
+            username="saldo_admin", password="test-pass-123", is_staff=True
+        )
+        UserPermissions.objects.create(user=self.admin, permissions=perms)
+        self.orden = Orden.objects.create(cliente="Cliente", status="pendiente")
+
+    def test_no_admin_no_puede_marcar_saldo_pendiente_por_patch(self):
+        self.client.force_authenticate(user=self.tecnico)
+        resp = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/", {"status": "saldo_pendiente"}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.status, "pendiente")
+
+    def test_no_admin_no_puede_marcar_saldo_pendiente_por_cambiar_status(self):
+        self.client.force_authenticate(user=self.tecnico)
+        resp = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/cambiar-status/",
+            {"status": "saldo_pendiente"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.status, "pendiente")
+
+    def test_admin_marca_saldo_pendiente(self):
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/cambiar-status/",
+            {"status": "saldo_pendiente"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.status, "saldo_pendiente")

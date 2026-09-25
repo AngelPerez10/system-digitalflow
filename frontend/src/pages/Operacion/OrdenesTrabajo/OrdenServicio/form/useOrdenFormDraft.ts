@@ -64,7 +64,7 @@ export type OrdenFormData = {
   nombre_cliente: string;
   problematica: string;
   servicios_realizados: string[];
-  status: "pendiente" | "pausado" | "resuelto" | "cancelada";
+  status: "pendiente" | "pausado" | "saldo_pendiente" | "resuelto" | "cancelada";
   motivo_pausa: string;
   /** Obligatorio cuando status = "cancelada". Solo lo edita el admin. */
   motivo_cancelacion: string;

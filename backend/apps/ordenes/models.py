@@ -10,6 +10,7 @@ User = get_user_model()
 STATUS_CHOICES = [
     ('pendiente', 'Pendiente'),
     ('pausado', 'Pausado'),
+    ('saldo_pendiente', 'Saldo pendiente'),
     ('resuelto', 'Resuelto'),
     ('cancelada', 'Cancelada'),
 ]

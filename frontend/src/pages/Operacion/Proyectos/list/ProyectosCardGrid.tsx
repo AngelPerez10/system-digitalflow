@@ -7,6 +7,7 @@ import type { ProyectoRowHandlers } from "./ProyectoRowActions";
 const SECTION_ESTADO: Record<string, ProyectoEstado | null> = {
   EN_PROCESO: "en_proceso",
   PAUSADO: "pausado",
+  SALDO_PENDIENTE: "saldo_pendiente",
   CERRADO: "cerrado",
   CANCELADO: "cancelado",
   OTROS: null,

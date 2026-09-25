@@ -63,6 +63,7 @@ export function agruparEquiposPorProducto(
 const STATUS_LABEL: Record<ProyectoStatus, string> = {
   en_proceso: 'En proceso',
   pausado: 'Pausado',
+  saldo_pendiente: 'Saldo pendiente',
   cerrado: 'Cerrado',
   cancelado: 'Cancelado',
 };
@@ -78,6 +79,7 @@ function toneMap(c: ThemeColors): Record<ProyectoStatus, { bg: string; text: str
   return {
     en_proceso: { bg: c.primaryDisabled, text: c.primary },
     pausado: { bg: c.statusPausadoBg, text: c.statusPausadoText },
+    saldo_pendiente: { bg: c.statusSaldoBg, text: c.statusSaldoText },
     cerrado: { bg: c.statusResueltoBg, text: c.statusResueltoText },
     cancelado: { bg: c.dangerBg, text: c.danger },
   };

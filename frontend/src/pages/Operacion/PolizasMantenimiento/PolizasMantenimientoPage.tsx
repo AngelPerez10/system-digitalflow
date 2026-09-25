@@ -257,7 +257,7 @@ export default function PolizasMantenimientoPage() {
                 type="button"
                 onClick={() => setSearch("")}
                 aria-label="Limpiar búsqueda"
-                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+                className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-10 items-center justify-center rounded-md text-[#8EA0B8] hover:bg-gray-200/60 hover:text-[#52525B] dark:hover:bg-white/6 sm:h-9 sm:min-w-11 sm:rounded-lg"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
                   <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -318,7 +318,7 @@ export default function PolizasMantenimientoPage() {
           </section>
 
           <aside
-            className="cot-rise order-first lg:sticky lg:top-4 lg:order-none"
+            className="cot-rise order-first lg:sticky lg:top-4 lg:order-0"
             style={{ "--cot-i": 3 } as CSSProperties}
             aria-label="Agenda de visitas"
           >

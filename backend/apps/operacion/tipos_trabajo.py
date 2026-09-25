@@ -195,6 +195,8 @@ def assert_tecnico_locked_fields(instance, attrs: dict) -> dict[str, list[str]]:
         current_status = getattr(instance, "status", None)
         if incoming_status == "cancelado" and current_status != "cancelado":
             errors["status"] = ["Solo un administrador puede cancelar el proyecto."]
+        elif incoming_status == "saldo_pendiente" and current_status != "saldo_pendiente":
+            errors["status"] = ["Solo un administrador puede marcar Saldo pendiente."]
 
     if "equipos" in attrs and _equipo_entrega_cambio(
         getattr(instance, "equipos", None), attrs.get("equipos")

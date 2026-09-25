@@ -211,7 +211,7 @@ export default function ProyectoFormModal({
           <aside className="hidden w-64 shrink-0 flex-col border-r border-[#F0F0F2] bg-[#FAFAFA] p-3 dark:border-[#1F2A3C] dark:bg-[#0F172A]/60 md:flex">
             <ProyectoStepRail {...stepProps} />
             {assignedTechnicianLocked ? (
-              <p className="mt-auto rounded-[12px] bg-white px-3 py-2.5 text-[12px] leading-relaxed text-[#6E6E77] ring-1 ring-[#F0F0F2] dark:bg-[#111827] dark:text-[#8EA0B8] dark:ring-[#1F2A3C]">
+              <p className="mt-auto rounded-2xl bg-white px-3 py-2.5 text-[12px] leading-relaxed text-[#6E6E77] ring-1 ring-[#F0F0F2] dark:bg-[#111827] dark:text-[#8EA0B8] dark:ring-[#1F2A3C]">
                 Cotizaciones, tipos de trabajo, fecha de autorización y equipo asignado los define la oficina. Tú registras campo, equipos y cierre.
               </p>
             ) : null}
@@ -244,7 +244,7 @@ export default function ProyectoFormModal({
                 <div key={activeTab} id={panelIds[activeTab]} role="tabpanel" aria-labelledby={tabIds[activeTab]} className="space-y-4">
                   <div className="cot-fade hidden items-center gap-3 px-1 pt-1 sm:flex">
                     <span
-                      className="inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-white text-[#1B5CFF] ring-1 ring-[#E4E4E7] dark:bg-[#111827] dark:text-[#7EA0FF] dark:ring-[#273244]"
+                      className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1B5CFF] ring-1 ring-[#E4E4E7] dark:bg-[#111827] dark:text-[#7EA0FF] dark:ring-[#273244]"
                       aria-hidden
                     >
                       <step.icon className="size-5" />

@@ -43,6 +43,12 @@ describe('agruparPorStatus', () => {
     expect(secciones.map((s) => s.key)).toEqual(['pendiente', 'pausado', 'resuelto']);
   });
 
+  it('pone «Saldo pendiente» entre pausadas y resueltas, sin pluralizarlo', () => {
+    const secciones = agruparPorStatus([orden(1, 'resuelto'), orden(2, 'saldo_pendiente'), orden(3, 'pausado')]);
+    expect(secciones.map((s) => s.key)).toEqual(['pausado', 'saldo_pendiente', 'resuelto']);
+    expect(secciones[1]?.title).toBe('Saldo pendiente');
+  });
+
   it('omite las secciones vacías', () => {
     const secciones = agruparPorStatus([orden(1, 'pendiente')]);
     expect(secciones).toHaveLength(1);
@@ -53,6 +59,7 @@ describe('agruparPorStatus', () => {
     expect(contarPorStatus([orden(1, 'pendiente'), orden(2, 'pendiente'), orden(3, 'resuelto')])).toEqual({
       pendiente: 2,
       pausado: 0,
+      saldo_pendiente: 0,
       resuelto: 1,
     });
   });

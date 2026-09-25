@@ -19,6 +19,7 @@ const td = "px-3 py-3 align-middle";
 const SECTION_ESTADO: Record<string, ProyectoEstado | null> = {
   EN_PROCESO: "en_proceso",
   PAUSADO: "pausado",
+  SALDO_PENDIENTE: "saldo_pendiente",
   CERRADO: "cerrado",
   CANCELADO: "cancelado",
   OTROS: null,
@@ -28,7 +29,7 @@ type RowProps = { row: ProyectoRow; index: number } & ProyectoRowHandlers;
 
 const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handlers }: RowProps) {
   const { canEdit, onEdit, canLiquidar, onToggleLiquidado } = handlers;
-  const isCerrado = row.estado === "cerrado";
+  const mostrarLiquidar = row.estado === "saldo_pendiente" || Boolean(row.draft.liquidado);
   const team = proyectoTeam(row);
   const tipos = proyectoTiposLabels(row);
   const periodo = proyectoPeriodo(row);
@@ -38,7 +39,7 @@ const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handler
 
   return (
     <tr
-      className="cot-rise group border-t border-[#F0F0F2] transition-colors duration-150 hover:bg-[#FAFAFB] dark:border-[#1F2A3C] dark:hover:bg-white/[0.02]"
+      className="cot-rise group border-t border-[#F0F0F2] transition-colors duration-150 hover:bg-[#FAFAFB] dark:border-[#1F2A3C] dark:hover:bg-white/2"
       style={{ "--cot-i": Math.min(index, 10) } as CSSProperties}
     >
       <td className={`${td} pl-5`}>
@@ -48,7 +49,7 @@ const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handler
             <button
               type="button"
               onClick={() => onEdit(row)}
-              className={`mt-0.5 block max-w-full truncate rounded-[4px] text-left text-[14px] font-medium text-[#09090B] hover:text-[#1244D1] dark:text-[#F8FAFC] dark:hover:text-[#9BB6FF] ${focusRing}`}
+              className={`mt-0.5 block max-w-full truncate rounded-lg text-left text-[14px] font-medium text-[#09090B] hover:text-[#1244D1] dark:text-[#F8FAFC] dark:hover:text-[#9BB6FF] ${focusRing}`}
               title={row.cliente}
             >
               {row.cliente || "Sin cliente"}
@@ -124,7 +125,7 @@ const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handler
           >
             <EstadoPill estado={row.estado} size="sm" />
           </StatusChangedByChip>
-          {isCerrado ? (
+          {mostrarLiquidar ? (
             <LiquidarControl
               liquidado={Boolean(row.draft.liquidado)}
               canLiquidar={Boolean(canLiquidar)}
@@ -163,7 +164,7 @@ export function ProyectosTable({ sections, grouped, ...handlers }: Props) {
   let index = 0;
   return (
     <div className="overflow-x-auto overflow-y-hidden">
-      <table className="w-full min-w-[64rem] table-fixed border-collapse">
+      <table className="w-full min-w-5xl table-fixed border-collapse">
         <colgroup>
           <col className="w-[22%]" />
           <col className="w-[14%]" />
@@ -172,9 +173,9 @@ export function ProyectosTable({ sections, grouped, ...handlers }: Props) {
           <col className="w-[11%]" />
           <col className="w-[10%]" />
           <col className="w-[11%]" />
-          <col className="w-[172px]" />
+          <col className="w-43" />
         </colgroup>
-        <thead className="sticky top-0 z-[1] bg-[#FAFAFA]/95 backdrop-blur-sm dark:bg-[#0F172A]/95">
+        <thead className="sticky top-0 z-1 bg-[#FAFAFA]/95 backdrop-blur-sm dark:bg-[#0F172A]/95">
           <tr>
             <th scope="col" className={`${th} pl-5`}>Proyecto</th>
             <th scope="col" className={th}>Equipo</th>
@@ -201,10 +202,10 @@ export function ProyectosTable({ sections, grouped, ...handlers }: Props) {
                     colSpan={8}
                     className="border-t border-[#F0F0F2] bg-white px-5 pb-1.5 pt-4 text-left dark:border-[#1F2A3C] dark:bg-[#111827]"
                   >
-                    <span id={headingId} className="inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-[#52525B] dark:text-[#B7C1D1]">
+                    <span id={headingId} className="inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-widest text-[#52525B] dark:text-[#B7C1D1]">
                       <span className={`size-2 rounded-full ${tone?.dot ?? "bg-[#A1A1AA]"}`} aria-hidden />
                       {section.label}
-                      <span className="rounded-full bg-[#F4F4F5] px-1.5 text-[11px] tabular-nums tracking-normal text-[#71717A] dark:bg-white/[0.06] dark:text-[#8EA0B8]">
+                      <span className="rounded-full bg-[#F4F4F5] px-1.5 text-[11px] tabular-nums tracking-normal text-[#71717A] dark:bg-white/6 dark:text-[#8EA0B8]">
                         {section.rows.length}
                       </span>
                     </span>

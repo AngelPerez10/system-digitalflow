@@ -11,10 +11,10 @@ import { TrashBinIcon } from "@/icons";
 import DatePicker from "@/components/form/date-picker";
 
 const cardShellClass =
-  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-gray-900/40 dark:shadow-none";
+  "overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/6 dark:bg-gray-900/40 dark:shadow-none";
 
 const searchInputClass =
-  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-[44px] sm:py-2.5";
+  "min-h-[40px] w-full rounded-lg border border-gray-200/90 bg-gray-50/90 py-2 pl-9 pr-10 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-brand-500/80 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-white/8 dark:bg-gray-950/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:bg-gray-900/60 sm:min-h-11 sm:py-2.5";
 
 type OrdenResumen = {
   id: number;
@@ -455,7 +455,7 @@ export default function ReportesPage() {
       <header className={`flex w-full flex-col gap-4 ${cardShellClass} p-4 sm:p-6`}>
         <div className="flex min-w-0 gap-3 sm:gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-500/15 bg-brand-500/[0.07] text-brand-700 dark:border-brand-400/20 dark:bg-brand-400/10 dark:text-brand-300 sm:h-12 sm:w-12 sm:rounded-xl">
-            <svg className="h-[18px] w-[18px] sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+            <svg className="h-4.5 w-4.5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
               <path d="M4 6h16" />
               <path d="M4 12h16" />
               <path d="M4 18h16" />
@@ -474,9 +474,9 @@ export default function ReportesPage() {
       </header>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/10 sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/[0.08] dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/80 bg-gray-50/80 text-brand-600 dark:border-white/8 dark:bg-gray-950/40 dark:text-brand-400 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M6 6h12" />
                 <path d="M6 12h12" />
@@ -489,7 +489,7 @@ export default function ReportesPage() {
             </div>
           </div>
         </div>
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4`}>
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/10 sm:p-4`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -502,7 +502,7 @@ export default function ReportesPage() {
             </div>
           </div>
         </div>
-        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/[0.1] sm:p-4 sm:col-span-2 lg:col-span-1`}>
+        <div className={`${cardShellClass} p-3 transition-colors hover:border-gray-300/90 dark:hover:border-white/10 sm:p-4 sm:col-span-2 lg:col-span-1`}>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200 sm:h-10 sm:w-10">
               <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -534,7 +534,7 @@ export default function ReportesPage() {
               type="button"
               onClick={() => setSearchTerm("")}
               aria-label="Limpiar búsqueda"
-              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-[40px] items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/[0.06] sm:h-9 sm:min-w-[44px] sm:rounded-lg"
+              className="absolute inset-y-0 right-0 my-1 mr-1 inline-flex h-8 min-w-10 items-center justify-center rounded-md text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-white/6 sm:h-9 sm:min-w-11 sm:rounded-lg"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
                 <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.42L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4Z" />
@@ -553,7 +553,7 @@ export default function ReportesPage() {
               } else void handleCrearReporte();
             }}
             disabled={saving}
-            className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 disabled:opacity-60 whitespace-nowrap lg:shrink-0"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/35 disabled:opacity-60 whitespace-nowrap lg:shrink-0"
           >
             {saving ? "Guardando..." : isAdmin ? "Nuevo reporte" : "Crear reporte"}
           </button>
@@ -593,7 +593,7 @@ export default function ReportesPage() {
                     </label>
                     <div
                       id="week-range-controls"
-                      className="rounded-xl border border-gray-200/80 bg-gray-50/50 p-3 dark:border-white/[0.06] dark:bg-gray-950/30 sm:p-3.5"
+                      className="rounded-xl border border-gray-200/80 bg-gray-50/50 p-3 dark:border-white/6 dark:bg-gray-950/30 sm:p-3.5"
                     >
                       <div className="flex w-full min-w-0 items-stretch gap-2 sm:gap-3">
                         <button
@@ -652,7 +652,7 @@ export default function ReportesPage() {
               </div>
           )}
 
-          <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-gray-50/40 dark:border-white/[0.06] dark:bg-gray-950/30">
+          <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-gray-50/40 dark:border-white/6 dark:bg-gray-950/30">
             {/* Vista móvil / tablet: tarjetas */}
             <div className="lg:hidden divide-y divide-gray-100 dark:divide-white/10">
               {loading && (
@@ -718,8 +718,8 @@ export default function ReportesPage() {
 
             {/* Escritorio: tabla */}
             <div className="hidden lg:block overflow-x-auto">
-              <Table className="w-full min-w-[960px] xl:min-w-full">
-                <TableHeader className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:border-white/[0.06] dark:bg-gray-900/80 dark:text-gray-300">
+              <Table className="w-full min-w-240 xl:min-w-full">
+                <TableHeader className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:border-white/6 dark:bg-gray-900/80 dark:text-gray-300">
                   <TableRow className="hover:bg-transparent">
                     <TableCell isHeader className="px-4 py-3 text-left whitespace-nowrap">
                       Técnico
@@ -736,7 +736,7 @@ export default function ReportesPage() {
                     <TableCell isHeader className="px-4 py-3 text-center whitespace-nowrap">
                       Órdenes pendientes
                     </TableCell>
-                    <TableCell isHeader className="px-4 py-3 text-center whitespace-nowrap w-[120px]">
+                    <TableCell isHeader className="px-4 py-3 text-center whitespace-nowrap w-30">
                       Acciones
                     </TableCell>
                   </TableRow>
@@ -771,12 +771,12 @@ export default function ReportesPage() {
                             {toLocalDateTime(r.fecha_creacion)}
                           </TableCell>
                           <TableCell className="px-4 py-3 align-middle text-center">
-                            <span className="inline-flex min-w-[2rem] items-center justify-center rounded-full border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                            <span className="inline-flex min-w-8 items-center justify-center rounded-full border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                               {resueltas}
                             </span>
                           </TableCell>
                           <TableCell className="px-4 py-3 align-middle text-center">
-                            <span className="inline-flex min-w-[2rem] items-center justify-center rounded-full border border-amber-200/80 bg-amber-50/90 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                            <span className="inline-flex min-w-8 items-center justify-center rounded-full border border-amber-200/80 bg-amber-50/90 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                               {pendientes}
                             </span>
                           </TableCell>
@@ -1052,7 +1052,7 @@ export default function ReportesPage() {
           <div className="flex flex-col items-center justify-center text-center">
             <div className="relative mb-6">
               <div className="absolute -inset-4 rounded-full bg-linear-to-r from-brand-500/18 via-blue-500/10 to-brand-500/18 blur-2xl" />
-              <div className="relative flex items-center justify-center w-[80px] h-[80px] rounded-2xl border border-gray-200/70 dark:border-white/10 bg-white/90 dark:bg-gray-900/70 shadow-theme-md">
+              <div className="relative flex items-center justify-center w-20 h-20 rounded-2xl border border-gray-200/70 dark:border-white/10 bg-white/90 dark:bg-gray-900/70 shadow-theme-md">
                 <div className="absolute inset-0 rounded-2xl border border-gray-100/70 dark:border-white/5" />
                 <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 dark:bg-gray-800">
                   <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand-600 border-r-blue-500 dark:border-t-brand-400 dark:border-r-blue-300 animate-spin" />

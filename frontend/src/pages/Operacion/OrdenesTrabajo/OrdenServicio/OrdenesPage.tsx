@@ -528,7 +528,7 @@ export default function Ordenes() {
         variant: "success",
         title: nextValue ? "Orden liquidada" : "Marca de liquidada quitada",
         message: nextValue
-          ? `Se marcó como liquidada la orden ${orden.folio ?? ""} de "${orden.cliente}".`
+          ? `La orden ${orden.folio ?? ""} de "${orden.cliente}" pasó a Resuelta y quedó liquidada.`
           : `Se quitó la marca de liquidada de la orden ${orden.folio ?? ""} de "${orden.cliente}".`,
       });
       setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), 3500);
@@ -1391,8 +1391,8 @@ export default function Ordenes() {
           title={liquidarTarget?.nextValue ? "Marcar como liquidada" : "Quitar marca de liquidada"}
           description={
             liquidarTarget?.nextValue
-              ? "Se marcará esta orden como liquidada (pagada/cobrada). Podrás desmarcarla después si es necesario."
-              : "Se quitará la marca de liquidada de esta orden."
+              ? "La orden pasará a Resuelta y se marcará como liquidada (pagada/cobrada). Podrás quitar solo la marca después si es necesario."
+              : "Se quitará la marca de liquidada de esta orden. El status no cambia."
           }
           detail={
             liquidarTarget ? (

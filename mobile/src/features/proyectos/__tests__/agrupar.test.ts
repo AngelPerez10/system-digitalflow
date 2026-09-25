@@ -45,7 +45,7 @@ describe('agrupar proyectos', () => {
   });
 
   it('cuenta por estatus', () => {
-    expect(contarPorStatus(lista)).toEqual({ en_proceso: 2, pausado: 1, cerrado: 1, cancelado: 0 });
+    expect(contarPorStatus(lista)).toEqual({ en_proceso: 2, pausado: 1, saldo_pendiente: 0, cerrado: 1, cancelado: 0 });
   });
 
   it('filtra secciones por estatus', () => {

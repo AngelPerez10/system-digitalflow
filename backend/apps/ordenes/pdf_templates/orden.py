@@ -30,11 +30,18 @@ def generate_orden_pdf_html(orden) -> str:
     firma_tecnico = firma_url_to_data_uri(getattr(orden, 'firma_encargado_url', None) or '')
     firma_cliente = firma_url_to_data_uri(getattr(orden, 'firma_cliente_url', None) or '')
 
-    status_text = "RESUELTO" if orden.status == "resuelto" else (
-        "PAUSADO" if orden.status == "pausado" else "PENDIENTE"
-    )
+    if orden.status == "resuelto":
+        status_text = "RESUELTO"
+    elif orden.status == "saldo_pendiente":
+        status_text = "SALDO PENDIENTE"
+    elif orden.status == "pausado":
+        status_text = "PAUSADO"
+    else:
+        status_text = "PENDIENTE"
     if orden.status == "resuelto":
         status_bg, status_border, status_fg = "#dcfce7", "#86efac", "#166534"
+    elif orden.status == "saldo_pendiente":
+        status_bg, status_border, status_fg = "#fae8ff", "#f0abfc", "#86198f"
     elif orden.status == "pausado":
         status_bg, status_border, status_fg = "#e0e7ff", "#a5b4fc", "#3730a3"
     else:

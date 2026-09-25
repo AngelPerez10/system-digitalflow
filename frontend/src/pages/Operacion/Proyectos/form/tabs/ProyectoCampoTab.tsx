@@ -36,11 +36,12 @@ type Props = {
   initialDraft: ProyectoDraft;
 };
 
-const STATUS_OPTIONS: { value: ProyectoEstado; adminOnly?: boolean }[] = [
+const STATUS_OPTIONS: { value: ProyectoEstado; adminOnly?: boolean; soloEdicion?: boolean }[] = [
   { value: "en_proceso" },
   { value: "pausado" },
+  { value: "saldo_pendiente", adminOnly: true },
   { value: "cerrado" },
-  { value: "cancelado", adminOnly: true },
+  { value: "cancelado", adminOnly: true, soloEdicion: true },
 ];
 
 const AVANCE_ATAJOS = [0, 25, 50, 75, 100];
@@ -159,7 +160,9 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
   const tone = ESTADO_TONE[status] ?? ESTADO_TONE.en_proceso;
   const notasListas = notasPorDia.filter((n) => n.nota.trim().length >= NOTA_DIA_MIN_CHARS).length;
   const requiereCotAdicional = proyectoRequiereCotizacionAdicional({ requierePresupuestoAdicional, requerimientosAdicionales });
-  const opciones = STATUS_OPTIONS.filter((o) => !o.adminOnly || (isAdmin && editing) || status === o.value);
+  const opciones = STATUS_OPTIONS.filter(
+    (o) => !o.adminOnly || (isAdmin && (editing || !o.soloEdicion)) || status === o.value,
+  );
   const statusLocked = !form.canChangeStatus;
 
   return (
@@ -173,7 +176,11 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
           statusLocked
             ? "No tienes permiso para cambiar el status (activa «Puede cambiar status» en Gestión de usuarios)."
             : `Para cerrar se pide la bitácora completa (mín. ${NOTA_DIA_MIN_CHARS} caracteres por día).${
-                isAdmin && editing ? " Cancelar es solo para administradores." : ""
+                isAdmin
+                  ? editing
+                    ? " Saldo pendiente y Cancelar son solo para administradores; al liquidar pasa a Cerrado con la marca Liquidado."
+                    : " Saldo pendiente es solo para administradores."
+                  : ""
               }`
         }
         actions={
@@ -193,7 +200,7 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
           role="radiogroup"
           aria-label="Status operativo"
           aria-describedby={closeBlockedMessage ? "proyecto-close-blocked" : undefined}
-          className={`grid gap-1 rounded-[12px] border border-[#E7E7EA] bg-[#F4F4F5]/70 p-1 dark:border-[#273244] dark:bg-[#0F172A] ${
+          className={`grid gap-1 rounded-2xl border border-[#E7E7EA] bg-[#F4F4F5]/70 p-1 dark:border-[#273244] dark:bg-[#0F172A] ${
             opciones.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"
           }`}
         >
@@ -313,7 +320,7 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
             className={`cot-flash inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-semibold tabular-nums ${
               notasListas === notasPorDia.length && notasPorDia.length > 0
                 ? "bg-[#E9F8F0] text-[#04724D] dark:bg-[#0F2A1C] dark:text-[#4ADE80]"
-                : "bg-[#F4F4F5] text-[#52525B] dark:bg-white/[0.06] dark:text-[#B7C1D1]"
+                : "bg-[#F4F4F5] text-[#52525B] dark:bg-white/6 dark:text-[#B7C1D1]"
             }`}
           >
             {notasListas}/{notasPorDia.length} completos
@@ -374,7 +381,7 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
           step={1}
           value={porcentajeAvance}
           onChange={(e) => setPorcentajeAvanceSafe(Number(e.target.value))}
-          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-[linear-gradient(to_right,var(--range-fill)_var(--range-pct),#EDEDF0_var(--range-pct))] outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:bg-[linear-gradient(to_right,var(--range-fill)_var(--range-pct),#1F2A3C_var(--range-pct))] [&::-moz-range-thumb]:size-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[var(--range-fill)] [&::-webkit-slider-thumb]:size-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[var(--range-fill)] [&::-webkit-slider-thumb]:shadow-[0_1px_4px_rgba(9,9,11,0.3)] [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:duration-150 active:[&::-webkit-slider-thumb]:scale-110"
+          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-[linear-gradient(to_right,var(--range-fill)_var(--range-pct),#EDEDF0_var(--range-pct))] outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:bg-[linear-gradient(to_right,var(--range-fill)_var(--range-pct),#1F2A3C_var(--range-pct))] [&::-moz-range-thumb]:size-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-(--range-fill) [&::-webkit-slider-thumb]:size-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-(--range-fill) [&::-webkit-slider-thumb]:shadow-[0_1px_4px_rgba(9,9,11,0.3)] [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:duration-150 active:[&::-webkit-slider-thumb]:scale-110"
           style={{ "--range-pct": `${porcentajeAvance}%`, "--range-fill": "#1B5CFF" } as CSSProperties}
           aria-valuetext={`${porcentajeAvance} por ciento`}
         />
@@ -431,7 +438,7 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
         </div>
 
         <label
-          className={`flex cursor-pointer items-center justify-between gap-4 rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3 transition-colors hover:border-[#D3D3D8] has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#0F172A]`}
+          className={`flex cursor-pointer items-center justify-between gap-4 rounded-[14px] border border-[#E4E4E7] bg-white px-4 py-3 transition-colors hover:border-[#D3D3D8] has-focus-visible:ring-4 has-focus-visible:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#0F172A]`}
         >
           <span className="min-w-0">
             <span className="block text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">Requiere presupuesto adicional</span>

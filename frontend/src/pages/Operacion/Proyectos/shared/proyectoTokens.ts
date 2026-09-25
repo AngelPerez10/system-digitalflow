@@ -129,6 +129,14 @@ export const ESTADO_TONE: Record<ProyectoEstado, ProyectoTone> = {
     text: "text-[#8A5D0F] dark:text-[#E6A23C]",
     segment: "bg-white text-[#8A5D0F] shadow-[0_1px_2px_rgba(9,9,11,0.08)] ring-1 ring-[#F0D7A3] dark:bg-[rgba(230,162,60,0.16)] dark:text-[#F2C27A] dark:ring-[rgba(230,162,60,0.35)]",
   },
+  saldo_pendiente: {
+    label: "Saldo pendiente",
+    dot: "bg-[#A21CAF] dark:bg-[#E879F9]",
+    pill: "bg-[#FDF4FF] text-[#86198F] ring-[#F5D0FE] dark:bg-[#3B0A45] dark:text-[#F5D0FE] dark:ring-[#701A75]",
+    bar: "bg-[#A21CAF] dark:bg-[#E879F9]",
+    text: "text-[#86198F] dark:text-[#F5D0FE]",
+    segment: "bg-white text-[#86198F] shadow-[0_1px_2px_rgba(9,9,11,0.08)] ring-1 ring-[#F5D0FE] dark:bg-[#3B0A45] dark:text-[#F5D0FE] dark:ring-[#701A75]",
+  },
   cerrado: {
     label: "Cerrado",
     dot: "bg-[#0E8A5F] dark:bg-[#34D399]",

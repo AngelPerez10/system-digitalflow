@@ -23,7 +23,7 @@ import { displayOrdenUserName, formatIsoDateTime, formatOrdenAbiertaDuracion, is
 import { getOrdenPrioridadSectionStyles, ordenPrioridadListBadge } from "../shared/ordenPrioridadSections";
 import type { OrdenPrioridadSectionKey } from "../shared/ordenPrioridadSections";
 import type { OrdenStatusSection, OrdenStatusSectionKey } from "../shared/ordenStatusSections";
-import { displayOrdenFolio, isOrdenCancelada, isOrdenResuelta, isOrdenServicioTecnico } from "../shared/useOrdenesShared";
+import { displayOrdenFolio, isOrdenCancelada, isOrdenResuelta, isOrdenServicioTecnico, normalizeStatus } from "../shared/useOrdenesShared";
 import { OrdenArrastreBadge } from "./OrdenArrastreBadge";
 
 /* --------------------------------------------------------------------------
@@ -32,7 +32,10 @@ import { OrdenArrastreBadge } from "./OrdenArrastreBadge";
 
 type StatusTone = { label: string; dot: string; pill: string };
 
-const STATUS_TONE: Record<"pendiente" | "pausado" | "resuelto" | "cancelada", StatusTone> = {
+const STATUS_TONE: Record<
+  "pendiente" | "pausado" | "saldo_pendiente" | "resuelto" | "cancelada",
+  StatusTone
+> = {
   pendiente: {
     label: "Pendiente",
     dot: "bg-[#D08A1E] dark:bg-[#E6A23C]",
@@ -42,6 +45,11 @@ const STATUS_TONE: Record<"pendiente" | "pausado" | "resuelto" | "cancelada", St
     label: "Pausado",
     dot: "bg-[#5B5BD6] dark:bg-[#A5A6F6]",
     pill: "bg-[#F1F1FE] text-[#3E3EA8] ring-[#D8D8FA] dark:bg-[#23244F] dark:text-[#C7C8FB] dark:ring-[#3B3D7A]",
+  },
+  saldo_pendiente: {
+    label: "Saldo pendiente",
+    dot: "bg-[#A21CAF] dark:bg-[#E879F9]",
+    pill: "bg-[#FDF4FF] text-[#86198F] ring-[#F5D0FE] dark:bg-[#3B0A45] dark:text-[#F5D0FE] dark:ring-[#701A75]",
   },
   resuelto: {
     label: "Resuelto",
@@ -58,6 +66,7 @@ const STATUS_TONE: Record<"pendiente" | "pausado" | "resuelto" | "cancelada", St
 const SECTION_DOT: Record<OrdenStatusSectionKey, string> = {
   PENDIENTE: STATUS_TONE.pendiente.dot,
   PAUSADO: STATUS_TONE.pausado.dot,
+  SALDO_PENDIENTE: STATUS_TONE.saldo_pendiente.dot,
   RESUELTA: STATUS_TONE.resuelto.dot,
   CANCELADA: STATUS_TONE.cancelada.dot,
   OTROS: "bg-[#A1A1AA]",
@@ -68,6 +77,7 @@ function statusTone(status: string | null | undefined): StatusTone {
   if (isOrdenResuelta(s)) return STATUS_TONE.resuelto;
   if (isOrdenCancelada(s)) return STATUS_TONE.cancelada;
   if (s === "pausado") return STATUS_TONE.pausado;
+  if (s === "saldo_pendiente") return STATUS_TONE.saldo_pendiente;
   return STATUS_TONE.pendiente;
 }
 
@@ -118,7 +128,7 @@ function FechasCell({
   ].join(". ");
 
   return (
-    <div className="flex min-w-[7.5rem] flex-col gap-1" title={summary} aria-label={summary}>
+    <div className="flex min-w-30 flex-col gap-1" title={summary} aria-label={summary}>
       <div className="flex items-baseline gap-1.5">
         <span
           className="w-6 shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A1A1AA] dark:text-[#64748B]"
@@ -335,11 +345,11 @@ function PrioridadIndicator({
   return (
     <div className="inline-flex flex-col items-start gap-0.5" title={fullTitle} aria-label={fullAria}>
       <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-semibold ${PRIO_TEXT[keyName]}`}>
-        <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
+        <span className="flex h-3.5 items-end gap-0.5" aria-hidden>
           {[1, 2, 3].map((n) => (
             <span
               key={n}
-              className={`w-[2.5px] rounded-[1px] ${n <= level ? bar : "bg-[#E4E4E7] dark:bg-[#273244]"}`}
+              className={`w-[2.5px] rounded-xs ${n <= level ? bar : "bg-[#E4E4E7] dark:bg-[#273244]"}`}
               style={{ height: `${4 + n * 2.5}px` }}
             />
           ))}
@@ -349,7 +359,7 @@ function PrioridadIndicator({
       </span>
       {abiertaLabel ? (
         <span
-          className={`pl-[14px] text-[11px] font-medium tabular-nums ${
+          className={`pl-3.5 text-[11px] font-medium tabular-nums ${
             abiertaOver72
               ? "text-[#B42323] dark:text-[#F87171]"
               : "text-[#71717A] dark:text-[#8EA0B8]"
@@ -378,7 +388,7 @@ export type OrdenesTableHandlers = {
   onVerProblematica: (texto: string) => void;
   onVerServicios: (servicios: string[]) => void;
   onVerComentario: (texto: string) => void;
-  /** Puede marcar/desmarcar "Liquidado" (solo en órdenes resueltas). */
+  /** Puede marcar/desmarcar "Liquidado" (marcar solo en Saldo pendiente). */
   canLiquidar?: boolean;
   onToggleLiquidado?: (orden: Orden, next: boolean) => void;
 };
@@ -421,6 +431,7 @@ const OrdenRow = memo(function OrdenRow({
   const isResuelta = isOrdenResuelta(orden.status);
   const isCancelada = isOrdenCancelada(orden.status);
   const isTerminal = isResuelta || isCancelada;
+  const puedeEnviarPdf = isResuelta || normalizeStatus(orden.status) === "saldo_pendiente";
   const tone = statusTone(orden.status);
   const prio = ordenPrioridadListBadge(orden);
   const prioTone = getOrdenPrioridadSectionStyles(prio.assignedKey);
@@ -468,18 +479,18 @@ const OrdenRow = memo(function OrdenRow({
 
   return (
     <tr
-      className={`cot-rise group border-t border-[#F0F0F2] transition-colors duration-150 hover:bg-[#FAFAFB] dark:border-[#1F2A3C] dark:hover:bg-white/[0.02] ${
+      className={`cot-rise group border-t border-[#F0F0F2] transition-colors duration-150 hover:bg-[#FAFAFB] dark:border-[#1F2A3C] dark:hover:bg-white/2 ${
         recent ? "bg-[#F6FCF9] dark:bg-[#0F2A1C]/30" : ""
       }`}
       style={{ "--cot-i": Math.min(index, 10) } as CSSProperties}
     >
       {/* Orden: folio + cliente + ubicación */}
       <td className={`${td} pl-5`}>
-        <div className="min-w-0 max-w-[18rem] @min-[80rem]:max-w-[20rem] @min-[104rem]:max-w-[30rem]">
+        <div className="min-w-0 max-w-[18rem] @min-[80rem]:max-w-[20rem] @min-[104rem]:max-w-120">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span className={folioText}>{folio}</span>
             {levantamiento ? (
-              <span className="inline-flex h-[18px] items-center rounded-full bg-[#F4F4F5] px-1.5 text-[10.5px] font-semibold text-[#52525B] dark:bg-white/[0.06] dark:text-[#B7C1D1]">
+              <span className="inline-flex h-4.5 items-center rounded-full bg-[#F4F4F5] px-1.5 text-[10.5px] font-semibold text-[#52525B] dark:bg-white/6 dark:text-[#B7C1D1]">
                 Levantamiento
               </span>
             ) : null}
@@ -489,7 +500,7 @@ const OrdenRow = memo(function OrdenRow({
             <button
               type="button"
               onClick={() => void onEdit(orden)}
-              className={`mt-0.5 block max-w-full truncate rounded-[4px] text-left text-[14px] font-medium text-[#09090B] hover:text-[#1244D1] dark:text-[#F8FAFC] dark:hover:text-[#9BB6FF] ${focusRing}`}
+              className={`mt-0.5 block max-w-full truncate rounded-lg text-left text-[14px] font-medium text-[#09090B] hover:text-[#1244D1] dark:text-[#F8FAFC] dark:hover:text-[#9BB6FF] ${focusRing}`}
               title={orden.cliente}
             >
               {orden.cliente || "Sin cliente"}
@@ -510,7 +521,7 @@ const OrdenRow = memo(function OrdenRow({
                 href={orden.direccion}
                 target="_blank"
                 rel="noreferrer"
-                className={`inline-flex shrink-0 items-center gap-1 rounded-[4px] font-medium text-[#1B5CFF] hover:underline dark:text-[#7EA0FF] ${focusRing}`}
+                className={`inline-flex shrink-0 items-center gap-1 rounded-lg font-medium text-[#1B5CFF] hover:underline dark:text-[#7EA0FF] ${focusRing}`}
               >
                 <MapPin className="size-3" aria-hidden />
                 Ubicación
@@ -527,7 +538,7 @@ const OrdenRow = memo(function OrdenRow({
       {/* Técnico */}
       <td className={td}>
         {tecnico ? (
-          <div className="flex min-w-0 max-w-[13rem] items-center gap-2">
+          <div className="flex min-w-0 max-w-52 items-center gap-2">
             <TecnicoAvatar name={tecnico} url={orden.tecnico_asignado_avatar_url} />
             <span className="min-w-0 truncate text-[13px] text-[#3F3F46] dark:text-[#D6DEEA]" title={tecnico}>
               {tecnico}
@@ -584,7 +595,7 @@ const OrdenRow = memo(function OrdenRow({
 
       {/* Registro: quién creó y quién editó. */}
       <td className={`${td} ${colRegistro}`}>
-        <div className="w-[11rem]">
+        <div className="w-44">
           <RegistroCell orden={orden} />
         </div>
       </td>
@@ -606,7 +617,7 @@ const OrdenRow = memo(function OrdenRow({
           ) : (
             pill
           )}
-          {isResuelta ? (
+          {normalizeStatus(orden.status) === "saldo_pendiente" || orden.liquidado ? (
             <LiquidarControl
               liquidado={Boolean(orden.liquidado)}
               canLiquidar={Boolean(canLiquidar)}
@@ -635,7 +646,7 @@ const OrdenRow = memo(function OrdenRow({
           >
             <FileText aria-hidden />
           </button>
-          {isResuelta && isOrdenServicioTecnico(orden.tipo_orden) ? (
+          {puedeEnviarPdf && isOrdenServicioTecnico(orden.tipo_orden) ? (
             <button type="button" onClick={() => onEnviarPdf(orden)} className={iconBtn} title="Enviar por correo" aria-label={`Enviar PDF de ${folio} por correo`}>
               <Mail aria-hidden />
             </button>
@@ -682,11 +693,11 @@ export function OrdenesTable({ sections, indexById, startIndex, usuarios, select
 
   return (
     <div className="@container overflow-x-auto overflow-y-hidden">
-      <table className="w-full min-w-[44rem] table-auto border-collapse">
+      <table className="w-full min-w-176 table-auto border-collapse">
         <thead className="bg-[#FAFAFA] dark:bg-[#0F172A]">
           <tr>
-            <th scope="col" className={`${th} min-w-[13rem] pl-5`}>Orden</th>
-            <th scope="col" className={`${th} min-w-[9rem]`}>Técnico</th>
+            <th scope="col" className={`${th} min-w-52 pl-5`}>Orden</th>
+            <th scope="col" className={`${th} min-w-36`}>Técnico</th>
             <th scope="col" className={`${th} ${colDetalle} w-px whitespace-nowrap`}>Detalle</th>
             <th scope="col" className={`${th} ${colFechas} w-px whitespace-nowrap`}>Fechas</th>
             <th scope="col" className={`${th} ${colPrioridad} w-px whitespace-nowrap`}>Prioridad</th>
@@ -735,10 +746,10 @@ export function OrdenesTable({ sections, indexById, startIndex, usuarios, select
                     colSpan={colCount}
                     className="border-t border-[#F0F0F2] bg-white px-5 pb-1.5 pt-4 text-left dark:border-[#1F2A3C] dark:bg-[#111827]"
                   >
-                    <span id={headingId} className="inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-[#52525B] dark:text-[#B7C1D1]">
+                    <span id={headingId} className="inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-widest text-[#52525B] dark:text-[#B7C1D1]">
                       <span className={`size-2 rounded-full ${SECTION_DOT[section.key]}`} aria-hidden />
                       {section.label}
-                      <span className="rounded-full bg-[#F4F4F5] px-1.5 text-[11px] tabular-nums tracking-normal text-[#71717A] dark:bg-white/[0.06] dark:text-[#8EA0B8]">
+                      <span className="rounded-full bg-[#F4F4F5] px-1.5 text-[11px] tabular-nums tracking-normal text-[#71717A] dark:bg-white/6 dark:text-[#8EA0B8]">
                         {section.ordenes.length}
                       </span>
                     </span>

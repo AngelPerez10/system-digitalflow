@@ -319,7 +319,7 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
 
       {/* Cómo leer la tabla + plantillas */}
       <div className="shrink-0 space-y-3 border-y border-[#F0F0F2] bg-[#FAFAFA] px-5 py-4 dark:border-[#1F2A3C] dark:bg-[#0F172A]/60 sm:px-6">
-        <ul className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-[13px] leading-[18px] text-[#52525B] dark:text-[#B7C1D1] md:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-[13px] leading-4.5 text-[#52525B] dark:text-[#B7C1D1] md:grid-cols-3">
           <li className="flex gap-2">
             <Eye className={legendIcon} aria-hidden />
             <span>
@@ -417,7 +417,7 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
               <section key={sec.key} aria-labelledby={`${titleId}-${sec.key}`} className="cot-rise" style={{ '--cot-i': si } as CSSProperties}>
                 <h3
                   id={`${titleId}-${sec.key}`}
-                  className="flex items-center gap-2 border-b border-[#F0F0F2] bg-[#FAFAFA] px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-[#17235B] dark:border-[#1F2A3C] dark:bg-[#0F172A]/40 dark:text-[#9BB6FF] sm:px-6 [&_svg]:size-4"
+                  className="flex items-center gap-2 border-b border-[#F0F0F2] bg-[#FAFAFA] px-5 py-2.5 text-[12px] font-semibold uppercase tracking-widest text-[#17235B] dark:border-[#1F2A3C] dark:bg-[#0F172A]/40 dark:text-[#9BB6FF] sm:px-6 [&_svg]:size-4"
                 >
                   {SECTION_ICON[sec.key]}
                   Menú {sec.menu}
@@ -443,11 +443,11 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
 
         {!loading ? (
           <div className="border-t border-[#F0F0F2] bg-[#FAFAFA] px-5 py-4 dark:border-[#1F2A3C] dark:bg-[#0F172A]/40 sm:px-6">
-            <h3 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-[#17235B] dark:text-[#9BB6FF] [&_svg]:size-4">
+            <h3 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-widest text-[#17235B] dark:text-[#9BB6FF] [&_svg]:size-4">
               <DollarSign aria-hidden />
               Permisos especiales
             </h3>
-            <p className="mt-1 text-[13px] leading-[18px] text-[#52525B] dark:text-[#B7C1D1]">
+            <p className="mt-1 text-[13px] leading-4.5 text-[#52525B] dark:text-[#B7C1D1]">
               Liquidar y cambiar status son independientes entre sí y de Editar. Quien solo liquida no puede
               mover el status; para ambas acciones activa las dos casillas.
             </p>
@@ -491,7 +491,7 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
                         </label>
                         <p
                           id={hintId}
-                          className="mt-0.5 text-[12px] leading-[16px] text-[#71717A] dark:text-[#8EA0B8]"
+                          className="mt-0.5 text-[12px] leading-4 text-[#71717A] dark:text-[#8EA0B8]"
                         >
                           {row.hint}
                         </p>
@@ -639,7 +639,7 @@ function ModuleRow({
               onChange={(e) => onScope(e.target.value === 'own')}
               disabled={readOnly || !perms.view}
               aria-label={`Alcance en ${label}`}
-              className="h-10 w-full cursor-pointer rounded-[8px] border border-[#E7E7EA] bg-white px-2.5 text-[13px] text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] sm:h-9"
+              className="h-10 w-full cursor-pointer rounded-xl border border-[#E7E7EA] bg-white px-2.5 text-[13px] text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] sm:h-9"
             >
               <option value="own">Solo lo suyo</option>
               <option value="team">Todo el equipo</option>

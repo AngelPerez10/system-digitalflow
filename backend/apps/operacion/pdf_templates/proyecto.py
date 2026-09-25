@@ -14,12 +14,14 @@ logger = logging.getLogger(__name__)
 _STATUS_LABELS = {
     "en_proceso": "EN PROCESO",
     "pausado": "PAUSADO",
+    "saldo_pendiente": "SALDO PENDIENTE",
     "cerrado": "CERRADO",
 }
 
 _STATUS_STYLES = {
     "en_proceso": ("#dbeafe", "#93c5fd", "#1e40af"),
     "pausado": ("#fef3c7", "#fcd34d", "#92400e"),
+    "saldo_pendiente": ("#fae8ff", "#f0abfc", "#86198f"),
     "cerrado": ("#dcfce7", "#86efac", "#166534"),
 }
 

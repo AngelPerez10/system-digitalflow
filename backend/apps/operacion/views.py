@@ -293,15 +293,23 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         if not isinstance(liquidado, bool):
             raise DRFValidationError({"liquidado": "Debe ser true o false."})
 
-        if liquidado and proyecto.status != "cerrado":
+        if liquidado and proyecto.status != "saldo_pendiente":
             return Response(
-                {"detail": "Solo se puede liquidar un proyecto cerrado."}, status=409
+                {"detail": "Solo se puede liquidar un proyecto en Saldo pendiente."}, status=409
             )
 
+        # Al liquidar, el cobro queda cerrado: pasa a Cerrado + Liquidado.
+        # Desmarcar no revierte el status (sigue en Cerrado u otro).
+        update_fields = ["liquidado", "liquidado_por", "liquidado_at"]
         proyecto.liquidado = liquidado
         proyecto.liquidado_por = request.user if liquidado else None
         proyecto.liquidado_at = timezone.now() if liquidado else None
-        proyecto.save(update_fields=["liquidado", "liquidado_por", "liquidado_at"])
+        if liquidado:
+            proyecto.status = "cerrado"
+            proyecto.status_changed_at = timezone.now()
+            proyecto.status_changed_by = request.user
+            update_fields.extend(["status", "status_changed_at", "status_changed_by"])
+        proyecto.save(update_fields=update_fields)
         return Response(self.get_serializer(proyecto).data)
 
     @action(detail=True, methods=["patch"], url_path="cambiar-status")
@@ -316,7 +324,7 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         if not isinstance(new_status, str) or not new_status.strip():
             raise DRFValidationError({"status": "Indique el nuevo status."})
         new_norm = new_status.strip().lower()
-        allowed = {"en_proceso", "pausado", "cerrado", "cancelado"}
+        allowed = {"en_proceso", "pausado", "saldo_pendiente", "cerrado", "cancelado"}
         if new_norm not in allowed:
             raise DRFValidationError(
                 {"status": f"Status inválido. Use uno de: {', '.join(sorted(allowed))}."}

@@ -40,6 +40,13 @@ const STATUS_SEGMENTS: {
     dotClass: "bg-indigo-500 dark:bg-indigo-400",
   },
   {
+    value: "saldo_pendiente",
+    label: "Saldo pendiente",
+    countKey: "saldo_pendiente",
+    activeClass: "bg-fuchsia-100 text-fuchsia-900 dark:bg-fuchsia-500/20 dark:text-fuchsia-100",
+    dotClass: "bg-fuchsia-600 dark:bg-fuchsia-400",
+  },
+  {
     value: "cancelada",
     label: "Canceladas",
     countKey: "cancelada",
@@ -55,7 +62,10 @@ const STATUS_SEGMENTS: {
   },
 ];
 
-export type OrdenStatusCounts = Record<"pendiente" | "pausado" | "resuelto" | "cancelada", number>;
+export type OrdenStatusCounts = Record<
+  "pendiente" | "pausado" | "saldo_pendiente" | "resuelto" | "cancelada",
+  number
+>;
 
 type Props = {
   filterStatus: OrdenListFilterStatus;

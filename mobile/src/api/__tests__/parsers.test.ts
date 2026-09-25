@@ -39,6 +39,11 @@ describe('parseOrdenList', () => {
     const [orden] = parseOrdenList([{ id: 1, status: 'archivado' }]);
     expect(orden?.status).toBe('pendiente');
   });
+
+  it('conserva «saldo_pendiente» en vez de confundirlo con pendiente', () => {
+    const [orden] = parseOrdenList([{ id: 1, status: 'saldo_pendiente' }]);
+    expect(orden?.status).toBe('saldo_pendiente');
+  });
 });
 
 describe('parseOrden', () => {

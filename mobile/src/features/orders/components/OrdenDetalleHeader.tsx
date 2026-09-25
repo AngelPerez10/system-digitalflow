@@ -15,7 +15,7 @@ import {
   statusTone,
   tipoOrdenLabel,
 } from '../ordenFormat';
-import { IconClock, IconPause, IconPhone, IconPin, IconVisto, TipoOrdenIcon } from './icons';
+import { IconClock, IconEtiqueta, IconPause, IconPhone, IconPin, IconVisto, TipoOrdenIcon } from './icons';
 
 interface Props {
   orden: Orden;
@@ -25,6 +25,7 @@ interface Props {
 const STATUS_ICON: Record<OrdenStatus, (color: string) => React.ReactNode> = {
   pendiente: (color) => <IconClock color={color} size={13} />,
   pausado: (color) => <IconPause color={color} size={13} />,
+  saldo_pendiente: (color) => <IconEtiqueta color={color} size={13} />,
   resuelto: (color) => <IconVisto color={color} size={13} />,
 };
 

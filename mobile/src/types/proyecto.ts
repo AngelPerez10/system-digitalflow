@@ -9,7 +9,7 @@
  * son JSONField libres, no pasan por un serializer anidado que las traduzca.
  */
 
-export const PROYECTO_STATUSES = ['en_proceso', 'pausado', 'cerrado', 'cancelado'] as const;
+export const PROYECTO_STATUSES = ['en_proceso', 'pausado', 'saldo_pendiente', 'cerrado', 'cancelado'] as const;
 export type ProyectoStatus = (typeof PROYECTO_STATUSES)[number];
 
 export type ProyectoStatusAdministrativo = 'pendiente' | 'en_revision' | 'enviado' | 'cerrado';

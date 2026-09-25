@@ -45,10 +45,10 @@ const Dia = memo(function Dia({ item, index, total, fecha, error, minRequired, o
   return (
     <li className="cot-rise relative flex gap-3 pb-5 last:pb-0" style={{ "--cot-i": Math.min(index, 6) } as CSSProperties}>
       {index < total - 1 ? (
-        <span className="absolute bottom-0 left-[15px] top-9 w-px bg-[#E4E4E7] dark:bg-[#273244]" aria-hidden />
+        <span className="absolute bottom-0 left-3.75 top-9 w-px bg-[#E4E4E7] dark:bg-[#273244]" aria-hidden />
       ) : null}
       <span
-        className={`relative z-[1] mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums ring-4 ring-white transition-colors duration-300 dark:ring-[#111827] ${
+        className={`relative z-1 mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums ring-4 ring-white transition-colors duration-300 dark:ring-[#111827] ${
           listo
             ? "bg-[#0E8A5F] text-white dark:bg-[#22A06B]"
             : hoy
@@ -75,7 +75,7 @@ const Dia = memo(function Dia({ item, index, total, fecha, error, minRequired, o
             <button
               type="button"
               onClick={() => onRemove(index)}
-              className={`cot-press inline-flex size-8 items-center justify-center rounded-[8px] text-[#A1A1AA] hover:bg-[#FEF2F2] hover:text-[#C22B2B] dark:hover:bg-[#3F1518] dark:hover:text-[#F87171] ${focusRing}`}
+              className={`cot-press inline-flex size-8 items-center justify-center rounded-xl text-[#A1A1AA] hover:bg-[#FEF2F2] hover:text-[#C22B2B] dark:hover:bg-[#3F1518] dark:hover:text-[#F87171] ${focusRing}`}
               aria-label={`Quitar día ${index + 1}`}
               title="Quitar día"
             >
@@ -95,7 +95,7 @@ const Dia = memo(function Dia({ item, index, total, fecha, error, minRequired, o
           onChange={(e) => onChange(index, e.target.value)}
           rows={3}
           placeholder="¿Qué se hizo hoy? Avances, pendientes o hallazgos…"
-          className={`${textarea} mt-2 min-h-[88px] max-h-80 resize-none overflow-hidden ${error ? inputInvalid : ""}`}
+          className={`${textarea} mt-2 min-h-22 max-h-80 resize-none overflow-hidden ${error ? inputInvalid : ""}`}
           aria-required={minRequired || undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${hintId} ${errorId}` : hintId}

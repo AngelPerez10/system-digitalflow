@@ -26,7 +26,13 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 export type OrdenesListVariant = "admin" | "tecnico";
 
-export type OrdenListFilterStatus = "" | "pendiente" | "pausado" | "resuelto" | "cancelada";
+export type OrdenListFilterStatus =
+  | ""
+  | "pendiente"
+  | "pausado"
+  | "saldo_pendiente"
+  | "resuelto"
+  | "cancelada";
 
 export type OrdenListFilters = {
   status: OrdenListFilterStatus;
@@ -80,11 +86,11 @@ export function countSecondaryListFilters(filters: OrdenListFilters): number {
   return n;
 }
 
-export type OrdenStatusCountKey = "pendiente" | "pausado" | "resuelto" | "cancelada";
+export type OrdenStatusCountKey = "pendiente" | "pausado" | "saldo_pendiente" | "resuelto" | "cancelada";
 
 export function ordenStatusCountKey(status: unknown): OrdenStatusCountKey {
   const s = normalizeStatus(status);
-  if (s === "pausado" || s === "resuelto" || s === "cancelada") return s;
+  if (s === "pausado" || s === "saldo_pendiente" || s === "resuelto" || s === "cancelada") return s;
   return "pendiente";
 }
 
@@ -323,6 +329,7 @@ export function useOrdenesList(opts: {
     const c: Record<OrdenStatusCountKey, number> = {
       pendiente: 0,
       pausado: 0,
+      saldo_pendiente: 0,
       resuelto: 0,
       cancelada: 0,
     };

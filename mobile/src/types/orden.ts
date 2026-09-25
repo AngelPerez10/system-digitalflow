@@ -1,7 +1,9 @@
 /** Espejo de `OrdenListSerializer` / `OrdenSerializer` (backend/apps/ordenes). */
 
-export const ORDEN_STATUSES = ['pendiente', 'pausado', 'resuelto'] as const;
+export const ORDEN_STATUSES = ['pendiente', 'pausado', 'saldo_pendiente', 'resuelto'] as const;
 export type OrdenStatus = (typeof ORDEN_STATUSES)[number];
+/** «Saldo pendiente» lo asigna solo un administrador: la app lo muestra pero no lo ofrece. */
+export const ORDEN_STATUSES_TECNICO = ['pendiente', 'pausado', 'resuelto'] as const satisfies readonly OrdenStatus[];
 
 export type TipoOrden = 'servicio_tecnico' | 'levantamiento' | 'instalaciones';
 

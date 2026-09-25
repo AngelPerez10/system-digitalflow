@@ -74,7 +74,7 @@ interface MobileOrderCardProps {
   highlightRecentStatus?: boolean;
   /** Mes del listado (YYYY-MM) para marcar órdenes arrastradas. */
   selectedMonth?: string;
-  /** Puede marcar/desmarcar "Liquidado" (solo en órdenes resueltas). */
+  /** Puede marcar/desmarcar "Liquidado" (marcar solo en Saldo pendiente). */
   canLiquidar?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onToggleLiquidado?: (orden: any, next: boolean) => void;
@@ -115,9 +115,11 @@ export function MobileOrderCard({
       ? "Resuelto"
       : orden.status === "pausado"
         ? "Pausado"
-        : orden.status === "cancelada"
-          ? "Cancelada"
-          : "Pendiente";
+        : orden.status === "saldo_pendiente"
+          ? "Saldo pendiente"
+          : orden.status === "cancelada"
+            ? "Cancelada"
+            : "Pendiente";
   const statusByName = resolveStatusChangedByName(
     orden.status_changed_by_full_name,
     orden.status_changed_by_username,
@@ -153,7 +155,9 @@ export function MobileOrderCard({
                 ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
                 : orden.status === "pausado"
                   ? "bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300"
-                  : orden.status === "cancelada"
+                  : orden.status === "saldo_pendiente"
+                    ? "bg-fuchsia-50 text-fuchsia-800 dark:bg-fuchsia-500/15 dark:text-fuchsia-300"
+                    : orden.status === "cancelada"
                     ? "bg-rose-50 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300"
                     : "bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200"
             }`}
@@ -191,7 +195,7 @@ export function MobileOrderCard({
               Resuelto recién
             </span>
           )}
-          {isResuelta ? (
+          {orden.status === "saldo_pendiente" || orden.liquidado ? (
             <LiquidarControl
               liquidado={Boolean(orden.liquidado)}
               canLiquidar={Boolean(canLiquidar)}
@@ -323,7 +327,9 @@ export function MobileOrderCard({
             <path d="M14 2v6h6" />
           </svg>
         </button>
-        {isOrdenResuelta(orden.status) && isOrdenServicioTecnico(orden.tipo_orden) && onEnviarPdf && (
+        {(isOrdenResuelta(orden.status) || orden.status === "saldo_pendiente") &&
+          isOrdenServicioTecnico(orden.tipo_orden) &&
+          onEnviarPdf && (
           <button
             type="button"
             onClick={() => onEnviarPdf(orden)}
@@ -406,7 +412,7 @@ interface MobileOrderListProps {
    * las tarjetas en dos columnas en lugar de una tabla apretada.
    */
   hideFrom?: "md" | "wide";
-  /** Puede marcar/desmarcar "Liquidado" (solo en órdenes resueltas). */
+  /** Puede marcar/desmarcar "Liquidado" (marcar solo en Saldo pendiente). */
   canLiquidar?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onToggleLiquidado?: (orden: any, next: boolean) => void;

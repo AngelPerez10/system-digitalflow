@@ -28,6 +28,7 @@ import {
   IconClipboard,
   IconClock,
   IconEstrella,
+  IconEtiqueta,
   IconPause,
   IconSignature,
   IconVisto,
@@ -55,6 +56,7 @@ import { useEntrance } from '@/utils/useEntrance';
 const STATUS_ICON: Record<OrdenStatus, (color: string) => React.ReactNode> = {
   pendiente: (color) => <IconClock color={color} size={14} />,
   pausado: (color) => <IconPause color={color} size={14} />,
+  saldo_pendiente: (color) => <IconEtiqueta color={color} size={14} />,
   resuelto: (color) => <IconVisto color={color} size={14} />,
 };
 

@@ -41,6 +41,13 @@ const STATUS_SEGMENTS: {
     dotClass: "bg-amber-500 dark:bg-amber-400",
   },
   {
+    value: "saldo_pendiente",
+    label: "Saldo pendiente",
+    countKey: "saldo_pendiente",
+    activeClass: "bg-fuchsia-100 text-fuchsia-900 dark:bg-fuchsia-500/20 dark:text-fuchsia-100",
+    dotClass: "bg-fuchsia-600 dark:bg-fuchsia-400",
+  },
+  {
     value: "cancelado",
     label: "Cancelados",
     countKey: "cancelado",

@@ -22,7 +22,7 @@ type Props = {
 
 function ProyectoCardImpl({ row, index, fieldMode, ...handlers }: Props) {
   const { canEdit, onEdit, canLiquidar, onToggleLiquidado } = handlers;
-  const isCerrado = row.estado === "cerrado";
+  const mostrarLiquidar = row.estado === "saldo_pendiente" || Boolean(row.draft.liquidado);
   const tone = toneForEstado(row.estado);
   const team = proyectoTeam(row);
   const periodo = proyectoPeriodo(row);
@@ -51,7 +51,7 @@ function ProyectoCardImpl({ row, index, fieldMode, ...handlers }: Props) {
             >
               <EstadoPill estado={row.estado} size="sm" />
             </StatusChangedByChip>
-            {isCerrado ? (
+            {mostrarLiquidar ? (
               <LiquidarControl
                 liquidado={Boolean(row.draft.liquidado)}
                 canLiquidar={Boolean(canLiquidar)}
@@ -80,7 +80,7 @@ function ProyectoCardImpl({ row, index, fieldMode, ...handlers }: Props) {
           {tipos.length ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {tipos.slice(0, 2).map((t) => (
-                <span key={t} className={`${metaChip} max-w-[12rem] truncate`}>
+                <span key={t} className={`${metaChip} max-w-48 truncate`}>
                   {t}
                 </span>
               ))}

@@ -161,6 +161,8 @@ export function OrdenClienteTab({
    */
   const puedeCancelar = isAdmin && Boolean(editingOrden);
   const mostrarOpcionCancelada = puedeCancelar || formData.status === "cancelada";
+  /** "Saldo pendiente" solo la asigna el admin; es el único status en el que se puede liquidar. */
+  const mostrarOpcionSaldoPendiente = isAdmin || formData.status === "saldo_pendiente";
   const prioridadPoolId = "orden-prioridad-pool";
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<Record<string, boolean>>({});
 
@@ -738,9 +740,9 @@ export function OrdenClienteTab({
               value={formData.status}
               disabled={ro("status")}
               onChange={(e) => {
-                const next = e.target.value as "pendiente" | "pausado" | "resuelto" | "cancelada";
+                const next = e.target.value as OrdenFormData["status"];
                 setFormData((prev) => {
-                  if (next === "resuelto") {
+                  if (next === "resuelto" || next === "saldo_pendiente") {
                     const { ymd, hm } = localYmdAndHm();
                     return {
                       ...prev,
@@ -760,6 +762,11 @@ export function OrdenClienteTab({
             >
               <option value="pendiente">Pendiente</option>
               <option value="pausado">Pausado</option>
+              {mostrarOpcionSaldoPendiente ? (
+                <option value="saldo_pendiente" disabled={!isAdmin}>
+                  Saldo pendiente
+                </option>
+              ) : null}
               <option value="resuelto">Resuelto</option>
               {mostrarOpcionCancelada ? (
                 <option value="cancelada" disabled={!puedeCancelar}>

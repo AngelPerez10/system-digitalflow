@@ -239,7 +239,7 @@ export default function ProyectosPage() {
   }, [rows, searchTerm, selectedMonth, secondaryFilters]);
 
   const statusCounts = useMemo(() => {
-    const c: ProyectoStatusCounts = { en_proceso: 0, pausado: 0, cerrado: 0, cancelado: 0 };
+    const c: ProyectoStatusCounts = { en_proceso: 0, pausado: 0, saldo_pendiente: 0, cerrado: 0, cancelado: 0 };
     for (const r of rowsBeforeStatus) {
       const key = proyectoListStatusCountKey(r.estado ?? r.draft?.status);
       if (key) c[key] += 1;
@@ -434,7 +434,7 @@ export default function ProyectosPage() {
         "success",
         nextValue ? "Proyecto liquidado" : "Marca de liquidado quitada",
         nextValue
-          ? `Se marcó como liquidado ${displayProyectoFolio(row.folio)} (${row.cliente}).`
+          ? `${displayProyectoFolio(row.folio)} (${row.cliente}) pasó a Cerrado y quedó liquidado.`
           : `Se quitó la marca de liquidado de ${displayProyectoFolio(row.folio)} (${row.cliente}).`,
         3500
       );
@@ -478,7 +478,7 @@ export default function ProyectosPage() {
         <nav className="hidden items-center gap-1.5 text-[13px] sm:flex font-medium text-[#6E6E77] dark:text-[#8EA0B8]" aria-label="Migas de pan">
           <Link
             to="/"
-            className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+            className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
           >
             Inicio
           </Link>
@@ -706,8 +706,8 @@ export default function ProyectosPage() {
           title={liquidarTarget?.nextValue ? "Marcar como liquidado" : "Quitar marca de liquidado"}
           description={
             liquidarTarget?.nextValue
-              ? "Se marcará este proyecto como liquidado (pagado/cobrado). Podrás desmarcarlo después si es necesario."
-              : "Se quitará la marca de liquidado de este proyecto."
+              ? "El proyecto pasará a Cerrado y se marcará como liquidado (pagado/cobrado). Podrás quitar solo la marca después si es necesario."
+              : "Se quitará la marca de liquidado de este proyecto. El status no cambia."
           }
           detail={
             liquidarTarget ? (

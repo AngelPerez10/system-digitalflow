@@ -5,6 +5,7 @@ import { statusLabel } from './proyectoFormat';
 export const PROYECTO_STATUS_ORDER: readonly ProyectoStatus[] = [
   'en_proceso',
   'pausado',
+  'saldo_pendiente',
   'cerrado',
   'cancelado',
 ];
@@ -27,6 +28,7 @@ export function contarPorStatus(proyectos: readonly ProyectoListItem[]): Record<
   const counts: Record<ProyectoStatus, number> = {
     en_proceso: 0,
     pausado: 0,
+    saldo_pendiente: 0,
     cerrado: 0,
     cancelado: 0,
   };

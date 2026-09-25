@@ -95,11 +95,11 @@ ARRASTRE_ABIERTAS_DESDE = date(2026, 7, 1)
 
 
 def _apply_resuelto_cierre_fechas(data: dict, instance=None) -> dict:
-    """Si status es resuelto y faltan fechas de cierre, rellenar con ahora local."""
+    """Si status es resuelto (o saldo pendiente) y faltan fechas de cierre, rellenar con ahora local."""
     status_val = data.get("status", None)
     if status_val is None and instance is not None:
         status_val = getattr(instance, "status", None)
-    if str(status_val or "").strip().lower() != "resuelto":
+    if str(status_val or "").strip().lower() not in ("resuelto", "saldo_pendiente"):
         return data
 
     fecha = data.get("fecha_finalizacion", None)
@@ -1390,6 +1390,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 return 'Resuelto'
             if s == 'pausado':
                 return 'Pausado'
+            if s == 'saldo_pendiente':
+                return 'Saldo pendiente'
             if s == 'pendiente':
                 return 'Pendiente'
             return str(raw or '—').strip() or '—'
@@ -2220,15 +2222,23 @@ class OrdenViewSet(viewsets.ModelViewSet):
         if not isinstance(liquidado, bool):
             raise ValidationError({'liquidado': 'Debe ser true o false.'})
 
-        if liquidado and orden.status != 'resuelto':
+        if liquidado and orden.status != 'saldo_pendiente':
             return Response(
-                {'detail': 'Solo se puede liquidar una orden resuelta.'}, status=409
+                {'detail': 'Solo se puede liquidar una orden en Saldo pendiente.'}, status=409
             )
 
+        # Al liquidar, el cobro queda cerrado: pasa a Resuelto + Liquidado.
+        # Desmarcar no revierte el status (sigue en Resuelto u otro).
+        update_fields = ['liquidado', 'liquidado_por', 'liquidado_at']
         orden.liquidado = liquidado
         orden.liquidado_por = request.user if liquidado else None
         orden.liquidado_at = timezone.now() if liquidado else None
-        orden.save(update_fields=['liquidado', 'liquidado_por', 'liquidado_at'])
+        if liquidado:
+            orden.status = 'resuelto'
+            orden.status_changed_at = timezone.now()
+            orden.status_changed_by = request.user
+            update_fields.extend(['status', 'status_changed_at', 'status_changed_by'])
+        orden.save(update_fields=update_fields)
         return Response(self.get_serializer(orden).data)
 
     @action(detail=True, methods=['patch'], url_path='cambiar-status')
@@ -2247,15 +2257,17 @@ class OrdenViewSet(viewsets.ModelViewSet):
         if not isinstance(new_status, str) or not new_status.strip():
             raise ValidationError({'status': 'Indique el nuevo status.'})
         new_norm = new_status.strip().lower()
-        allowed = {'pendiente', 'pausado', 'resuelto', 'cancelada'}
+        allowed = {'pendiente', 'pausado', 'saldo_pendiente', 'resuelto', 'cancelada'}
         if new_norm not in allowed:
             raise ValidationError({'status': f'Status inválido. Use uno de: {", ".join(sorted(allowed))}.'})
 
         prev = str(orden.status or '').strip().lower()
-        if new_norm == 'cancelada' and new_norm != prev:
-            user = request.user
-            if not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
-                raise ValidationError({'status': 'Solo un administrador puede cancelar la orden.'})
+        user = request.user
+        is_admin = getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)
+        if new_norm == 'cancelada' and new_norm != prev and not is_admin:
+            raise ValidationError({'status': 'Solo un administrador puede cancelar la orden.'})
+        if new_norm == 'saldo_pendiente' and new_norm != prev and not is_admin:
+            raise ValidationError({'status': 'Solo un administrador puede marcar Saldo pendiente.'})
 
         payload = {'status': new_norm}
         if 'motivo_pausa' in request.data:
@@ -2385,9 +2397,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
         """Genera el PDF de la orden resuelta y lo envía por SMTP al correo indicado."""
         orden = self.get_object()
         status_norm = (orden.status or '').strip().lower()
-        if status_norm not in ('resuelto', 'completado', 'completada'):
+        if status_norm not in ('resuelto', 'saldo_pendiente', 'completado', 'completada'):
             return Response(
-                {'detail': 'Solo se puede enviar el PDF de órdenes resueltas.'},
+                {'detail': 'Solo se puede enviar el PDF de órdenes resueltas o con saldo pendiente.'},
                 status=400,
             )
 

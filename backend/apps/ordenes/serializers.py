@@ -117,6 +117,17 @@ class OrdenSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"status": "Solo un administrador puede cancelar la orden."}
                 )
+        if status_norm == "saldo_pendiente" and status_norm != prev_status:
+            request = self.context.get("request")
+            user = getattr(request, "user", None) if request is not None else None
+            if not (
+                user
+                and getattr(user, "is_authenticated", False)
+                and (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+            ):
+                raise serializers.ValidationError(
+                    {"status": "Solo un administrador puede marcar Saldo pendiente."}
+                )
         # Quien solo liquida no puede mover el status (ni con `edit`): exige
         # la casilla `cambiar_status` en Gestión de usuarios.
         if "status" in attrs and status_norm != prev_status:

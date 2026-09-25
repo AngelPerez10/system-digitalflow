@@ -2,10 +2,10 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { font, radius, spacing, type } from '@/theme/tokens';
-import { ORDEN_STATUSES, type OrdenStatus } from '@/types/orden';
+import { ORDEN_STATUSES, ORDEN_STATUSES_TECNICO, type OrdenStatus } from '@/types/orden';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 import { statusLabel, statusSolid, statusTone } from '../ordenFormat';
-import { IconClock, IconPause, IconVisto } from './icons';
+import { IconClock, IconEtiqueta, IconPause, IconVisto } from './icons';
 
 interface Props {
   value: OrdenStatus;
@@ -16,12 +16,14 @@ interface Props {
 const DESCRIPCION: Record<OrdenStatus, string> = {
   pendiente: 'Por atender',
   pausado: 'Detenida',
+  saldo_pendiente: 'Falta cobrar',
   resuelto: 'Terminada',
 };
 
 const ICONO: Record<OrdenStatus, (color: string) => React.ReactNode> = {
   pendiente: (color) => <IconClock color={color} size={16} />,
   pausado: (color) => <IconPause color={color} size={15} />,
+  saldo_pendiente: (color) => <IconEtiqueta color={color} size={15} />,
   resuelto: (color) => <IconVisto color={color} size={16} />,
 };
 
@@ -31,17 +33,28 @@ const ICONO: Record<OrdenStatus, (color: string) => React.ReactNode> = {
  * es la única señal — también cambian el ícono relleno y el peso del texto.
  */
 export function StatusSelector({ value, onChange, disabled = false }: Props) {
+  const { colors } = useTheme();
+  // «Saldo pendiente» lo pone un administrador: el técnico lo ve, pero no puede moverlo.
+  const bloqueadoPorAdmin = value === 'saldo_pendiente';
+  const opciones: readonly OrdenStatus[] = bloqueadoPorAdmin ? ORDEN_STATUSES : ORDEN_STATUSES_TECNICO;
   return (
-    <View style={styles.fila} accessibilityRole="radiogroup" accessibilityLabel="Estatus de la orden">
-      {ORDEN_STATUSES.map((status) => (
-        <Opcion
-          key={status}
-          status={status}
-          activo={status === value}
-          disabled={disabled}
-          onPress={() => onChange(status)}
-        />
-      ))}
+    <View style={styles.bloque}>
+      <View style={styles.fila} accessibilityRole="radiogroup" accessibilityLabel="Estatus de la orden">
+        {opciones.map((status) => (
+          <Opcion
+            key={status}
+            status={status}
+            activo={status === value}
+            disabled={disabled || bloqueadoPorAdmin}
+            onPress={() => onChange(status)}
+          />
+        ))}
+      </View>
+      {bloqueadoPorAdmin ? (
+        <Text style={[styles.aviso, { color: colors.inkSubtle }]}>
+          Solo un administrador puede cambiar el estatus de una orden con saldo pendiente.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -122,7 +135,9 @@ function Opcion({
 }
 
 const styles = StyleSheet.create({
+  bloque: { gap: spacing.sm },
   fila: { flexDirection: 'row', gap: spacing.sm },
+  aviso: { ...type.caption },
   celda: { flex: 1, minWidth: 0 },
   pressable: { flex: 1 },
   tarjeta: {

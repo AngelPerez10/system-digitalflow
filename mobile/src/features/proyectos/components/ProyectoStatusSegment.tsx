@@ -18,6 +18,7 @@ interface Props {
 const STATUS_DETALLE: Record<ProyectoStatus, string> = {
   en_proceso: 'El trabajo en campo sigue activo.',
   pausado: 'Detenido por ahora. Indica el motivo abajo.',
+  saldo_pendiente: 'Trabajo concluido con cobro pendiente. Solo administración cambia este estatus.',
   cerrado: 'Trabajo concluido. Revisa bitácora, fotos y firmas antes de guardar.',
   cancelado: 'Proyecto cancelado por administración.',
 };
@@ -33,7 +34,11 @@ const STATUS_DETALLE: Record<ProyectoStatus, string> = {
 export function ProyectoStatusSegment({ value, onChange, permiteCancelar = false }: Props) {
   const { colors } = useTheme();
   // El técnico ni siquiera ve «Cancelado»: es una decisión de administración.
-  const opciones = PROYECTO_STATUSES.filter((status) => status !== 'cancelado' || permiteCancelar);
+  // «Saldo pendiente» tampoco se ofrece; solo aparece si el proyecto ya está ahí.
+  const opciones = PROYECTO_STATUSES.filter(
+    (status) =>
+      (status !== 'cancelado' || permiteCancelar) && (status !== 'saldo_pendiente' || value === 'saldo_pendiente'),
+  );
   const columnas = opciones.length === 3 ? 3 : 2;
   const tono = statusTone(value, colors);
 

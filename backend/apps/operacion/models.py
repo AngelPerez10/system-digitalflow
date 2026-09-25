@@ -16,6 +16,7 @@ User = get_user_model()
 PROYECTO_STATUS_CHOICES = [
     ("en_proceso", "En proceso"),
     ("pausado", "Pausado"),
+    ("saldo_pendiente", "Saldo pendiente"),
     ("cerrado", "Cerrado"),
     ("cancelado", "Cancelado"),
 ]

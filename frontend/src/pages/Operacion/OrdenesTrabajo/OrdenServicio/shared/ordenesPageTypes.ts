@@ -54,7 +54,7 @@ export interface Orden {
   telefono_cliente: string;
   problematica: string;
   servicios_realizados: string[];
-  status: "pendiente" | "pausado" | "resuelto" | "cancelada";
+  status: "pendiente" | "pausado" | "saldo_pendiente" | "resuelto" | "cancelada";
   /** Motivo cuando status = pausado. */
   motivo_pausa?: string | null;
   /** Motivo cuando status = cancelada (obligatorio; solo lo fija el admin). */

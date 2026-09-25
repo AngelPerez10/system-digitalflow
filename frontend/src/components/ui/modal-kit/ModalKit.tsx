@@ -352,15 +352,15 @@ type CotProgressDialogProps = {
 /** Hoja de papel que «se va escribiendo»: indicador de carga sin spinner. */
 function AppWritingSheet({ icon, tone }: { icon: ReactNode; tone: AppModalTone }) {
   return (
-    <div className="relative mx-auto mb-6 h-[84px] w-[68px]" aria-hidden>
-      <div className="absolute inset-0 rotate-[-6deg] rounded-lg bg-[#EEF3FF] dark:bg-[#1B2A63]/60" />
+    <div className="relative mx-auto mb-6 h-21 w-17" aria-hidden>
+      <div className="absolute inset-0 -rotate-6 rounded-lg bg-[#EEF3FF] dark:bg-[#1B2A63]/60" />
       <div className="absolute inset-0 overflow-hidden rounded-lg bg-white shadow-[0_10px_24px_-12px_rgba(9,9,11,0.35)] ring-1 ring-[#E4E4E7] dark:bg-[#F8FAFC] dark:ring-[#3A4661]">
         <div className="h-2 bg-[#17235B]" />
-        <div className="space-y-[7px] px-2.5 pt-3">
+        <div className="space-y-1.75 px-2.5 pt-3">
           {[100, 82, 92, 60].map((w, i) => (
             <span
               key={i}
-              className="cot-write block h-[3px] rounded-full bg-[#D4D4D8]"
+              className="cot-write block h-0.75 rounded-full bg-[#D4D4D8]"
               style={{ width: `${w}%`, "--cot-i": i } as CSSProperties}
             />
           ))}

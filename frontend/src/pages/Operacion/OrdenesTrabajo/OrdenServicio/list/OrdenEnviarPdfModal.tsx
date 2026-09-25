@@ -35,6 +35,8 @@ export default function OrdenEnviarPdfModal({ open, orden, initialCorreo = "", o
       eyebrow={
         status === "resuelto"
           ? "Orden de servicio resuelta"
+          : status === "saldo_pendiente"
+            ? "Orden de servicio con saldo pendiente"
           : status === "pendiente"
             ? "Orden de servicio pendiente"
             : "Orden de servicio"

@@ -10,7 +10,7 @@ export type ProyectoRowHandlers = {
   onDelete: (row: ProyectoRow) => void;
   onPdf: (row: ProyectoRow) => void;
   onEnviarPdf: (row: ProyectoRow) => void;
-  /** Puede marcar/desmarcar "Liquidado" (solo en proyectos cerrados). */
+  /** Puede marcar/desmarcar "Liquidado" (marcar solo en Saldo pendiente). */
   canLiquidar?: boolean;
   onToggleLiquidado?: (row: ProyectoRow, next: boolean) => void;
 };

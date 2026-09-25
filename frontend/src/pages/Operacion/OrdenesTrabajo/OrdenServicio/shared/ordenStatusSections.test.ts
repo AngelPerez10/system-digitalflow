@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { groupOrdenesByStatus } from "./ordenStatusSections";
 
 describe("groupOrdenesByStatus", () => {
-  it("ordena secciones Pendientes → Pausados → Canceladas → Resueltas → Otros y omite vacías", () => {
+  it("ordena secciones Pendientes → Pausados → Saldo pendiente → Canceladas → Resueltas → Otros y omite vacías", () => {
     const sections = groupOrdenesByStatus([
       { id: 1, status: "resuelto" },
       { id: 2, status: "pendiente" },
@@ -11,20 +11,23 @@ describe("groupOrdenesByStatus", () => {
       { id: 5, status: "" },
       { id: 6, status: "pausado" },
       { id: 7, status: "cancelada" },
+      { id: 8, status: "saldo_pendiente" },
     ]);
 
     expect(sections.map((s) => s.key)).toEqual([
       "PENDIENTE",
       "PAUSADO",
+      "SALDO_PENDIENTE",
       "CANCELADA",
       "RESUELTA",
       "OTROS",
     ]);
     expect(sections[0].ordenes.map((o) => o.id)).toEqual([2, 5]);
     expect(sections[1].ordenes.map((o) => o.id)).toEqual([6]);
-    expect(sections[2].ordenes.map((o) => o.id)).toEqual([7]);
-    expect(sections[3].ordenes.map((o) => o.id)).toEqual([1, 3]);
-    expect(sections[4].ordenes.map((o) => o.id)).toEqual([4]);
+    expect(sections[2].ordenes.map((o) => o.id)).toEqual([8]);
+    expect(sections[3].ordenes.map((o) => o.id)).toEqual([7]);
+    expect(sections[4].ordenes.map((o) => o.id)).toEqual([1, 3]);
+    expect(sections[5].ordenes.map((o) => o.id)).toEqual([4]);
   });
 
   it("omite secciones sin filas", () => {

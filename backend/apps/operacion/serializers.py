@@ -535,6 +535,15 @@ class ProyectoSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"status": ["Solo un administrador puede cancelar el proyecto."]}
                 )
+        if status_norm == "saldo_pendiente" and status_norm != prev_status:
+            if not (
+                user
+                and getattr(user, "is_authenticated", False)
+                and (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+            ):
+                raise serializers.ValidationError(
+                    {"status": ["Solo un administrador puede marcar Saldo pendiente."]}
+                )
 
         # Quien solo liquida no mueve el status (ni con `edit`): exige `cambiar_status`.
         if "status" in attrs and status_norm != prev_status:

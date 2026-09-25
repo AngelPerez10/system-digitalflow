@@ -16,11 +16,12 @@ import {
   tipoOrdenLabel,
 } from '../ordenFormat';
 import { FallaBox } from './FallaBox';
-import { IconCalendar, IconClock, IconFlecha, IconPause, IconPin, IconVisto, TipoOrdenIcon } from './icons';
+import { IconCalendar, IconClock, IconFlecha, IconEtiqueta, IconPause, IconPin, IconVisto, TipoOrdenIcon } from './icons';
 
 const STATUS_ICON: Record<OrdenStatus, (color: string) => React.ReactNode> = {
   pendiente: (color) => <IconClock color={color} size={11} />,
   pausado: (color) => <IconPause color={color} size={11} />,
+  saldo_pendiente: (color) => <IconEtiqueta color={color} size={11} />,
   resuelto: (color) => <IconVisto color={color} size={11} />,
 };
 

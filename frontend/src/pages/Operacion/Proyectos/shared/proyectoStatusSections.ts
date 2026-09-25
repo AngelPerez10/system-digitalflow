@@ -3,6 +3,7 @@ import type { ProyectoEstado, ProyectoRow } from "./proyectoTypes";
 export type ProyectoStatusSectionKey =
   | "EN_PROCESO"
   | "PAUSADO"
+  | "SALDO_PENDIENTE"
   | "CERRADO"
   | "CANCELADO"
   | "OTROS";
@@ -29,6 +30,11 @@ const STATUS_SECTION_ORDER: {
     match: (s) => s === "pausado",
   },
   {
+    key: "SALDO_PENDIENTE",
+    label: "Saldo pendiente",
+    match: (s) => s === "saldo_pendiente",
+  },
+  {
     key: "CANCELADO",
     label: "Cancelados",
     match: (s) => s === "cancelado",
@@ -49,11 +55,12 @@ export function normalizeProyectoEstado(raw: string | null | undefined): string 
   return String(raw || "").trim().toLowerCase();
 }
 
-/** Agrupa proyectos: En proceso → Pausados → Cancelados → Cerrados (y otros al final). Omite secciones vacías. */
+/** Agrupa proyectos: En proceso → Pausados → Saldo pendiente → Cancelados → Cerrados (y otros al final). Omite secciones vacías. */
 export function groupProyectosByStatus(rows: ProyectoRow[]): ProyectoStatusSection[] {
   const buckets: Record<ProyectoStatusSectionKey, ProyectoRow[]> = {
     EN_PROCESO: [],
     PAUSADO: [],
+    SALDO_PENDIENTE: [],
     CERRADO: [],
     CANCELADO: [],
     OTROS: [],
@@ -95,6 +102,8 @@ export function proyectoListStatusCountKey(
       return "en_proceso";
     case "PAUSADO":
       return "pausado";
+    case "SALDO_PENDIENTE":
+      return "saldo_pendiente";
     case "CERRADO":
       return "cerrado";
     case "CANCELADO":

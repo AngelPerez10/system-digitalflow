@@ -28,6 +28,8 @@ export type ThemeColors = {
   statusPendienteText: string;
   statusPausadoBg: string;
   statusPausadoText: string;
+  statusSaldoBg: string;
+  statusSaldoText: string;
   statusResueltoBg: string;
   statusResueltoText: string;
   danger: string;
@@ -90,6 +92,8 @@ export const lightColors: ThemeColors = {
   statusPendienteText: '#8A5A00',
   statusPausadoBg: '#EEF1FF',
   statusPausadoText: '#3538CD',
+  statusSaldoBg: '#FDF4FF',
+  statusSaldoText: '#86198F',
   statusResueltoBg: '#E9F8F0',
   statusResueltoText: '#04724D',
   danger: '#C22B2B',
@@ -134,6 +138,8 @@ export const darkColors: ThemeColors = {
   statusPendienteText: '#F5C84C',
   statusPausadoBg: '#1A1F3D',
   statusPausadoText: '#A5B4FC',
+  statusSaldoBg: '#3B0A45',
+  statusSaldoText: '#F0ABFC',
   statusResueltoBg: '#0F2A1C',
   statusResueltoText: '#4ADE80',
   danger: '#F87171',

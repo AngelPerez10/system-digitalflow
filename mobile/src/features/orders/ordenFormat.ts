@@ -43,13 +43,22 @@ export function agruparEquiposPorProducto(
 const STATUS_LABEL: Record<OrdenStatus, string> = {
   pendiente: 'Pendiente',
   pausado: 'Pausado',
+  saldo_pendiente: 'Saldo pendiente',
   resuelto: 'Resuelto',
+};
+
+const STATUS_LABEL_PLURAL: Record<OrdenStatus, string> = {
+  pendiente: 'Pendientes',
+  pausado: 'Pausados',
+  saldo_pendiente: 'Saldo pendiente',
+  resuelto: 'Resueltos',
 };
 
 function toneMap(c: ThemeColors): Record<OrdenStatus, { bg: string; text: string }> {
   return {
     pendiente: { bg: c.statusPendienteBg, text: c.statusPendienteText },
     pausado: { bg: c.statusPausadoBg, text: c.statusPausadoText },
+    saldo_pendiente: { bg: c.statusSaldoBg, text: c.statusSaldoText },
     resuelto: { bg: c.statusResueltoBg, text: c.statusResueltoText },
   };
 }
@@ -117,9 +126,14 @@ export function statusLabel(status: OrdenStatus): string {
   return STATUS_LABEL[status];
 }
 
+export function statusLabelPlural(status: OrdenStatus): string {
+  return STATUS_LABEL_PLURAL[status];
+}
+
 const ACCION_LABEL: Record<OrdenStatus, string> = {
   pendiente: 'Atender orden',
   pausado: 'Reanudar orden',
+  saldo_pendiente: 'Ver reporte',
   resuelto: 'Ver reporte',
 };
 

@@ -32,20 +32,23 @@ describe("groupProyectosByStatus", () => {
       row("4", "pausado"),
       row("5", ""),
       row("6", "cancelado"),
+      row("7", "saldo_pendiente"),
     ]);
 
     expect(sections.map((s) => s.key)).toEqual([
       "EN_PROCESO",
       "PAUSADO",
+      "SALDO_PENDIENTE",
       "CANCELADO",
       "CERRADO",
       "OTROS",
     ]);
     expect(sections[0].rows.map((r) => r.id)).toEqual(["2", "5"]);
     expect(sections[1].rows.map((r) => r.id)).toEqual(["4"]);
-    expect(sections[2].rows.map((r) => r.id)).toEqual(["6"]);
-    expect(sections[3].rows.map((r) => r.id)).toEqual(["1"]);
-    expect(sections[4].rows.map((r) => r.id)).toEqual(["3"]);
+    expect(sections[2].rows.map((r) => r.id)).toEqual(["7"]);
+    expect(sections[3].rows.map((r) => r.id)).toEqual(["6"]);
+    expect(sections[4].rows.map((r) => r.id)).toEqual(["1"]);
+    expect(sections[5].rows.map((r) => r.id)).toEqual(["3"]);
   });
 
   it("omite secciones sin filas", () => {
@@ -61,6 +64,7 @@ describe("proyectoListStatusCountKey", () => {
     expect(proyectoListStatusCountKey("en_proceso")).toBe("en_proceso");
     expect(proyectoListStatusCountKey("")).toBe("en_proceso");
     expect(proyectoListStatusCountKey("pausado")).toBe("pausado");
+    expect(proyectoListStatusCountKey("saldo_pendiente")).toBe("saldo_pendiente");
     expect(proyectoListStatusCountKey("cerrado")).toBe("cerrado");
     expect(proyectoListStatusCountKey("cancelado")).toBe("cancelado");
     expect(proyectoListStatusCountKey("legacy")).toBeNull();

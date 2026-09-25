@@ -515,6 +515,8 @@ export function estadoProyectoLabel(estado: ProyectoEstado): string {
   switch (estado) {
     case "pausado":
       return "Pausado";
+    case "saldo_pendiente":
+      return "Saldo pendiente";
     case "cerrado":
       return "Cerrado";
     case "cancelado":
@@ -602,6 +604,8 @@ export function estadoProyectoBadgeClass(estado: ProyectoEstado): string {
       return `${base} bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400`;
     case "pausado":
       return `${base} bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300`;
+    case "saldo_pendiente":
+      return `${base} bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/30 dark:text-fuchsia-200`;
     case "cancelado":
       return `${base} bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300`;
     default:

@@ -94,7 +94,7 @@ export function LiquidadoBadge({
   const content = (
     <>
       <span
-        className="cot-tick relative inline-flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#0B6B5C] text-white dark:bg-[#2DD4BF] dark:text-[#052E27]"
+        className="cot-tick relative inline-flex size-4.5 shrink-0 items-center justify-center rounded-full bg-[#0B6B5C] text-white dark:bg-[#2DD4BF] dark:text-[#052E27]"
         aria-hidden
       >
         <Check
@@ -166,7 +166,8 @@ export function LiquidarButton({ onClick, className = "" }: { onClick: () => voi
 /**
  * Combina badge/CTA/nada según el estado. Único punto de verdad para el
  * control de "Liquidado" en tablas y tarjetas (Órdenes y Proyectos) — el
- * caller solo decide si el registro está en su status terminal.
+ * caller lo muestra en "Saldo pendiente" (al liquidar pasa a Resuelto/Cerrado)
+ * o si el registro ya está liquidado (para poder desmarcarlo en cualquier status).
  */
 export function LiquidarControl({
   liquidado,

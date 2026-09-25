@@ -65,7 +65,7 @@ export type ProyectoEquipoLinea = {
 };
 
 /** Status operativo del proyecto (formulario). */
-export type ProyectoEstado = "en_proceso" | "pausado" | "cerrado" | "cancelado";
+export type ProyectoEstado = "en_proceso" | "pausado" | "saldo_pendiente" | "cerrado" | "cancelado";
 
 export type ProyectoPersonaAsignada = {
   id: number | null;
@@ -121,7 +121,7 @@ export type ProyectoDraft = {
   statusChangedAt: string;
   /**
    * Marca de liquidación (pagado/cobrado). Independiente de `status`; solo se
-   * muestra en la UI cuando `status === "cerrado"`, y solo la puede togglear
+   * marca en `status === "saldo_pendiente"` (desmarcar en cualquiera), y solo la puede togglear
    * quien tenga el permiso `liquidar` en Gestión de usuarios.
    */
   liquidado: boolean;

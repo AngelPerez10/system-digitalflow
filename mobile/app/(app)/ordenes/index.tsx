@@ -18,20 +18,21 @@ import {
 } from '@/components/ListadoChrome';
 import { EmptyState, InlineError } from '@/components/StateViews';
 import { TextField } from '@/components/TextField';
-import type { FiltroStatus } from '@/features/orders/agrupar';
-import { IconClock, IconPause, IconVisto } from '@/features/orders/components/icons';
+import { ORDEN_STATUS_ORDER, type FiltroStatus } from '@/features/orders/agrupar';
+import { IconClock, IconEtiqueta, IconPause, IconVisto } from '@/features/orders/components/icons';
 import { OrdenCard } from '@/features/orders/components/OrdenCard';
 import { OrdenesSkeletonList } from '@/features/orders/components/OrdenCardSkeleton';
 import { PoolAccesoCard } from '@/features/orders/components/PoolAccesoCard';
-import { statusLabel, statusTone } from '@/features/orders/ordenFormat';
+import { statusLabelPlural, statusTone } from '@/features/orders/ordenFormat';
 import { useOrdenes } from '@/features/orders/useOrdenes';
 import { usePush } from '@/notifications/PushProvider';
 import { useTheme } from '@/theme/ThemeProvider';
-import { ORDEN_STATUSES, type OrdenListItem, type OrdenStatus } from '@/types/orden';
+import type { OrdenListItem, OrdenStatus } from '@/types/orden';
 
 const ICONO_STATUS: Record<OrdenStatus, (color: string) => React.ReactNode> = {
   pendiente: (color) => <IconClock color={color} size={13} />,
   pausado: (color) => <IconPause color={color} size={12} />,
+  saldo_pendiente: (color) => <IconEtiqueta color={color} size={12} />,
   resuelto: (color) => <IconVisto color={color} size={13} />,
 };
 
@@ -58,9 +59,12 @@ export default function OrdenesScreen() {
   const cargaInicial = cargando && total === 0 && !error;
   const opcionesFiltro: OpcionFiltro<FiltroStatus>[] = [
     { key: 'todas', label: 'Todas', cantidad: total },
-    ...ORDEN_STATUSES.map((status) => ({
+    // «Saldo pendiente» es raro en campo: solo aparece como filtro si hay órdenes ahí.
+    ...ORDEN_STATUS_ORDER.filter(
+      (status) => status !== 'saldo_pendiente' || conteos[status] > 0 || filtro === status,
+    ).map((status) => ({
       key: status,
-      label: `${statusLabel(status)}s`,
+      label: statusLabelPlural(status),
       cantidad: conteos[status],
       tono: statusTone(status, colors),
       icon: ICONO_STATUS[status],
@@ -134,7 +138,7 @@ export default function OrdenesScreen() {
                   icon={<SinElementos />}
                   title={
                     vacioFiltrado
-                      ? `Sin órdenes ${statusLabel(filtro as OrdenStatus).toLowerCase()}s`
+                      ? `Sin órdenes en ${statusLabelPlural(filtro as OrdenStatus).toLowerCase()}`
                       : busqueda.trim()
                         ? 'Sin resultados'
                         : 'Sin órdenes este mes'

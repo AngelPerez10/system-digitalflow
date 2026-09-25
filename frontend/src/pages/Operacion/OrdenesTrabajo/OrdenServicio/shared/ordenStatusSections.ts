@@ -3,6 +3,7 @@ import { isOrdenCancelada, isOrdenResuelta, normalizeStatus } from "./useOrdenes
 export type OrdenStatusSectionKey =
   | "PENDIENTE"
   | "PAUSADO"
+  | "SALDO_PENDIENTE"
   | "RESUELTA"
   | "CANCELADA"
   | "OTROS";
@@ -37,6 +38,11 @@ const STATUS_SECTION_ORDER: {
     match: (s) => s === "pausado",
   },
   {
+    key: "SALDO_PENDIENTE",
+    label: "Saldo pendiente",
+    match: (s) => s === "saldo_pendiente",
+  },
+  {
     key: "CANCELADA",
     label: "Canceladas",
     match: (s) => isOrdenCancelada(s),
@@ -53,13 +59,14 @@ const STATUS_SECTION_ORDER: {
   },
 ];
 
-/** Agrupa órdenes: Pendientes → Pausados → Canceladas → Resueltas (y otros al final). Omite secciones vacías. */
+/** Agrupa órdenes: Pendientes → Pausados → Saldo pendiente → Canceladas → Resueltas (y otros al final). Omite secciones vacías. */
 export function groupOrdenesByStatus<T extends { status?: string | null }>(
   ordenes: T[],
 ): OrdenStatusSection<T>[] {
   const buckets: Record<OrdenStatusSectionKey, T[]> = {
     PENDIENTE: [],
     PAUSADO: [],
+    SALDO_PENDIENTE: [],
     RESUELTA: [],
     CANCELADA: [],
     OTROS: [],
@@ -105,6 +112,17 @@ export function getOrdenStatusSectionStyles(key: OrdenStatusSectionKey): OrdenSt
       badge:
         "border-indigo-300/90 bg-indigo-100 text-indigo-950 dark:border-indigo-400/35 dark:bg-indigo-500/20 dark:text-indigo-100",
       label: "text-[#312e81] dark:text-indigo-100",
+    };
+  }
+  if (key === "SALDO_PENDIENTE") {
+    return {
+      shell:
+        "border-fuchsia-200/90 bg-fuchsia-50 dark:border-fuchsia-500/30 dark:bg-fuchsia-950/30",
+      accent: "bg-fuchsia-600 dark:bg-fuchsia-400",
+      icon: "text-fuchsia-800 dark:text-fuchsia-300",
+      badge:
+        "border-fuchsia-300/90 bg-fuchsia-100 text-fuchsia-900 dark:border-fuchsia-400/35 dark:bg-fuchsia-500/20 dark:text-fuchsia-100",
+      label: "text-fuchsia-900 dark:text-fuchsia-100",
     };
   }
   if (key === "CANCELADA") {

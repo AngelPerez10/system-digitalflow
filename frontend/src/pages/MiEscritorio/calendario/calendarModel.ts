@@ -82,7 +82,7 @@ export type CalendarItem = {
 
 export function normalizeStatus(raw: string | null | undefined): ItemStatus {
   const s = String(raw || "").trim().toLowerCase();
-  if (s === "resuelto" || s === "cerrado") return "resuelto";
+  if (s === "resuelto" || s === "cerrado" || s === "saldo_pendiente") return "resuelto";
   if (s === "pausado") return "pausado";
   if (s === "cancelada" || s === "cancelado") return "cancelada";
   return "pendiente";

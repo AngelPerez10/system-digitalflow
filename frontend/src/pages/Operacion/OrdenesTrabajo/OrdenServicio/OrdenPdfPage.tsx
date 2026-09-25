@@ -201,7 +201,9 @@ export default function OrdenPdfPage() {
       ? { label: "Resuelta", dot: "bg-[#04724D] dark:bg-[#4ADE80]", chip: "bg-[#E9F8F0] text-[#04724D] dark:bg-[#0F2A1C] dark:text-[#4ADE80]" }
       : statusKey === "cancelada"
         ? { label: "Cancelada", dot: "bg-[#C22B2B] dark:bg-[#F87171]", chip: "bg-[#FEF2F2] text-[#C22B2B] dark:bg-[#3F1518] dark:text-[#F87171]" }
-        : statusKey === "pausado"
+        : statusKey === "saldo_pendiente"
+          ? { label: "Saldo pendiente", dot: "bg-[#A21CAF] dark:bg-[#E879F9]", chip: "bg-[#FDF4FF] text-[#86198F] dark:bg-[#3B0A45] dark:text-[#F5D0FE]" }
+          : statusKey === "pausado"
           ? { label: "Pausada", dot: "bg-[#71717A] dark:bg-[#8EA0B8]", chip: "bg-[#F4F4F5] text-[#3F3F46] dark:bg-[#1B2539] dark:text-[#D6DEEA]" }
           : statusKey === "pendiente"
             ? { label: "Pendiente", dot: "bg-[#D97706] dark:bg-[#E6A23C]", chip: "bg-[#FFF8EB] text-[#8A5A10] dark:bg-[rgba(230,162,60,0.12)] dark:text-[#F0C675]" }

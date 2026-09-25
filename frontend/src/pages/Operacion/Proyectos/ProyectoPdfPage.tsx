@@ -124,6 +124,7 @@ const CONTENT_CHIPS = [
 const STATUS_LABEL: Record<string, string> = {
   en_proceso: "En proceso",
   pausado: "Pausado",
+  saldo_pendiente: "Saldo pendiente",
   cerrado: "Cerrado",
 };
 
