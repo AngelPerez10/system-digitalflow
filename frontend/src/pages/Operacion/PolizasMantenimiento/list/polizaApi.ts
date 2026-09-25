@@ -1,6 +1,6 @@
 import { fetchApi } from "@/config/api";
-import { computePolizaEstado, TIPO_CCTV, TIPO_LABEL } from "./polizaDemoData";
-import { parseIntervaloMeses, POLIZA_INTERVALO_DEFAULT, inferIntervaloMeses } from "../shared/polizaVisitas";
+import { computePolizaEstado, TIPO_CCTV, TIPO_LABEL } from "./polizaEstado";
+import { MAX_VISITAS, normalizarVisitas } from "../shared/polizaVisitas";
 import type { PolizaAltaValues, PolizaRow, PolizaTipo } from "./polizaListTypes";
 
 export type ApiPoliza = {
@@ -15,10 +15,10 @@ export type ApiPoliza = {
   equipos_atendidos: string;
   cotizacion_id: number | null;
   cotizacion_folio: string;
-  intervalo_meses: number | null;
   fecha1: string | null;
   fecha2: string | null;
   fecha3: string | null;
+  fecha4?: string | null;
 };
 
 export type PolizaApiError = {
@@ -45,52 +45,26 @@ export function isPolizaApiError(err: unknown): err is PolizaApiError {
   return Boolean(err && typeof err === "object" && "status" in err && "message" in err);
 }
 
-function isoDate(value: string | null | undefined): string {
-  return String(value || "").slice(0, 10);
-}
-
-function asTipo(value: string | null | undefined): PolizaTipo {
-  return value === "cctv" ? TIPO_CCTV : TIPO_CCTV;
-}
-
 export function mapApiPoliza(row: ApiPoliza): PolizaRow {
-  const tipo = asTipo(row.tipo);
-  const fecha1 = isoDate(row.fecha1);
-  const fecha2 = isoDate(row.fecha2);
-  const intervaloMeses =
-    row.intervalo_meses === 2 || row.intervalo_meses === 4
-      ? parseIntervaloMeses(row.intervalo_meses)
-      : fecha1 && fecha2
-        ? inferIntervaloMeses(fecha1, fecha2)
-        : POLIZA_INTERVALO_DEFAULT;
-  const values: PolizaAltaValues = {
-    clienteId: row.cliente_id != null ? String(row.cliente_id) : "",
-    tipo,
-    servicioTipo: row.servicio_tipo || "",
-    equiposAtendidos: row.equipos_atendidos || "",
-    cotizacionId: row.cotizacion_id != null ? String(row.cotizacion_id) : "",
-    intervaloMeses,
-    fecha1,
-    fecha2,
-    fecha3: isoDate(row.fecha3),
-  };
+  // Hoy solo existe CCTV; cualquier otro valor se trata igual.
+  const tipo: PolizaTipo = TIPO_CCTV;
+  const visitas = normalizarVisitas(
+    [row.fecha1, row.fecha2, row.fecha3, row.fecha4].map((f) => String(f || "").slice(0, 10)),
+  );
   return {
     id: row.id,
     idx: row.idx,
     folio: row.folio,
-    clienteId: values.clienteId,
+    clienteId: row.cliente_id != null ? String(row.cliente_id) : "",
     cliente: row.cliente_nombre || "Cliente",
     tipo,
     tipoLabel: row.tipo_label || TIPO_LABEL[tipo],
-    servicioTipo: values.servicioTipo,
-    equiposAtendidos: values.equiposAtendidos,
-    cotizacionId: values.cotizacionId,
+    servicioTipo: row.servicio_tipo || "",
+    equiposAtendidos: row.equipos_atendidos || "",
+    cotizacionId: row.cotizacion_id != null ? String(row.cotizacion_id) : "",
     cotizacionFolio: row.cotizacion_folio || "—",
-    intervaloMeses: values.intervaloMeses,
-    fecha1: values.fecha1,
-    fecha2: values.fecha2,
-    fecha3: values.fecha3,
-    estado: computePolizaEstado(values),
+    visitas,
+    estado: computePolizaEstado(visitas),
   };
 }
 
@@ -101,16 +75,17 @@ function unwrapList(data: unknown): ApiPoliza[] {
 }
 
 export function payloadFromValues(values: PolizaAltaValues): Record<string, unknown> {
+  const visitas = normalizarVisitas(values.visitas);
   return {
     cliente_id: Number(values.clienteId),
     tipo: values.tipo || TIPO_CCTV,
     servicio_tipo: values.servicioTipo,
     equipos_atendidos: values.equiposAtendidos,
     cotizacion_id: Number(values.cotizacionId),
-    intervalo_meses: values.intervaloMeses,
-    fecha1: values.fecha1,
-    fecha2: values.fecha2,
-    fecha3: values.fecha3,
+    // fecha1..fecha4 en orden; las que sobran van en null para limpiar las anteriores.
+    ...Object.fromEntries(
+      Array.from({ length: MAX_VISITAS }, (_, i) => [`fecha${i + 1}`, visitas[i] || null]),
+    ),
   };
 }
 

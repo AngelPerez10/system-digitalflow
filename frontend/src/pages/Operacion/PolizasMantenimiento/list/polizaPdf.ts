@@ -1,81 +1,17 @@
-import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
-import type { PolizaAltaValues, PolizaRow } from "./polizaListTypes";
+import type { PolizaRow } from "./polizaListTypes";
 
-export function buildPolizaPdfSearch(opts: {
-  id?: number;
-  tipo?: string;
-  folio: string;
-  cliente?: string;
-  clienteId?: string;
-  servicioTipo?: string;
-  equiposAtendidos?: string;
-  intervaloMeses?: number;
-  cotizacionId?: string;
-  cotizacionFolio?: string;
-  fecha1?: string;
-  fecha2?: string;
-  fecha3?: string;
-}): string {
-  const params = new URLSearchParams();
-  params.set("tipo", opts.tipo || "cctv");
-  if (opts.id && opts.id > 0) params.set("id", String(opts.id));
-  if (opts.folio) params.set("folio", opts.folio);
-  if (opts.cliente) params.set("cliente", opts.cliente);
-  if (opts.clienteId && /^\d+$/.test(opts.clienteId)) params.set("cliente_id", opts.clienteId);
-  if (opts.cotizacionId && /^\d+$/.test(opts.cotizacionId)) {
-    params.set("cotizacion_id", opts.cotizacionId);
-  }
-  if (opts.cotizacionFolio && opts.cotizacionFolio !== "—") {
-    params.set("cotizacion", opts.cotizacionFolio);
-  }
-  if (opts.servicioTipo) params.set("servicio_tipo", opts.servicioTipo);
-  if (opts.equiposAtendidos) params.set("equipos_atendidos", opts.equiposAtendidos);
-  if (opts.intervaloMeses === 2 || opts.intervaloMeses === 4) {
-    params.set("intervalo_meses", String(opts.intervaloMeses));
-  }
-  if (opts.fecha1) params.set("v1", opts.fecha1);
-  if (opts.fecha2) params.set("v2", opts.fecha2);
-  if (opts.fecha3) params.set("v3", opts.fecha3);
-  return params.toString();
-}
-
+/** Query de la vista previa PDF; con `id` el backend usa la póliza guardada. */
 export function polizaPdfSearchFromRow(row: PolizaRow): string {
-  return buildPolizaPdfSearch({
-    id: row.id,
-    tipo: row.tipo,
-    folio: row.folio,
-    cliente: row.cliente,
-    clienteId: row.clienteId,
-    servicioTipo: row.servicioTipo,
-    equiposAtendidos: row.equiposAtendidos,
-    intervaloMeses: row.intervaloMeses,
-    cotizacionId: row.cotizacionId,
-    cotizacionFolio: row.cotizacionFolio,
-    fecha1: row.fecha1,
-    fecha2: row.fecha2,
-    fecha3: row.fecha3,
-  });
-}
-
-export function polizaPdfSearchFromDraft(opts: {
-  folio: string;
-  values: PolizaAltaValues;
-  clienteLabel?: string;
-}): string {
-  return buildPolizaPdfSearch({
-    tipo: opts.values.tipo,
-    folio: opts.folio || formatDocumentFolio(FOLIO_SERIE.poliza, 10001),
-    cliente: opts.clienteLabel,
-    clienteId: opts.values.clienteId,
-    servicioTipo: opts.values.servicioTipo,
-    equiposAtendidos: opts.values.equiposAtendidos,
-    intervaloMeses: opts.values.intervaloMeses,
-    cotizacionId: opts.values.cotizacionId,
-    cotizacionFolio: opts.values.cotizacionId
-      ? formatDocumentFolio(FOLIO_SERIE.cotizacion, opts.values.cotizacionId)
-      : undefined,
-    fecha1: opts.values.fecha1,
-    fecha2: opts.values.fecha2,
-    fecha3: opts.values.fecha3,
-  });
+  const params = new URLSearchParams();
+  params.set("tipo", row.tipo || "cctv");
+  if (row.id > 0) params.set("id", String(row.id));
+  if (row.folio) params.set("folio", row.folio);
+  if (row.cliente) params.set("cliente", row.cliente);
+  if (/^\d+$/.test(row.clienteId)) params.set("cliente_id", row.clienteId);
+  if (/^\d+$/.test(row.cotizacionId)) params.set("cotizacion_id", row.cotizacionId);
+  if (row.cotizacionFolio && row.cotizacionFolio !== "—") params.set("cotizacion", row.cotizacionFolio);
+  if (row.servicioTipo) params.set("servicio_tipo", row.servicioTipo);
+  if (row.equiposAtendidos) params.set("equipos_atendidos", row.equiposAtendidos);
+  row.visitas.slice(0, 4).forEach((fecha, i) => params.set(`v${i + 1}`, fecha));
+  return params.toString();
 }

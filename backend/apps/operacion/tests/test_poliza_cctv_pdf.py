@@ -52,7 +52,7 @@ class PolizaCctvPlantillaTests(SimpleTestCase):
         self.assertIn("POL-10001", html)
         self.assertIn("MCT LOGISTIC", html)
         self.assertIn("Cotización No. 10261", html)
-        self.assertIn("Cada 2 meses (3 visitas al año)", html)
+        self.assertIn("3 visitas al año", html)
         self.assertIn("18/08/2026", html)
         self.assertIn("18/10/2026", html)
         self.assertIn("18/12/2026", html)
@@ -60,6 +60,22 @@ class PolizaCctvPlantillaTests(SimpleTestCase):
         cal_idx = html.find("1er Mantenimiento")
         self.assertGreater(cal_idx, 0)
         self.assertIn("18/08/2026", html[cal_idx:])
+
+    def test_calendario_admite_cuarta_visita_el_mismo_dia(self):
+        params = QueryDict(mutable=True)
+        params.update(
+            {
+                "folio": "POL-10001",
+                "v1": "2026-08-18",
+                "v2": "2026-08-18",
+                "v3": "2026-10-18",
+                "v4": "2026-12-18",
+            }
+        )
+        html = generate_poliza_cctv_pdf_html(overlay_from_query(params))
+        self.assertIn("4 visitas al año", html)
+        self.assertIn("4to Mantenimiento", html)
+        self.assertIn("18/12/2026", html[html.find("4to Mantenimiento"):])
 
     def test_xml_incluye_folio_y_cliente(self):
         xml = generate_poliza_cctv_xml(

@@ -1,8 +1,9 @@
-import type { PolizaIntervaloMeses } from "../shared/polizaVisitas";
-
 export type PolizaTipo = "cctv";
 
 export type PolizaEstado = "vigente" | "proxima_visita" | "vencida";
+
+/** Filtro del listado: un estado o todas. */
+export type PolizaEstadoFiltro = "todas" | PolizaEstado;
 
 export type PolizaAltaValues = {
   clienteId: string;
@@ -11,10 +12,8 @@ export type PolizaAltaValues = {
   servicioTipo: string;
   equiposAtendidos: string;
   cotizacionId: string;
-  intervaloMeses: PolizaIntervaloMeses;
-  fecha1: string;
-  fecha2: string;
-  fecha3: string;
+  /** Fechas ISO (YYYY-MM-DD) de 1 a 4 visitas; pueden repetirse. */
+  visitas: string[];
 };
 
 export type PolizaRow = {
@@ -29,10 +28,8 @@ export type PolizaRow = {
   equiposAtendidos: string;
   cotizacionId: string;
   cotizacionFolio: string;
-  intervaloMeses: PolizaIntervaloMeses;
-  fecha1: string;
-  fecha2: string;
-  fecha3: string;
+  /** Visitas en orden cronológico. */
+  visitas: string[];
   estado: PolizaEstado;
 };
 

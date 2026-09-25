@@ -78,14 +78,6 @@ def overlay_from_cliente(cliente) -> dict:
     return data
 
 
-def _parse_intervalo_meses(raw) -> int:
-    try:
-        intervalo = int(str(raw or "").strip() or 4)
-    except (TypeError, ValueError):
-        intervalo = 4
-    return 2 if intervalo == 2 else 4
-
-
 def overlay_from_query(params) -> dict:
     """Cubre folio/cliente/cotización/visitas del listado sobre la plantilla CCTV."""
     folio = _clean_text(params.get("folio"), 32)
@@ -93,8 +85,7 @@ def overlay_from_query(params) -> dict:
     cotizacion = _clean_text(params.get("cotizacion"), 32)
     servicio_tipo = _clean_text(params.get("servicio_tipo"), 255)
     equipos_atendidos = _clean_text(params.get("equipos_atendidos"), 255)
-    intervalo_meses = _parse_intervalo_meses(params.get("intervalo_meses"))
-    visitas = [_clean_text(params.get(key), 10) for key in ("v1", "v2", "v3")]
+    visitas = [_clean_text(params.get(key), 10) for key in ("v1", "v2", "v3", "v4")]
     visitas = [v for v in visitas if v]
 
     data: dict = {}
@@ -129,12 +120,10 @@ def overlay_from_query(params) -> dict:
         servicio_changed = True
     if visitas:
         fechas = ", ".join(_format_iso_date(v) for v in visitas)
-        servicio["frecuencia"] = (
-            f"Cada {intervalo_meses} meses (3 visitas al año): {fechas}"
-        )
+        n = len(visitas)
+        servicio["frecuencia"] = f"{n} visita{'s' if n != 1 else ''} al año: {fechas}"
         servicio_changed = True
         data["visitas"] = [_format_iso_date(v) for v in visitas]
-        data["intervalo_meses"] = intervalo_meses
     if servicio_changed:
         data["servicio"] = servicio
     raw_cot_id = str(params.get("cotizacion_id") or "").strip()
@@ -171,19 +160,15 @@ def _apply_cotizacion_overlay(data: dict, cotizacion) -> dict:
 
 def overlay_from_poliza(poliza: PolizaMantenimiento) -> dict:
     """Overlay desde la póliza guardada (fuente de verdad, no query string)."""
-    visitas = []
-    for attr in ("fecha1", "fecha2", "fecha3"):
-        value = getattr(poliza, attr, None)
-        if value:
-            visitas.append(value.isoformat())
+    visitas = [f.isoformat() for f in poliza.visitas]
     params = {
         "folio": poliza.folio or "",
         "cliente": poliza.cliente_nombre or "",
         "cotizacion": poliza.cotizacion_folio or "",
-        "intervalo_meses": str(getattr(poliza, "intervalo_meses", 4) or 4),
         "v1": visitas[0] if len(visitas) > 0 else "",
         "v2": visitas[1] if len(visitas) > 1 else "",
         "v3": visitas[2] if len(visitas) > 2 else "",
+        "v4": visitas[3] if len(visitas) > 3 else "",
     }
     data = overlay_from_query(params)
     data.update(overlay_from_cliente(getattr(poliza, "cliente", None)))

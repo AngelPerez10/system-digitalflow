@@ -679,6 +679,12 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
             return f"<td class='date'>{esc(visit_list[index])}</td>"
         return "<td class='date'><span class='blank'></span></td>"
 
+    # De 1 a 4 visitas; al menos 3 columnas para que la plantilla en blanco siga útil.
+    ordinales = ("1er", "2do", "3er", "4to")
+    n_columnas = min(len(ordinales), max(3, len(visit_list)))
+    calendario_th = "".join(f"<th>{ordinales[i]} Mantenimiento</th>" for i in range(n_columnas))
+    calendario_td = "".join(_fecha_cell(i) for i in range(n_columnas))
+
     correo_cli = str(p.get("cliente_correo") or "").strip()
     web_cli = str(p.get("cliente_web") or "").strip()
     correo_linea = " | ".join(part for part in (correo_cli, web_cli) if part)
@@ -704,14 +710,8 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
         "clasificará como MANTENIMIENTO CORRECTIVO y generará un costo adicional, "
         "el cual será cotizado y acordado con el cliente previamente a su ejecución."
     )
-    try:
-        intervalo_meses = int(p.get("intervalo_meses") or 0)
-    except (TypeError, ValueError):
-        intervalo_meses = 0
-    if intervalo_meses not in (2, 4):
-        intervalo_meses = 4
     calendario_intro = (
-        f"{marca} recomienda realizar el mantenimiento preventivo cada {intervalo_meses} meses, "
+        f"{marca} recomienda realizar el mantenimiento preventivo de forma periódica, "
         "con el objetivo de garantizar el correcto funcionamiento de los equipos "
         "de videovigilancia y prolongar su vida útil. Las fechas programadas serán "
         "acordadas con el cliente:"
@@ -983,18 +983,14 @@ def generate_poliza_cctv_pdf_html(data: dict[str, Any] | None = None) -> str:
     <thead>
       <tr>
         <th>Visita</th>
-        <th>1er Mantenimiento</th>
-        <th>2do Mantenimiento</th>
-        <th>3er Mantenimiento</th>
+        {calendario_th}
         <th>Observaciones</th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td>Año 1</td>
-        {_fecha_cell(0)}
-        {_fecha_cell(1)}
-        {_fecha_cell(2)}
+        {calendario_td}
         <td></td>
       </tr>
     </tbody>

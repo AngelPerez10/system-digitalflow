@@ -248,13 +248,20 @@ def escanear_polizas_proximas(dias_aviso: int = 7) -> int:
     for p in PolizaMantenimiento.objects.all():
         folio = (p.folio or '').strip() or f"#{p.idx or p.pk}"
         cliente = (p.cliente_nombre or '').strip()
-        for num, fecha in enumerate((p.fecha1, p.fecha2, p.fecha3), start=1):
-            if not fecha or not (hoy <= fecha <= limite):
-                continue
+        # Varias visitas pueden caer el mismo día: un aviso por fecha que las nombra todas.
+        por_fecha: dict = {}
+        for num, fecha in enumerate(p.visitas, start=1):
+            if hoy <= fecha <= limite:
+                por_fecha.setdefault(fecha, []).append(num)
+        for fecha, nums in por_fecha.items():
             faltan = (fecha - hoy).days
             cuando = 'hoy' if faltan == 0 else f'en {faltan} día(s)'
+            if len(nums) == 1:
+                que = f'mantenimiento {nums[0]}'
+            else:
+                que = 'mantenimientos ' + ', '.join(map(str, nums[:-1])) + f' y {nums[-1]}'
             cuerpo = ' · '.join(
-                x for x in (folio, cliente, f'mantenimiento {num} {cuando} ({fecha:%d/%m/%Y})') if x
+                x for x in (folio, cliente, f'{que} {cuando} ({fecha:%d/%m/%Y})') if x
             )
             for did in staff:
                 if crear_notificacion(

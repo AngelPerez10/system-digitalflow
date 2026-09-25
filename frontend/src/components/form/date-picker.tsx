@@ -19,6 +19,8 @@ type PropsType = {
   disabled?: boolean;
   required?: boolean;
   error?: string;
+  /** Formato de flatpickr para mostrar y leer la fecha (p. ej. "d/m/Y"). Default "Y-m-d". */
+  dateFormat?: string;
 };
 
 const PORTAL_ID = "flatpickr-portal";
@@ -107,6 +109,7 @@ export default function DatePicker({
   disabled = false,
   required = false,
   error = "",
+  dateFormat = "Y-m-d",
 }: PropsType) {
   const instanceRef = useRef<FlatpickrInstance | null>(null);
   const calendarElRef = useRef<HTMLElement | null>(null);
@@ -145,7 +148,7 @@ export default function DatePicker({
       appendTo: appendTarget,
       monthSelectorType: "static",
       locale: Spanish,
-      dateFormat: "Y-m-d",
+      dateFormat,
       defaultDate,
       // En móvil flatpickr inyecta un <input type="date"> nativo además del input
       // estilizado; con React ambos quedan visibles (doble caja). Usar siempre el UI de flatpickr.
@@ -205,7 +208,7 @@ export default function DatePicker({
         calendarElRef.current = null;
       }
     };
-  }, [mode, id, appendToBody, defaultDate]);
+  }, [mode, id, appendToBody, defaultDate, dateFormat]);
 
   useEffect(() => {
     if (!instanceRef.current) return;

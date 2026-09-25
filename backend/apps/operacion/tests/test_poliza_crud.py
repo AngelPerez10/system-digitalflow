@@ -129,6 +129,44 @@ class PolizaMantenimientoCrudTests(APITestCase):
         res = self.client.post(LIST_URL, payload, format="json")
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_visitas_libres_mismo_dia_y_hasta_cuatro(self):
+        self._auth_admin()
+        payload = {
+            **self.payload,
+            "fecha1": "2026-04-20",
+            "fecha2": "2026-04-20",
+            "fecha3": "2026-06-01",
+            "fecha4": "2026-12-01",
+        }
+        res = self.client.post(LIST_URL, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(res.data["fecha4"], "2026-12-01")
+        poliza = PolizaMantenimiento.objects.get(pk=res.data["id"])
+        self.assertEqual(len(poliza.visitas), 4)
+
+    def test_una_sola_visita_es_valida(self):
+        self._auth_admin()
+        payload = {**self.payload, "fecha2": None, "fecha3": None}
+        res = self.client.post(LIST_URL, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertIsNone(res.data["fecha2"])
+
+    def test_rechaza_huecos_entre_visitas(self):
+        self._auth_admin()
+        payload = {**self.payload, "fecha2": None, "fecha3": "2026-12-20"}
+        res = self.client.post(LIST_URL, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("fecha2", res.data)
+
+    def test_rechaza_visitas_a_mas_de_un_anio(self):
+        self._auth_admin()
+        payload = {**self.payload, "fecha3": "2027-04-21"}
+        res = self.client.post(LIST_URL, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        payload["fecha3"] = "2027-04-20"
+        res = self.client.post(LIST_URL, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+
     def test_search_filtra_por_cliente(self):
         self._auth_admin()
         self.client.post(LIST_URL, self.payload, format="json")

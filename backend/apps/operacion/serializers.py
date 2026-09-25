@@ -693,6 +693,35 @@ def cotizacion_pertenece_al_cliente(cotizacion, cliente) -> bool:
     return bool(cot_nombre and cli_nombre and cot_nombre == cli_nombre)
 
 
+def _un_anio_despues(fecha):
+    try:
+        return fecha.replace(year=fecha.year + 1)
+    except ValueError:  # 29 de febrero
+        return fecha.replace(year=fecha.year + 1, day=28)
+
+
+def _validar_visitas_poliza(fechas: list) -> None:
+    """Visitas de la póliza: 1 a 4, sin huecos, en orden (se permite el mismo día)
+    y dentro de 12 meses desde la primera."""
+    visitas = [f for f in fechas if f is not None]
+    if fechas[: len(visitas)] != visitas:
+        faltante = PolizaMantenimiento.VISITA_FIELDS[fechas.index(None)]
+        raise serializers.ValidationError(
+            {faltante: "Captura las visitas en orden, sin dejar huecos."}
+        )
+    if not visitas:
+        raise serializers.ValidationError({"fecha1": "Indica al menos una visita."})
+    for anterior, siguiente in zip(visitas, visitas[1:]):
+        if siguiente < anterior:
+            raise serializers.ValidationError(
+                {"fecha2": "Las visitas deben ir en orden cronológico."}
+            )
+    if visitas[-1] > _un_anio_despues(visitas[0]):
+        raise serializers.ValidationError(
+            {"fecha1": "Las visitas deben caer dentro de 12 meses desde la primera."}
+        )
+
+
 class PolizaMantenimientoSerializer(serializers.ModelSerializer):
     cliente_id = serializers.PrimaryKeyRelatedField(
         source="cliente",
@@ -725,6 +754,7 @@ class PolizaMantenimientoSerializer(serializers.ModelSerializer):
             "fecha1",
             "fecha2",
             "fecha3",
+            "fecha4",
             "creado_por",
             "creado_por_username",
             "created_at",
@@ -748,8 +778,9 @@ class PolizaMantenimientoSerializer(serializers.ModelSerializer):
             "equipos_atendidos": {"required": False, "allow_blank": True},
             "intervalo_meses": {"required": False, "default": 4},
             "fecha1": {"required": True, "allow_null": False},
-            "fecha2": {"required": True, "allow_null": False},
-            "fecha3": {"required": True, "allow_null": False},
+            "fecha2": {"required": False, "allow_null": True},
+            "fecha3": {"required": False, "allow_null": True},
+            "fecha4": {"required": False, "allow_null": True},
         }
 
     def get_tipo_label(self, obj: PolizaMantenimiento) -> str:
@@ -806,13 +837,11 @@ class PolizaMantenimientoSerializer(serializers.ModelSerializer):
                     {"cotizacion_id": "La cotización no pertenece a este cliente."}
                 )
 
-        fecha1 = attrs.get("fecha1", getattr(instance, "fecha1", None) if instance else None)
-        fecha2 = attrs.get("fecha2", getattr(instance, "fecha2", None) if instance else None)
-        fecha3 = attrs.get("fecha3", getattr(instance, "fecha3", None) if instance else None)
-        if fecha1 and fecha2 and fecha3 and not (fecha1 < fecha2 < fecha3):
-            raise serializers.ValidationError(
-                {"fecha2": "Las visitas deben ir en orden cronológico."}
-            )
+        fechas = [
+            attrs[name] if name in attrs else (getattr(instance, name, None) if instance else None)
+            for name in PolizaMantenimiento.VISITA_FIELDS
+        ]
+        _validar_visitas_poliza(fechas)
         return attrs
 
     def create(self, validated_data):

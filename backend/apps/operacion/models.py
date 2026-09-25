@@ -280,10 +280,13 @@ class PolizaMantenimiento(models.Model):
     )
     cotizacion_folio = models.CharField(max_length=50, blank=True, default="")
 
+    # Recomendación del PDF ("cada N meses"); las fechas ya no se derivan de él.
     intervalo_meses = models.PositiveSmallIntegerField(default=4)
+    # Visitas del año: de 1 a 4, fechas libres (varias pueden caer el mismo día).
     fecha1 = models.DateField(null=True, blank=True)
     fecha2 = models.DateField(null=True, blank=True)
     fecha3 = models.DateField(null=True, blank=True)
+    fecha4 = models.DateField(null=True, blank=True)
 
     creado_por = models.ForeignKey(
         User,
@@ -304,6 +307,13 @@ class PolizaMantenimiento(models.Model):
             models.Index(fields=["folio"], name="operacion_p_folio_7c2e11_idx"),
             models.Index(fields=["cliente_nombre"], name="operacion_p_cliente_9b4d22_idx"),
         ]
+
+    VISITA_FIELDS = ("fecha1", "fecha2", "fecha3", "fecha4")
+
+    @property
+    def visitas(self) -> list:
+        """Fechas de visita capturadas, en orden (1 a 4)."""
+        return [f for f in (getattr(self, name) for name in self.VISITA_FIELDS) if f]
 
     def save(self, *args, **kwargs):
         if not self.idx:
