@@ -150,8 +150,10 @@ export function ordenEsVisibleEnListado(
 
 /**
  * Ordena por prioridad **efectiva** (Alta → Baja → Sin) de forma estable: dentro
- * de cada nivel conserva el orden de entrada (que ya viene por fecha desc).
+ * de cada nivel conserva el orden de entrada (p. ej. folio desc del listado).
  * Usa la prioridad escalada por antigüedad, no solo la base fijada por el admin.
+ * El listado principal de Órdenes ya no aplica este sort; queda disponible para
+ * vistas que sí quieran cola por urgencia.
  */
 export function sortOrdenesByPrioridad<T extends OrdenPrioridadRow>(list: T[], now: number = Date.now()): T[] {
   return list

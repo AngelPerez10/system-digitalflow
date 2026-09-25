@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import Label from "@/components/form/Label";
+import { resolveMediaUrl } from "@/config/api";
 import { cn } from "@/lib/utils";
 import { shouldKeepComboboxFocusAfterCommit } from "./searchableSelectCommit";
 
@@ -30,6 +31,8 @@ export type SearchableSelectOption = {
   description?: string;
   /** Resalta acciones como «Nuevo…» / «Crear…». */
   isAction?: boolean;
+  /** Foto de perfil (técnico, usuario…). Si falta o falla la carga, se usan iniciales. */
+  avatarUrl?: string;
 };
 
 type SearchableSelectProps = {
@@ -95,6 +98,73 @@ function initialFromLabel(label: string): string {
     return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
   }
   return trimmed.slice(0, 2).toUpperCase();
+}
+
+/** Avatar circular en opciones: foto si hay URL válida; si no (o falla), iniciales. Decorativo junto al label. */
+function OptionAvatar({
+  label,
+  avatarUrl,
+  isAction,
+  isSelected,
+  size = "md",
+}: {
+  label: string;
+  avatarUrl?: string;
+  isAction?: boolean;
+  isSelected?: boolean;
+  size?: "sm" | "md";
+}) {
+  const [broken, setBroken] = useState(false);
+  const raw = String(avatarUrl || "").trim();
+  useEffect(() => {
+    setBroken(false);
+  }, [raw]);
+  const src = raw && !broken ? resolveMediaUrl(raw) : "";
+  const showPhoto = Boolean(src) && !isAction;
+  const dim = size === "sm" ? "h-6 w-6 text-[9px]" : "h-8 w-8 text-[11px]";
+
+  if (isAction) {
+    return (
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-full font-semibold tracking-wide",
+          dim,
+          "bg-[rgba(27,92,255,0.12)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.2)] dark:text-[#4B7CFF]",
+        )}
+        aria-hidden
+      >
+        +
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold tracking-wide",
+        dim,
+        showPhoto
+          ? "bg-[#F4F4F5] dark:bg-[#1B2539]"
+          : isSelected
+            ? "bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
+            : "bg-[#EEF2FF] text-[#1B5CFF] dark:bg-[#1E293B] dark:text-[#93B4FF]",
+      )}
+      aria-hidden
+    >
+      {showPhoto ? (
+        <img
+          src={src}
+          alt=""
+          className="size-full object-cover"
+          loading="lazy"
+          decoding="async"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        initialFromLabel(label)
+      )}
+    </span>
+  );
 }
 
 function SearchIcon({ className }: { className?: string }) {
@@ -470,7 +540,6 @@ export default function SearchableSelect({
               visible.map((o, index) => {
                 const isSelected = Boolean(value) && o.value === value;
                 const isActive = index === activeIndex;
-                const avatar = o.isAction ? "+" : initialFromLabel(o.label);
                 return (
                   <button
                     key={o.value}
@@ -488,19 +557,12 @@ export default function SearchableSelect({
                       !isSelected && !isActive && "hover:bg-[#F8FAFC] dark:hover:bg-white/4",
                     )}
                   >
-                    <span
-                      className={cn(
-                        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tracking-wide",
-                        o.isAction
-                          ? "bg-[rgba(27,92,255,0.12)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.2)] dark:text-[#4B7CFF]"
-                          : isSelected
-                            ? "bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
-                            : "bg-[#EEF2FF] text-[#1B5CFF] dark:bg-[#1E293B] dark:text-[#93B4FF]",
-                      )}
-                      aria-hidden
-                    >
-                      {avatar}
-                    </span>
+                    <OptionAvatar
+                      label={o.label}
+                      avatarUrl={o.avatarUrl}
+                      isAction={o.isAction}
+                      isSelected={isSelected}
+                    />
                     <span className="min-w-0 flex-1">
                       <span
                         className={cn(
@@ -567,12 +629,18 @@ export default function SearchableSelect({
       <div className="relative" ref={inputWrapRef}>
         <span
           className={cn(
-            "pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[#A1A1AA] dark:text-[#8EA0B8]",
-            open && "text-[#1B5CFF] dark:text-[#4B7CFF]",
+            "pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2",
+            !selected || open || selected.isAction
+              ? cn("text-[#A1A1AA] dark:text-[#8EA0B8]", open && "text-[#1B5CFF] dark:text-[#4B7CFF]")
+              : null,
           )}
           aria-hidden
         >
-          <SearchIcon className="h-4 w-4" />
+          {!open && selected && !selected.isAction ? (
+            <OptionAvatar label={selected.label} avatarUrl={selected.avatarUrl} isSelected size="sm" />
+          ) : (
+            <SearchIcon className="h-4 w-4" />
+          )}
         </span>
         <input
           ref={inputRef}

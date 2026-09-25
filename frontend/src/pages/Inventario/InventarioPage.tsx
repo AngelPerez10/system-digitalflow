@@ -31,11 +31,10 @@ import InventarioMovimientosList from "./components/InventarioMovimientosList";
 import InventarioPendientesDrawer from "./components/InventarioPendientesDrawer";
 import InventarioPagination from "./components/InventarioPagination";
 import InventarioScanBar from "./components/InventarioScanBar";
-import InventarioSeccionChips from "./components/InventarioSeccionChips";
 import InventarioStats from "./components/InventarioStats";
-import InventarioUbicacionFiltro from "./components/InventarioUbicacionFiltro";
+import InventarioFiltrosPopover from "./components/InventarioFiltrosPopover";
 import { BarcodeIcon, SearchIcon } from "./components/inventarioIcons";
-import { CircleDashed, Clock3 } from "lucide-react";
+import { Clock3, X } from "lucide-react";
 import {
   deleteInventarioItem,
   descartarInventarioPendiente,
@@ -51,7 +50,8 @@ import {
   type PrecioSincronizado,
   sincronizarSeccionesInventario,
 } from "./shared/inventarioApi";
-import type { InventarioSeccionFiltro } from "./shared/inventarioSecciones";
+import { seccionLabel, type InventarioSeccionFiltro } from "./shared/inventarioSecciones";
+import { UBICACION_LABEL } from "./shared/precioMercado";
 import type {
   FacturaProveedor,
   InventarioItem,
@@ -59,7 +59,7 @@ import type {
   InventarioMovimiento,
   InventarioPendiente,
   InventarioStats as InventarioStatsData,
-  InventarioUbicacionFiltro as InventarioUbicacionFiltroValue,
+  InventarioUbicacionFiltro,
   RecepcionLinea,
   ScanModo,
 } from "./shared/inventarioTypes";
@@ -98,7 +98,8 @@ export default function InventarioPage() {
   const [scanning, setScanning] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [seccionFiltro, setSeccionFiltro] = useState<InventarioSeccionFiltro>("todas");
-  const [ubicacionFiltro, setUbicacionFiltro] = useState<InventarioUbicacionFiltroValue>("todas");
+  const [ubicacionFiltro, setUbicacionFiltro] = useState<InventarioUbicacionFiltro>("todas");
+  const [filtrosOpen, setFiltrosOpen] = useState(false);
   const [filterItem, setFilterItem] = useState<InventarioItem | null>(null);
   const [editItem, setEditItem] = useState<InventarioItem | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -141,7 +142,7 @@ export default function InventarioPage() {
     search: string,
     page: number,
     seccion: InventarioSeccionFiltro,
-    ubicacion: InventarioUbicacionFiltroValue,
+    ubicacion: InventarioUbicacionFiltro,
   ) => {
     setItemsLoading(true);
     try {
@@ -309,10 +310,39 @@ export default function InventarioPage() {
     setSearchTerm(value);
   };
 
-  const handleUbicacionFiltro = (next: InventarioUbicacionFiltroValue) => {
+  const handleUbicacionFiltro = (next: InventarioUbicacionFiltro) => {
     setUbicacionFiltro(next);
     setItemsPage(1);
   };
+
+  const handleSeccionFiltro = (next: InventarioSeccionFiltro) => {
+    setSeccionFiltro(next);
+    setItemsPage(1);
+  };
+
+  const limpiarFiltros = () => {
+    setUbicacionFiltro("todas");
+    setSeccionFiltro("todas");
+    setItemsPage(1);
+  };
+
+  /** Filtros aplicados, visibles bajo el buscador para quitarlos de un toque. */
+  const filtrosActivos = [
+    ...(ubicacionFiltro !== "todas"
+      ? [{
+          id: "ubicacion",
+          label: ubicacionFiltro === "sin" ? "Sin ubicación" : UBICACION_LABEL[ubicacionFiltro],
+          quitar: () => handleUbicacionFiltro("todas"),
+        }]
+      : []),
+    ...(seccionFiltro !== "todas"
+      ? [{
+          id: "seccion",
+          label: seccionFiltro === "sin" ? "Sin sección" : seccionLabel(seccionFiltro),
+          quitar: () => handleSeccionFiltro("todas"),
+        }]
+      : []),
+  ];
 
   const handleSelectItem = (item: InventarioItem | null) => {
     setFilterItem(item);
@@ -532,21 +562,6 @@ export default function InventarioPage() {
                     {stats.sin_identificar.toLocaleString("es-MX")} sin identificar
                   </span>
                 ) : null}
-                {stats.sin_ubicacion > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleUbicacionFiltro("sin");
-                      document.getElementById("inventario-items")?.scrollIntoView({ block: "start" });
-                    }}
-                    aria-pressed={ubicacionFiltro === "sin"}
-                    title="Ver los productos sin ubicación"
-                    className="cot-press inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-white/40 px-3.5 text-[13px] font-semibold text-white/90 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                  >
-                    <CircleDashed className="size-3.5" aria-hidden />
-                    {stats.sin_ubicacion.toLocaleString("es-MX")} sin ubicación
-                  </button>
-                ) : null}
               </div>
             </div>
           </header>
@@ -597,42 +612,68 @@ export default function InventarioPage() {
               compact
               className="min-w-0 max-w-full overflow-hidden"
               title="Ítems en inventario"
-              desc="Filtra por ubicación o sección. Toca un producto para ver su historial."
+              desc="Busca o usa Filtros por ubicación y sección. Toca un producto para ver su historial."
             >
-              <div id="inventario-items" className="mb-4 flex min-w-0 scroll-mt-4 flex-col gap-2 lg:flex-row lg:items-center">
-                <label htmlFor="inventario-search" className="sr-only">
-                  Buscar ítems
-                </label>
-                <div className="relative min-w-0 lg:flex-1">
-                  <span
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]"
-                    aria-hidden="true"
-                  >
-                    <SearchIcon className="h-4 w-4" />
-                  </span>
-                  <input
-                    id="inventario-search"
-                    type="search"
-                    value={searchTerm}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    placeholder="Buscar por código, nombre, marca o modelo…"
-                    className={invSearchInputClass}
+              <div className="mb-4 min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <label htmlFor="inventario-search" className="sr-only">
+                    Buscar ítems
+                  </label>
+                  <div className="relative min-w-0 flex-1">
+                    <span
+                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A1A1AA] dark:text-[#64748b]"
+                      aria-hidden="true"
+                    >
+                      <SearchIcon className="h-4 w-4" />
+                    </span>
+                    <input
+                      id="inventario-search"
+                      type="search"
+                      value={searchTerm}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      placeholder="Buscar por código, nombre, marca o modelo…"
+                      className={invSearchInputClass}
+                    />
+                  </div>
+                  <InventarioFiltrosPopover
+                    open={filtrosOpen}
+                    onOpenChange={setFiltrosOpen}
+                    ubicacion={ubicacionFiltro}
+                    onUbicacionChange={handleUbicacionFiltro}
+                    seccion={seccionFiltro}
+                    onSeccionChange={handleSeccionFiltro}
+                    sinUbicacion={stats.sin_ubicacion}
+                    onClear={limpiarFiltros}
                   />
                 </div>
-                <InventarioUbicacionFiltro
-                  value={ubicacionFiltro}
-                  onChange={handleUbicacionFiltro}
-                  sinUbicacion={stats.sin_ubicacion}
-                />
-              </div>
-              <div className="mb-4 min-w-0 max-w-full overflow-hidden">
-                <InventarioSeccionChips
-                  value={seccionFiltro}
-                  onChange={(next) => {
-                    setSeccionFiltro(next);
-                    setItemsPage(1);
-                  }}
-                />
+                {filtrosActivos.length ? (
+                  <ul className="mt-2.5 flex flex-wrap items-center gap-1.5" aria-label="Filtros aplicados">
+                    {filtrosActivos.map((f) => (
+                      <li key={f.id}>
+                        <button
+                          type="button"
+                          onClick={f.quitar}
+                          aria-label={`Quitar filtro: ${f.label}`}
+                          className="cot-fade inline-flex h-8 items-center gap-1 rounded-full border border-[#1B5CFF]/25 bg-[rgba(27,92,255,0.06)] pl-3 pr-2 text-[12.5px] font-medium text-[#1244D1] transition-colors hover:bg-[rgba(27,92,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:border-[#4B7CFF]/30 dark:bg-[rgba(75,124,255,0.12)] dark:text-[#C7D5FF]"
+                        >
+                          {f.label}
+                          <X className="size-3.5" aria-hidden />
+                        </button>
+                      </li>
+                    ))}
+                    {filtrosActivos.length > 1 ? (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={limpiarFiltros}
+                          className="h-8 rounded-full px-2 text-[12.5px] font-semibold text-[#6E6E77] underline-offset-2 hover:text-[#09090B] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:text-[#8EA0B8] dark:hover:text-[#F8FAFC]"
+                        >
+                          Limpiar todo
+                        </button>
+                      </li>
+                    ) : null}
+                  </ul>
+                ) : null}
               </div>
               <InventarioItemsTable
                 items={items}

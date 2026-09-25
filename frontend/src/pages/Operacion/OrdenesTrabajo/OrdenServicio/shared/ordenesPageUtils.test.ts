@@ -3,6 +3,7 @@ import {
   ORDEN_STATUS_CHANGE_RECENT_MS,
   displayOrdenUserName,
   formatIsoDateTime,
+  formatOrdenAbiertaDuracion,
   isOrdenArrastre,
   isOrdenStatusChangeRecent,
   labelMesOrden,
@@ -86,5 +87,32 @@ describe("isOrdenArrastre / labelMesOrden", () => {
 
   it("abrevia el mes para chips angostos", () => {
     expect(labelMesOrdenCorto({ fecha_inicio: "2026-08-05" })).toBe("ago 2026");
+  });
+});
+
+describe("formatOrdenAbiertaDuracion", () => {
+  const now = Date.parse("2026-09-24T12:00:00Z");
+
+  it("muestra horas cuando lleva menos de 72 h", () => {
+    const creado = new Date(now - 48 * 3_600_000).toISOString();
+    expect(formatOrdenAbiertaDuracion(creado, now)).toEqual({
+      label: "48 h",
+      horas: 48,
+      over72: false,
+    });
+  });
+
+  it("muestra días cuando lleva 72 h o más", () => {
+    const creado = new Date(now - 96 * 3_600_000).toISOString();
+    expect(formatOrdenAbiertaDuracion(creado, now)).toEqual({
+      label: "4 d",
+      horas: 96,
+      over72: true,
+    });
+  });
+
+  it("devuelve null sin fecha válida", () => {
+    expect(formatOrdenAbiertaDuracion(null, now)).toBeNull();
+    expect(formatOrdenAbiertaDuracion("", now)).toBeNull();
   });
 });

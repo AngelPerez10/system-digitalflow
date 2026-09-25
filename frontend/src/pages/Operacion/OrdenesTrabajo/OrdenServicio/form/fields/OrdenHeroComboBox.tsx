@@ -15,6 +15,8 @@ export type OrdenComboItem = {
   id: string;
   label: string;
   description?: string;
+  /** Foto de perfil del técnico/usuario (opcional). */
+  avatarUrl?: string;
 };
 
 const ITEM_CLASS =

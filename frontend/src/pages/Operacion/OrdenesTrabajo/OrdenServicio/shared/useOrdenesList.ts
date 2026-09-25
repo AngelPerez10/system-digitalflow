@@ -7,6 +7,7 @@ import {
   type Usuario,
 } from "./ordenesPageTypes";
 import { normalizeStatus } from "./ordenesPageUtils";
+import { sortOrdenesByFolio } from "./ordenFolioSort";
 import {
   EMPTY_ALERT,
   ORDENES_PAGE_INIT_THROTTLE_MS,
@@ -15,9 +16,9 @@ import {
   type AlertVariant,
 } from "./useOrdenesShared";
 
-// variant admin: stats include estrella; shownList sorts fecha_inicio then fecha_creacion.
-// variant tecnico: stats omit estrella (includeEstrella: false); shownList sorts
-//   fecha_creacion||fecha_inicio. Init/throttle stay in each page (shared module var below).
+// variant admin: stats include estrella; shownList sorts by folio (idx desc).
+// variant tecnico: stats omit estrella (includeEstrella: false); same folio sort.
+// Init/throttle stay in each page (shared module var below).
 
 export type OrdenesListVariant = "admin" | "tecnico";
 
@@ -234,32 +235,7 @@ export function useOrdenesList(opts: {
     }
   }, []);
 
-  const sortShownList = useCallback(
-    (list: Orden[]) => {
-      const toTs = (v: unknown) => {
-        if (!v) return 0;
-        const t = Date.parse(String(v));
-        return Number.isFinite(t) ? t : 0;
-      };
-
-      return list.slice().sort((a, b) => {
-        if (variant === "admin") {
-          const ai = toTs(a.fecha_inicio) || 0;
-          const bi = toTs(b.fecha_inicio) || 0;
-          if (bi !== ai) return bi - ai;
-          const ac = toTs(a.fecha_creacion) || 0;
-          const bc = toTs(b.fecha_creacion) || 0;
-          if (bc !== ac) return bc - ac;
-        } else {
-          const at = toTs(a.fecha_creacion || a.fecha_inicio) || 0;
-          const bt = toTs(b.fecha_creacion || b.fecha_inicio) || 0;
-          if (bt !== at) return bt - at;
-        }
-        return Number(b.id || 0) - Number(a.id || 0);
-      });
-    },
-    [variant],
-  );
+  const sortShownList = useCallback((list: Orden[]) => sortOrdenesByFolio(list), []);
 
   /** Filas tras búsqueda + filtros secundarios, sin estado (base de conteos del segmento). */
   const rowsBeforeStatus = useMemo(() => {

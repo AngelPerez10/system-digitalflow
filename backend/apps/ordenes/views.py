@@ -739,8 +739,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     'equipos_inventario',
                 )
                 .order_by(
-                    F('fecha_inicio').desc(nulls_last=True),
-                    F('fecha_creacion').desc(nulls_last=True),
+                    F('idx').desc(nulls_last=True),
                     '-id',
                 )
             )
@@ -771,8 +770,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 )
                 .select_related(*related)
                 .order_by(
-                    F('fecha_inicio').desc(nulls_last=True),
-                    F('fecha_creacion').desc(nulls_last=True),
+                    F('idx').desc(nulls_last=True),
                     '-id',
                 )
             )

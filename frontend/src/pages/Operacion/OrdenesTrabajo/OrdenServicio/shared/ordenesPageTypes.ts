@@ -134,6 +134,8 @@ export interface Usuario {
   last_name: string;
   is_staff?: boolean;
   is_superuser?: boolean;
+  /** Foto de perfil (`permissions_profile.avatar_url` vía tecnico-opciones). */
+  avatar_url?: string | null;
 }
 
 export type OrdenStats = {

@@ -45,9 +45,6 @@ import {
   parseYearMonth,
 } from "./shared/ordenesPageUtils";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
-import {
-  sortOrdenesByPrioridad,
-} from "./shared/ordenPrioridadSections";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { Cliente } from "@/types/cliente";
 import { OrdenDeleteDialog, OrdenDetailModal } from "./shared/OrdenDialogs";
@@ -579,14 +576,10 @@ export default function Ordenes() {
   const startIndex = 0;
   const currentOrdenes = shownList;
   /**
-   * Listado: se conservan las secciones por estado (Pendientes ? Pausados ?
-   * Canceladas → Resueltas) y dentro de cada sección las órdenes se ordenan por
-   * prioridad de bolsa: Alta arriba ? Media ? Baja ? Sin prioridad al final.
+   * Listado: secciones por estado (Pendientes → Pausados → Canceladas → Resueltas).
+   * Dentro de cada sección el orden ya viene por folio (`idx` desc) desde el list hook.
    */
-  const listadoOrdenes = useMemo(
-    () => sortOrdenesByPrioridad(currentOrdenes),
-    [currentOrdenes],
-  );
+  const listadoOrdenes = currentOrdenes;
   const statusSections = useMemo(
     () => groupOrdenesByStatus(listadoOrdenes),
     [listadoOrdenes],

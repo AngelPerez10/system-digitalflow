@@ -1,9 +1,10 @@
 import { useMemo, type MutableRefObject } from "react";
 import DatePicker from "@/components/form/date-picker";
+import SearchableSelect, { type SearchableSelectOption } from "@/components/form/SearchableSelect";
+import { useAutoGrowTextarea } from "@/hooks/useAutoGrowTextarea";
 import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proyectoTypes";
 import LevantamientoForm from "../../../OrdenLevantamiento/LevantamientoForm";
 import OrdenAdminCotizacionesField from "../fields/OrdenAdminCotizacionesField";
-import SearchableSelect, { type SearchableSelectOption } from "@/components/form/SearchableSelect";
 import type { OrdenComboItem } from "../fields/OrdenHeroComboBox";
 import type { OrdenStatusAdministrativo } from "../../shared/ordenesPageTypes";
 import { COMENTARIO_TECNICO_MIN_LENGTH } from "../../shared/ordenesPageTypes";
@@ -97,6 +98,7 @@ export function OrdenDetalleTab({
       prev.comentario_tecnico === next ? prev : { ...prev, comentario_tecnico: next },
     );
   });
+  const comentarioTextareaRef = useAutoGrowTextarea({ value: comentarioField.value });
 
   const servicioOptions = useMemo((): OrdenComboItem[] => {
     const opts: OrdenComboItem[] = serviciosDisponibles.map((s) => ({ id: s, label: s }));
@@ -242,6 +244,7 @@ export function OrdenDetalleTab({
                   return (
                     <>
                       <textarea
+                        ref={comentarioTextareaRef}
                         id={comentarioId}
                         value={comentarioField.value}
                         readOnly={ro("comentario_tecnico")}
@@ -252,7 +255,7 @@ export function OrdenDetalleTab({
                         rows={4}
                         minLength={requiereMinimo ? COMENTARIO_TECNICO_MIN_LENGTH : undefined}
                         aria-describedby={`${comentarioId}-hint`}
-                        className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none dark:border-[#273244] ${inputLockedClass("comentario_tecnico")}`}
+                        className={`w-full min-h-26 max-h-80 resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none dark:border-[#273244] ${inputLockedClass("comentario_tecnico")}`}
                         placeholder={
                           requiereMinimo
                             ? `Observaciones del técnico (mínimo ${COMENTARIO_TECNICO_MIN_LENGTH} caracteres)...`

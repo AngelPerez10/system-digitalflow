@@ -11,14 +11,14 @@
  * transiciones de color; todo se apaga con prefers-reduced-motion.
  */
 import { memo, useState, type CSSProperties, type ReactNode } from "react";
-import { ClipboardList, FileText, Mail, MapPin, MessageSquareText, Pencil, Trash2, Wrench } from "lucide-react";
+import { ArrowUp, ClipboardList, FileText, Mail, MapPin, MessageSquareText, Pencil, Trash2, Wrench } from "lucide-react";
 import { resolveMediaUrl } from "@/config/api";
 import "@/components/ui/modal-kit/motion.css";
 import { StatusChangedByChip } from "../../../shared/StatusChangedByChip";
 import { resolveOrdenStatusFallbackName, resolveStatusChangedByName } from "../../../shared/statusChangedBy";
 import { focusRing, folioText, iconBtn, iconBtnDanger } from "../../../Proyectos/shared/proyectoTokens";
 import type { Orden, Usuario } from "../shared/ordenesPageTypes";
-import { displayOrdenUserName, formatIsoDateTime, isGoogleMapsUrl, isOrdenStatusChangeRecent } from "../shared/ordenesPageUtils";
+import { displayOrdenUserName, formatIsoDateTime, formatOrdenAbiertaDuracion, isGoogleMapsUrl, isOrdenStatusChangeRecent } from "../shared/ordenesPageUtils";
 import { getOrdenPrioridadSectionStyles, ordenPrioridadListBadge } from "../shared/ordenPrioridadSections";
 import type { OrdenPrioridadSectionKey } from "../shared/ordenPrioridadSections";
 import type { OrdenStatusSection, OrdenStatusSectionKey } from "../shared/ordenStatusSections";
@@ -74,14 +74,91 @@ function statusTone(status: string | null | undefined): StatusTone {
    Utilidades de celda
    -------------------------------------------------------------------------- */
 
-function fechaCorta(raw: string | null | undefined): string {
+function fechaIsoDay(raw: string | null | undefined): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw || ""));
-  if (!m) return "—";
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return d
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+}
+
+function fechaCorta(raw: string | null | undefined): string {
+  const iso = fechaIsoDay(raw);
+  if (!iso) return "—";
+  const [y, mo, d] = iso.split("-").map(Number);
+  const date = new Date(y, mo - 1, d);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date
     .toLocaleDateString("es-MX", { day: "numeric", month: "short", ...(sameYear ? {} : { year: "2-digit" }) })
     .replace(/\./g, "");
+}
+
+function horaCorta(raw: string | null | undefined): string {
+  const t = String(raw || "").trim();
+  if (!t) return "";
+  return t.slice(0, 5);
+}
+
+/** Celda Fechas: inicio (fecha + hora) como ancla, fin como renglón secundario. */
+function FechasCell({
+  inicio,
+  hora,
+  fin,
+}: {
+  inicio: string | null | undefined;
+  hora: string | null | undefined;
+  fin: string | null | undefined;
+}) {
+  const inicioLabel = fechaCorta(inicio);
+  const finLabel = fin ? fechaCorta(fin) : null;
+  const horaLabel = horaCorta(hora);
+  const inicioIso = fechaIsoDay(inicio);
+  const finIso = fechaIsoDay(fin);
+  const summary = [
+    inicioLabel !== "—" ? `Inicio ${inicioLabel}${horaLabel ? ` ${horaLabel}` : ""}` : "Sin inicio",
+    finLabel ? `Fin ${finLabel}` : "Sin fin",
+  ].join(". ");
+
+  return (
+    <div className="flex min-w-[7.5rem] flex-col gap-1" title={summary} aria-label={summary}>
+      <div className="flex items-baseline gap-1.5">
+        <span
+          className="w-6 shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A1A1AA] dark:text-[#64748B]"
+          aria-hidden
+        >
+          Ini
+        </span>
+        {inicioIso ? (
+          <time
+            dateTime={inicioIso}
+            className="text-[13px] font-medium tabular-nums text-[#09090B] dark:text-[#F8FAFC]"
+          >
+            {inicioLabel}
+          </time>
+        ) : (
+          <span className="text-[13px] text-[#A1A1AA] dark:text-[#64748B]">—</span>
+        )}
+        {horaLabel ? (
+          <span className="text-[12px] tabular-nums text-[#71717A] dark:text-[#8EA0B8]">{horaLabel}</span>
+        ) : null}
+      </div>
+      <div className="flex items-baseline gap-1.5">
+        <span
+          className="w-6 shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A1A1AA] dark:text-[#64748B]"
+          aria-hidden
+        >
+          Fin
+        </span>
+        {finIso && finLabel ? (
+          <time
+            dateTime={finIso}
+            className="text-[12.5px] tabular-nums text-[#52525B] dark:text-[#B7C1D1]"
+          >
+            {finLabel}
+          </time>
+        ) : (
+          <span className="text-[12.5px] text-[#A1A1AA] dark:text-[#64748B]">Sin fin</span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function initials(name: string): string {
@@ -217,7 +294,7 @@ function DetalleSegment({
 }
 
 /* --------------------------------------------------------------------------
-   Prioridad: indicador de barras + etiqueta
+   Prioridad: barras + etiqueta (sin pastilla) + tiempo abierta debajo.
    -------------------------------------------------------------------------- */
 
 const PRIO_LEVEL: Record<OrdenPrioridadSectionKey, number> = { ALTA: 3, MEDIA: 2, BAJA: 1, SIN: 0 };
@@ -234,35 +311,54 @@ function PrioridadIndicator({
   bar,
   escalada,
   title,
+  ariaLabel,
+  abiertaLabel,
+  abiertaOver72,
 }: {
   keyName: OrdenPrioridadSectionKey;
   label: string;
   bar: string;
   escalada: boolean;
   title: string;
+  ariaLabel: string;
+  abiertaLabel: string | null;
+  abiertaOver72: boolean;
 }) {
   const level = PRIO_LEVEL[keyName];
+  const fullAria = abiertaLabel
+    ? `${ariaLabel}. Lleva ${abiertaLabel.replace(/\s+/g, "")} sin completarse`
+    : ariaLabel;
+  const fullTitle = abiertaLabel
+    ? `${title}. Lleva ${abiertaLabel} sin completarse`
+    : title;
   return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap" title={title}>
-      <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
-        {[1, 2, 3].map((n) => (
-          <span
-            key={n}
-            className={`w-[3px] rounded-[1px] ${n <= level ? bar : "bg-[#E4E4E7] dark:bg-[#273244]"}`}
-            style={{ height: `${4 + n * 3}px` }}
-          />
-        ))}
+    <div className="inline-flex flex-col items-start gap-0.5" title={fullTitle} aria-label={fullAria}>
+      <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-semibold ${PRIO_TEXT[keyName]}`}>
+        <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
+          {[1, 2, 3].map((n) => (
+            <span
+              key={n}
+              className={`w-[2.5px] rounded-[1px] ${n <= level ? bar : "bg-[#E4E4E7] dark:bg-[#273244]"}`}
+              style={{ height: `${4 + n * 2.5}px` }}
+            />
+          ))}
+        </span>
+        {label}
+        {escalada ? <ArrowUp className="size-3 shrink-0 opacity-80" strokeWidth={2.5} aria-hidden /> : null}
       </span>
-      <span className={`text-[12.5px] font-medium ${PRIO_TEXT[keyName]}`}>{label}</span>
-      {escalada ? (
+      {abiertaLabel ? (
         <span
-          className="inline-flex h-[18px] items-center rounded-full bg-[#FEF2F2] px-1.5 text-[10.5px] font-semibold text-[#B42323] ring-1 ring-inset ring-[#F6CFCF] dark:bg-[#3F1518] dark:text-[#F87171] dark:ring-[#7F1D1D]"
-          aria-label="subió por antigüedad"
+          className={`pl-[14px] text-[11px] font-medium tabular-nums ${
+            abiertaOver72
+              ? "text-[#B42323] dark:text-[#F87171]"
+              : "text-[#71717A] dark:text-[#8EA0B8]"
+          }`}
+          aria-hidden
         >
-          ↑ +72 h
+          {abiertaLabel}
         </span>
       ) : null}
-    </span>
+    </div>
   );
 }
 
@@ -349,8 +445,19 @@ const OrdenRow = memo(function OrdenRow({
     </span>
   );
 
+  const abierta = !isTerminal ? formatOrdenAbiertaDuracion(orden.fecha_creacion) : null;
+
   const prioridad = isTerminal ? null : (
-    <PrioridadIndicator keyName={prio.assignedKey} label={prio.visibleLabel} bar={prioTone.dot} escalada={prio.escalada} title={prio.title} />
+    <PrioridadIndicator
+      keyName={prio.assignedKey}
+      label={prio.visibleLabel}
+      bar={prioTone.dot}
+      escalada={prio.escalada}
+      title={prio.title}
+      ariaLabel={prio.ariaLabel}
+      abiertaLabel={abierta?.label ?? null}
+      abiertaOver72={Boolean(abierta?.over72)}
+    />
   );
 
   return (
@@ -462,10 +569,8 @@ const OrdenRow = memo(function OrdenRow({
       </td>
 
       {/* Fechas */}
-      <td className={`${td} ${colFechas} whitespace-nowrap text-[13px] tabular-nums text-[#52525B] dark:text-[#B7C1D1]`}>
-        {fechaCorta(inicio)}
-        {orden.hora_inicio ? <span className="text-[#A1A1AA] dark:text-[#64748B]"> · {String(orden.hora_inicio).slice(0, 5)}</span> : null}
-        <span className={`mt-0.5 block ${muted}`}>{fin ? `Fin ${fechaCorta(fin)}` : "Sin fin"}</span>
+      <td className={`${td} ${colFechas}`}>
+        <FechasCell inicio={inicio} hora={orden.hora_inicio} fin={fin} />
       </td>
 
       {/* Prioridad */}

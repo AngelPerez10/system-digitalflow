@@ -278,17 +278,25 @@ export function OrdenClienteTab({
       id: String(u.id),
       label: usuarioComboLabel(u),
       description: u.email,
+      avatarUrl: String(u.avatar_url || "").trim() || undefined,
     }));
     const labelFor = (id: number | null, fallback: string) => {
       if (id == null) return fallback;
       const u = (usuarios || []).find((row) => Number(row.id) === id);
       return u ? usuarioComboLabel(u) : fallback || `Usuario #${id}`;
     };
+    const avatarFor = (id: number | null) => {
+      if (id == null) return undefined;
+      const u = (usuarios || []).find((row) => Number(row.id) === id);
+      return String(u?.avatar_url || "").trim() || undefined;
+    };
     const inject = (items: OrdenComboItem[], id: number | null, fallbackLabel: string) =>
       withSelectedComboItem(
         items,
         id != null ? String(id) : null,
-        id != null ? { id: String(id), label: labelFor(id, fallbackLabel) } : null,
+        id != null
+          ? { id: String(id), label: labelFor(id, fallbackLabel), avatarUrl: avatarFor(id) }
+          : null,
       );
     return inject(
       inject(
@@ -325,6 +333,7 @@ export function OrdenClienteTab({
       value: item.id,
       label: item.label,
       description: item.description,
+      avatarUrl: item.avatarUrl,
     }));
   }, [tecnicoItems]);
 

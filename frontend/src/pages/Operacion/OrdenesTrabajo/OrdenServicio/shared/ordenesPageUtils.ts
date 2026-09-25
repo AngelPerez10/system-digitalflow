@@ -138,6 +138,25 @@ export function labelMesOrdenCorto(orden: {
   return `${MES_ABREV_ES[parsed.month - 1]} ${parsed.year}`;
 }
 
+/**
+ * Tiempo que la orden lleva abierta (desde `fecha_creacion`).
+ * Menos de 72 h → horas (`48 h`); 72 h o más → días enteros (`4 d`).
+ */
+export function formatOrdenAbiertaDuracion(
+  fechaCreacion: string | null | undefined,
+  now: number = Date.now(),
+): { label: string; horas: number; over72: boolean } | null {
+  const creado = fechaCreacion ? Date.parse(String(fechaCreacion)) : NaN;
+  if (!Number.isFinite(creado) || creado > now) return null;
+  const horas = Math.floor((now - creado) / 3_600_000);
+  if (horas < 0) return null;
+  if (horas >= 72) {
+    const dias = Math.max(1, Math.floor(horas / 24));
+    return { label: `${dias} d`, horas, over72: true };
+  }
+  return { label: `${horas} h`, horas, over72: false };
+}
+
 export function isGoogleMapsUrl(value: string | null | undefined) {
   if (!value) return false;
   const s = String(value).trim();

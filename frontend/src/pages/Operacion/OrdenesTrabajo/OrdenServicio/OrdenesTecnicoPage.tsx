@@ -31,9 +31,6 @@ import { OrdenPdfLoadingModal } from "./list/OrdenPdfLoadingModal";
 import OrdenEnviarPdfModal, { type OrdenEnviarPdfTarget } from "./list/OrdenEnviarPdfModal";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
 import {
-  sortOrdenesByPrioridad,
-} from "./shared/ordenPrioridadSections";
-import {
   handleOrdenPdfClick,
   resolveClienteCorreoSugerido,
   getNowHHMM,
@@ -419,13 +416,10 @@ export default function OrdenesTecnico() {
   const startIndex = 0;
   const currentOrdenes = shownList;
   /**
-   * Mismo criterio que la vista admin: secciones por estado y, dentro de cada
-   * una, orden por prioridad efectiva (Alta → Media → Baja → Sin).
+   * Mismo criterio que la vista admin: secciones por estado; dentro de cada
+   * una el orden ya viene por folio (`idx` desc).
    */
-  const listadoOrdenes = useMemo(
-    () => sortOrdenesByPrioridad(currentOrdenes),
-    [currentOrdenes],
-  );
+  const listadoOrdenes = currentOrdenes;
   const statusSections = useMemo(
     () => groupOrdenesByStatus(listadoOrdenes),
     [listadoOrdenes],
