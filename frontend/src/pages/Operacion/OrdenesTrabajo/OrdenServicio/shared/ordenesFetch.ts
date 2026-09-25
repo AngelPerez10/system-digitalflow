@@ -49,22 +49,45 @@ export async function fetchOrdenesMes(
   mes: string,
   opts: { signal?: AbortSignal; arrastreAbiertas?: boolean } = {},
 ): Promise<Orden[]> {
+  return fetchOrdenesPages(
+    {
+      mes,
+      ...(opts.arrastreAbiertas ? { arrastre_abiertas: "1" } : {}),
+    },
+    opts.signal,
+  );
+}
+
+/**
+ * Búsqueda global (todos los meses). El backend exige ≥2 caracteres en `search`
+ * e ignora `mes`. Paginado igual que {@link fetchOrdenesMes}.
+ */
+export async function fetchOrdenesSearch(
+  query: string,
+  opts: { signal?: AbortSignal } = {},
+): Promise<Orden[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  return fetchOrdenesPages({ search: q }, opts.signal);
+}
+
+async function fetchOrdenesPages(
+  filters: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<Orden[]> {
   const acc: Orden[] = [];
 
   for (let page = 1; page <= MAX_PAGES; page += 1) {
     const params = new URLSearchParams({
-      mes,
+      ...filters,
       page: String(page),
       page_size: String(ORDENES_PAGE_SIZE),
       _ts: String(Date.now()),
     });
-    if (opts.arrastreAbiertas) {
-      params.set("arrastre_abiertas", "1");
-    }
 
     const res = await fetchApi(`/api/ordenes/?${params.toString()}`, {
       cache: "no-store" as RequestCache,
-      ...(opts.signal ? { signal: opts.signal } : {}),
+      ...(signal ? { signal } : {}),
     });
 
     if (!res.ok) {

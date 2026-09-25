@@ -71,6 +71,29 @@ export function proyectoMatchesSearch(row: ProyectoRow, q: string): boolean {
   );
 }
 
+export type ProyectoListFilterOpts = {
+  search: string;
+  selectedMonth: string;
+  secondary: ProyectoSecondaryFilters;
+};
+
+/**
+ * Filtros del listado. Con texto de búsqueda se ignora el mes (y la fecha del
+ * panel) para encontrar clientes/folios de cualquier periodo.
+ */
+export function proyectoPassesListFilters(row: ProyectoRow, opts: ProyectoListFilterOpts): boolean {
+  const q = opts.search.trim();
+  if (!proyectoMatchesSearch(row, opts.search)) return false;
+
+  if (q) {
+    // Búsqueda libre: todos los meses. La fecha del panel acotaría a un día.
+    return proyectoMatchesSecondaryFilters(row, { ...opts.secondary, date: "" });
+  }
+
+  if (opts.selectedMonth && !proyectoRowFecha(row).startsWith(opts.selectedMonth)) return false;
+  return proyectoMatchesSecondaryFilters(row, opts.secondary);
+}
+
 export function proyectoTiposLabels(row: ProyectoRow): string[] {
   const tipos = row.draft?.tiposTrabajo;
   if (Array.isArray(tipos) && tipos.length > 0) {

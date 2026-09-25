@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/config/api", () => ({ fetchApi: vi.fn() }));
 
 import { fetchApi } from "@/config/api";
-import { fetchOrdenesMes, OrdenesFetchError } from "./ordenesFetch";
+import { fetchOrdenesMes, fetchOrdenesSearch, OrdenesFetchError } from "./ordenesFetch";
 
 const mockFetchApi = vi.mocked(fetchApi);
 
@@ -116,5 +116,24 @@ describe("fetchOrdenesMes", () => {
 
     const url = String(mockFetchApi.mock.calls[0]?.[0] ?? "");
     expect(url).not.toContain("arrastre_abiertas");
+  });
+});
+
+describe("fetchOrdenesSearch", () => {
+  it("manda search y no mes", async () => {
+    mockFetchApi.mockResolvedValueOnce(jsonResponse([row(9)]));
+
+    const rows = await fetchOrdenesSearch("MCT");
+
+    expect(rows).toHaveLength(1);
+    const url = String(mockFetchApi.mock.calls[0]?.[0] ?? "");
+    expect(url).toContain("search=MCT");
+    expect(url).not.toContain("mes=");
+  });
+
+  it("con menos de 2 caracteres no llama al API", async () => {
+    const rows = await fetchOrdenesSearch("a");
+    expect(rows).toEqual([]);
+    expect(mockFetchApi).not.toHaveBeenCalled();
   });
 });

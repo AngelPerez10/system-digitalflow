@@ -1,5 +1,6 @@
 import { memo, useId, type CSSProperties } from "react";
 import { Check, Plus, X } from "lucide-react";
+import { useAutoGrowTextarea } from "@/hooks/useAutoGrowTextarea";
 import { formatFechaCorta, localDateKey } from "../../shared/proyectoListUtils";
 import { NOTA_DIA_MIN_CHARS, proyectoNotaDiaFieldId } from "../../shared/proyectoOperacionValidation";
 import { ProgressBar } from "../../shared/ProyectoUi";
@@ -39,6 +40,7 @@ const Dia = memo(function Dia({ item, index, total, fecha, error, minRequired, o
   const hintId = `${fieldId}-hint`;
   const errorId = `${fieldId}-error`;
   const hoy = Boolean(fecha) && fecha === localDateKey();
+  const notaTextareaRef = useAutoGrowTextarea({ value: item.nota });
 
   return (
     <li className="cot-rise relative flex gap-3 pb-5 last:pb-0" style={{ "--cot-i": Math.min(index, 6) } as CSSProperties}>
@@ -87,12 +89,13 @@ const Dia = memo(function Dia({ item, index, total, fecha, error, minRequired, o
           {fecha ? `, ${formatFechaCorta(fecha)}` : ""}. Mínimo {NOTA_DIA_MIN_CHARS} caracteres para cerrar.
         </label>
         <textarea
+          ref={notaTextareaRef}
           id={fieldId}
           value={item.nota}
           onChange={(e) => onChange(index, e.target.value)}
           rows={3}
           placeholder="¿Qué se hizo hoy? Avances, pendientes o hallazgos…"
-          className={`${textarea} mt-2 min-h-[88px] ${error ? inputInvalid : ""}`}
+          className={`${textarea} mt-2 min-h-[88px] max-h-80 resize-none overflow-hidden ${error ? inputInvalid : ""}`}
           aria-required={minRequired || undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${hintId} ${errorId}` : hintId}

@@ -182,7 +182,7 @@ Las rutas de `src/App.tsx` usan **`React.lazy` + `Suspense`** (code splitting po
    - `cd frontend && pnpm exec eslint src/App.tsx src/components/common`
    - `cd frontend && pnpm build` (verificar que la página siga partida en chunks y el entry no crezca)
 
-Deuda pendiente (fase 2): listados de cotizaciones sin virtualización; chunk de ApexCharts (~570 KB) compartido por dashboard y reportes. Órdenes: el listado sigue sin `page`/`page_size`, pero `GET /api/ordenes/` acepta `mes=YYYY-MM`, `tipo_orden=…` y `limit=1–200` (feed liviano) y usa `OrdenListSerializer` (sin fotos/firmas); el detalle (`retrieve`) sigue con el serializer completo. Al editar en FE se hace `GET /api/ordenes/{id}/` antes de abrir el formulario (si se reusara solo la fila del listado, al guardar se podrían borrar firma/fotos). Panel admin: `GET /api/dashboard/stats/` (staff) devuelve agregados mensuales sin dumps.
+Deuda pendiente (fase 2): listados de cotizaciones sin virtualización; chunk de ApexCharts (~570 KB) compartido por dashboard y reportes. Órdenes: el listado sigue sin `page`/`page_size` obligatorio, pero `GET /api/ordenes/` acepta `mes=YYYY-MM`, `search=` (≥2 chars; ignora `mes` y busca folio/cliente/técnico/status en todos los periodos), `tipo_orden=…` y `limit=1–200` (feed liviano) y usa `OrdenListSerializer` (sin fotos/firmas); el detalle (`retrieve`) sigue con el serializer completo. Al editar en FE se hace `GET /api/ordenes/{id}/` antes de abrir el formulario (si se reusara solo la fila del listado, al guardar se podrían borrar firma/fotos). Panel admin: `GET /api/dashboard/stats/` (staff) devuelve agregados mensuales sin dumps.
 
 ### Dependencias (auditoría 2026-06)
 

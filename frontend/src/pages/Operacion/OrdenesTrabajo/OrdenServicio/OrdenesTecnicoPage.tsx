@@ -86,6 +86,7 @@ export default function OrdenesTecnico() {
     monthLoading,
     searchTerm,
     setSearchTerm,
+    searchActive,
     selectedMonth,
     selectMonth,
     filterStatus,
@@ -503,7 +504,12 @@ export default function OrdenesTecnico() {
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar en tus órdenes…"
             className={pageSearchInputClass}
+            aria-label="Buscar en tus órdenes de todos los meses"
+            aria-describedby="ordenes-tecnico-search-hint"
           />
+          <p id="ordenes-tecnico-search-hint" className="sr-only">
+            Con al menos dos caracteres la búsqueda incluye tus órdenes de cualquier mes por folio, cliente o estado.
+          </p>
           {searchTerm && (
             <button
               type="button"
@@ -646,7 +652,14 @@ export default function OrdenesTecnico() {
           <div className="flex flex-col gap-3 border-t border-[#E7E7EA] px-5 py-3.5 dark:border-[#273244] sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]" aria-live="polite">
               {monthLoading ? (
-                <span role="status">Cargando órdenes del mes…</span>
+                <span role="status">
+                  {searchActive ? "Buscando en todos los meses…" : "Cargando órdenes del mes…"}
+                </span>
+              ) : searchActive ? (
+                <>
+                  <span className="font-medium tabular-nums text-[#09090B] dark:text-white">{shownList.length.toLocaleString("es-MX")}</span>{" "}
+                  {shownList.length === 1 ? "orden" : "órdenes"} para «{searchTerm.trim()}» (todos los meses)
+                </>
               ) : (
                 <>
                   <span className="font-medium tabular-nums text-[#09090B] dark:text-white">{shownList.length.toLocaleString("es-MX")}</span>{" "}

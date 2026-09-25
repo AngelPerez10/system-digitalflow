@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { fetchOrdenesMes, OrdenesFetchError } from "./ordenesFetch";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fetchOrdenesMes, fetchOrdenesSearch, OrdenesFetchError } from "./ordenesFetch";
 import {
   computeOrdenStats,
   getCurrentYearMonth,
@@ -15,6 +15,10 @@ import {
   type AlertState,
   type AlertVariant,
 } from "./useOrdenesShared";
+
+/** Mínimo de caracteres para buscar en todos los meses (alineado con el API). */
+export const ORDENES_GLOBAL_SEARCH_MIN = 2;
+const SEARCH_DEBOUNCE_MS = 300;
 
 // variant admin: stats include estrella; shownList sorts by folio (idx desc).
 // variant tecnico: stats omit estrella (includeEstrella: false); same folio sort.
@@ -103,7 +107,8 @@ export function useOrdenesList(opts: {
 
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTermState] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentYearMonth());
   const [filterStatus, setFilterStatus] = useState<OrdenListFilterStatus>("");
   const [filterServicio, setFilterServicio] = useState<string[]>([]);
@@ -118,6 +123,27 @@ export function useOrdenesList(opts: {
   const monthCacheRef = useRef(new Map<string, Orden[]>());
   /** Mes cuyo payload está en `ordenes` (null = aún no hay datos para el mes pedido). */
   const [loadedMonth, setLoadedMonth] = useState<string | null>(null);
+  /** Query cuyo resultado global está en `ordenes` (modo búsqueda todos los meses). */
+  const [loadedSearch, setLoadedSearch] = useState<string | null>(null);
+  const debouncedSearchRef = useRef(debouncedSearch);
+  debouncedSearchRef.current = debouncedSearch;
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [searchTerm]);
+
+  const searchActive = debouncedSearch.length >= ORDENES_GLOBAL_SEARCH_MIN;
+
+  const setSearchTerm = useCallback((value: string | ((prev: string) => string)) => {
+    setSearchTermState((prev) => {
+      const next = typeof value === "function" ? value(prev) : value;
+      if (next.trim() && !prev.trim()) setFilterStatus("");
+      return next;
+    });
+  }, []);
 
   const clearAlert = useCallback(() => {
     if (alertTimerRef.current) {
@@ -141,39 +167,50 @@ export function useOrdenesList(opts: {
 
   const fetchOrdenes = useCallback(async () => {
     const generation = ++fetchGenerationRef.current;
+    const q = debouncedSearch.trim();
+    const globalSearch = q.length >= ORDENES_GLOBAL_SEARCH_MIN;
     const mes = selectedMonth || getCurrentYearMonth();
     const withArrastre = mes === getCurrentYearMonth();
     const cacheKey = withArrastre ? `${mes}:arrastre` : mes;
-    const hadCache = monthCacheRef.current.has(cacheKey);
+    const hadCache = globalSearch ? false : monthCacheRef.current.has(cacheKey);
     try {
       if (!canView) {
         if (generation === fetchGenerationRef.current) {
           setOrdenes([]);
           setLoadedMonth(null);
+          setLoadedSearch(null);
           setLoading(false);
         }
         return;
       }
 
-      // Con cache: no vaciar ni mostrar banner; refrescar en segundo plano.
       if (!hadCache) {
         setLoading(true);
       }
 
-      // Trae el mes completo; con el backend paginado son páginas de 200 que
-      // `fetchOrdenesMes` va concatenando (una sola petición en un mes normal).
-      // Solo el mes calendario actual pide arrastre de pendiente/pausado.
+      const logLabel = variant === "admin" ? "OrdenesPage" : "OrdenesTecnicoPage";
+
+      if (globalSearch) {
+        const rows = await fetchOrdenesSearch(q);
+        if (generation !== fetchGenerationRef.current) return;
+        console.debug(`[${logLabel}] fetchOrdenes search=${q} count=${rows.length}`);
+        setOrdenes(rows);
+        setLoadedMonth(null);
+        setLoadedSearch(q);
+        return;
+      }
+
       const rows = await fetchOrdenesMes(mes, { arrastreAbiertas: withArrastre });
 
       if (generation !== fetchGenerationRef.current) return;
 
-      const logLabel = variant === "admin" ? "OrdenesPage" : "OrdenesTecnicoPage";
       console.debug(
         `[${logLabel}] fetchOrdenes mes=${mes} arrastre=${withArrastre} count=${rows.length}`,
       );
       monthCacheRef.current.set(cacheKey, rows);
       setOrdenes(rows);
       setLoadedMonth(mes);
+      setLoadedSearch(null);
 
       // Prefetch del mes anterior para que “atrás” sea instantáneo (sin arrastre).
       const [yStr, mStr] = mes.split("-");
@@ -205,7 +242,10 @@ export function useOrdenesList(opts: {
       } else {
         console.error("Error al cargar órdenes:", httpStatus || error);
       }
-      if (!monthCacheRef.current.has(cacheKey)) {
+      if (globalSearch) {
+        setOrdenes([]);
+        setLoadedSearch(null);
+      } else if (!monthCacheRef.current.has(cacheKey)) {
         setOrdenes([]);
         setLoadedMonth(null);
       }
@@ -214,23 +254,28 @@ export function useOrdenesList(opts: {
         setLoading(false);
       }
     }
-  }, [canView, variant, selectedMonth]);
+  }, [canView, variant, selectedMonth, debouncedSearch]);
 
   /** Cambia de mes: usa cache si existe (instantáneo) o muestra loading. */
   const selectMonth = useCallback((mes: string) => {
     const next = (mes || "").trim() || getCurrentYearMonth();
+    setSelectedMonth(next);
+    // Con búsqueda global el mes solo aplica al limpiar; no pisar resultados.
+    if (debouncedSearchRef.current.length >= ORDENES_GLOBAL_SEARCH_MIN) return;
+
     fetchGenerationRef.current += 1;
     const withArrastre = next === getCurrentYearMonth();
     const cacheKey = withArrastre ? `${next}:arrastre` : next;
     const cached = monthCacheRef.current.get(cacheKey);
-    setSelectedMonth(next);
     if (cached) {
       setOrdenes(cached);
       setLoadedMonth(next);
+      setLoadedSearch(null);
       setLoading(false);
     } else {
       setOrdenes([]);
       setLoadedMonth(null);
+      setLoadedSearch(null);
       setLoading(true);
     }
   }, []);
@@ -241,7 +286,11 @@ export function useOrdenesList(opts: {
   const rowsBeforeStatus = useMemo(() => {
     if (!Array.isArray(ordenes)) return [];
     const mesPedido = selectedMonth || getCurrentYearMonth();
-    if (loadedMonth !== mesPedido) return [];
+    if (searchActive) {
+      if (loadedSearch !== debouncedSearch) return [];
+    } else if (loadedMonth !== mesPedido) {
+      return [];
+    }
 
     const q = (searchTerm || "").trim().toLowerCase();
     const list = ordenes.filter((o) => {
@@ -249,7 +298,8 @@ export function useOrdenesList(opts: {
       return ordenPassesListFilters(o, {
         status: "",
         servicio: filterServicio,
-        date: filterDate,
+        // La fecha del panel acotaría a un día y contradice “todos los meses”.
+        date: searchActive ? "" : filterDate,
         tecnicoId: filterTecnicoId,
       });
     });
@@ -257,8 +307,11 @@ export function useOrdenesList(opts: {
   }, [
     ordenes,
     loadedMonth,
+    loadedSearch,
     selectedMonth,
     searchTerm,
+    searchActive,
+    debouncedSearch,
     filterServicio,
     filterDate,
     filterTecnicoId,
@@ -284,19 +337,22 @@ export function useOrdenesList(opts: {
     );
   }, [rowsBeforeStatus, filterStatus]);
 
-  const monthLoading =
-    loading || loadedMonth !== (selectedMonth || getCurrentYearMonth());
+  const monthLoading = searchActive
+    ? loading || loadedSearch !== debouncedSearch
+    : loading || loadedMonth !== (selectedMonth || getCurrentYearMonth());
 
   const statsMonthKey = selectedMonth || getCurrentYearMonth();
-  const stats = useMemo(
-    () =>
-      computeOrdenStats(
-        ordenes,
-        statsMonthKey,
-        variant === "tecnico" ? { includeEstrella: false } : undefined,
-      ),
-    [ordenes, statsMonthKey, variant],
-  );
+  const stats = useMemo(() => {
+    const withArrastre = statsMonthKey === getCurrentYearMonth();
+    const cacheKey = withArrastre ? `${statsMonthKey}:arrastre` : statsMonthKey;
+    const monthRows = searchActive ? monthCacheRef.current.get(cacheKey) ?? [] : ordenes;
+    return computeOrdenStats(
+      monthRows,
+      statsMonthKey,
+      variant === "tecnico" ? { includeEstrella: false } : undefined,
+    );
+  }, [ordenes, statsMonthKey, variant, searchActive]);
+
 
   const clearListFilters = useCallback(() => {
     setFilterStatus("");
@@ -341,6 +397,8 @@ export function useOrdenesList(opts: {
     monthLoading,
     searchTerm,
     setSearchTerm,
+    searchActive,
+    debouncedSearch,
     selectedMonth,
     setSelectedMonth,
     selectMonth,

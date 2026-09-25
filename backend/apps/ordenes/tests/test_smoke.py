@@ -247,6 +247,28 @@ class OrdenesListFilterTests(APITestCase):
         self.assertIn("cliente", row)
         self.assertIn("status", row)
 
+    def test_list_search_crosses_months_by_cliente(self):
+        """`search` ignora `mes` y encuentra clientes de cualquier periodo."""
+        response = self.client.get("/api/ordenes/?mes=2026-07&search=Junio")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {row["id"] for row in response.data}
+        self.assertIn(self.junio.id, ids)
+        self.assertNotIn(self.julio.id, ids)
+
+    def test_list_search_by_folio_idx(self):
+        folio_digits = str(self.julio.idx)
+        response = self.client.get(f"/api/ordenes/?search={folio_digits}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {row["id"] for row in response.data}
+        self.assertIn(self.julio.id, ids)
+
+    def test_list_search_too_short_keeps_mes(self):
+        response = self.client.get("/api/ordenes/?mes=2026-07&search=J")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {row["id"] for row in response.data}
+        self.assertIn(self.julio.id, ids)
+        self.assertNotIn(self.junio.id, ids)
+
     def test_retrieve_keeps_heavy_fields(self):
         response = self.client.get(f"/api/ordenes/{self.julio.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)

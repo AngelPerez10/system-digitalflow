@@ -99,6 +99,7 @@ export function OrdenDetalleTab({
     );
   });
   const comentarioTextareaRef = useAutoGrowTextarea({ value: comentarioField.value });
+  const problematicaTextareaRef = useAutoGrowTextarea({ value: problematicaField.value });
 
   const servicioOptions = useMemo((): OrdenComboItem[] => {
     const opts: OrdenComboItem[] = serviciosDisponibles.map((s) => ({ id: s, label: s }));
@@ -190,6 +191,7 @@ export function OrdenDetalleTab({
                   Problemática
                 </label>
                 <textarea
+                  ref={problematicaTextareaRef}
                   id={problematicaId}
                   value={problematicaField.value}
                   readOnly={ro("problematica")}
@@ -198,7 +200,7 @@ export function OrdenDetalleTab({
                   onFocus={problematicaField.onFocus}
                   onBlur={problematicaField.onBlur}
                   rows={3}
-                  className={`w-full resize-none rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none dark:border-[#273244] ${inputLockedClass("problematica")}`}
+                  className={`w-full min-h-20 max-h-80 resize-none overflow-hidden rounded-[10px] border border-[#E7E7EA] px-3.5 py-2.5 text-sm outline-none dark:border-[#273244] ${inputLockedClass("problematica")}`}
                   placeholder="Describe el problema reportado"
                 />
               </div>

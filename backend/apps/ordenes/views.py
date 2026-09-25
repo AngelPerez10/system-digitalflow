@@ -791,14 +791,48 @@ class OrdenViewSet(viewsets.ModelViewSet):
         return qs
 
     def _apply_list_filters(self, qs):
-        """Filtros opcionales de listado: mes=YYYY-MM, tipo_orden=..., arrastre_abiertas=1."""
+        """Filtros opcionales: mes=YYYY-MM, search=…, tipo_orden=…, arrastre_abiertas=1.
+
+        Con `search` (≥2 caracteres) se ignora `mes` y se busca en todos los
+        periodos (folio, cliente, técnico, status).
+        """
         request = getattr(self, 'request', None)
         if request is None:
             return qs
         params = request.query_params
 
         mes = (params.get('mes') or '').strip()
-        if re.match(r'^\d{4}-\d{2}$', mes):
+        search = (params.get('search') or '').strip()
+        # Búsqueda libre (≥2 chars): todos los meses. Folio, cliente, técnico, status.
+        if len(search) >= 2:
+            for term in search.split():
+                term = term.strip()
+                if not term:
+                    continue
+                term_q = (
+                    Q(cliente__icontains=term)
+                    | Q(nombre_cliente__icontains=term)
+                    | Q(folio__icontains=term)
+                    | Q(telefono_cliente__icontains=term)
+                    | Q(status__icontains=term)
+                    | Q(problematica__icontains=term)
+                    | Q(tecnico_asignado__first_name__icontains=term)
+                    | Q(tecnico_asignado__last_name__icontains=term)
+                    | Q(tecnico_asignado__username__icontains=term)
+                    | Q(tecnico_asignado__email__icontains=term)
+                )
+                digits = re.sub(r"\D", "", term)
+                if digits.isdigit():
+                    try:
+                        idx_val = int(digits)
+                    except (TypeError, ValueError):
+                        idx_val = None
+                    if idx_val is not None:
+                        term_q |= Q(idx=idx_val)
+                    if len(digits) >= 3:
+                        term_q |= Q(folio__icontains=digits)
+                qs = qs.filter(term_q)
+        elif re.match(r'^\d{4}-\d{2}$', mes):
             year_s, month_s = mes.split('-')
             year, month = int(year_s), int(month_s)
             if 1 <= month <= 12:

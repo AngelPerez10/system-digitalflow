@@ -37,8 +37,7 @@ import {
 import { computeProyectoStats, createEmptyProyectoDraft, displayProyectoFolio } from "./shared/proyectoFormUtils";
 import {
   countSecondaryProyectoFilters,
-  proyectoMatchesSearch,
-  proyectoMatchesSecondaryFilters,
+  proyectoPassesListFilters,
   proyectoRowFecha,
   proyectoTiposLabels,
   shiftYearMonth,
@@ -220,13 +219,13 @@ export default function ProyectosPage() {
   }, [clearSecondaryFilters]);
 
   const rowsBeforeStatus = useMemo(() => {
-    const q = searchTerm.trim();
-    return rows.filter((r) => {
-      if (!proyectoMatchesSearch(r, searchTerm)) return false;
-      // Con búsqueda libre se muestran coincidencias de cualquier mes (igual que órdenes).
-      if (!q && selectedMonth && !proyectoRowFecha(r).startsWith(selectedMonth)) return false;
-      return proyectoMatchesSecondaryFilters(r, secondaryFilters);
-    });
+    return rows.filter((r) =>
+      proyectoPassesListFilters(r, {
+        search: searchTerm,
+        selectedMonth,
+        secondary: secondaryFilters,
+      })
+    );
   }, [rows, searchTerm, selectedMonth, secondaryFilters]);
 
   const statusCounts = useMemo(() => {
@@ -445,11 +444,20 @@ export default function ProyectosPage() {
             />
             <input
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSearchTerm(next);
+                // Al empezar a buscar, mostrar Todas para no ocultar coincidencias de otro status/mes.
+                if (next.trim() && !searchTerm.trim()) setFilterStatus("");
+              }}
               placeholder="Buscar folio, cliente o cotización…"
               className={pageSearchInputClass}
-              aria-label="Buscar proyectos"
+              aria-label="Buscar proyectos en todos los meses"
+              aria-describedby="proyectos-search-hint"
             />
+            <p id="proyectos-search-hint" className="sr-only">
+              La búsqueda incluye proyectos de cualquier mes. El selector de mes solo aplica cuando el campo está vacío.
+            </p>
             {searchTerm ? (
               <button
                 type="button"

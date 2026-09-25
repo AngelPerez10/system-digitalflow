@@ -4,6 +4,7 @@ import {
   countSecondaryProyectoFilters,
   proyectoIncluyeUsuario,
   proyectoMatchesSecondaryFilters,
+  proyectoPassesListFilters,
   proyectoPeriodo,
   proyectoTeam,
   shiftYearMonth,
@@ -86,6 +87,47 @@ describe("proyectoPeriodo", () => {
   it("devuelve null sin jornadas y diaActual null fuera del rango", () => {
     expect(proyectoPeriodo(row({ fechasInicio: [""] }))).toBeNull();
     expect(proyectoPeriodo(row({ fechasInicio: ["2026-09-10"] }), new Date(2026, 8, 20))?.diaActual).toBeNull();
+  });
+});
+
+describe("proyectoPassesListFilters", () => {
+  it("con búsqueda ignora el mes y la fecha del panel", () => {
+    const ago = row({ tiposTrabajo: [{ id: 1, nombre: "Alarmas" }] }, "2026-08-15");
+    ago.cliente = "ERIKA ALFARO";
+
+    expect(
+      proyectoPassesListFilters(ago, {
+        search: "erika",
+        selectedMonth: "2026-09",
+        secondary: { ...sinFiltros, date: "2026-09-10" },
+      })
+    ).toBe(true);
+
+    expect(
+      proyectoPassesListFilters(ago, {
+        search: "",
+        selectedMonth: "2026-09",
+        secondary: sinFiltros,
+      })
+    ).toBe(false);
+  });
+
+  it("sin búsqueda respeta mes y filtros secundarios", () => {
+    const sep = row({ tiposTrabajo: [{ id: 1, nombre: "Alarmas" }] }, "2026-09-10");
+    expect(
+      proyectoPassesListFilters(sep, {
+        search: "",
+        selectedMonth: "2026-09",
+        secondary: { ...sinFiltros, tipos: ["Alarmas"] },
+      })
+    ).toBe(true);
+    expect(
+      proyectoPassesListFilters(sep, {
+        search: "",
+        selectedMonth: "2026-09",
+        secondary: { ...sinFiltros, tipos: ["CCTV"] },
+      })
+    ).toBe(false);
   });
 });
 
