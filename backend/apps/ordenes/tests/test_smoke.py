@@ -247,6 +247,37 @@ class OrdenesListFilterTests(APITestCase):
         self.assertIn("cliente", row)
         self.assertIn("status", row)
 
+    def test_list_cotizaciones_resumen_staff(self):
+        self.julio.cotizaciones_adjuntas = [
+            {"id": "df-12", "origen": "digitalflow", "folio": "12", "cliente": "Julio", "fecha": "2026-07-01"},
+            {"id": "sc-7", "origen": "sicar", "folio": "A-7", "cliente": "Julio", "fecha": ""},
+        ]
+        self.julio.save(update_fields=["cotizaciones_adjuntas"])
+        response = self.client.get("/api/ordenes/?mes=2026-07")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = next(item for item in response.data if item["id"] == self.julio.id)
+        self.assertEqual(
+            row["cotizaciones_resumen"],
+            [
+                {"id": "df-12", "origen": "digitalflow", "folio": "12"},
+                {"id": "sc-7", "origen": "sicar", "folio": "A-7"},
+            ],
+        )
+        otra = next(item for item in response.data if item["id"] == self.lev.id)
+        self.assertEqual(otra["cotizaciones_resumen"], [])
+
+    def test_list_cotizaciones_resumen_hidden_for_non_staff(self):
+        self.julio.cotizaciones_adjuntas = [
+            {"id": "df-12", "origen": "digitalflow", "folio": "12", "cliente": "Julio", "fecha": ""},
+        ]
+        self.julio.save(update_fields=["cotizaciones_adjuntas"])
+        self.user.is_staff = False
+        self.user.save(update_fields=["is_staff"])
+        response = self.client.get("/api/ordenes/?mes=2026-07")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = next(item for item in response.data if item["id"] == self.julio.id)
+        self.assertEqual(row["cotizaciones_resumen"], [])
+
     def test_list_search_crosses_months_by_cliente(self):
         """`search` ignora `mes` y encuentra clientes de cualquier periodo."""
         response = self.client.get("/api/ordenes/?mes=2026-07&search=Junio")

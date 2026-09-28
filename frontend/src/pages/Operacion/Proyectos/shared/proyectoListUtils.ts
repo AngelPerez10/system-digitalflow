@@ -105,6 +105,22 @@ export function proyectoTiposLabels(row: ProyectoRow): string[] {
   return legacy ? [legacy] : [];
 }
 
+/** Cotizaciones vinculadas al proyecto, listas para el disparador «Cotización vinculada» del listado. */
+export function proyectoCotizacionesRefs(row: ProyectoRow): { id: string; origen: "digitalflow" | "sicar"; folio: string }[] {
+  const bloques = row.draft?.cotizaciones;
+  if (Array.isArray(bloques) && bloques.length > 0) {
+    return bloques
+      .map((b) => b.cotizacion)
+      .filter((c) => c && (c.origen === "digitalflow" || c.origen === "sicar"))
+      .map((c) => ({ id: c.id, origen: c.origen, folio: c.folio }));
+  }
+  // Compat: filas antiguas sin `draft.cotizaciones` pero con el resumen agregado.
+  if (row.cotizacionFolio && row.cotizacionFolio !== "—") {
+    return [{ id: row.cotizacionFolio, origen: row.cotizacionOrigen, folio: row.cotizacionFolio }];
+  }
+  return [];
+}
+
 /** Técnicos y auxiliares del proyecto con compatibilidad con los campos legacy. */
 export function proyectoTeam(row: ProyectoRow): ProyectoTeam {
   const tecnicosRaw = row.draft?.tecnicos?.length

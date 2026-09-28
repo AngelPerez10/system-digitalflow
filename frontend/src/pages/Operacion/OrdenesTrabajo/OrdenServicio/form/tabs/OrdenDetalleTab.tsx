@@ -1,7 +1,11 @@
 import { useMemo, type MutableRefObject } from "react";
+import { ClipboardCheck } from "lucide-react";
 import DatePicker from "@/components/form/date-picker";
 import SearchableSelect, { type SearchableSelectOption } from "@/components/form/SearchableSelect";
 import { useAutoGrowTextarea } from "@/hooks/useAutoGrowTextarea";
+import { localDateKey } from "@/pages/Operacion/Proyectos/shared/proyectoListUtils";
+import { Field, SectionCard } from "@/pages/Operacion/Proyectos/shared/ProyectoUi";
+import { focusRing } from "@/pages/Operacion/Proyectos/shared/proyectoTokens";
 import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proyectoTypes";
 import LevantamientoForm from "../../../OrdenLevantamiento/LevantamientoForm";
 import OrdenAdminCotizacionesField from "../fields/OrdenAdminCotizacionesField";
@@ -13,6 +17,13 @@ import { useBufferedTextField } from "../useBufferedTextField";
 import { OrdenFormSection, RequiredMark, type OrdenFieldKey } from "./ordenTabHelpers";
 
 const SERVICIO_CREAR_PREFIX = "__crear__:";
+
+const STATUS_ADMIN: { value: OrdenStatusAdministrativo; label: string }[] = [
+  { value: "pendiente", label: "Pendiente" },
+  { value: "en_revision", label: "En revisión" },
+  { value: "enviado", label: "Enviado" },
+  { value: "cerrado", label: "Cerrado" },
+];
 
 export type OrdenDetalleTabProps = {
   /** «trabajo» = trabajo en campo (y levantamiento); «admin» = seguimiento administrativo. */
@@ -149,6 +160,7 @@ export function OrdenDetalleTab({
 
   const showTrabajo = part === "all" || part === "trabajo";
   const showAdmin = part === "all" || part === "admin";
+  const adminLocked = isReadOnly || isLimitedEdit;
 
   return (
     <>
@@ -286,69 +298,75 @@ export function OrdenDetalleTab({
           )}
 
           {showAdmin && variant === "admin" && isAdmin && setStatusAdministrativo && setFechaEnvioAdmin && setCotizacionesAdmin ? (
-            <OrdenFormSection
-              title="Seguimiento administrativo"
-              description="Control de oficina, independiente del status del técnico. Incluye las cotizaciones vinculadas."
-              icon={
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              }
-            >
-              <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
-                <div className={statusAdministrativo === "enviado" ? "" : "sm:col-span-2"}>
-                  <label htmlFor={statusAdminId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
-                    Status administrativo
-                  </label>
-                  <select
-                    id={statusAdminId}
-                    value={statusAdministrativo}
-                    disabled={isReadOnly || isLimitedEdit}
-                    onChange={(e) => {
-                      const next = e.target.value as OrdenStatusAdministrativo;
-                      setStatusAdministrativo(next);
-                      if (next === "enviado" && !fechaEnvioAdmin) {
-                        setFechaEnvioAdmin(new Date().toISOString().slice(0, 10));
-                      }
-                    }}
-                    className={`h-11 w-full rounded-[10px] border border-[#E7E7EA] px-3.5 text-sm outline-none transition-colors dark:border-[#273244] ${
-                      isReadOnly || isLimitedEdit
-                        ? "cursor-not-allowed bg-[#F4F4F5] text-[#6E6E77] dark:bg-[#0f172a]/60 dark:text-[#8ea0b8]"
-                        : "bg-white text-[#09090B] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:bg-[#111827] dark:text-[#F8FAFC] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]"
-                    }`}
-                  >
-                    <option value="pendiente">Pendiente</option>
-                    <option value="en_revision">En revisión</option>
-                    <option value="enviado">Enviado</option>
-                    <option value="cerrado">Cerrado</option>
-                  </select>
-                </div>
-                {statusAdministrativo === "enviado" ? (
-                  <div>
-                    <label htmlFor={fechaEnvioAdminId} className="mb-1 block text-xs font-medium text-[#52525B] dark:text-[#B7C1D1]">
-                      Fecha en que se envió
-                    </label>
-                    <div className="[&_input]:h-10! [&_input]:py-2! [&_input]:text-sm!">
+            <>
+              <OrdenAdminCotizacionesField
+                value={cotizacionesAdmin}
+                onChange={setCotizacionesAdmin}
+                disabled={adminLocked}
+                index={0}
+              />
+
+              <SectionCard
+                id={`${statusAdminId}-section`}
+                index={1}
+                title="Seguimiento administrativo"
+                icon={<ClipboardCheck />}
+                hint="Estado de oficina sobre las cotizaciones vinculadas, independiente del status del técnico. Solo lo ven administradores."
+                locked={adminLocked}
+              >
+                <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
+                  <Field label="Status administrativo" labelId={statusAdminId}>
+                    <div
+                      role="radiogroup"
+                      aria-labelledby={statusAdminId}
+                      aria-disabled={adminLocked || undefined}
+                      className="grid grid-cols-2 gap-1 rounded-[12px] border border-[#E7E7EA] bg-[#F4F4F5]/70 p-1 dark:border-[#273244] dark:bg-[#0F172A] sm:grid-cols-4"
+                    >
+                      {STATUS_ADMIN.map((opt) => {
+                        const active = statusAdministrativo === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            disabled={adminLocked}
+                            onClick={() => {
+                              setStatusAdministrativo(opt.value);
+                              if (opt.value === "enviado" && !fechaEnvioAdmin) {
+                                setFechaEnvioAdmin(localDateKey());
+                              }
+                            }}
+                            className={`cot-press min-h-10 rounded-[9px] px-2 text-[13px] font-semibold disabled:cursor-not-allowed ${focusRing} ${
+                              active
+                                ? "bg-white text-[#09090B] shadow-[0_1px_2px_rgba(9,9,11,0.08)] ring-1 ring-[#E4E4E7] dark:bg-[#1B2539] dark:text-white dark:ring-[#273244]"
+                                : "text-[#52525B] hover:text-[#09090B] disabled:opacity-60 disabled:hover:text-[#52525B] dark:text-[#8EA0B8] dark:hover:text-white"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Field>
+                  {statusAdministrativo === "enviado" ? (
+                    <div className="cot-fade">
                       <DatePicker
                         key={`fecha-envio-admin-${editingOrden?.id ?? "new"}-${statusAdministrativo}`}
                         id={fechaEnvioAdminId}
+                        label="Fecha de envío"
                         placeholder="Seleccionar fecha"
-                        disabled={isReadOnly || isLimitedEdit}
+                        disabled={adminLocked}
                         defaultDate={fechaEnvioAdmin || undefined}
                         onChange={(_dates, currentDateString) => {
                           setFechaEnvioAdmin(currentDateString || "");
                         }}
                       />
                     </div>
-                  </div>
-                ) : null}
-              </div>
-              <OrdenAdminCotizacionesField
-                value={cotizacionesAdmin}
-                onChange={setCotizacionesAdmin}
-                disabled={isReadOnly || isLimitedEdit}
-              />
-            </OrdenFormSection>
+                  ) : null}
+                </div>
+              </SectionCard>
+            </>
           ) : null}
         </div>
     </>

@@ -943,6 +943,7 @@ export default function Ordenes() {
               hideFrom="wide"
               canLiquidar={canLiquidarOrdenes}
               onToggleLiquidado={handleToggleLiquidado}
+              showCotizaciones={isAdmin}
             />
             </div>
             <div className="hidden xl:block">
@@ -1121,8 +1122,16 @@ export default function Ordenes() {
           showCalificacionTab={isAdmin && !!editingOrden}
         >
           {activeTab === "cliente" ? (
+            <div
+              id={ORDEN_FORM_PANEL_IDS.cliente}
+              role="tabpanel"
+              aria-labelledby={ORDEN_FORM_TAB_IDS.cliente}
+              tabIndex={-1}
+              className="space-y-5 outline-none"
+            >
           <OrdenClienteTab
               part="cliente"
+              embedded
               hidden={false}
               variant="admin"
               panelId={ORDEN_FORM_PANEL_IDS.cliente}
@@ -1166,6 +1175,42 @@ export default function Ordenes() {
               isLimitedEdit={isLimitedEdit}
               isAdmin={isAdmin}
             />
+              {isAdmin && (
+                <OrdenDetalleTab
+                  part="admin"
+                  embedded
+                  variant="admin"
+                  panelId={ORDEN_FORM_PANEL_IDS.cliente}
+                  labelledBy={ORDEN_FORM_TAB_IDS.cliente}
+                  isActive
+                  showLevantamiento={tipoOrden === "levantamiento"}
+                  tipoOrden={tipoOrden}
+                  setTipoOrden={setTipoOrden}
+                  isReadOnly={isReadOnly}
+                  isLimitedEdit={isLimitedEdit}
+                  editingOrden={editingOrden}
+                  levantamientoSnapshotRef={levantamientoSnapshotRef}
+                  formData={formData}
+                  setFormData={setFormData}
+                  ro={ro}
+                  inputLockedClass={inputLockedClass}
+                  servicioSearch={servicioSearch}
+                  setServicioSearch={setServicioSearch}
+                  serviciosDisponibles={serviciosDisponibles}
+                  setServiciosDisponibles={setServiciosDisponibles}
+                  addServicio={addServicio}
+                  isAdmin={isAdmin}
+                  statusAdminId={statusAdminId}
+                  fechaEnvioAdminId={fechaEnvioAdminId}
+                  statusAdministrativo={statusAdministrativo}
+                  setStatusAdministrativo={setStatusAdministrativo}
+                  fechaEnvioAdmin={fechaEnvioAdmin}
+                  setFechaEnvioAdmin={setFechaEnvioAdmin}
+                  cotizacionesAdmin={cotizacionesAdmin}
+                  setCotizacionesAdmin={setCotizacionesAdmin}
+                />
+              )}
+            </div>
           ) : null}
           {activeTab === "orden" ? (
             <OrdenDetalleTab
@@ -1317,41 +1362,6 @@ export default function Ordenes() {
                   isLimitedEdit={isLimitedEdit}
                   isAdmin={isAdmin}
                 />
-              {isAdmin && (
-                <OrdenDetalleTab
-                  part="admin"
-                  embedded
-                  variant="admin"
-                  panelId={ORDEN_FORM_PANEL_IDS.evidencia}
-                  labelledBy={ORDEN_FORM_TAB_IDS.evidencia}
-                  isActive
-                  showLevantamiento={tipoOrden === "levantamiento"}
-                  tipoOrden={tipoOrden}
-                  setTipoOrden={setTipoOrden}
-                  isReadOnly={isReadOnly}
-                  isLimitedEdit={isLimitedEdit}
-                  editingOrden={editingOrden}
-                  levantamientoSnapshotRef={levantamientoSnapshotRef}
-                  formData={formData}
-                  setFormData={setFormData}
-                  ro={ro}
-                  inputLockedClass={inputLockedClass}
-                  servicioSearch={servicioSearch}
-                  setServicioSearch={setServicioSearch}
-                  serviciosDisponibles={serviciosDisponibles}
-                  setServiciosDisponibles={setServiciosDisponibles}
-                  addServicio={addServicio}
-                  isAdmin={isAdmin}
-                  statusAdminId={statusAdminId}
-                  fechaEnvioAdminId={fechaEnvioAdminId}
-                  statusAdministrativo={statusAdministrativo}
-                  setStatusAdministrativo={setStatusAdministrativo}
-                  fechaEnvioAdmin={fechaEnvioAdmin}
-                  setFechaEnvioAdmin={setFechaEnvioAdmin}
-                  cotizacionesAdmin={cotizacionesAdmin}
-                  setCotizacionesAdmin={setCotizacionesAdmin}
-                />
-              )}
             </div>
           )}
           {activeTab === "calificacion" && isAdmin && (

@@ -66,7 +66,7 @@ const STEP_META: Record<OrdenFormTab, { label: string; hint: string; description
   },
   evidencia: {
     label: "Evidencia y cierre",
-    hint: "Fotos, firmas y seguimiento",
+    hint: "Fotos y firmas",
     description: "Sube las fotos del trabajo y recaba las firmas de conformidad.",
   },
   calificacion: {

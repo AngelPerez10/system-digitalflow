@@ -727,6 +727,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
         if is_list:
             # Listado rápido: joins 1:1 en lugar de Exists/Subquery por fila,
             # y sin columnas pesadas (fotos/firmas/JSON de equipos).
+            # `cotizaciones_adjuntas` sí se carga (JSON chico): el listado
+            # muestra su resumen y un defer provocaría N+1.
             qs = (
                 self.queryset.all()
                 .select_related(
@@ -744,7 +746,6 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     'fotos_urls',
                     'firma_encargado_url',
                     'firma_cliente_url',
-                    'cotizaciones_adjuntas',
                     'equipos_inventario',
                 )
                 .order_by(

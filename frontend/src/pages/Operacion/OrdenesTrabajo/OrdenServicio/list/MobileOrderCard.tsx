@@ -21,6 +21,7 @@ import {
 } from "../shared/ordenPrioridadSections";
 import { OrdenStatusSectionHeader } from "./OrdenStatusSectionHeader";
 import { OrdenArrastreBadge } from "./OrdenArrastreBadge";
+import { OrdenOficinaBlock } from "./OrdenOficinaCell";
 import {
   StatusChangedByChip,
 } from "../../../shared/StatusChangedByChip";
@@ -78,6 +79,8 @@ interface MobileOrderCardProps {
   canLiquidar?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onToggleLiquidado?: (orden: any, next: boolean) => void;
+  /** Solo admin: muestra las cotizaciones adjuntas bajo el cliente. */
+  showCotizaciones?: boolean;
 }
 
 export function MobileOrderCard({
@@ -98,6 +101,7 @@ export function MobileOrderCard({
   selectedMonth = "",
   canLiquidar = false,
   onToggleLiquidado,
+  showCotizaciones = false,
 }: MobileOrderCardProps) {
   const [showProblematicaModal, setShowProblematicaModal] = useState(false);
   const fechaInicio = orden.fecha_inicio || orden.fecha_creacion || "";
@@ -304,6 +308,8 @@ export function MobileOrderCard({
         ) : null}
       </dl>
 
+      {showCotizaciones ? <OrdenOficinaBlock orden={orden} className="mt-2.5" /> : null}
+
       {onNotaChange && (
         <div className="mt-3">
           <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
@@ -416,6 +422,8 @@ interface MobileOrderListProps {
   canLiquidar?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onToggleLiquidado?: (orden: any, next: boolean) => void;
+  /** Solo admin: muestra las cotizaciones adjuntas en cada tarjeta. */
+  showCotizaciones?: boolean;
 }
 
 export const MobileOrderList = memo(function MobileOrderList({
@@ -438,6 +446,7 @@ export const MobileOrderList = memo(function MobileOrderList({
   hideFrom = "md",
   canLiquidar = false,
   onToggleLiquidado,
+  showCotizaciones = false,
 }: MobileOrderListProps) {
   const tablet = hideFrom === "wide";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -489,6 +498,7 @@ export const MobileOrderList = memo(function MobileOrderList({
       highlightRecentStatus={highlightRecentStatus}
       canLiquidar={canLiquidar}
       onToggleLiquidado={onToggleLiquidado}
+      showCotizaciones={showCotizaciones}
     />
   );
 

@@ -481,7 +481,38 @@ class OrdenSerializer(serializers.ModelSerializer):
 
 
 class OrdenListSerializer(OrdenSerializer):
-    """Listado liviano: sin fotos, firmas, cotizaciones ni blob de equipos."""
+    """Listado liviano: sin fotos, firmas ni blob de equipos.
+
+    De las cotizaciones adjuntas solo expone un resumen (origen + folio) para
+    mostrarlas en el listado; el detalle completo sigue en `cotizaciones_adjuntas`.
+    """
+
+    cotizaciones_resumen = serializers.SerializerMethodField()
+
+    def get_cotizaciones_resumen(self, obj):
+        # Solo oficina (misma visibilidad que el bloque admin del formulario).
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not (user and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False))):
+            return []
+        raw = getattr(obj, 'cotizaciones_adjuntas', None) or []
+        if not isinstance(raw, list):
+            return []
+        resumen = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            origen = str(item.get('origen') or '').strip().lower()
+            if origen not in ('digitalflow', 'sicar'):
+                continue
+            resumen.append(
+                {
+                    'id': str(item.get('id') or '').strip(),
+                    'origen': origen,
+                    'folio': str(item.get('folio') or '').strip() or '—',
+                }
+            )
+        return resumen
 
     def get_equipos_inventario_total(self, obj):
         # El listado hace defer de equipos_inventario; no forzar N+1.
@@ -538,6 +569,7 @@ class OrdenListSerializer(OrdenSerializer):
             'comentario_tecnico',
             'status_administrativo',
             'fecha_envio',
+            'cotizaciones_resumen',
             'fecha_inicio',
             'hora_inicio',
             'fecha_finalizacion',

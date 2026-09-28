@@ -1,15 +1,17 @@
 import { memo, type CSSProperties } from "react";
 import { StatusChangedByChip } from "../../shared/StatusChangedByChip";
-import { displayCotizacionFolio, displayProyectoFolio } from "../shared/proyectoFormUtils";
+import { CotizacionVinculadaTrigger, SinCotizacionBadge } from "../../shared/CotizacionVinculadaTrigger";
+import { displayProyectoFolio } from "../shared/proyectoFormUtils";
 import {
   formatPeriodoLabel,
+  proyectoCotizacionesRefs,
   proyectoPeriodo,
   proyectoTeam,
   proyectoTiposLabels,
 } from "../shared/proyectoListUtils";
 import type { ProyectoStatusSection } from "../shared/proyectoStatusSections";
 import { AvatarStack, EstadoPill, LiquidarControl, ProgressBar } from "../shared/ProyectoUi";
-import { ESTADO_TONE, focusRing, folioText, origenChip, toneForEstado } from "../shared/proyectoTokens";
+import { ESTADO_TONE, focusRing, folioText, toneForEstado } from "../shared/proyectoTokens";
 import type { ProyectoEstado, ProyectoRow } from "../shared/proyectoTypes";
 import { ProyectoRowActions, type ProyectoRowHandlers } from "./ProyectoRowActions";
 
@@ -36,6 +38,7 @@ const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handler
   const tone = toneForEstado(row.estado);
   const avance = Math.round(Number(row.draft?.porcentajeAvance) || 0);
   const folio = displayProyectoFolio(row.folio);
+  const cotizaciones = proyectoCotizacionesRefs(row);
 
   return (
     <tr
@@ -79,20 +82,7 @@ const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handler
         )}
       </td>
       <td className={td}>
-        {row.cotizacionFolio === "—" ? (
-          <span className="text-[13px] text-[#A1A1AA] dark:text-[#64748B]">—</span>
-        ) : (
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className={origenChip[row.cotizacionOrigen]}>
-              {row.cotizacionOrigen === "digitalflow" ? "DF" : "SICAR"}
-            </span>
-            <span className="truncate text-[13px] tabular-nums text-[#3F3F46] dark:text-[#D6DEEA]">
-              {row.cotizacionesCount > 1
-                ? `${row.cotizacionesCount} vinculadas`
-                : displayCotizacionFolio(row.cotizacionFolio, row.cotizacionOrigen)}
-            </span>
-          </div>
-        )}
+        {cotizaciones.length > 0 ? <CotizacionVinculadaTrigger cotizaciones={cotizaciones} /> : <SinCotizacionBadge />}
       </td>
       <td className={td}>
         <div className="flex items-center gap-2.5">

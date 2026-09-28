@@ -1,15 +1,17 @@
 import { memo, type CSSProperties } from "react";
 import { ArrowRight, CalendarDays, Package } from "lucide-react";
 import { StatusChangedByChip } from "../../shared/StatusChangedByChip";
-import { displayCotizacionFolio, displayProyectoFolio } from "../shared/proyectoFormUtils";
+import { CotizacionVinculadaTrigger } from "../../shared/CotizacionVinculadaTrigger";
+import { displayProyectoFolio } from "../shared/proyectoFormUtils";
 import {
   formatPeriodoLabel,
+  proyectoCotizacionesRefs,
   proyectoPeriodo,
   proyectoTeam,
   proyectoTiposLabels,
 } from "../shared/proyectoListUtils";
 import { AvatarStack, EstadoPill, LiquidarControl, ProgressBar } from "../shared/ProyectoUi";
-import { btn, btnSm, focusRing, folioText, metaChip, origenChip, toneForEstado } from "../shared/proyectoTokens";
+import { btn, btnSm, focusRing, folioText, metaChip, toneForEstado } from "../shared/proyectoTokens";
 import type { ProyectoRow } from "../shared/proyectoTypes";
 import { ProyectoRowActions, type ProyectoRowHandlers } from "./ProyectoRowActions";
 
@@ -29,6 +31,7 @@ function ProyectoCardImpl({ row, index, fieldMode, ...handlers }: Props) {
   const tipos = proyectoTiposLabels(row);
   const avance = Math.round(Number(row.draft?.porcentajeAvance) || 0);
   const folio = displayProyectoFolio(row.folio);
+  const cotizaciones = proyectoCotizacionesRefs(row);
   const activo = row.estado === "en_proceso";
   const hoy = activo && periodo?.diaActual != null;
 
@@ -117,18 +120,7 @@ function ProyectoCardImpl({ row, index, fieldMode, ...handlers }: Props) {
               {row.equiposEntregados}/{row.equiposTotal} entregados · {row.equiposInstalados} instalados
             </span>
           ) : null}
-          {row.cotizacionFolio !== "—" ? (
-            <span className="inline-flex min-w-0 items-center gap-1.5">
-              <span className={origenChip[row.cotizacionOrigen]}>
-                {row.cotizacionOrigen === "digitalflow" ? "DF" : "SICAR"}
-              </span>
-              <span className="truncate tabular-nums">
-                {row.cotizacionesCount > 1
-                  ? `${row.cotizacionesCount} cotizaciones`
-                  : displayCotizacionFolio(row.cotizacionFolio, row.cotizacionOrigen)}
-              </span>
-            </span>
-          ) : null}
+          {cotizaciones.length > 0 ? <CotizacionVinculadaTrigger cotizaciones={cotizaciones} /> : null}
         </div>
       </div>
 

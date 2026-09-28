@@ -25,6 +25,7 @@ import type { OrdenPrioridadSectionKey } from "../shared/ordenPrioridadSections"
 import type { OrdenStatusSection, OrdenStatusSectionKey } from "../shared/ordenStatusSections";
 import { displayOrdenFolio, isOrdenCancelada, isOrdenResuelta, isOrdenServicioTecnico, normalizeStatus } from "../shared/useOrdenesShared";
 import { OrdenArrastreBadge } from "./OrdenArrastreBadge";
+import { OrdenOficinaCell } from "./OrdenOficinaCell";
 
 /* --------------------------------------------------------------------------
    Estados
@@ -409,6 +410,7 @@ const colFechas = "hidden @min-[50rem]:table-cell";
 const colPrioridad = "hidden @min-[58rem]:table-cell";
 const colDetalle = "hidden @min-[66rem]:table-cell";
 const colRegistro = "hidden @min-[80rem]:table-cell";
+const colOficina = "hidden @min-[54rem]:table-cell";
 
 
 const OrdenRow = memo(function OrdenRow({
@@ -549,6 +551,13 @@ const OrdenRow = memo(function OrdenRow({
         )}
       </td>
 
+      {/* Cotización (solo admin): folio vinculado, con ícono de origen. */}
+      {admin ? (
+        <td className={`${td} ${colOficina}`}>
+          <OrdenOficinaCell orden={orden} />
+        </td>
+      ) : null}
+
       {/* Detalle: problemática, servicios y comentario se abren en su modal. */}
       <td className={`${td} ${colDetalle}`}>
         <div
@@ -687,7 +696,7 @@ const th = "px-3 py-2.5 text-left text-[12px] font-medium text-[#71717A] dark:te
 
 /** Tabla agrupada por estado; va de borde a borde dentro de la tarjeta del listado. */
 export function OrdenesTable({ sections, indexById, startIndex, usuarios, selectedMonth, admin, loading, empty: emptyState, ...handlers }: Props) {
-  const colCount = 8;
+  const colCount = admin ? 9 : 8;
   const total = sections.reduce((n, s) => n + s.ordenes.length, 0);
   let rowIndex = 0;
 
@@ -698,6 +707,9 @@ export function OrdenesTable({ sections, indexById, startIndex, usuarios, select
           <tr>
             <th scope="col" className={`${th} min-w-52 pl-5`}>Orden</th>
             <th scope="col" className={`${th} min-w-36`}>Técnico</th>
+            {admin ? (
+              <th scope="col" className={`${th} ${colOficina} w-px whitespace-nowrap`}>Cotización</th>
+            ) : null}
             <th scope="col" className={`${th} ${colDetalle} w-px whitespace-nowrap`}>Detalle</th>
             <th scope="col" className={`${th} ${colFechas} w-px whitespace-nowrap`}>Fechas</th>
             <th scope="col" className={`${th} ${colPrioridad} w-px whitespace-nowrap`}>Prioridad</th>

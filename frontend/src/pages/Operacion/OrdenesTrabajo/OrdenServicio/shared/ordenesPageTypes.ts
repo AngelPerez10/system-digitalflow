@@ -16,6 +16,8 @@ export type OrdenCotizacionAdjunta = {
   contacto?: string;
 };
 
+export type OrdenCotizacionResumen = Pick<OrdenCotizacionAdjunta, "id" | "origen" | "folio">;
+
 export type OrdenEquipoEstadoInstalacion = "no_instalado" | "instalado";
 
 export type OrdenEquipoInventarioLinea = {
@@ -91,6 +93,8 @@ export interface Orden {
   status_administrativo?: "pendiente" | "en_revision" | "enviado" | "cerrado" | string | null;
   fecha_envio?: string | null;
   cotizaciones_adjuntas?: OrdenCotizacionAdjunta[] | null;
+  /** Listado: resumen ligero de las cotizaciones adjuntas (solo admins; vacío para el resto). */
+  cotizaciones_resumen?: OrdenCotizacionResumen[] | null;
   fecha_inicio: string;
   hora_inicio: string;
   fecha_finalizacion: string;
