@@ -1,0 +1,104 @@
+"""Historial de reasignaciones del tablero Equipo (solo administradores).
+
+- GET  /api/equipo-historial/?limit=50[&tipo=orden&objeto_id=12]  → más recientes primero
+- POST /api/equipo-historial/  → registra una reasignación o un «deshacer»
+
+La reasignación en sí sigue haciéndose con el PATCH de cada módulo (órdenes /
+proyectos); el tablero registra aquí el movimiento cuando el guardado sale bien.
+"""
+
+from rest_framework import mixins, serializers, viewsets
+from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.response import Response
+
+from .models import EquipoReasignacion
+
+
+class IsStaffOrSuperuser(BasePermission):
+    """Mismo criterio de «administrador» que el resto de la app (staff o superuser)."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        return bool(
+            user
+            and user.is_authenticated
+            and (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+        )
+
+
+class EquipoReasignacionSerializer(serializers.ModelSerializer):
+    usuario_nombre = serializers.SerializerMethodField()
+    usuario_avatar_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EquipoReasignacion
+        fields = [
+            "id",
+            "tipo",
+            "objeto_id",
+            "folio",
+            "cliente",
+            "accion",
+            "desde_id",
+            "desde_nombre",
+            "hacia_id",
+            "hacia_nombre",
+            "usuario",
+            "usuario_nombre",
+            "usuario_avatar_url",
+            "creado_at",
+        ]
+        read_only_fields = ["id", "usuario", "usuario_nombre", "usuario_avatar_url", "creado_at"]
+
+    def get_usuario_nombre(self, obj):
+        u = obj.usuario
+        if not u:
+            return ""
+        full = f"{(u.first_name or '').strip()} {(u.last_name or '').strip()}".strip()
+        return full or u.username or u.email or ""
+
+    def get_usuario_avatar_url(self, obj):
+        perfil = getattr(obj.usuario, "permissions_profile", None) if obj.usuario else None
+        return (getattr(perfil, "avatar_url", "") or "").strip()
+
+    def validate(self, attrs):
+        if attrs.get("desde_id") == attrs.get("hacia_id"):
+            raise serializers.ValidationError("El origen y el destino son el mismo técnico.")
+        for key in ("folio", "cliente", "desde_nombre", "hacia_nombre"):
+            if key in attrs:
+                attrs[key] = str(attrs[key] or "").strip()
+        return attrs
+
+
+class EquipoReasignacionViewSet(
+    mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet
+):
+    serializer_class = EquipoReasignacionSerializer
+    permission_classes = [IsAuthenticated, IsStaffOrSuperuser]
+    pagination_class = None
+
+    MAX_LIMIT = 200
+    DEFAULT_LIMIT = 50
+
+    def get_queryset(self):
+        qs = EquipoReasignacion.objects.select_related(
+            "usuario", "usuario__permissions_profile"
+        )
+        params = self.request.query_params
+        tipo = (params.get("tipo") or "").strip()
+        if tipo in ("orden", "proyecto"):
+            qs = qs.filter(tipo=tipo)
+        objeto_id = (params.get("objeto_id") or "").strip()
+        if objeto_id.isdigit():
+            qs = qs.filter(objeto_id=int(objeto_id))
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        raw = (request.query_params.get("limit") or "").strip()
+        limit = int(raw) if raw.isdigit() else self.DEFAULT_LIMIT
+        limit = min(max(limit, 1), self.MAX_LIMIT)
+        rows = self.get_queryset()[:limit]
+        return Response(self.get_serializer(rows, many=True).data)
+
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)

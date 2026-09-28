@@ -184,3 +184,24 @@ class OrdenesPoolTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.orden.refresh_from_db()
         self.assertEqual(self.orden.prioridad_pool, "alta")
+
+    def test_asignar_tecnico_por_patch_saca_de_la_bolsa(self):
+        self._poner_en_pool()
+        self._auth(self.admin)
+        resp = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/", {"tecnico_asignado": self.tecnico_b.id}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.tecnico_asignado_id, self.tecnico_b.id)
+        self.assertFalse(self.orden.en_pool)
+
+    def test_reasignar_tecnico_por_patch_fuera_de_bolsa(self):
+        self._auth(self.admin)
+        resp = self.client.patch(
+            f"/api/ordenes/{self.orden.id}/", {"tecnico_asignado": self.tecnico_c.id}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.orden.refresh_from_db()
+        self.assertEqual(self.orden.tecnico_asignado_id, self.tecnico_c.id)
+        self.assertFalse(self.orden.en_pool)

@@ -200,6 +200,7 @@ export default function AppSidebar() {
           ...(permissions?.proyectos?.view === true || isAdmin
             ? [{ name: "Proyectos", path: "/proyectos", pro: false } as const]
             : []),
+          ...(isAdmin ? [{ name: "Equipo", path: "/equipo", pro: false } as const] : []),
           ...(permissions?.polizas?.view === true || isAdmin
             ? [{ name: "Póliza de mantenimiento", path: "/polizas-mantenimiento", pro: false } as const]
             : []),

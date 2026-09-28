@@ -181,7 +181,7 @@ export function CotizacionVinculadaTrigger({ cotizaciones }: { cotizaciones: Cot
               id={panelId}
               role="dialog"
               aria-label="Cotizaciones vinculadas"
-              className="cot-fade fixed z-[1000] rounded-[14px] border border-[#E7E7EA] bg-white p-1.5 shadow-[0_12px_32px_-8px_rgba(9,9,11,0.18),0_2px_6px_rgba(9,9,11,0.06)] dark:border-[#273244] dark:bg-[#111827]"
+              className="cot-fade fixed z-[100000] rounded-[14px] border border-[#E7E7EA] bg-white p-1.5 shadow-[0_12px_32px_-8px_rgba(9,9,11,0.18),0_2px_6px_rgba(9,9,11,0.06)] dark:border-[#273244] dark:bg-[#111827]"
               style={{ top: pos.top, left: pos.left, width: PANEL_W }}
             >
               <p className="flex items-center justify-between px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#71717A] dark:text-[#8EA0B8]">

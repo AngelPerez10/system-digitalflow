@@ -427,3 +427,52 @@ class ReporteMantenimiento(models.Model):
     def __str__(self):
         display = (self.folio or "").strip() or self.idx
         return f"Reporte #{display} - {self.tecnico_nombre or 'Sin técnico'}"
+
+
+EQUIPO_REASIGNACION_TIPO_CHOICES = [
+    ("orden", "Orden de trabajo"),
+    ("proyecto", "Proyecto"),
+]
+
+EQUIPO_REASIGNACION_ACCION_CHOICES = [
+    ("reasignar", "Reasignar"),
+    ("deshacer", "Deshacer"),
+]
+
+
+class EquipoReasignacion(models.Model):
+    """Historial de reasignaciones hechas desde el tablero Equipo.
+
+    Guarda folio, cliente y nombres como texto (no FK a la orden/proyecto) para
+    que el historial se conserve aunque después se elimine el registro o
+    cambie el nombre del técnico.
+    """
+
+    tipo = models.CharField(max_length=10, choices=EQUIPO_REASIGNACION_TIPO_CHOICES)
+    objeto_id = models.PositiveIntegerField()
+    folio = models.CharField(max_length=50, blank=True, default="")
+    cliente = models.CharField(max_length=255, blank=True, default="")
+    accion = models.CharField(
+        max_length=10, choices=EQUIPO_REASIGNACION_ACCION_CHOICES, default="reasignar"
+    )
+    desde_id = models.IntegerField(null=True, blank=True)
+    desde_nombre = models.CharField(max_length=255, blank=True, default="")
+    hacia_id = models.IntegerField(null=True, blank=True)
+    hacia_nombre = models.CharField(max_length=255, blank=True, default="")
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="equipo_reasignaciones",
+    )
+    creado_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-creado_at", "-id"]
+        indexes = [
+            models.Index(fields=["tipo", "objeto_id"], name="operacion_eqr_obj_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.tipo} {self.folio or self.objeto_id}: {self.desde_nombre or '—'} → {self.hacia_nombre or '—'}"

@@ -25,6 +25,7 @@ const OrdenesTecnico = lazy(() => import("@/pages/Operacion/OrdenesTrabajo/Orden
 const LevantamientoPage = lazy(() => import("@/pages/Operacion/OrdenesTrabajo/OrdenLevantamiento/LevantamientoPage"));
 const ProyectosPage = lazy(() => import("@/pages/Operacion/Proyectos/ProyectosPage"));
 const ProyectoPdfPage = lazy(() => import("@/pages/Operacion/Proyectos/ProyectoPdfPage"));
+const EquipoPage = lazy(() => import("@/pages/Operacion/Equipo/EquipoPage"));
 const PolizasMantenimientoPage = lazy(
   () => import("@/pages/Operacion/PolizasMantenimiento/PolizasMantenimientoPage"),
 );
@@ -97,6 +98,7 @@ export default function App() {
             />
             <Route path="/levantamiento" element={<RequirePermission module="ordenes" required="view"><LevantamientoPage /></RequirePermission>} />
             <Route path="/proyectos" element={<RequirePermission module="proyectos" required="view"><ProyectosPage /></RequirePermission>} />
+            <Route path="/equipo" element={<RequireAdmin><EquipoPage /></RequireAdmin>} />
             <Route
               path="/proyectos/:id/pdf"
               element={

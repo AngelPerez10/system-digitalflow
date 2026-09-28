@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { BadgeCheck, Plus, Rows3, Search, Trash2, Undo2, X } from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
@@ -79,6 +79,7 @@ function isProyectoApiError(err: unknown): err is ProyectoApiError {
 
 export default function ProyectosPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { canProyectosCreate, canProyectosEdit, canProyectosDelete, canLiquidarProyectos, canChangeStatusProyectos, canStatusOnlyProyectos, isAdmin } =
     useProyectosPagePermissions();
@@ -285,6 +286,34 @@ export default function ProyectosPage() {
     },
     [canProyectosEdit, canStatusOnlyProyectos, showAlert]
   );
+
+  const abrirProyectoFromQueryDoneRef = useRef<string | null>(null);
+
+  // Desde otras vistas (p. ej. Equipo): /proyectos?abrir=<id> abre el modal de edición.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("abrir");
+    if (!raw) {
+      abrirProyectoFromQueryDoneRef.current = null;
+      return;
+    }
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) {
+      navigate("/proyectos", { replace: true });
+      return;
+    }
+    if (loading) return;
+
+    const doneKey = `abrir-${id}`;
+    if (abrirProyectoFromQueryDoneRef.current === doneKey) return;
+
+    const row = rows.find((r) => Number(r.id) === id);
+    if (row) {
+      openEdit(row);
+      abrirProyectoFromQueryDoneRef.current = doneKey;
+    }
+    navigate("/proyectos", { replace: true });
+  }, [loading, rows, location.search, navigate, openEdit]);
 
   const openDelete = useCallback(
     (row: ProyectoRow) => {

@@ -13,6 +13,7 @@ from .poliza_views import (
     PolizaMantenimientoViewSet,
     PolizaMantenimientoXmlView,
 )
+from .equipo_views import EquipoReasignacionViewSet
 from .reporte_mantenimiento_views import ReporteMantenimientoViewSet
 from .views import ProyectoInstalacionViewSet, ProyectoViewSet
 from .wialon_unit_views import (
@@ -36,6 +37,7 @@ router = DefaultRouter()
 router.register(r"proyectos", ProyectoViewSet, basename="proyecto")
 router.register(r"proyecto-instalaciones", ProyectoInstalacionViewSet, basename="proyecto-instalacion")
 router.register(r"polizas-mantenimiento", PolizaMantenimientoViewSet, basename="poliza-mantenimiento")
+router.register(r"equipo-historial", EquipoReasignacionViewSet, basename="equipo-historial")
 router.register(
     r"reportes-mantenimiento",
     ReporteMantenimientoViewSet,

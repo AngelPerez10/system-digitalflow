@@ -1,6 +1,7 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
 import {
   Activity,
+  Check,
   Clock,
   FilePlus2,
   Gauge,
@@ -200,9 +201,7 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
           role="radiogroup"
           aria-label="Status operativo"
           aria-describedby={closeBlockedMessage ? "proyecto-close-blocked" : undefined}
-          className={`grid gap-1 rounded-2xl border border-[#E7E7EA] bg-[#F4F4F5]/70 p-1 dark:border-[#273244] dark:bg-[#0F172A] ${
-            opciones.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"
-          }`}
+          className="flex flex-wrap gap-2"
         >
           {opciones.map((opt) => {
             const t = ESTADO_TONE[opt.value];
@@ -215,12 +214,15 @@ export function ProyectoCampoTab({ form, isAdmin, editing, initialDraft }: Props
                 aria-checked={active}
                 disabled={statusLocked}
                 onClick={() => handleStatusChange(opt.value)}
-                className={`cot-press inline-flex min-h-11 items-center justify-center gap-2 rounded-[9px] px-2 text-[13.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-55 ${focusRing} ${
-                  active ? t.segment : "text-[#52525B] hover:bg-white/70 hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
+                className={`cot-press inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 text-[13.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${focusRing} ${
+                  active
+                    ? `border-transparent ring-1 ring-inset ${t.pill}`
+                    : "border-[#E4E4E7] bg-white text-[#52525B] hover:border-[#D3D3D8] hover:text-[#09090B] dark:border-[#273244] dark:bg-[#0F172A] dark:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:hover:text-white"
                 }`}
               >
-                <span className={`size-2 rounded-full transition-opacity duration-200 ${t.dot} ${active ? "" : "opacity-40"}`} aria-hidden />
+                <span className={`size-2 shrink-0 rounded-full ${t.dot} ${active ? "" : "opacity-40"}`} aria-hidden />
                 {t.label}
+                {active ? <Check className="size-3.5 shrink-0" aria-hidden /> : null}
               </button>
             );
           })}

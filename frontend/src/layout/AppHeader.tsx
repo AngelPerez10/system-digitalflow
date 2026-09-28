@@ -22,6 +22,7 @@ const SEARCH_ROUTES = [
   { label: "Orden de trabajo", path: "/ordenes" },
   { label: "Levantamiento", path: "/levantamiento" },
   { label: "Proyectos", path: "/proyectos" },
+  { label: "Equipo", path: "/equipo" },
 ] as const;
 
 /* --------------------------------------------------------------------------

@@ -448,6 +448,27 @@ export async function updateProyecto(
 }
 
 /**
+ * Reasigna solo el equipo de campo (técnicos + auxiliares). PATCH con esas
+ * dos llaves: el resto del proyecto no se reenvía, así no pisa cambios
+ * hechos en otra pestaña. Lo usa el tablero de Equipo al arrastrar.
+ */
+export async function reasignarEquipoProyecto(
+  id: string | number,
+  equipo: {
+    tecnicos: { id: number; nombre: string; responsable: boolean }[];
+    auxiliares: { id: number; nombre: string }[];
+  }
+): Promise<ProyectoRow> {
+  const res = await fetchApi(`/api/proyectos/${id}/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(equipo),
+  });
+  const api = await parseApiProyecto(res);
+  return proyectoRowFromApi(api);
+}
+
+/**
  * Cambia solo el status (y motivos). Exige `cambiar_status` en Gestión de
  * usuarios; pensada para quien liquida y también puede mover el flujo.
  */
