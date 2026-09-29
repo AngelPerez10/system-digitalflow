@@ -3,7 +3,7 @@
  * se movió a su propio archivo tal cual estaba en la página).
  */
 import { Undo2, X } from "lucide-react";
-import { focusRing } from "../Proyectos/shared/proyectoTokens";
+import { focusRing } from "../../Proyectos/shared/proyectoTokens";
 
 export function EquipoUndoToast({
   token,

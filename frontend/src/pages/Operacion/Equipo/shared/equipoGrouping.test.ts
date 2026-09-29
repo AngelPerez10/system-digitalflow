@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { Orden, Usuario } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
-import { createEmptyProyectoDraft } from "../Proyectos/shared/proyectoFormUtils";
-import { proyectoTeam } from "../Proyectos/shared/proyectoListUtils";
-import type { ProyectoRow } from "../Proyectos/shared/proyectoTypes";
+import type { Orden, Usuario } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import { createEmptyProyectoDraft } from "../../Proyectos/shared/proyectoFormUtils";
+import { proyectoTeam } from "../../Proyectos/shared/proyectoListUtils";
+import type { ProyectoRow } from "../../Proyectos/shared/proyectoTypes";
 import {
   aplicarEquipoProyecto,
   buildEquipoSecciones,

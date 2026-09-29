@@ -8,13 +8,24 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, ClipboardList, FolderKanban, History, RotateCw, Undo2, X } from "lucide-react";
-import { focusRing } from "../Proyectos/shared/proyectoTokens";
-import type { EquipoHistorialEntry } from "./equipoHistorialApi";
-import type { EquipoItemKind } from "./equipoDnd";
+import { ArrowRight, CalendarDays, ClipboardList, FolderKanban, History, RotateCw, Undo2, X } from "lucide-react";
+import { focusRing } from "../../Proyectos/shared/proyectoTokens";
+import type { EquipoHistorialEntry } from "../shared/equipoHistorialApi";
+import type { EquipoItemKind } from "../shared/equipoDnd";
 import { EquipoAvatar } from "./EquipoUi";
 
 type Filtro = "todo" | EquipoItemKind;
+
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+
+/** «mié 30 sep» a partir de `YYYY-MM-DD` (hora local). */
+function diaTexto(ymd: string | null): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd || "");
+  if (!m) return "Sin fecha";
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}`;
+}
 
 function dayKey(iso: string): string {
   const d = new Date(iso);
@@ -200,7 +211,7 @@ export function EquipoHistorialDrawer({
                   </span>
                   <p className="text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">Aún no hay movimientos</p>
                   <p className="max-w-xs text-[12.5px] text-[#71717A] dark:text-[#8EA0B8]">
-                    Cada vez que arrastres o muevas una orden o proyecto a otro técnico quedará registrado aquí.
+                    Cada vez que muevas una orden o proyecto a otro técnico o a otro día quedará registrado aquí.
                   </p>
                 </div>
               ) : (
@@ -212,6 +223,15 @@ export function EquipoHistorialDrawer({
                     <ol className="relative space-y-1 before:absolute before:bottom-3 before:left-[13px] before:top-3 before:w-px before:bg-[#F0F0F2] dark:before:bg-[#1F2A3C]">
                       {g.items.map((e, i) => {
                         const deshacer = e.accion === "deshacer";
+                        const cambioTecnico = e.desde_id !== e.hacia_id;
+                        const cambioDia = !!(e.desde_fecha || e.hacia_fecha) && e.desde_fecha !== e.hacia_fecha;
+                        const verbo = deshacer
+                          ? "deshizo el cambio de"
+                          : cambioTecnico && cambioDia
+                            ? "reasignó y cambió de día"
+                            : cambioDia
+                              ? "cambió de día"
+                              : "reasignó";
                         return (
                           <li
                             key={e.id}
@@ -225,7 +245,7 @@ export function EquipoHistorialDrawer({
                               <div className="flex items-start justify-between gap-2">
                                 <p className="min-w-0 text-[13px] leading-snug text-[#3F3F46] dark:text-[#D6DEEA]">
                                   <span className="font-semibold text-[#09090B] dark:text-[#F8FAFC]">{e.usuario_nombre || "Alguien"}</span>{" "}
-                                  {deshacer ? "deshizo el cambio de" : "reasignó"}{" "}
+                                  {verbo}{" "}
                                   <button
                                     type="button"
                                     onClick={() => onOpenItem(e.tipo, e.objeto_id)}
@@ -240,12 +260,28 @@ export function EquipoHistorialDrawer({
                                 </time>
                               </div>
                               {e.cliente ? <p className="truncate text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{e.cliente}</p> : null}
-                              <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
-                                {deshacer ? <Undo2 className="size-3.5 shrink-0 text-[#8A5D0F] dark:text-[#F2C27A]" aria-label="Deshecho" /> : null}
-                                <PersonaChip id={e.desde_id} nombre={e.desde_nombre} />
-                                <ArrowRight className="size-3.5 shrink-0 text-[#A1A1AA]" aria-label="a" />
-                                <PersonaChip id={e.hacia_id} nombre={e.hacia_nombre} />
-                              </div>
+                              {cambioTecnico || !cambioDia ? (
+                                <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+                                  {deshacer ? <Undo2 className="size-3.5 shrink-0 text-[#8A5D0F] dark:text-[#F2C27A]" aria-label="Deshecho" /> : null}
+                                  <PersonaChip id={e.desde_id} nombre={e.desde_nombre} />
+                                  <ArrowRight className="size-3.5 shrink-0 text-[#A1A1AA]" aria-label="a" />
+                                  <PersonaChip id={e.hacia_id} nombre={e.hacia_nombre} />
+                                </div>
+                              ) : null}
+                              {cambioDia ? (
+                                <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-[#3F3F46] dark:text-[#D6DEEA]">
+                                  {deshacer && !cambioTecnico ? <Undo2 className="size-3.5 shrink-0 text-[#8A5D0F] dark:text-[#F2C27A]" aria-label="Deshecho" /> : null}
+                                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-[#F4F4F5] px-2 tabular-nums dark:bg-white/[0.06]">
+                                    <CalendarDays className="size-3 text-[#A1A1AA]" aria-hidden />
+                                    {diaTexto(e.desde_fecha)}
+                                  </span>
+                                  <ArrowRight className="size-3.5 shrink-0 text-[#A1A1AA]" aria-label="a" />
+                                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-[#EEF3FF] px-2 tabular-nums text-[#1244D1] dark:bg-[#1B2A63]/60 dark:text-[#C9D7FF]">
+                                    <CalendarDays className="size-3" aria-hidden />
+                                    {diaTexto(e.hacia_fecha)}
+                                  </span>
+                                </div>
+                              ) : null}
                             </div>
                           </li>
                         );

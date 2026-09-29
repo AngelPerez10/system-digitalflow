@@ -1,10 +1,10 @@
 /**
  * Filtros del listado Equipo (tipo, estado, búsqueda, orden) — lógica pura.
  */
-import type { Orden } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
-import { displayOrdenFolio } from "../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
-import { proyectoMatchesSearch } from "../Proyectos/shared/proyectoListUtils";
-import type { ProyectoRow } from "../Proyectos/shared/proyectoTypes";
+import type { Orden } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import { displayOrdenFolio } from "../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
+import { proyectoMatchesSearch } from "../../Proyectos/shared/proyectoListUtils";
+import type { ProyectoRow } from "../../Proyectos/shared/proyectoTypes";
 import { ordenAbierta, proyectoActivo, type EquipoSeccion } from "./equipoGrouping";
 
 export type EquipoTipoFiltro = "todo" | "ordenes" | "proyectos";

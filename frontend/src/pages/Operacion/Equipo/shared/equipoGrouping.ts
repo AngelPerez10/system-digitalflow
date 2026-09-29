@@ -7,11 +7,11 @@
  * - Proyectos: pueden tener varios técnicos + auxiliares; el proyecto
  *   aparece en la columna de cada uno (así nadie deja de ver lo suyo).
  */
-import type { Orden, Usuario } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
-import { isOrdenCancelada, isOrdenResuelta } from "../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
-import { primerAuxiliar, responsableFromTecnicos } from "../Proyectos/shared/proyectoFormUtils";
-import { proyectoTeam } from "../Proyectos/shared/proyectoListUtils";
-import type { ProyectoRow } from "../Proyectos/shared/proyectoTypes";
+import type { Orden, Usuario } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import { isOrdenCancelada, isOrdenResuelta } from "../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
+import { primerAuxiliar, responsableFromTecnicos } from "../../Proyectos/shared/proyectoFormUtils";
+import { proyectoTeam } from "../../Proyectos/shared/proyectoListUtils";
+import type { ProyectoRow } from "../../Proyectos/shared/proyectoTypes";
 
 /** Id de columna: el id real del usuario, o `null` para «Sin asignar». */
 export type EquipoTecnicoId = number | null;
@@ -290,4 +290,15 @@ export function aplicarEquipoProyecto(
       auxiliar: primerAuxiliar(auxiliares),
     },
   };
+}
+
+/** Cuenta órdenes y proyectos una sola vez aunque un proyecto esté en varias secciones. */
+export function contarUnicos(secciones: EquipoSeccion[]) {
+  const ordenes = new Set<number>();
+  const proyectos = new Set<string>();
+  for (const s of secciones) {
+    for (const o of s.ordenes) ordenes.add(o.id);
+    for (const r of s.proyectos) proyectos.add(String(r.id));
+  }
+  return { ordenes: ordenes.size, proyectos: proyectos.size, total: ordenes.size + proyectos.size };
 }

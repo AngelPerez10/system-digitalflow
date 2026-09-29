@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Orden } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
-import { createEmptyProyectoDraft } from "../Proyectos/shared/proyectoFormUtils";
-import type { ProyectoRow } from "../Proyectos/shared/proyectoTypes";
+import type { Orden } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import { createEmptyProyectoDraft } from "../../Proyectos/shared/proyectoFormUtils";
+import type { ProyectoRow } from "../../Proyectos/shared/proyectoTypes";
 import { EQUIPO_FILTROS_DEFAULT, filtrarSeccionesEquipo } from "./equipoFiltros";
 import type { EquipoSeccion } from "./equipoGrouping";
 

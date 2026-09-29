@@ -3,7 +3,7 @@
  * Órdenes (`OrdenesPageStats`) y Proyectos (`ProyectosPageStats`).
  */
 import type { ReactNode } from "react";
-import { erpStatCardClass } from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import { erpStatCardClass } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 
 export type EquipoStatsData = {
   ordenes: number;
@@ -36,13 +36,13 @@ export function EquipoStats({ stats }: { stats: EquipoStatsData }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4" role="group" aria-label="Resumen del equipo">
       <StatCard
-        label="Órdenes del mes"
+        label="Órdenes de la semana"
         value={stats.ordenes}
         tone="border-[#E7E7EA] bg-white/90 text-[#1B5CFF] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#4B7CFF]"
         icon={<path d="M6 6h12M6 12h12M6 18h12" strokeLinecap="round" />}
       />
       <StatCard
-        label="Proyectos del mes"
+        label="Proyectos de la semana"
         value={stats.proyectos}
         tone="border-sky-200/80 bg-sky-50/90 text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
         icon={<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" strokeLinejoin="round" />}

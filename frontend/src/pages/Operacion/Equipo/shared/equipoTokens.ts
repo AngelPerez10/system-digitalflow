@@ -1,6 +1,6 @@
 /** Tokens visuales del tablero Equipo (status de orden, botones de fila). */
-import { isOrdenCancelada, isOrdenResuelta } from "../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
-import { focusRing } from "../Proyectos/shared/proyectoTokens";
+import { isOrdenCancelada, isOrdenResuelta } from "../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
+import { focusRing } from "../../Proyectos/shared/proyectoTokens";
 
 /** Status de orden: misma paleta que la tabla de Órdenes. */
 export const ORDEN_TONE = {

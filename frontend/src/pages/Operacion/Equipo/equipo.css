@@ -1,0 +1,135 @@
+/*
+ * Movimiento del tablero Equipo.
+ *
+ * Rendimiento: solo `transform` y `opacity` (compositor, sin reflow);
+ * animaciones cortas y de una sola vez. Con `prefers-reduced-motion: reduce`
+ * no hay animación (los estados finales se ven igual).
+ */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Cambio de semana: el tablero entra desde el lado hacia el que se navegó. */
+  .eq-slide-next {
+    animation: eq-slide-next 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .eq-slide-prev {
+    animation: eq-slide-prev 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Tarjeta que aparece (carga, filtro o después de moverla). */
+  /* `backwards`: al terminar no retiene `transform` (así funciona `.eq-lift:hover`). */
+  .eq-card-in {
+    animation: eq-card-in 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  /* Tarjeta recién movida: un solo pulso del anillo verde. */
+  .eq-moved {
+    animation: eq-moved 900ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+  }
+
+  /* Levantar la tarjeta al pasar el cursor (solo transform). */
+  .eq-lift {
+    transition:
+      transform 160ms ease-out,
+      box-shadow 160ms ease-out,
+      border-color 160ms ease-out,
+      opacity 200ms ease-out;
+  }
+  .eq-lift:hover {
+    transform: translateY(-1px);
+  }
+  .eq-lift:active {
+    transform: translateY(0) scale(0.99);
+  }
+
+  /*
+   * Cambio de tema: index.css pone `animation: none !important` un instante.
+   * Conservar el nombre evita que las entradas se repitan (igual que motion.css).
+   */
+  html.theme-changing .eq-slide-next {
+    animation-name: eq-slide-next !important;
+  }
+  html.theme-changing .eq-slide-prev {
+    animation-name: eq-slide-prev !important;
+  }
+  html.theme-changing .eq-card-in {
+    animation-name: eq-card-in !important;
+  }
+  html.theme-changing .eq-moved {
+    animation-name: eq-moved !important;
+  }
+  html.theme-changing .eq-today-bar {
+    animation-name: eq-today-bar !important;
+  }
+
+  /* Marca de «hoy» en el encabezado: se dibuja de izquierda a derecha. */
+  .eq-today-bar {
+    transform-origin: left center;
+    animation: eq-today-bar 520ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/*
+ * Mientras se arrastra, cada celda muestra un contorno tenue de destino.
+ * Se activa con un solo atributo en el tablero (`data-dragging`), sin
+ * volver a renderizar las celdas.
+ */
+[data-dragging="true"] [data-drop-cell] {
+  box-shadow: inset 0 0 0 1px rgba(27, 92, 255, 0.1);
+}
+.dark [data-dragging="true"] [data-drop-cell] {
+  box-shadow: inset 0 0 0 1px rgba(75, 124, 255, 0.16);
+}
+
+@keyframes eq-slide-next {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes eq-slide-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes eq-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes eq-moved {
+  0% {
+    transform: scale(0.97);
+  }
+  45% {
+    transform: scale(1.015);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes eq-today-bar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

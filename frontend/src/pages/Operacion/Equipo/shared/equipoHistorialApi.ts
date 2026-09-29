@@ -18,6 +18,9 @@ export type EquipoHistorialEntry = {
   desde_nombre: string;
   hacia_id: number | null;
   hacia_nombre: string;
+  /** Cambio de día (`YYYY-MM-DD`); ambos `null` si solo cambió el técnico. */
+  desde_fecha: string | null;
+  hacia_fecha: string | null;
   usuario: number | null;
   usuario_nombre: string;
   usuario_avatar_url: string;

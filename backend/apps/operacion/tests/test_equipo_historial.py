@@ -74,3 +74,28 @@ class EquipoHistorialTests(APITestCase):
         self.client.force_authenticate(self.tecnico)
         self.assertEqual(self.client.get(URL).status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(self.client.post(URL, self._payload(), format="json").status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cambio_de_dia_con_el_mismo_tecnico(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(
+            URL,
+            self._payload(
+                desde_id=self.tecnico.id,
+                desde_nombre="Beto Técnico",
+                desde_fecha="2026-09-28",
+                hacia_fecha="2026-09-30",
+            ),
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.data["desde_fecha"], "2026-09-28")
+        self.assertEqual(resp.data["hacia_fecha"], "2026-09-30")
+
+    def test_rechaza_mismo_tecnico_y_mismo_dia(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(
+            URL,
+            self._payload(desde_id=self.tecnico.id, desde_fecha="2026-09-28", hacia_fecha="2026-09-28"),
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)

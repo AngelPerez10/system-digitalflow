@@ -457,12 +457,14 @@ export async function reasignarEquipoProyecto(
   equipo: {
     tecnicos: { id: number; nombre: string; responsable: boolean }[];
     auxiliares: { id: number; nombre: string }[];
-  }
+  },
+  /** Opcional: también reprograma las jornadas (tablero Equipo, cambio de día). */
+  extra: { fechas_inicio?: string[] } = {}
 ): Promise<ProyectoRow> {
   const res = await fetchApi(`/api/proyectos/${id}/`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(equipo),
+    body: JSON.stringify({ ...equipo, ...extra }),
   });
   const api = await parseApiProyecto(res);
   return proyectoRowFromApi(api);

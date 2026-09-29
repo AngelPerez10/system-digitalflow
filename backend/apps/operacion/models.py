@@ -441,7 +441,8 @@ EQUIPO_REASIGNACION_ACCION_CHOICES = [
 
 
 class EquipoReasignacion(models.Model):
-    """Historial de reasignaciones hechas desde el tablero Equipo.
+    """Historial de reasignaciones hechas desde el tablero Equipo (cambio de
+    técnico, de día o ambos).
 
     Guarda folio, cliente y nombres como texto (no FK a la orden/proyecto) para
     que el historial se conserve aunque después se elimine el registro o
@@ -459,6 +460,9 @@ class EquipoReasignacion(models.Model):
     desde_nombre = models.CharField(max_length=255, blank=True, default="")
     hacia_id = models.IntegerField(null=True, blank=True)
     hacia_nombre = models.CharField(max_length=255, blank=True, default="")
+    # Cambio de día (arrastre entre días de la semana). Vacíos si solo cambió el técnico.
+    desde_fecha = models.DateField(null=True, blank=True)
+    hacia_fecha = models.DateField(null=True, blank=True)
     usuario = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

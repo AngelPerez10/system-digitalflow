@@ -3,10 +3,10 @@
  * selector «Mover a…»).
  */
 import { useState } from "react";
-import { ArrowRightLeft, Inbox } from "lucide-react";
+import { ArrowRightLeft, CalendarClock, Inbox } from "lucide-react";
 import { resolveMediaUrl } from "@/config/api";
-import type { EquipoDestino } from "./equipoDnd";
-import { ordenTone, rowActionBtn } from "./equipoTokens";
+import type { EquipoDestino } from "../shared/equipoDnd";
+import { ordenTone, rowActionBtn } from "../shared/equipoTokens";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -15,9 +15,11 @@ function initials(name: string): string {
 }
 
 const AVATAR_SIZE = {
+  xs: "size-6 text-[9.5px]",
   sm: "size-7 text-[10.5px]",
   md: "size-9 text-[12px]",
   lg: "size-11 text-[14px]",
+  xl: "size-16 text-[20px]",
 } as const;
 
 /** Avatar de técnico; `id == null` pinta el ícono de la bandeja «Sin asignar». */
@@ -83,14 +85,18 @@ export function MoverA({
   destinos,
   currentKey,
   onPick,
+  compact = false,
 }: {
   label: string;
   destinos: EquipoDestino[];
   currentKey: string;
   onPick: (to: EquipoDestino) => void;
+  /** Botón de 28 px (acciones de las tarjetas del tablero). */
+  compact?: boolean;
 }) {
+  const size = compact ? "size-7! rounded-[8px]! [&_svg]:size-3.5!" : "";
   return (
-    <span className={`${rowActionBtn} relative focus-within:ring-4 focus-within:ring-[rgba(27,92,255,0.18)]`} title="Mover a otro técnico">
+    <span className={`${rowActionBtn} ${size} relative focus-within:ring-4 focus-within:ring-[rgba(27,92,255,0.18)]`} title="Mover a otro técnico">
       <ArrowRightLeft aria-hidden />
       <select
         aria-label={label}
@@ -109,6 +115,48 @@ export function MoverA({
           .map((d) => (
             <option key={d.key} value={d.key}>
               {d.nombre}
+            </option>
+          ))}
+      </select>
+    </span>
+  );
+}
+
+/** «Cambiar día»: `<select>` nativo con los días de la semana (teclado y táctil). */
+export function MoverDia({
+  label,
+  dias,
+  actual,
+  onPick,
+}: {
+  label: string;
+  /** Opciones: `YYYY-MM-DD` + etiqueta visible («Mié 30»). */
+  dias: { ymd: string; label: string }[];
+  actual: string;
+  onPick: (ymd: string) => void;
+}) {
+  return (
+    <span
+      className={`${rowActionBtn} relative size-7! rounded-[8px]! focus-within:ring-4 focus-within:ring-[rgba(27,92,255,0.18)] [&_svg]:size-3.5!`}
+      title="Cambiar de día"
+    >
+      <CalendarClock aria-hidden />
+      <select
+        aria-label={label}
+        value=""
+        onChange={(e) => {
+          if (e.target.value) onPick(e.target.value);
+        }}
+        className="absolute inset-0 cursor-pointer appearance-none opacity-0"
+      >
+        <option value="" disabled>
+          Cambiar a…
+        </option>
+        {dias
+          .filter((d) => d.ymd !== actual)
+          .map((d) => (
+            <option key={d.ymd} value={d.ymd}>
+              {d.label}
             </option>
           ))}
       </select>

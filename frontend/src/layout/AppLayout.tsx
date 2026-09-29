@@ -7,8 +7,10 @@ import AppSidebar from "./AppSidebar";
 function LayoutContent() {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
+  // `overflow-x-clip` (no `hidden`): recorta igual pero no crea un contenedor
+  // de scroll, así `position: sticky` funciona respecto a la página.
   return (
-    <div className="app-ui-scale min-h-screen xl:flex overflow-x-hidden bg-[#f9f7f3] dark:bg-[#0f172a]">
+    <div className="app-ui-scale min-h-screen xl:flex overflow-x-clip bg-[#f9f7f3] dark:bg-[#0f172a]">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100000] focus:rounded-lg focus:bg-[#ff801f] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-black focus:shadow-lg"
@@ -26,7 +28,7 @@ function LayoutContent() {
         } ${isMobileOpen ? "ml-0" : ""}`}
       >
         <AppHeader />
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6 min-w-0 overflow-x-hidden">
+        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6 min-w-0 overflow-x-clip">
           <Outlet />
         </div>
       </main>

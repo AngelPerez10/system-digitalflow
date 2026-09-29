@@ -7,19 +7,19 @@ import { useEffect, type RefObject } from "react";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { pointerOutsideOfPreview } from "@atlaskit/pragmatic-drag-and-drop/element/pointer-outside-of-preview";
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
-import type { EquipoDragData, EquipoItemKind } from "./equipoDnd";
+import type { EquipoDragData, EquipoItemKind } from "../shared/equipoDnd";
 
 export function useEquipoDraggable(
   ref: RefObject<HTMLElement | null>,
-  opts: { enabled: boolean; kind: EquipoItemKind; id: string; fromKey: string; folio: string; cliente: string }
+  opts: { enabled: boolean; kind: EquipoItemKind; id: string; fromKey: string; fecha: string; folio: string; cliente: string }
 ) {
-  const { enabled, kind, id, fromKey, folio, cliente } = opts;
+  const { enabled, kind, id, fromKey, fecha, folio, cliente } = opts;
   useEffect(() => {
     const el = ref.current;
     if (!el || !enabled) return;
     return draggable({
       element: el,
-      getInitialData: (): EquipoDragData => ({ type: "equipo-item", kind, id, fromKey }),
+      getInitialData: (): EquipoDragData => ({ type: "equipo-item", kind, id, fromKey, fecha }),
       onGenerateDragPreview: ({ nativeSetDragImage }) => {
         setCustomNativeDragPreview({
           nativeSetDragImage,
@@ -45,5 +45,5 @@ export function useEquipoDraggable(
         });
       },
     });
-  }, [ref, enabled, kind, id, fromKey, folio, cliente]);
+  }, [ref, enabled, kind, id, fromKey, fecha, folio, cliente]);
 }

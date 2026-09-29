@@ -2,6 +2,7 @@
 
 - GET  /api/equipo-historial/?limit=50[&tipo=orden&objeto_id=12]  → más recientes primero
 - POST /api/equipo-historial/  → registra una reasignación o un «deshacer»
+  (cambio de técnico, de día —`desde_fecha`/`hacia_fecha`— o ambos)
 
 La reasignación en sí sigue haciéndose con el PATCH de cada módulo (órdenes /
 proyectos); el tablero registra aquí el movimiento cuando el guardado sale bien.
@@ -43,6 +44,8 @@ class EquipoReasignacionSerializer(serializers.ModelSerializer):
             "desde_nombre",
             "hacia_id",
             "hacia_nombre",
+            "desde_fecha",
+            "hacia_fecha",
             "usuario",
             "usuario_nombre",
             "usuario_avatar_url",
@@ -62,8 +65,10 @@ class EquipoReasignacionSerializer(serializers.ModelSerializer):
         return (getattr(perfil, "avatar_url", "") or "").strip()
 
     def validate(self, attrs):
-        if attrs.get("desde_id") == attrs.get("hacia_id"):
-            raise serializers.ValidationError("El origen y el destino son el mismo técnico.")
+        mismo_tecnico = attrs.get("desde_id") == attrs.get("hacia_id")
+        mismo_dia = attrs.get("desde_fecha") == attrs.get("hacia_fecha")
+        if mismo_tecnico and mismo_dia:
+            raise serializers.ValidationError("El origen y el destino son el mismo técnico y el mismo día.")
         for key in ("folio", "cliente", "desde_nombre", "hacia_nombre"):
             if key in attrs:
                 attrs[key] = str(attrs[key] or "").strip()
