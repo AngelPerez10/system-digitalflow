@@ -7,6 +7,7 @@
  */
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { erpSansStyle } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, CalendarDays, ClipboardList, FolderKanban, History, RotateCw, Undo2, X } from "lucide-react";
 import { focusRing } from "../../Proyectos/shared/proyectoTokens";
@@ -114,7 +115,7 @@ export function EquipoHistorialDrawer({
   return createPortal(
     <AnimatePresence>
       {open ? (
-        <div className="fixed inset-0 z-[100000]" role="presentation">
+        <div className="fixed inset-0 z-[100000]" role="presentation" style={erpSansStyle}>
           <motion.div
             className="absolute inset-0 bg-[#09090B]/30 backdrop-blur-[2px] dark:bg-black/50"
             initial={{ opacity: 0 }}

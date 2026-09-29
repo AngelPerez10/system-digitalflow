@@ -9,6 +9,8 @@
  *  - «Alcance» (órdenes, proyectos, reportes de mantenimiento, cotizaciones):
  *    solo sus registros o los de todo el equipo.
  *  - Lo que el guardado anula para técnicos se muestra bloqueado.
+ *  - «Permisos especiales» (liquidar / cambiar status de órdenes y proyectos):
+ *    un panel por módulo con interruptores; requieren «Ver» en ese módulo.
  *
  * En escritorio es una tabla con encabezado fijo y casillas de columna; en
  * móvil cada módulo es una tarjeta con las casillas etiquetadas.
@@ -24,9 +26,10 @@ import {
   ClipboardList,
   Cog,
   Contact,
-  DollarSign,
   Eye,
   FileText,
+  Info,
+  KeyRound,
   Layers,
   LayoutDashboard,
   ListChecks,
@@ -64,7 +67,7 @@ import {
   type PermissionsPayload,
   type UserAccount,
 } from './usuariosModel';
-import { InlineAlert } from './usuariosUi';
+import { InlineAlert, Switch } from './usuariosUi';
 import { btn, formModalShellClass } from './usuariosStyles';
 
 const MODULE_ICON: Record<ModuleKey, ReactNode> = {
@@ -97,36 +100,49 @@ const ROW_GRID = 'grid grid-cols-4 gap-x-2 sm:grid-cols-[minmax(0,1fr)_repeat(4,
 
 const headCellClass = 'text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]';
 
-/** Filas de la sección "Permisos especiales" (fuera de la matriz CRUD). */
-const SPECIAL_PERM_ROWS: {
+type SpecialFlag = 'liquidar' | 'cambiar_status';
+
+/** «Permisos especiales» (fuera de la matriz CRUD), agrupados por módulo. */
+const SPECIAL_PERM_GROUPS: {
   key: ModuleKey;
-  flag: 'liquidar' | 'cambiar_status';
   label: string;
-  hint: string;
+  items: { flag: SpecialFlag; label: string; ariaLabel: string; hint: string }[];
 }[] = [
   {
     key: 'ordenes',
-    flag: 'liquidar',
-    label: 'Puede liquidar Órdenes de trabajo',
-    hint: 'Marca/desmarca «Liquidado» en órdenes resueltas. No permite cambiar el status.',
-  },
-  {
-    key: 'ordenes',
-    flag: 'cambiar_status',
-    label: 'Puede cambiar status de Órdenes de trabajo',
-    hint: 'Mueve pendiente / pausado / resuelto. Actívalo junto a Liquidar si también debe cambiar el status.',
+    label: 'Órdenes de trabajo',
+    items: [
+      {
+        flag: 'liquidar',
+        label: 'Liquidar',
+        ariaLabel: 'Puede liquidar Órdenes de trabajo',
+        hint: 'Marca o desmarca «Liquidado» en órdenes resueltas.',
+      },
+      {
+        flag: 'cambiar_status',
+        label: 'Cambiar status',
+        ariaLabel: 'Puede cambiar status de Órdenes de trabajo',
+        hint: 'Mueve la orden entre «Pendiente», «Pausado» y «Resuelto».',
+      },
+    ],
   },
   {
     key: 'proyectos',
-    flag: 'liquidar',
-    label: 'Puede liquidar Proyectos',
-    hint: 'Marca/desmarca «Liquidado» en proyectos cerrados. No permite cambiar el status.',
-  },
-  {
-    key: 'proyectos',
-    flag: 'cambiar_status',
-    label: 'Puede cambiar status de Proyectos',
-    hint: 'Mueve en proceso / pausado / cerrado. Actívalo junto a Liquidar si también debe cambiar el status.',
+    label: 'Proyectos',
+    items: [
+      {
+        flag: 'liquidar',
+        label: 'Liquidar',
+        ariaLabel: 'Puede liquidar Proyectos',
+        hint: 'Marca o desmarca «Liquidado» en proyectos cerrados.',
+      },
+      {
+        flag: 'cambiar_status',
+        label: 'Cambiar status',
+        ariaLabel: 'Puede cambiar status de Proyectos',
+        hint: 'Mueve el proyecto entre «En proceso», «Pausado» y «Cerrado».',
+      },
+    ],
   },
 ];
 
@@ -216,7 +232,7 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
     });
   };
 
-  const setSpecialFlag = (key: ModuleKey, flag: 'liquidar' | 'cambiar_status', value: boolean) => {
+  const setSpecialFlag = (key: ModuleKey, flag: SpecialFlag, value: boolean) => {
     if (readOnly) return;
     setPerms((prev) => {
       const next = normalizePerms(prev, { isAdmin: staffAdmin });
@@ -374,134 +390,84 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
           </div>
         ) : null}
 
-        {/* Encabezado fijo de columnas (sm+) con casilla de columna completa */}
-        <div
-          className={cn(
-            ROW_GRID,
-            'sticky top-0 z-10 hidden items-end border-b border-[#F0F0F2] bg-white/95 px-6 py-2.5 backdrop-blur-sm dark:border-[#1F2A3C] dark:bg-[#111827]/95 sm:grid',
+        {/* La tabla va en su propio bloque: el encabezado fijo se suelta antes de «Permisos especiales». */}
+        <div>
+          {/* Encabezado fijo de columnas (sm+) con casilla de columna completa */}
+          <div
+            className={cn(
+              ROW_GRID,
+              'sticky top-0 z-10 hidden items-end border-b border-[#F0F0F2] bg-white/95 px-6 py-2.5 backdrop-blur-sm dark:border-[#1F2A3C] dark:bg-[#111827]/95 sm:grid',
+            )}
+          >
+            <span className={cn(headCellClass, 'pb-0.5')}>Módulo</span>
+            {PERM_ACTIONS.map((a) => {
+              const st = columnState(a.key);
+              return (
+                <div key={a.key} className="flex flex-col items-center gap-1.5">
+                  <span className={headCellClass}>{a.label}</span>
+                  <Checkbox
+                    checked={st.checked}
+                    indeterminate={st.indeterminate}
+                    disabled={readOnly || loading}
+                    onChange={(v) => change(st.keys.map((key) => ({ key, action: a.key, value: v })))}
+                    label={`${st.checked ? 'Quitar' : 'Marcar'} «${a.label}» en todos los módulos`}
+                    danger={a.key === 'delete'}
+                  />
+                </div>
+              );
+            })}
+            <span className={cn(headCellClass, 'pb-0.5 pl-2')}>Alcance</span>
+          </div>
+
+          {loading ? (
+            <div className="space-y-2 px-5 py-5 sm:px-6" aria-busy="true" aria-label="Cargando permisos">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-3 py-2" style={{ opacity: 1 - i * 0.13 }}>
+                  <span className="size-8 shrink-0 rounded-[9px] bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
+                  <span className="h-3.5 w-40 rounded-full bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
+                  <span className="ml-auto hidden h-5 w-72 rounded-md bg-[#F4F4F5] motion-safe:animate-pulse dark:bg-[#151E32] sm:block" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="pb-2">
+              {sections.map((sec, si) => (
+                <section key={sec.key} aria-labelledby={`${titleId}-${sec.key}`} className="cot-rise" style={{ '--cot-i': si } as CSSProperties}>
+                  <h3
+                    id={`${titleId}-${sec.key}`}
+                    className="flex items-center gap-2 border-b border-[#F0F0F2] bg-[#FAFAFA] px-5 py-2.5 text-[12px] font-semibold uppercase tracking-widest text-[#17235B] dark:border-[#1F2A3C] dark:bg-[#0F172A]/40 dark:text-[#9BB6FF] sm:px-6 [&_svg]:size-4"
+                  >
+                    {SECTION_ICON[sec.key]}
+                    Menú {sec.menu}
+                  </h3>
+                  <ul className="divide-y divide-[#F0F0F2] border-b border-[#F0F0F2] dark:divide-[#1F2A3C] dark:border-[#1F2A3C]">
+                    {sec.modules.map((m) => (
+                      <ModuleRow
+                        key={m.key}
+                        moduleKey={m.key}
+                        label={m.label}
+                        perms={current[m.key] as CrudPerms}
+                        readOnly={readOnly}
+                        isLocked={(a) => isLocked(m.key, a)}
+                        onToggle={(action, value) => change([{ key: m.key, action, value }])}
+                        onScope={(ownOnly) => setScope(m.key, ownOnly)}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
           )}
-        >
-          <span className={cn(headCellClass, 'pb-0.5')}>Módulo</span>
-          {PERM_ACTIONS.map((a) => {
-            const st = columnState(a.key);
-            return (
-              <div key={a.key} className="flex flex-col items-center gap-1.5">
-                <span className={headCellClass}>{a.label}</span>
-                <Checkbox
-                  checked={st.checked}
-                  indeterminate={st.indeterminate}
-                  disabled={readOnly || loading}
-                  onChange={(v) => change(st.keys.map((key) => ({ key, action: a.key, value: v })))}
-                  label={`${st.checked ? 'Quitar' : 'Marcar'} «${a.label}» en todos los módulos`}
-                  danger={a.key === 'delete'}
-                />
-              </div>
-            );
-          })}
-          <span className={cn(headCellClass, 'pb-0.5 pl-2')}>Alcance</span>
         </div>
 
-        {loading ? (
-          <div className="space-y-2 px-5 py-5 sm:px-6" aria-busy="true" aria-label="Cargando permisos">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center gap-3 py-2" style={{ opacity: 1 - i * 0.13 }}>
-                <span className="size-8 shrink-0 rounded-[9px] bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
-                <span className="h-3.5 w-40 rounded-full bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
-                <span className="ml-auto hidden h-5 w-72 rounded-md bg-[#F4F4F5] motion-safe:animate-pulse dark:bg-[#151E32] sm:block" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="pb-2">
-            {sections.map((sec, si) => (
-              <section key={sec.key} aria-labelledby={`${titleId}-${sec.key}`} className="cot-rise" style={{ '--cot-i': si } as CSSProperties}>
-                <h3
-                  id={`${titleId}-${sec.key}`}
-                  className="flex items-center gap-2 border-b border-[#F0F0F2] bg-[#FAFAFA] px-5 py-2.5 text-[12px] font-semibold uppercase tracking-widest text-[#17235B] dark:border-[#1F2A3C] dark:bg-[#0F172A]/40 dark:text-[#9BB6FF] sm:px-6 [&_svg]:size-4"
-                >
-                  {SECTION_ICON[sec.key]}
-                  Menú {sec.menu}
-                </h3>
-                <ul className="divide-y divide-[#F0F0F2] border-b border-[#F0F0F2] dark:divide-[#1F2A3C] dark:border-[#1F2A3C]">
-                  {sec.modules.map((m) => (
-                    <ModuleRow
-                      key={m.key}
-                      moduleKey={m.key}
-                      label={m.label}
-                      perms={current[m.key] as CrudPerms}
-                      readOnly={readOnly}
-                      isLocked={(a) => isLocked(m.key, a)}
-                      onToggle={(action, value) => change([{ key: m.key, action, value }])}
-                      onScope={(ownOnly) => setScope(m.key, ownOnly)}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        )}
-
         {!loading ? (
-          <div className="border-t border-[#F0F0F2] bg-[#FAFAFA] px-5 py-4 dark:border-[#1F2A3C] dark:bg-[#0F172A]/40 sm:px-6">
-            <h3 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-widest text-[#17235B] dark:text-[#9BB6FF] [&_svg]:size-4">
-              <DollarSign aria-hidden />
-              Permisos especiales
-            </h3>
-            <p className="mt-1 text-[13px] leading-4.5 text-[#52525B] dark:text-[#B7C1D1]">
-              Liquidar y cambiar status son independientes entre sí y de Editar. Quien solo liquida no puede
-              mover el status; para ambas acciones activa las dos casillas.
-            </p>
-            <ul className="mt-3 space-y-2">
-              {SPECIAL_PERM_ROWS.map((row) => {
-                const rowPerms = current[row.key] as CrudPerms;
-                const disabled = readOnly || !rowPerms.view;
-                const checked = rowPerms[row.flag] === true;
-                const moduleLabel = row.key === 'ordenes' ? 'Órdenes de trabajo' : 'Proyectos';
-                const id = `perm-special-${row.key}-${row.flag}`;
-                const hintId = `${id}-hint`;
-                return (
-                  <li key={`${row.key}-${row.flag}`}>
-                    <div
-                      title={!rowPerms.view ? `Actívale «Ver» en ${moduleLabel} primero` : undefined}
-                      className={cn(
-                        'flex min-h-11 items-start gap-3 rounded-[10px] px-2 py-1.5',
-                        disabled && 'opacity-70',
-                      )}
-                    >
-                      <Checkbox
-                        id={id}
-                        checked={checked}
-                        disabled={disabled}
-                        onChange={(v) => setSpecialFlag(row.key, row.flag, v)}
-                        label={row.label}
-                        aria-describedby={hintId}
-                      />
-                      <div className="min-w-0 pt-0.5">
-                        <label
-                          htmlFor={id}
-                          className={cn(
-                            'block cursor-pointer text-[14px] leading-snug',
-                            rowPerms.view
-                              ? 'text-[#09090B] dark:text-[#F8FAFC]'
-                              : 'text-[#A1A1AA] dark:text-[#64748B]',
-                            disabled && 'cursor-not-allowed',
-                          )}
-                        >
-                          {row.label}
-                        </label>
-                        <p
-                          id={hintId}
-                          className="mt-0.5 text-[12px] leading-4 text-[#71717A] dark:text-[#8EA0B8]"
-                        >
-                          {row.hint}
-                        </p>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          <SpecialPermissionsSection
+            titleId={titleId}
+            index={sections.length}
+            current={current}
+            readOnly={readOnly}
+            onFlag={setSpecialFlag}
+          />
         ) : null}
       </div>
 
@@ -654,6 +620,168 @@ function ModuleRow({
     </li>
   );
 }
+
+/** «Permisos especiales»: un panel por módulo con interruptores (requieren «Ver» en ese módulo). */
+function SpecialPermissionsSection({
+  titleId,
+  index,
+  current,
+  readOnly,
+  onFlag,
+}: {
+  titleId: string;
+  /** Orden de entrada (escalonado) a continuación de las secciones de la tabla. */
+  index: number;
+  current: Required<PermissionsPayload>;
+  readOnly: boolean;
+  onFlag: (key: ModuleKey, flag: SpecialFlag, value: boolean) => void;
+}) {
+  const headingId = `${titleId}-special`;
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="cot-rise border-t border-[#F0F0F2] bg-[#FAFAFA] px-5 py-5 dark:border-[#1F2A3C] dark:bg-[#0F172A]/40 sm:px-6"
+      style={{ '--cot-i': index } as CSSProperties}
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(27,92,255,0.08)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#9BB6FF] [&_svg]:size-[18px]">
+          <KeyRound aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <h3
+            id={headingId}
+            className="text-[15px] font-semibold leading-5 tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]"
+          >
+            Permisos especiales
+          </h3>
+          <p className="mt-0.5 text-pretty text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
+            Acciones sensibles que se conceden aparte de Ver, Crear, Editar y Eliminar.
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-4 flex gap-2 text-[13px] leading-[18px] text-[#52525B] dark:text-[#B7C1D1]">
+        <Info className="mt-px size-4 shrink-0 text-[#1B5CFF] dark:text-[#7EA0FF]" aria-hidden />
+        <span className="text-pretty">
+          Liquidar y Cambiar status son independientes entre sí y de Editar. Quien solo liquida no puede mover el
+          status; para permitir ambas acciones, activa los dos interruptores.
+        </span>
+      </p>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+        {SPECIAL_PERM_GROUPS.map((group) => (
+          <SpecialPermissionCard
+            key={group.key}
+            headingId={headingId}
+            group={group}
+            perms={current[group.key] as CrudPerms}
+            readOnly={readOnly}
+            onFlag={(flag, value) => onFlag(group.key, flag, value)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SpecialPermissionCard({
+  headingId,
+  group,
+  perms,
+  readOnly,
+  onFlag,
+}: {
+  headingId: string;
+  group: (typeof SPECIAL_PERM_GROUPS)[number];
+  perms: CrudPerms;
+  readOnly: boolean;
+  onFlag: (flag: SpecialFlag, value: boolean) => void;
+}) {
+  const cardId = `${headingId}-${group.key}`;
+  const statusId = `${cardId}-ver`;
+  /* Sin «Ver» el módulo no aparece en su menú: las acciones quedan bloqueadas y se dice por qué. */
+  const blocked = !perms.view;
+  const disabled = readOnly || blocked;
+
+  return (
+    <div
+      role="group"
+      aria-labelledby={cardId}
+      className="flex flex-col overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white dark:border-[#273244] dark:bg-[#111827]"
+    >
+      <div className="flex items-center gap-3 border-b border-[#F0F0F2] px-4 py-3 dark:border-[#1F2A3C]">
+        <span
+          className={cn(
+            'inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] transition-colors duration-200 [&_svg]:size-4',
+            blocked
+              ? 'bg-[#F4F4F5] text-[#A1A1AA] dark:bg-[#151E32] dark:text-[#64748B]'
+              : 'bg-[rgba(27,92,255,0.08)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#9BB6FF]',
+          )}
+        >
+          {MODULE_ICON[group.key]}
+        </span>
+        <div className="min-w-0">
+          <h4 id={cardId} className="text-[14px] font-semibold leading-5 text-[#09090B] dark:text-[#F8FAFC]">
+            {group.label}
+          </h4>
+          <p
+            id={statusId}
+            className={cn(
+              'flex items-center gap-1 text-[12px] font-medium leading-4',
+              blocked ? 'text-[#6E6E77] dark:text-[#8EA0B8]' : 'text-[#04724D] dark:text-[#4ADE80]',
+            )}
+          >
+            {blocked ? <Lock className="size-3" aria-hidden /> : <Check className="size-3.5" strokeWidth={3} aria-hidden />}
+            {blocked ? 'Requiere «Ver»' : 'Ver activo'}
+          </p>
+        </div>
+      </div>
+
+      <ul className="flex-1 divide-y divide-[#F0F0F2] dark:divide-[#1F2A3C]">
+        {group.items.map((item) => {
+          const switchId = `${cardId}-${item.flag}`;
+          const hintId = `${switchId}-hint`;
+          const checked = perms[item.flag] === true;
+          return (
+            <li key={item.flag}>
+              <label
+                htmlFor={switchId}
+                className={cn(
+                  'flex items-start gap-4 px-4 py-3.5 transition-colors duration-150',
+                  disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-[#FAFAFA] dark:hover:bg-[#151E32]/60',
+                )}
+              >
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      'block text-[14px] font-medium leading-5',
+                      blocked ? 'text-[#6E6E77] dark:text-[#8EA0B8]' : 'text-[#09090B] dark:text-[#F8FAFC]',
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                  <span id={hintId} className="mt-0.5 block text-pretty text-[12px] leading-4 text-[#6E6E77] dark:text-[#8EA0B8]">
+                    {item.hint}
+                  </span>
+                </span>
+                <Switch
+                  id={switchId}
+                  size="sm"
+                  checked={checked}
+                  disabled={disabled}
+                  label={item.ariaLabel}
+                  describedBy={blocked ? `${hintId} ${statusId}` : hintId}
+                  onChange={() => onFlag(item.flag, !checked)}
+                />
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 
 /** Casilla nativa (accesible, admite estado mixto) con la apariencia del sistema. */
 function Checkbox({

@@ -45,5 +45,40 @@ export function ordenTone(status: unknown) {
   return ORDEN_TONE.pendiente;
 }
 
+/**
+ * Identidad de tipo de trabajo (orden vs proyecto).
+ *
+ * Tonos propios (turquesa y rosa, muy distintos entre sí) y a propósito ajenos a los
+ * de status (azul, naranja, índigo, magenta, verde, rojo): una barra o un ícono de tipo nunca se
+ * confunde con el estado de la tarjeta. El tipo además se distingue por ícono
+ * y texto, no solo por color. Para cambiar los colores basta con editar aquí.
+ */
+export const TIPO_TONE = {
+  orden: {
+    label: "Orden de trabajo",
+    /** Barra lateral de la tarjeta y de la leyenda. */
+    bar: "bg-[#14B8A6] dark:bg-[#2DD4BF]",
+    /** Ícono del tipo. */
+    icon: "text-[#0F766E] dark:text-[#5EEAD4]",
+    /** Pastilla de texto (hoy solo la usa la jornada de un proyecto). */
+    chip: "bg-[#E6F8F5] text-[#0B5F58] dark:bg-[rgba(45,212,191,0.14)] dark:text-[#5EEAD4]",
+    /** Recuadro con ícono (tarjeta y leyenda). */
+    tile: "bg-[#E6F8F5] text-[#0F766E] ring-[#BDEBE4] dark:bg-[rgba(45,212,191,0.14)] dark:text-[#5EEAD4] dark:ring-[rgba(45,212,191,0.3)]",
+    /** Etiqueta de la vista previa al arrastrar (siempre sobre blanco). */
+    dragTag: "bg-[#E6F8F5] text-[#0B5F58]",
+    /** Recuadro del contador de la semana. */
+    stat: "border-teal-200/80 bg-teal-50/90 text-teal-700 dark:border-teal-400/25 dark:bg-teal-400/10 dark:text-teal-300",
+  },
+  proyecto: {
+    label: "Proyecto",
+    bar: "bg-[#F472B6] dark:bg-[#F9A8D4]",
+    icon: "text-[#BE185D] dark:text-[#F9A8D4]",
+    chip: "bg-[#FDF0F7] text-[#9D174D] dark:bg-[rgba(249,168,212,0.14)] dark:text-[#F9A8D4]",
+    tile: "bg-[#FDF0F7] text-[#BE185D] ring-[#F8D3E6] dark:bg-[rgba(249,168,212,0.14)] dark:text-[#F9A8D4] dark:ring-[rgba(249,168,212,0.3)]",
+    dragTag: "bg-[#FDF0F7] text-[#9D174D]",
+    stat: "border-pink-200/80 bg-pink-50/90 text-pink-700 dark:border-pink-400/25 dark:bg-pink-400/10 dark:text-pink-300",
+  },
+} as const;
+
 export const rowActionBtn = `cot-press inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] text-[#71717A] hover:bg-[#F4F4F5] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/6 dark:hover:text-white [&_svg]:size-4 ${focusRing}`;
 

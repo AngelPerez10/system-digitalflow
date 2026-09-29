@@ -24,7 +24,7 @@ import type { ProyectoRow } from "../../../Proyectos/shared/proyectoTypes";
 import { useEquipoDraggable } from "../../hooks/useEquipoDraggable";
 import { columnKey, type EquipoDestino, type EquipoMoveRequest } from "../../shared/equipoDnd";
 import { DIAS_CORTOS, parseYmd, type EquipoTarjeta } from "../../shared/equipoSemana";
-import { ordenTone } from "../../shared/equipoTokens";
+import { ordenTone, TIPO_TONE } from "../../shared/equipoTokens";
 import { MoverA, MoverDia } from "../EquipoUi";
 
 export type EquipoJobHandlers = {
@@ -88,6 +88,7 @@ function describir(t: EquipoTarjeta) {
 export const EquipoJobCard = memo(function EquipoJobCard({ tarjeta: t, variant, semana, dragging, justMoved, destinos, handlers }: Props) {
   const ref = useRef<HTMLElement | null>(null);
   const esOrden = t.kind === "orden";
+  const tipo = TIPO_TONE[t.kind];
   const d = describir(t);
   const cliente = t.cliente || "Sin cliente";
   const fromKey = columnKey(t.tecnico.id);
@@ -145,13 +146,13 @@ export const EquipoJobCard = memo(function EquipoJobCard({ tarjeta: t, variant, 
             : "border-[#E4E4E7] shadow-[0_1px_2px_rgba(9,9,11,0.05)] hover:border-[#D3D3D8] hover:shadow-[0_6px_16px_-10px_rgba(9,9,11,0.3)] dark:border-[#273244] dark:hover:border-[#3A4661]"
       } ${t.abierta ? "cursor-grab active:cursor-grabbing" : "opacity-65"}`}
     >
-      {/* Acento: azul = orden, ámbar = proyecto. */}
-      <span className={`absolute inset-y-0 left-0 w-[3px] ${esOrden ? "bg-[#1B5CFF] dark:bg-[#4B7CFF]" : "bg-[#D08A1E] dark:bg-[#E6A23C]"}`} aria-hidden />
+      {/* Acento de tipo (TIPO_TONE): no comparte color con ningún status. */}
+      <span className={`absolute inset-y-0 left-0 w-[3px] origin-left transition-transform duration-200 ease-out group-hover/card:scale-x-[1.7] motion-reduce:transition-none ${tipo.bar}`} aria-hidden />
 
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className={esOrden ? "text-[#1B5CFF] dark:text-[#9BB6FF]" : "text-[#B06F12] dark:text-[#F2C27A]"} aria-hidden>
-            {esOrden ? <ClipboardList className="size-3.5" /> : <FolderKanban className="size-3.5" />}
+          <span className={`inline-flex size-[18px] shrink-0 items-center justify-center rounded-[6px] ring-1 ring-inset transition-transform duration-200 ease-out group-hover/card:scale-110 motion-reduce:transition-none ${tipo.tile}`} title={tipo.label} aria-hidden>
+            {esOrden ? <ClipboardList className="size-3" /> : <FolderKanban className="size-3" />}
           </span>
           <span className="truncate font-mono text-[11px] font-semibold tracking-tight text-[#1244D1] dark:text-[#9BB6FF]">{d.folio}</span>
           {!t.abierta ? <Lock className="size-3 shrink-0 text-[#A1A1AA]" aria-hidden /> : null}
@@ -184,7 +185,7 @@ export const EquipoJobCard = memo(function EquipoJobCard({ tarjeta: t, variant, 
             <span className="truncate">{d.estadoLabel}</span>
           )}
           {d.jornada ? (
-            <span className="shrink-0 rounded-[5px] bg-[#FFF4E5] px-1 text-[10px] font-semibold tabular-nums text-[#8A5D0F] dark:bg-[rgba(230,162,60,0.14)] dark:text-[#F2C27A]" title="Jornada del proyecto">
+            <span className={`shrink-0 rounded-[5px] px-1 text-[10px] font-semibold tabular-nums ${tipo.chip}`} title="Jornada del proyecto">
               {d.jornada}
             </span>
           ) : null}

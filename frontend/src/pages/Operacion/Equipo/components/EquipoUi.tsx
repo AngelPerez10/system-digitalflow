@@ -2,9 +2,11 @@
  * Piezas visuales compartidas del tablero Equipo (avatar, status de orden,
  * selector «Mover a…»).
  */
-import { useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ArrowRightLeft, CalendarClock, Inbox } from "lucide-react";
 import { resolveMediaUrl } from "@/config/api";
+import { erpSansStyle } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import type { EquipoDestino } from "../shared/equipoDnd";
 import { ordenTone, rowActionBtn } from "../shared/equipoTokens";
 
@@ -79,7 +81,161 @@ export function OrdenStatusPill({ status }: { status: unknown }) {
    Botones
    -------------------------------------------------------------------------- */
 
-/** «Mover a…»: `<select>` nativo sobre un botón con ícono (teclado y táctil). */
+type MenuItem = { key: string; label: string };
+
+/**
+ * Botón con ícono que abre un menú propio (en lugar del `<select>` nativo, cuya
+ * lista no respeta el modo oscuro). Va en un portal con posición fija para no
+ * recortarse dentro de las tarjetas; se cierra con Esc o clic afuera y sigue al botón al hacer scroll.
+ * Teclado: Enter/Espacio/↓ abren, ↑↓ Inicio Fin navegan, Esc devuelve el foco.
+ */
+function ActionMenu({
+  label,
+  title,
+  heading,
+  icon,
+  items,
+  onSelect,
+  className,
+}: {
+  label: string;
+  title: string;
+  heading: string;
+  icon: ReactNode;
+  items: MenuItem[];
+  onSelect: (key: string) => void;
+  className: string;
+}) {
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  const menuId = useId();
+  const open = pos != null;
+
+  const close = (refocus = false) => {
+    setPos(null);
+    if (refocus) btnRef.current?.focus();
+  };
+  const place = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const right = Math.max(8, window.innerWidth - r.right);
+    // Abre hacia arriba si abajo no caben ~15 rem de lista.
+    setPos(
+      window.innerHeight - r.bottom < 260 && r.top > 260
+        ? { bottom: window.innerHeight - r.top + 6, right }
+        : { top: r.bottom + 6, right },
+    );
+  };
+  const openMenu = place;
+
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const onPointer = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!menuRef.current?.contains(t) && !btnRef.current?.contains(t)) setPos(null);
+    };
+    // Scroll de la página: el menú sigue al botón; el scroll de su propia lista no lo mueve.
+    const onScroll = (e: Event) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      place();
+    };
+    const onDismiss = () => setPos(null);
+    document.addEventListener("pointerdown", onPointer);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onDismiss);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onDismiss);
+    };
+  }, [open]);
+
+  const onMenuKey = (e: React.KeyboardEvent) => {
+    const els = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+    const i = els.indexOf(document.activeElement as HTMLElement);
+    const go = (n: number) => {
+      e.preventDefault();
+      els[(n + els.length) % els.length]?.focus();
+    };
+    if (e.key === "ArrowDown") go(i + 1);
+    else if (e.key === "ArrowUp") go(i - 1);
+    else if (e.key === "Home") go(0);
+    else if (e.key === "End") go(els.length - 1);
+    else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      close(true);
+    } else if (e.key === "Tab") setPos(null);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        aria-label={label}
+        title={title}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        onClick={() => (open ? close() : openMenu())}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" && !open) {
+            e.preventDefault();
+            openMenu();
+          }
+        }}
+        className={`${className} ${open ? "bg-[#EEF3FF]! text-[#1244D1]! dark:bg-[#1B2A63]/60! dark:text-[#C9D7FF]!" : ""}`}
+      >
+        {icon}
+      </button>
+      {pos
+        ? createPortal(
+            <div
+              ref={menuRef}
+              id={menuId}
+              role="menu"
+              aria-label={heading}
+              onKeyDown={onMenuKey}
+              onClick={(e) => e.stopPropagation()}
+              style={{ ...erpSansStyle, position: "fixed", top: pos.top, bottom: pos.bottom, right: pos.right }}
+              className={`cot-pop z-[950] w-56 max-w-[calc(100vw-1rem)] overflow-hidden rounded-[14px] border border-[#E4E4E7] bg-white text-left shadow-[0_24px_48px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_24px_48px_-16px_rgba(0,0,0,0.7)] ${pos.bottom != null ? "origin-bottom-right" : "origin-top-right"}`}
+            >
+              <p className="border-b border-[#F0F0F2] px-3 pb-1.5 pt-2.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:border-[#1F2A3C] dark:text-[#8EA0B8]">
+                {heading}
+              </p>
+              <div className="custom-scrollbar max-h-[15rem] overflow-y-auto overscroll-contain p-1">
+                {items.length === 0 ? (
+                  <p className="px-2.5 py-3 text-[12.5px] text-[#71717A] dark:text-[#8EA0B8]">Sin opciones</p>
+                ) : (
+                  items.map((it) => (
+                    <button
+                      key={it.key}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setPos(null);
+                        btnRef.current?.focus();
+                        onSelect(it.key);
+                      }}
+                      className="flex h-9 w-full items-center rounded-[9px] px-2.5 text-left text-[13px] font-medium text-[#3F3F46] transition-colors duration-150 hover:bg-[#F4F4F5] focus-visible:bg-[#EEF3FF] focus-visible:text-[#1244D1] focus-visible:outline-none dark:text-[#D6DEEA] dark:hover:bg-white/[0.06] dark:focus-visible:bg-[#1B2A63]/60 dark:focus-visible:text-[#C9D7FF]"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{it.label}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+/** «Mover a…»: menú con los técnicos destino (teclado y táctil). */
 export function MoverA({
   label,
   destinos,
@@ -95,34 +251,24 @@ export function MoverA({
   compact?: boolean;
 }) {
   const size = compact ? "size-7! rounded-[8px]! [&_svg]:size-3.5!" : "";
+  const items = destinos.filter((d) => d.key !== currentKey).map((d) => ({ key: d.key, label: d.nombre }));
   return (
-    <span className={`${rowActionBtn} ${size} relative focus-within:ring-4 focus-within:ring-[rgba(27,92,255,0.18)]`} title="Mover a otro técnico">
-      <ArrowRightLeft aria-hidden />
-      <select
-        aria-label={label}
-        value=""
-        onChange={(e) => {
-          const dest = destinos.find((d) => d.key === e.target.value);
-          if (dest) onPick(dest);
-        }}
-        className="absolute inset-0 cursor-pointer appearance-none opacity-0"
-      >
-        <option value="" disabled>
-          Mover a…
-        </option>
-        {destinos
-          .filter((d) => d.key !== currentKey)
-          .map((d) => (
-            <option key={d.key} value={d.key}>
-              {d.nombre}
-            </option>
-          ))}
-      </select>
-    </span>
+    <ActionMenu
+      label={label}
+      title="Mover a otro técnico"
+      heading="Mover a…"
+      icon={<ArrowRightLeft aria-hidden />}
+      items={items}
+      onSelect={(k) => {
+        const dest = destinos.find((d) => d.key === k);
+        if (dest) onPick(dest);
+      }}
+      className={`${rowActionBtn} ${size}`}
+    />
   );
 }
 
-/** «Cambiar día»: `<select>` nativo con los días de la semana (teclado y táctil). */
+/** «Cambiar día»: menú con los días de la semana (teclado y táctil). */
 export function MoverDia({
   label,
   dias,
@@ -136,30 +282,14 @@ export function MoverDia({
   onPick: (ymd: string) => void;
 }) {
   return (
-    <span
-      className={`${rowActionBtn} relative size-7! rounded-[8px]! focus-within:ring-4 focus-within:ring-[rgba(27,92,255,0.18)] [&_svg]:size-3.5!`}
+    <ActionMenu
+      label={label}
       title="Cambiar de día"
-    >
-      <CalendarClock aria-hidden />
-      <select
-        aria-label={label}
-        value=""
-        onChange={(e) => {
-          if (e.target.value) onPick(e.target.value);
-        }}
-        className="absolute inset-0 cursor-pointer appearance-none opacity-0"
-      >
-        <option value="" disabled>
-          Cambiar a…
-        </option>
-        {dias
-          .filter((d) => d.ymd !== actual)
-          .map((d) => (
-            <option key={d.ymd} value={d.ymd}>
-              {d.label}
-            </option>
-          ))}
-      </select>
-    </span>
+      heading="Cambiar a…"
+      icon={<CalendarClock aria-hidden />}
+      items={dias.filter((d) => d.ymd !== actual).map((d) => ({ key: d.ymd, label: d.label }))}
+      onSelect={onPick}
+      className={`${rowActionBtn} size-7! rounded-[8px]! [&_svg]:size-3.5!`}
+    />
   );
 }

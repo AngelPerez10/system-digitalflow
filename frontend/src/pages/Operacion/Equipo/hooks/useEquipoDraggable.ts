@@ -8,6 +8,7 @@ import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { pointerOutsideOfPreview } from "@atlaskit/pragmatic-drag-and-drop/element/pointer-outside-of-preview";
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
 import type { EquipoDragData, EquipoItemKind } from "../shared/equipoDnd";
+import { TIPO_TONE } from "../shared/equipoTokens";
 
 export function useEquipoDraggable(
   ref: RefObject<HTMLElement | null>,
@@ -29,9 +30,7 @@ export function useEquipoDraggable(
             chip.className =
               "flex max-w-[280px] items-center gap-2 rounded-xl border border-[#D7E3FF] bg-white px-3 py-2 text-[13px] font-semibold text-[#09090B] shadow-[0_14px_30px_-12px_rgba(9,9,11,0.4)]";
             const tag = document.createElement("span");
-            tag.className = `rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-              kind === "orden" ? "bg-[#EEF3FF] text-[#1244D1]" : "bg-[#FFF4E5] text-[#8A5D0F]"
-            }`;
+            tag.className = `rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${TIPO_TONE[kind].dragTag}`;
             tag.textContent = kind === "orden" ? "Orden" : "Proyecto";
             const f = document.createElement("span");
             f.className = "font-mono text-[12px] text-[#1244D1]";

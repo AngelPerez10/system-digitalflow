@@ -124,22 +124,27 @@ type SwitchProps = {
   checked: boolean;
   onChange: () => void;
   label: string;
+  id?: string;
+  /** Id(s) del texto que describe el interruptor (ayuda, motivo de bloqueo). */
+  describedBy?: string;
   disabled?: boolean;
   busy?: boolean;
   tone?: 'blue' | 'green';
   size?: 'sm' | 'md';
 };
 
-export function Switch({ checked, onChange, label, disabled, busy, tone = 'blue', size = 'md' }: SwitchProps) {
+export function Switch({ checked, onChange, label, id, describedBy, disabled, busy, tone = 'blue', size = 'md' }: SwitchProps) {
   const on =
     tone === 'green' ? 'bg-[#04724D] dark:bg-[#22A06B]' : 'bg-[#1B5CFF] dark:bg-[#4B7CFF]';
   const dims = size === 'sm' ? { track: 'h-6 w-10', knob: 'size-5', x: 'translate-x-4' } : { track: 'h-7 w-12', knob: 'size-6', x: 'translate-x-5' };
   return (
     <button
+      id={id}
       type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      aria-describedby={describedBy}
       aria-busy={busy || undefined}
       disabled={disabled || busy}
       onClick={onChange}

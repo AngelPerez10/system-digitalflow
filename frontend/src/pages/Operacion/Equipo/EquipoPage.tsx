@@ -18,7 +18,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MotionConfig } from "motion/react";
-import { CalendarX2, SearchX } from "lucide-react";
+import { CalendarX2, ClipboardList, FolderKanban, SearchX } from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import "@/components/ui/modal-kit/motion.css";
@@ -49,6 +49,7 @@ import { useEquipoSemanaData } from "./hooks/useEquipoSemanaData";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { EQUIPO_FILTROS_DEFAULT, filtrarSeccionesEquipo, type EquipoFiltros } from "./shared/equipoFiltros";
 import { addDays, lunesDe, resumenSemana, toYmd } from "./shared/equipoSemana";
+import { TIPO_TONE } from "./shared/equipoTokens";
 
 type PageAlert = { show: boolean; variant: "success" | "warning" | "error" | "info"; title: string; message: string };
 
@@ -240,14 +241,14 @@ export default function EquipoPage() {
           {/* Pie: leyenda y ayuda de uso. */}
           <div className="hidden flex-wrap items-center justify-between gap-3 px-1 text-[12px] text-[#71717A] dark:text-[#8EA0B8] lg:flex">
             <div className="flex items-center gap-4">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-3 w-[3px] rounded-full bg-[#1B5CFF] dark:bg-[#4B7CFF]" aria-hidden />
-                Orden de trabajo
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-3 w-[3px] rounded-full bg-[#D08A1E] dark:bg-[#E6A23C]" aria-hidden />
-                Proyecto
-              </span>
+              {(["orden", "proyecto"] as const).map((k) => (
+                <span key={k} className="inline-flex h-7 items-center gap-2 rounded-full border border-[#E4E4E7] bg-white pl-1.5 pr-3 text-[12px] font-medium text-[#3F3F46] transition-colors duration-200 dark:border-[#273244] dark:bg-[#111827] dark:text-[#D6DEEA]">
+                  <span className={`inline-flex size-[18px] items-center justify-center rounded-full ring-1 ring-inset ${TIPO_TONE[k].tile}`} aria-hidden>
+                    {k === "orden" ? <ClipboardList className="size-3" /> : <FolderKanban className="size-3" />}
+                  </span>
+                  {TIPO_TONE[k].label}
+                </span>
+              ))}
             </div>
             <p className="text-[#A1A1AA] dark:text-[#64748B]">
               Arrastra una tarjeta a otra celda para cambiarla de técnico o de día · sobre el nombre del técnico cambia solo el técnico

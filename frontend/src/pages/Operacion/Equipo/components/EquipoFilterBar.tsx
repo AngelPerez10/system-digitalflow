@@ -1,5 +1,6 @@
 /**
- * Barra de herramientas del tablero:
+ * Barra de herramientas del tablero, sin contenedor: cada control es una pieza
+ * suelta sobre el lienzo de la página.
  * - Izquierda: búsqueda (folio, cliente o técnico; atajo «/»).
  * - Centro: un chip por filtro activo (se quita con un clic).
  * - Derecha: «Filtros» (despliega tipo, estado y técnicos sin trabajo) e
@@ -12,6 +13,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, ClipboardList, FolderKanban, History, Layers, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { focusRing } from "../../Proyectos/shared/proyectoTokens";
 import type { EquipoEstadoFiltro, EquipoFiltros, EquipoTipoFiltro } from "../shared/equipoFiltros";
+import { TIPO_TONE } from "../shared/equipoTokens";
 
 type Counts = { todo: number; ordenes: number; proyectos: number };
 
@@ -161,9 +163,7 @@ export function EquipoFilterBar({
   };
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-2 rounded-[18px] border border-[#E4E4E7] bg-white p-2 shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827]"
-    >
+    <div className="flex flex-wrap items-center gap-2">
       <label className="relative min-w-[16rem] flex-1">
         <span className="sr-only">Buscar por folio, cliente o técnico</span>
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]" aria-hidden />
@@ -179,7 +179,7 @@ export function EquipoFilterBar({
             }
           }}
           placeholder="Buscar folio, cliente o técnico…"
-          className="h-10 w-full rounded-[12px] border border-[#E4E4E7] bg-[#FAFAFA] pl-9 pr-16 text-[13.5px] text-[#09090B] outline-none transition-[border-color,box-shadow,background-color] placeholder:text-[#A1A1AA] focus:border-[#1B5CFF] focus:bg-white focus:ring-4 focus:ring-[rgba(27,92,255,0.14)] dark:border-[#273244] dark:bg-[#0F172A] dark:text-[#F8FAFC] dark:focus:border-[#4B7CFF] [&::-webkit-search-cancel-button]:hidden"
+          className="h-10 w-full rounded-[12px] border border-[#E4E4E7] bg-white pl-9 pr-16 text-[13.5px] text-[#09090B] outline-none transition-[border-color,box-shadow] placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] [&::-webkit-search-cancel-button]:hidden"
         />
         {filtros.q ? (
           <button
@@ -214,8 +214,8 @@ export function EquipoFilterBar({
         </Chip>
       ) : null}
 
-      <div className="ml-auto flex items-center gap-2">
-        <div className="relative">
+      <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+        <div className="relative flex-1 sm:flex-none">
           <button
             ref={btnRef}
             type="button"
@@ -223,10 +223,10 @@ export function EquipoFilterBar({
             aria-expanded={open}
             aria-controls={panelId}
             aria-haspopup="dialog"
-            className={`cot-press inline-flex h-10 items-center gap-2 rounded-[12px] border px-3.5 text-[13px] font-semibold ${
+            className={`cot-press inline-flex h-10 w-full items-center justify-center gap-2 rounded-[12px] border px-3.5 text-[13px] font-semibold sm:w-auto ${
               open || activos > 0
                 ? "border-[#BFD3FF] bg-[#EEF3FF] text-[#1244D1] dark:border-[#2C3F7A] dark:bg-[#1B2A63]/60 dark:text-[#C9D7FF]"
-                : "border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0F172A] dark:text-[#D6DEEA]"
+                : "border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#D6DEEA] dark:hover:border-[#3A4661]"
             } ${focusRing}`}
           >
             <SlidersHorizontal className="size-4" aria-hidden />
@@ -246,14 +246,14 @@ export function EquipoFilterBar({
               id={panelId}
               role="dialog"
               aria-label="Filtros"
-              className="cot-pop absolute right-0 top-[calc(100%+8px)] z-40 origin-top-right w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-[16px] border border-[#E4E4E7] bg-white shadow-[0_24px_48px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827]"
+              className="cot-pop absolute left-0 top-[calc(100%+8px)] z-40 origin-top-left sm:left-auto sm:right-0 sm:origin-top-right w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-[16px] border border-[#E4E4E7] bg-white shadow-[0_24px_48px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827]"
             >
               <div className="divide-y divide-[#F0F0F2] dark:divide-[#1F2A3C]">
                 <Section title="Tipo de trabajo">
                   <div role="radiogroup" aria-label="Tipo de trabajo" className="space-y-0.5">
                     <Option selected={filtros.tipo === "todo"} onSelect={() => onChange({ ...filtros, tipo: "todo" })} icon={<Layers />} label="Todo" count={counts.todo} />
-                    <Option selected={filtros.tipo === "ordenes"} onSelect={() => onChange({ ...filtros, tipo: "ordenes" })} icon={<ClipboardList />} label="Órdenes de trabajo" count={counts.ordenes} />
-                    <Option selected={filtros.tipo === "proyectos"} onSelect={() => onChange({ ...filtros, tipo: "proyectos" })} icon={<FolderKanban />} label="Proyectos" count={counts.proyectos} />
+                    <Option selected={filtros.tipo === "ordenes"} onSelect={() => onChange({ ...filtros, tipo: "ordenes" })} icon={<ClipboardList className={TIPO_TONE.orden.icon} />} label="Órdenes de trabajo" count={counts.ordenes} />
+                    <Option selected={filtros.tipo === "proyectos"} onSelect={() => onChange({ ...filtros, tipo: "proyectos" })} icon={<FolderKanban className={TIPO_TONE.proyecto.icon} />} label="Proyectos" count={counts.proyectos} />
                   </div>
                 </Section>
                 <Section title="Estado">
@@ -299,13 +299,11 @@ export function EquipoFilterBar({
           ) : null}
         </div>
 
-        <span className="h-6 w-px bg-[#E4E4E7] dark:bg-[#273244]" aria-hidden />
-
         <button
           type="button"
           onClick={onOpenHistorial}
           aria-haspopup="dialog"
-          className={`cot-press inline-flex h-10 items-center gap-2 rounded-[12px] border border-[#E4E4E7] bg-white px-3.5 text-[13px] font-semibold text-[#3F3F46] hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0F172A] dark:text-[#D6DEEA] dark:hover:border-[#3A4661] ${focusRing}`}
+          className={`cot-press inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-[12px] border border-[#E4E4E7] bg-white px-3.5 text-[13px] font-semibold text-[#3F3F46] hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#D6DEEA] dark:hover:border-[#3A4661] sm:flex-none ${focusRing}`}
         >
           <History className="size-4" aria-hidden />
           Historial

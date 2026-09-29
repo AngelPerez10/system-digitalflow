@@ -4,6 +4,7 @@
  */
 import type { ReactNode } from "react";
 import { erpStatCardClass } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import { TIPO_TONE } from "../shared/equipoTokens";
 
 export type EquipoStatsData = {
   ordenes: number;
@@ -38,13 +39,13 @@ export function EquipoStats({ stats }: { stats: EquipoStatsData }) {
       <StatCard
         label="Órdenes de la semana"
         value={stats.ordenes}
-        tone="border-[#E7E7EA] bg-white/90 text-[#1B5CFF] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#4B7CFF]"
+        tone={TIPO_TONE.orden.stat}
         icon={<path d="M6 6h12M6 12h12M6 18h12" strokeLinecap="round" />}
       />
       <StatCard
         label="Proyectos de la semana"
         value={stats.proyectos}
-        tone="border-sky-200/80 bg-sky-50/90 text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300"
+        tone={TIPO_TONE.proyecto.stat}
         icon={<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" strokeLinejoin="round" />}
       />
       <StatCard
