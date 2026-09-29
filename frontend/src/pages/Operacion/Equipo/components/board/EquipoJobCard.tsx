@@ -168,13 +168,13 @@ export const EquipoJobCard = memo(function EquipoJobCard({ tarjeta: t, variant, 
           </p>
         ) : null}
 
-        <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[11px] text-[#71717A] dark:text-[#8EA0B8]">
+        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#71717A] dark:text-[#8EA0B8]">
           {d.avance != null ? (
-            <span className="flex min-w-0 flex-1 items-center gap-1.5" title={`Avance ${d.avance}%`}>
-              <span className="relative block h-1 min-w-8 flex-1 overflow-hidden rounded-full bg-[#EDEDF0] dark:bg-[#1F2A3C]" aria-hidden>
+            <span className="flex min-w-[5.75rem] flex-1 items-center gap-1.5" title={`Avance ${d.avance}%`}>
+              <span className="relative block h-1 min-w-6 flex-1 overflow-hidden rounded-full bg-[#EDEDF0] dark:bg-[#1F2A3C]" aria-hidden>
                 <span className={`cot-bar absolute inset-0 rounded-full ${d.avanceBar}`} style={{ transform: `scaleX(${d.avance / 100})` }} />
               </span>
-              <span className="font-semibold tabular-nums text-[#52525B] dark:text-[#B7C1D1]">{d.avance}%</span>
+              <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-[#52525B] dark:text-[#B7C1D1]">{d.avance}%</span>
             </span>
           ) : d.prio ? (
             <span className="inline-flex min-w-0 items-center gap-1" title={d.prio.title}>

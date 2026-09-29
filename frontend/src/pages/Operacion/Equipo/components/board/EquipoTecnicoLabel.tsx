@@ -21,6 +21,13 @@ export function EquipoTecnicoLabel({
 }) {
   const { tecnico } = seccion;
   const sin = tecnico.id == null;
+  /** Todo lo de la semana está cerrado: la barra y el punto pasan a verde. */
+  const completo = carga != null && trabajos > 0 && abiertos === 0;
+  /** Avance de la semana (0–1): cerrados / total. */
+  const avance = trabajos > 0 ? Math.max(0, Math.min(1, (trabajos - abiertos) / trabajos)) : 0;
+  // El color recorre rojo → ámbar → verde a medida que se completan los trabajos.
+  const hue = Math.round(4 + avance * 141);
+  const barColors = { "--bar-l": `hsl(${hue} 72% 40%)`, "--bar-d": `hsl(${hue} 78% 62%)` } as React.CSSProperties;
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span className="relative shrink-0">
@@ -34,6 +41,8 @@ export function EquipoTecnicoLabel({
             title={carga >= 0.85 ? "Carga alta" : "Con trabajo"}
             aria-hidden
           />
+        ) : completo ? (
+          <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full bg-[#0E8A5F] ring-2 ring-white dark:bg-[#34D399] dark:ring-[#111827]" title="Todo completado" aria-hidden />
         ) : null}
       </span>
       <div className="min-w-0 flex-1">
@@ -47,14 +56,19 @@ export function EquipoTecnicoLabel({
           </p>
         ) : (
           <p className="truncate text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
-            {trabajos === 0 ? (sin ? "Todo asignado" : "Sin trabajos") : `${plural(trabajos, "trabajo", "trabajos")} · ${plural(abiertos, "abierto", "abiertos")}`}
+            {trabajos === 0 ? (sin ? "Todo asignado" : "Sin trabajos") : completo ? `${plural(trabajos, "trabajo", "trabajos")} · completos` : `${plural(trabajos, "trabajo", "trabajos")} · ${plural(abiertos, "abierto", "abiertos")}`}
           </p>
         )}
         {carga != null && !isOver && trabajos > 0 ? (
-          <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-[#EDEDF0] dark:bg-[#1F2A3C]" aria-hidden>
+          <span
+            className="mt-1.5 block h-1 overflow-hidden rounded-full bg-[#EDEDF0] dark:bg-[#1F2A3C]"
+            role="img"
+            aria-label={`${trabajos - abiertos} de ${trabajos} trabajos completados`}
+            title={`${trabajos - abiertos} de ${trabajos} completados`}
+          >
             <span
-              className={`cot-bar block h-full w-full rounded-full ${carga >= 0.85 ? "bg-[#D08A1E] dark:bg-[#E6A23C]" : "bg-[#1B5CFF] dark:bg-[#4B7CFF]"}`}
-              style={{ transform: `scaleX(${carga})` }}
+              className="block h-full w-full origin-left rounded-full bg-[var(--bar-l)] transition-[transform,background-color] duration-500 ease-out motion-reduce:transition-none dark:bg-[var(--bar-d)]"
+              style={{ ...barColors, transform: `scaleX(${Math.max(avance, 0.04)})` }}
             />
           </span>
         ) : null}
