@@ -97,7 +97,7 @@ function seccion(tecnico: EquipoTecnico, ordenes: Orden[], proyectos: ProyectoRo
 /**
  * Columnas del tablero. «Sin asignar» siempre va primero (es la bandeja de
  * entrada y el destino para quitar el técnico). Luego un técnico por
- * columna, por nombre: todos los de `roster` (aunque no tengan carga, para
+ * columna, del que más trabajos tiene al que menos (empates por nombre): todos los de `roster` (aunque no tengan carga, para
  * poder soltarles trabajo) más cualquier otro asignado que aparezca en los
  * datos.
  */
@@ -153,7 +153,14 @@ export function buildEquipoSecciones(
       : { id, nombre: nombreDesdeDatos(id, bucket) ?? `Técnico #${id}`, avatarUrl };
     tecnicos.push(seccion(tecnico, bucket.ordenes, bucket.proyectos));
   }
-  tecnicos.sort((a, b) => a.tecnico.nombre.localeCompare(b.tecnico.nombre, "es", { sensitivity: "base" }));
+  // Más trabajos en la semana primero; a igualdad, más abiertos y luego por nombre.
+  const carga = (s: EquipoSeccion) => s.ordenes.length + s.proyectos.length;
+  tecnicos.sort(
+    (a, b) =>
+      carga(b) - carga(a) ||
+      b.pendientes - a.pendientes ||
+      a.tecnico.nombre.localeCompare(b.tecnico.nombre, "es", { sensitivity: "base" }),
+  );
 
   const sinAsignar = buckets.get(null)!;
   return [seccion(SIN_ASIGNAR, sinAsignar.ordenes, sinAsignar.proyectos), ...tecnicos];
