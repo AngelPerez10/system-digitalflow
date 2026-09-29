@@ -40,6 +40,7 @@ import type { EquipoJobHandlers } from "./components/board/EquipoJobCard";
 import { EquipoFilterBar } from "./components/EquipoFilterBar";
 import { EquipoHero, WeekSwitcher } from "./components/EquipoHero";
 import { EquipoHistorialDrawer } from "./components/EquipoHistorialDrawer";
+import { EquipoReporteMenu } from "./components/EquipoReporteMenu";
 import { EquipoStats } from "./components/EquipoStats";
 import { EquipoUndoToast } from "./components/EquipoUndoToast";
 import { useEquipoDragMonitor } from "./hooks/useEquipoDragMonitor";
@@ -62,7 +63,7 @@ const PAGE_CANVAS = "min-h-[calc(100dvh-5rem)] overflow-x-clip";
 function EmptyState({ icon, title, hint }: { icon: "search" | "week"; title: string; hint: string }) {
   return (
     <div className="cot-fade flex flex-col items-center gap-2 rounded-[18px] border border-dashed border-[#D4D4D8] bg-white px-6 py-16 text-center dark:border-[#273244] dark:bg-[#111827]">
-      <span className="inline-flex size-12 items-center justify-center rounded-2xl bg-[#F4F4F5] text-[#A1A1AA] dark:bg-white/[0.06] dark:text-[#64748B]">
+      <span className="inline-flex size-12 items-center justify-center rounded-2xl bg-[#F4F4F5] text-[#A1A1AA] dark:bg-white/6 dark:text-[#64748B]">
         {icon === "search" ? <SearchX className="size-5" aria-hidden /> : <CalendarX2 className="size-5" aria-hidden />}
       </span>
       <p className="text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{title}</p>
@@ -220,6 +221,7 @@ export default function EquipoPage() {
             defaults={FILTROS_INICIALES}
             historialHoy={historial.hoy}
             onOpenHistorial={historial.abrir}
+            reporte={<EquipoReporteMenu lunes={lunes} />}
             filtros={filtros}
             onChange={setFiltros}
             counts={counts}

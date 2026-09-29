@@ -32,8 +32,10 @@ export type EquipoHistorialNuevo = Omit<
   "id" | "usuario" | "usuario_nombre" | "usuario_avatar_url" | "creado_at"
 >;
 
-export async function listEquipoHistorial(limit = 100): Promise<EquipoHistorialEntry[]> {
-  const res = await fetchApi(`/api/equipo-historial/?limit=${limit}`, { cache: "no-store" as RequestCache });
+/** `mes` (`YYYY-MM`): solo los movimientos de ese mes (reporte mensual; admite miles). */
+export async function listEquipoHistorial(limit = 100, mes?: string): Promise<EquipoHistorialEntry[]> {
+  const qs = `limit=${limit}${mes ? `&mes=${encodeURIComponent(mes)}` : ""}`;
+  const res = await fetchApi(`/api/equipo-historial/?${qs}`, { cache: "no-store" as RequestCache });
   if (!res.ok) throw new Error("No se pudo cargar el historial.");
   const data = (await res.json().catch(() => null)) as unknown;
   return Array.isArray(data) ? (data as EquipoHistorialEntry[]) : [];

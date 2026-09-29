@@ -201,12 +201,12 @@ function ActionMenu({
               onKeyDown={onMenuKey}
               onClick={(e) => e.stopPropagation()}
               style={{ ...erpSansStyle, position: "fixed", top: pos.top, bottom: pos.bottom, right: pos.right }}
-              className={`cot-pop z-[950] w-56 max-w-[calc(100vw-1rem)] overflow-hidden rounded-[14px] border border-[#E4E4E7] bg-white text-left shadow-[0_24px_48px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_24px_48px_-16px_rgba(0,0,0,0.7)] ${pos.bottom != null ? "origin-bottom-right" : "origin-top-right"}`}
+              className={`cot-pop z-950 w-56 max-w-[calc(100vw-1rem)] overflow-hidden rounded-[14px] border border-[#E4E4E7] bg-white text-left shadow-[0_24px_48px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_24px_48px_-16px_rgba(0,0,0,0.7)] ${pos.bottom != null ? "origin-bottom-right" : "origin-top-right"}`}
             >
-              <p className="border-b border-[#F0F0F2] px-3 pb-1.5 pt-2.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:border-[#1F2A3C] dark:text-[#8EA0B8]">
+              <p className="border-b border-[#F0F0F2] px-3 pb-1.5 pt-2.5 text-[10.5px] font-semibold uppercase tracking-widest text-[#6E6E77] dark:border-[#1F2A3C] dark:text-[#8EA0B8]">
                 {heading}
               </p>
-              <div className="custom-scrollbar max-h-[15rem] overflow-y-auto overscroll-contain p-1">
+              <div className="custom-scrollbar max-h-60 overflow-y-auto overscroll-contain p-1">
                 {items.length === 0 ? (
                   <p className="px-2.5 py-3 text-[12.5px] text-[#71717A] dark:text-[#8EA0B8]">Sin opciones</p>
                 ) : (
@@ -220,7 +220,7 @@ function ActionMenu({
                         btnRef.current?.focus();
                         onSelect(it.key);
                       }}
-                      className="flex h-9 w-full items-center rounded-[9px] px-2.5 text-left text-[13px] font-medium text-[#3F3F46] transition-colors duration-150 hover:bg-[#F4F4F5] focus-visible:bg-[#EEF3FF] focus-visible:text-[#1244D1] focus-visible:outline-none dark:text-[#D6DEEA] dark:hover:bg-white/[0.06] dark:focus-visible:bg-[#1B2A63]/60 dark:focus-visible:text-[#C9D7FF]"
+                      className="flex h-9 w-full items-center rounded-[9px] px-2.5 text-left text-[13px] font-medium text-[#3F3F46] transition-colors duration-150 hover:bg-[#F4F4F5] focus-visible:bg-[#EEF3FF] focus-visible:text-[#1244D1] focus-visible:outline-none dark:text-[#D6DEEA] dark:hover:bg-white/6 dark:focus-visible:bg-[#1B2A63]/60 dark:focus-visible:text-[#C9D7FF]"
                     >
                       <span className="min-w-0 flex-1 truncate">{it.label}</span>
                     </button>
@@ -250,7 +250,7 @@ export function MoverA({
   /** Botón de 28 px (acciones de las tarjetas del tablero). */
   compact?: boolean;
 }) {
-  const size = compact ? "size-7! rounded-[8px]! [&_svg]:size-3.5!" : "";
+  const size = compact ? "size-7! rounded-xl! [&_svg]:size-3.5!" : "";
   const items = destinos.filter((d) => d.key !== currentKey).map((d) => ({ key: d.key, label: d.nombre }));
   return (
     <ActionMenu
@@ -289,7 +289,7 @@ export function MoverDia({
       icon={<CalendarClock aria-hidden />}
       items={dias.filter((d) => d.ymd !== actual).map((d) => ({ key: d.ymd, label: d.label }))}
       onSelect={onPick}
-      className={`${rowActionBtn} size-7! rounded-[8px]! [&_svg]:size-3.5!`}
+      className={`${rowActionBtn} size-7! rounded-xl! [&_svg]:size-3.5!`}
     />
   );
 }

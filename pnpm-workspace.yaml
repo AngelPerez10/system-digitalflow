@@ -5,6 +5,7 @@ packages:
 # pnpm 11: declare which packages may run install scripts.
 # https://pnpm.io/settings#allowbuilds
 allowBuilds:
+  core-js: false
   dtrace-provider: false
   esbuild: true
   protobufjs: true

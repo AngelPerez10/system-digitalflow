@@ -103,6 +103,7 @@ export function EquipoFilterBar({
   defaults,
   historialHoy,
   onOpenHistorial,
+  reporte,
 }: {
   filtros: EquipoFiltros;
   onChange: (f: EquipoFiltros) => void;
@@ -113,6 +114,8 @@ export function EquipoFilterBar({
   defaults: EquipoFiltros;
   historialHoy: number;
   onOpenHistorial: () => void;
+  /** Botón «Reporte» (va entre Filtros e Historial). */
+  reporte?: ReactNode;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
@@ -298,6 +301,8 @@ export function EquipoFilterBar({
             </div>
           ) : null}
         </div>
+
+        {reporte}
 
         <button
           type="button"

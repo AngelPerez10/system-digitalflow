@@ -99,3 +99,21 @@ class EquipoHistorialTests(APITestCase):
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_filtra_por_mes_y_permite_mas_de_200(self):
+        from datetime import datetime, timezone as dt_tz
+
+        self.client.force_authenticate(self.admin)
+        viejo = self.client.post(URL, self._payload(objeto_id=1, folio="ODT-VIEJO"), format="json")
+        self.client.post(URL, self._payload(objeto_id=2, folio="ODT-NUEVO"), format="json")
+        EquipoReasignacion.objects.filter(pk=viejo.data["id"]).update(
+            creado_at=datetime(2026, 8, 15, 12, 0, tzinfo=dt_tz.utc)
+        )
+        hoy = EquipoReasignacion.objects.get(folio="ODT-NUEVO").creado_at
+        mes = f"{hoy.year}-{hoy.month:02d}"
+        resp = self.client.get(URL, {"mes": mes, "limit": 1000})
+        self.assertEqual([r["folio"] for r in resp.data], ["ODT-NUEVO"])
+        resp = self.client.get(URL, {"mes": "2026-08"})
+        self.assertEqual([r["folio"] for r in resp.data], ["ODT-VIEJO"])
+        # Mes inválido: se ignora el filtro.
+        self.assertEqual(len(self.client.get(URL, {"mes": "2026-13"}).data), 2)

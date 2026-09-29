@@ -1,6 +1,6 @@
 """Historial de reasignaciones del tablero Equipo (solo administradores).
 
-- GET  /api/equipo-historial/?limit=50[&tipo=orden&objeto_id=12]  → más recientes primero
+- GET  /api/equipo-historial/?limit=50[&tipo=orden&objeto_id=12][&mes=2026-09]  → más recientes primero
 - POST /api/equipo-historial/  → registra una reasignación o un «deshacer»
   (cambio de técnico, de día —`desde_fecha`/`hacia_fecha`— o ambos)
 
@@ -83,6 +83,8 @@ class EquipoReasignacionViewSet(
     pagination_class = None
 
     MAX_LIMIT = 200
+    # Con `?mes=YYYY-MM` (reporte mensual) se permite traer todo el mes.
+    MAX_LIMIT_MES = 2000
     DEFAULT_LIMIT = 50
 
     def get_queryset(self):
@@ -96,12 +98,18 @@ class EquipoReasignacionViewSet(
         objeto_id = (params.get("objeto_id") or "").strip()
         if objeto_id.isdigit():
             qs = qs.filter(objeto_id=int(objeto_id))
+        mes = (params.get("mes") or "").strip()
+        if len(mes) == 7 and mes[:4].isdigit() and mes[4] == "-" and mes[5:].isdigit():
+            anio, mes_num = int(mes[:4]), int(mes[5:])
+            if 1 <= mes_num <= 12:
+                qs = qs.filter(creado_at__year=anio, creado_at__month=mes_num)
         return qs
 
     def list(self, request, *args, **kwargs):
         raw = (request.query_params.get("limit") or "").strip()
         limit = int(raw) if raw.isdigit() else self.DEFAULT_LIMIT
-        limit = min(max(limit, 1), self.MAX_LIMIT)
+        tope = self.MAX_LIMIT_MES if (request.query_params.get("mes") or "").strip() else self.MAX_LIMIT
+        limit = min(max(limit, 1), tope)
         rows = self.get_queryset()[:limit]
         return Response(self.get_serializer(rows, many=True).data)
 

@@ -644,7 +644,7 @@ function SpecialPermissionsSection({
       style={{ '--cot-i': index } as CSSProperties}
     >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(27,92,255,0.08)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#9BB6FF] [&_svg]:size-[18px]">
+        <span className="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(27,92,255,0.08)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#9BB6FF] [&_svg]:size-4.5">
           <KeyRound aria-hidden />
         </span>
         <div className="min-w-0">
@@ -654,13 +654,13 @@ function SpecialPermissionsSection({
           >
             Permisos especiales
           </h3>
-          <p className="mt-0.5 text-pretty text-[13px] leading-[18px] text-[#6E6E77] dark:text-[#8EA0B8]">
+          <p className="mt-0.5 text-pretty text-[13px] leading-4.5 text-[#6E6E77] dark:text-[#8EA0B8]">
             Acciones sensibles que se conceden aparte de Ver, Crear, Editar y Eliminar.
           </p>
         </div>
       </div>
 
-      <p className="mt-4 flex gap-2 text-[13px] leading-[18px] text-[#52525B] dark:text-[#B7C1D1]">
+      <p className="mt-4 flex gap-2 text-[13px] leading-4.5 text-[#52525B] dark:text-[#B7C1D1]">
         <Info className="mt-px size-4 shrink-0 text-[#1B5CFF] dark:text-[#7EA0FF]" aria-hidden />
         <span className="text-pretty">
           Liquidar y Cambiar status son independientes entre sí y de Editar. Quien solo liquida no puede mover el
