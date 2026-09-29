@@ -10,9 +10,8 @@
  * Estructura: portada con ficha del documento y contenido · 1. Resumen
  * ejecutivo (hallazgos clave, indicadores, estado y tipo, actividad semanal) ·
  * 2. Desempeño por técnico (carga y tabla con totales) · 3. Detalle semanal
- * (lunes a domingo: días, órdenes, proyectos y reasignaciones) · 4. Notas
- * metodológicas y validación (firmas). Encabezado y pie corridos con folio y
- * «Página x de y». Las librerías se cargan al pedir el reporte.
+ * (lunes a domingo: días, órdenes, proyectos y reasignaciones). Encabezado y pie
+ * corridos con folio y «Página x de y». Las librerías se cargan al pedir el reporte.
  */
 import { MESES_LARGOS, describirMovimiento, diaCorto, type ReporteFila, type ReporteMes } from "./equipoReporteMes";
 
@@ -705,54 +704,6 @@ export async function crearReporteMesPdf(data: ReporteMes) {
           5: { cellWidth: 76 },
         },
       });
-  });
-
-  /* ==================================================================== */
-  /* 4. NOTAS METODOLÓGICAS Y VALIDACIÓN                                   */
-  /* ==================================================================== */
-  nuevaPagina("4. Notas y validación");
-  toc.push({ num: "4", texto: "Notas metodológicas y validación", sub: "Criterios del reporte y firmas", pagina: paginaActual(), nivel: 0 });
-  encabezado("4", "Notas y validación", "Criterios usados en este reporte y espacio de autorización");
-
-  const notas: [string, string][] = [
-    ["Periodo y semanas", "Se incluyen los trabajos del mes natural. Las semanas van de lunes a domingo; la primera y la última pueden asomarse a otro mes, pero solo se listan los días del periodo."],
-    ["Fecha de una orden", "Fecha de inicio de la orden o, si no la tiene, su fecha de creación."],
-    ["Fecha de un proyecto", "Sus jornadas programadas; un proyecto aparece en cada semana en que tenga jornadas dentro del mes."],
-    ["Completado", "Orden resuelta o proyecto cerrado. Los trabajos cancelados no cuentan para el porcentaje de avance."],
-    ["Abierto", "Trabajo que no está completado ni cancelado (pendiente, pausado, en proceso o con saldo pendiente)."],
-    ["Avance", "Trabajos completados entre trabajos no cancelados. En proyectos se muestra además el porcentaje de avance capturado."],
-    ["Reasignaciones", "Movimientos registrados en el historial del tablero durante el mes (cambio de técnico, de día o ambos, y deshacer)."],
-  ];
-  let ny = TOP + 68;
-  titulo("Criterios", null, ny);
-  ny += 20;
-  notas.forEach(([k, v]) => {
-    font("bold", 8.6, INK);
-    doc.text(k, M, ny);
-    font("normal", 8.6, BODY);
-    const lineas = doc.splitTextToSize(v, CW - 130) as string[];
-    lineas.forEach((l, j) => doc.text(l, M + 130, ny + j * 11.5));
-    ny += Math.max(1, lineas.length) * 11.5 + 12;
-    stroke(RULE);
-    doc.setLineWidth(0.4);
-    doc.line(M, ny - 15, W - M, ny - 15);
-  });
-
-  ny += 26;
-  titulo("Validación", null, ny);
-  ny += 24;
-  const firmas = ["Elaboró", "Revisó", "Autorizó"];
-  const fw = (CW - 2 * 24) / 3;
-  firmas.forEach((rol, i) => {
-    const x = M + i * (fw + 24);
-    font("bold", 7.5, MUTED);
-    doc.text(rol.toUpperCase(), x, ny, { charSpace: 0.8 });
-    stroke(INK);
-    doc.setLineWidth(0.8);
-    doc.line(x, ny + 62, x + fw, ny + 62);
-    font("normal", 7.5, MUTED);
-    doc.text("Nombre, cargo y firma", x, ny + 74);
-    doc.text("Fecha:  ____ / ____ / ________", x, ny + 90);
   });
 
   /* ==================================================================== */
