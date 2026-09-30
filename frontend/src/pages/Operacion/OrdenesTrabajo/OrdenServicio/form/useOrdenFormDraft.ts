@@ -905,6 +905,12 @@ export function useOrdenFormDraft(opts: UseOrdenFormDraftOpts) {
     if (formData.status === "cancelada" && !(formData.motivo_cancelacion || "").trim()) {
       missing.push("Motivo de cancelación");
     }
+    if (
+      (formData.status === "resuelto" || formData.status === "saldo_pendiente") &&
+      !formData.tecnico_asignado
+    ) {
+      missing.push("Técnico asignado (requerido para Resuelto / Saldo pendiente)");
+    }
     // El admin debe asignar el nivel de prioridad al crear o guardar.
     if (variant === "admin" && isAdmin && !formData.prioridad_pool) {
       missing.push("Nivel de prioridad");

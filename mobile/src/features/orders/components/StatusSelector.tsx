@@ -11,6 +11,8 @@ interface Props {
   value: OrdenStatus;
   onChange: (status: OrdenStatus) => void;
   disabled?: boolean;
+  /** Sin técnico asignado no se permite «Resuelto» ni «Saldo pendiente». */
+  sinTecnico?: boolean;
 }
 
 const DESCRIPCION: Record<OrdenStatus, string> = {
@@ -32,7 +34,7 @@ const ICONO: Record<OrdenStatus, (color: string) => React.ReactNode> = {
  * tono del estatus (fondo suave, borde y placa sólidos), así el color nunca
  * es la única señal — también cambian el ícono relleno y el peso del texto.
  */
-export function StatusSelector({ value, onChange, disabled = false }: Props) {
+export function StatusSelector({ value, onChange, disabled = false, sinTecnico = false }: Props) {
   const { colors } = useTheme();
   // «Saldo pendiente» lo pone un administrador: el técnico lo ve, pero no puede moverlo.
   const bloqueadoPorAdmin = value === 'saldo_pendiente';
@@ -45,11 +47,18 @@ export function StatusSelector({ value, onChange, disabled = false }: Props) {
             key={status}
             status={status}
             activo={status === value}
-            disabled={disabled || bloqueadoPorAdmin}
+            disabled={
+              disabled || bloqueadoPorAdmin || (sinTecnico && status === 'resuelto' && value !== 'resuelto')
+            }
             onPress={() => onChange(status)}
           />
         ))}
       </View>
+      {sinTecnico ? (
+        <Text style={[styles.aviso, { color: colors.inkSubtle }]}>
+          Asigna un técnico a la orden para poder marcarla como resuelta.
+        </Text>
+      ) : null}
       {bloqueadoPorAdmin ? (
         <Text style={[styles.aviso, { color: colors.inkSubtle }]}>
           Solo un administrador puede cambiar el estatus de una orden con saldo pendiente.

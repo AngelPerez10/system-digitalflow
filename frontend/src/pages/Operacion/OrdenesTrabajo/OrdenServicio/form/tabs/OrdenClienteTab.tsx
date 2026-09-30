@@ -763,11 +763,16 @@ export function OrdenClienteTab({
               <option value="pendiente">Pendiente</option>
               <option value="pausado">Pausado</option>
               {mostrarOpcionSaldoPendiente ? (
-                <option value="saldo_pendiente" disabled={!isAdmin}>
+                <option value="saldo_pendiente" disabled={!isAdmin || !formData.tecnico_asignado}>
                   Saldo pendiente
                 </option>
               ) : null}
-              <option value="resuelto">Resuelto</option>
+              <option
+                value="resuelto"
+                disabled={!formData.tecnico_asignado && formData.status !== "resuelto"}
+              >
+                Resuelto
+              </option>
               {mostrarOpcionCancelada ? (
                 <option value="cancelada" disabled={!puedeCancelar}>
                   Cancelada

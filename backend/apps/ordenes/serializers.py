@@ -143,6 +143,20 @@ class OrdenSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
+        if status_norm in ("resuelto", "saldo_pendiente"):
+            if "tecnico_asignado" in attrs:
+                tecnico = attrs.get("tecnico_asignado")
+            else:
+                tecnico = getattr(self.instance, "tecnico_asignado", None) if self.instance else None
+            if tecnico is None:
+                raise serializers.ValidationError(
+                    {
+                        "status": (
+                            "Asigna un técnico a la orden antes de marcarla como "
+                            "Resuelto o Saldo pendiente."
+                        )
+                    }
+                )
         if status_norm == "pausado":
             motivo = attrs.get("motivo_pausa", None)
             if motivo is None and self.instance is not None and "motivo_pausa" not in attrs:

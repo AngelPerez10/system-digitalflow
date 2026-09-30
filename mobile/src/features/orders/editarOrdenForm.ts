@@ -50,8 +50,12 @@ function recortarHora(value: string | null): string {
   return match ? `${match[1]}:${match[2]}` : value;
 }
 
-export function validarForm(state: EditarOrdenFormState): EditarOrdenErrors {
+export function validarForm(state: EditarOrdenFormState, tieneTecnico = true): EditarOrdenErrors {
   const errors: EditarOrdenErrors = {};
+
+  if (!tieneTecnico && (state.status === 'resuelto' || state.status === 'saldo_pendiente')) {
+    errors.status = 'Asigna un técnico a la orden antes de resolverla o dejarla con saldo pendiente.';
+  }
 
   if (state.status === 'pausado' && !state.motivo_pausa.trim()) {
     // Misma regla que `OrdenSerializer.validate`.

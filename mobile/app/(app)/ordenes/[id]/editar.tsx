@@ -173,7 +173,7 @@ export default function EditarOrdenScreen() {
   };
 
   const guardar = async () => {
-    const validacion = validarForm(form);
+    const validacion = validarForm(form, Boolean(orden.tecnico_asignado));
     setErrores(validacion);
     if (hayErrores(validacion)) {
       setErrorGuardado('Revisa los campos marcados en rojo.');
@@ -259,6 +259,7 @@ export default function EditarOrdenScreen() {
                     value={form.status}
                     onChange={(status) => actualizar('status', status)}
                     disabled={guardando}
+                    sinTecnico={!orden.tecnico_asignado}
                   />
                   <Colapsable abierto={form.status === 'pausado'}>
                     <View style={[styles.colapsado, styles.sinMargenFinal]}>
