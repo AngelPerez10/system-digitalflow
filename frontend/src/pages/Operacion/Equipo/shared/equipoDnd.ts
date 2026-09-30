@@ -34,7 +34,7 @@ export type EquipoMoveRequest = {
   toFecha?: string;
 };
 
-export type EquipoDestino = { key: string; id: EquipoTecnicoId; nombre: string };
+export type EquipoDestino = { key: string; id: EquipoTecnicoId; nombre: string; avatarUrl?: string };
 
 /** Llave del riel para «Todo el equipo» (no es zona de soltar). */
 export const RAIL_TODOS = "todos";

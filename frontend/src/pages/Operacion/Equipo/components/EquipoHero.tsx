@@ -1,116 +1,123 @@
 /**
- * Banda de cabecera del tablero Equipo: mismo lenguaje que `ProyectosHero`
- * (navy con destello, oculta en celular; ahí título y semana van en la
- * página). A la derecha, el selector de semana con el mismo estilo que el
- * selector de mes de Órdenes y Proyectos.
+ * Encabezado del tablero Equipo: una sola superficie clara con título,
+ * selector de semana (anterior · semana · siguiente · «Hoy»).
+ * Se muestra igual en todos los tamaños (en celular se apila).
  */
-import { ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight } from "lucide-react";
 import { focusRing } from "../../Proyectos/shared/proyectoTokens";
 import { rangoSemana, semanaIso } from "../shared/equipoSemana";
 
-const weekBtn = `cot-press inline-flex size-9 items-center justify-center rounded-[9px] text-white/70 hover:bg-white/10 hover:text-white ${focusRing}`;
+const navBtn = `cot-press inline-flex size-11 shrink-0 items-center justify-center rounded-[10px] text-[#52525B] hover:bg-[#F4F4F5] hover:text-[#09090B] sm:size-9 dark:text-[#B7C1D1] dark:hover:bg-white/[0.06] dark:hover:text-white ${focusRing}`;
 
-/** Anterior · «Semana 40 · 28 sep – 4 oct 2026» · siguiente (+ «Esta semana» si no es la actual). */
+/** «Semana actual», «Semana pasada», «En 3 semanas»… (solo en el `title`). */
+function semanaRelativa(offset: number): string {
+  if (offset === 0) return "Semana actual";
+  if (offset === -1) return "Semana pasada";
+  if (offset === 1) return "Próxima semana";
+  return offset < 0 ? `Hace ${-offset} semanas` : `En ${offset} semanas`;
+}
+
+/**
+ * ‹  28 sep – 4 oct 2026  ›   Hoy
+ * «Hoy» siempre ocupa su lugar (sin saltos); en la semana actual queda inactivo.
+ */
 export function WeekSwitcher({
   lunes,
-  esSemanaActual,
+  offset,
   onShiftWeek,
   onToday,
-  tone = "navy",
 }: {
   lunes: string;
-  esSemanaActual: boolean;
+  /** Semanas desde la actual (0 = esta semana). */
+  offset: number;
   onShiftWeek: (delta: number) => void;
   onToday: () => void;
-  tone?: "navy" | "light";
 }) {
-  const light = tone === "light";
-  const btnClass = light
-    ? `cot-press inline-flex size-11 items-center justify-center rounded-[10px] text-[#52525B] hover:bg-white hover:text-[#09090B] dark:text-[#B7C1D1] dark:hover:bg-[#1B2539] ${focusRing}`
-    : weekBtn;
+  const actual = offset === 0;
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div
-        className={`flex flex-1 items-center justify-between gap-1 rounded-[12px] p-1 ${
-          light ? "border border-[#E4E4E7] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0F172A]" : "bg-white/[0.08]"
-        }`}
-        role="group"
-        aria-label="Semana del tablero"
+    <div className="flex w-full items-center gap-1 sm:w-auto" role="group" aria-label="Semana del tablero">
+      <button type="button" className={navBtn} onClick={() => onShiftWeek(-1)} aria-label="Semana anterior" title="Semana anterior">
+        <ChevronLeft className="size-[18px]" aria-hidden />
+      </button>
+      <p
+        className="min-w-[11.5rem] flex-1 text-center text-[14.5px] font-semibold tabular-nums tracking-[-0.2px] text-[#09090B] sm:flex-none dark:text-[#F8FAFC]"
+        aria-live="polite"
+        title={`Semana ${semanaIso(lunes)} · ${semanaRelativa(offset)}`}
       >
-        <button type="button" className={btnClass} onClick={() => onShiftWeek(-1)} aria-label="Semana anterior">
-          <ChevronLeft className="size-4" aria-hidden />
-        </button>
-        <span key={lunes} className="cot-fade min-w-[12.5rem] flex-1 text-center leading-tight" aria-live="polite">
-          <span className={`block text-[10.5px] font-semibold uppercase tracking-[0.1em] ${light ? "text-[#71717A] dark:text-[#8EA0B8]" : "text-white/55"}`}>
-            Semana {semanaIso(lunes)}
-            {esSemanaActual ? " · actual" : ""}
-          </span>
-          <span className={`block text-[14px] font-medium tabular-nums ${light ? "text-[#09090B] dark:text-[#F8FAFC]" : "text-white/90"}`}>{rangoSemana(lunes)}</span>
+        <span key={lunes} className="eq-week-label inline-block">
+          {rangoSemana(lunes)}
         </span>
-        <button type="button" className={btnClass} onClick={() => onShiftWeek(1)} aria-label="Semana siguiente">
-          <ChevronRight className="size-4" aria-hidden />
-        </button>
-      </div>
-      {!esSemanaActual ? (
-        <button
-          type="button"
-          onClick={onToday}
-          className={`cot-pop h-11 rounded-[12px] px-3.5 text-[13px] font-semibold ${
-            light
-              ? "border border-[#E4E4E7] bg-white text-[#3F3F46] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0F172A] dark:text-[#D6DEEA]"
-              : "cot-press bg-white/[0.08] text-white/90 hover:bg-white/15"
-          } ${focusRing}`}
-        >
-          Esta semana
-        </button>
-      ) : null}
+      </p>
+      <button type="button" className={navBtn} onClick={() => onShiftWeek(1)} aria-label="Semana siguiente" title="Semana siguiente">
+        <ChevronRight className="size-[18px]" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={onToday}
+        disabled={actual}
+        title={actual ? "Ya estás en la semana actual" : "Ir a la semana actual"}
+        className={`cot-press ml-1 inline-flex h-11 shrink-0 items-center rounded-[10px] border px-3.5 text-[13px] font-semibold sm:h-9 ${
+          actual
+            ? "cursor-default border-transparent text-[#A1A1AA] dark:text-[#64748B]"
+            : "border-[#E4E4E7] bg-white text-[#1244D1] hover:border-[#BFD3FF] hover:bg-[#F5F8FF] dark:border-[#273244] dark:bg-[#111827] dark:text-[#9BB6FF] dark:hover:border-[#2C3F7A]"
+        } ${focusRing}`}
+      >
+        Hoy
+      </button>
     </div>
   );
 }
 
 export function EquipoHero({
   lunes,
-  esSemanaActual,
+  offset,
   onShiftWeek,
   onToday,
   tecnicosConTrabajo,
 }: {
   lunes: string;
-  esSemanaActual: boolean;
+  /** Semanas desde la actual (0 = esta semana). */
+  offset: number;
   onShiftWeek: (delta: number) => void;
   onToday: () => void;
   tecnicosConTrabajo: number;
 }) {
   return (
-    <header className="cot-sheen relative hidden overflow-hidden rounded-[24px] bg-[#17235B] text-white dark:bg-[#1B2A63] sm:block">
-      {/* Destello ámbar como degradado radial (mismo aspecto, sin el costo de `blur`). */}
+    <header className="eq-hero relative overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white dark:border-[#243044] dark:bg-[#111827]">
+      {/* Tinte superior muy tenue (un gradiente estático; sin blur ni animación). */}
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(24rem_22rem_at_96%_-12%,rgba(230,162,60,0.2),transparent_70%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(40rem_10rem_at_0%_0%,rgba(27,92,255,0.07),transparent_70%)] dark:bg-[radial-gradient(40rem_10rem_at_0%_0%,rgba(75,124,255,0.12),transparent_70%)]"
         aria-hidden
       />
-      <div className="relative flex flex-col gap-5 px-8 py-8 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-start gap-4">
+      <div className="relative flex flex-col gap-5 px-4 pb-5 pt-5 sm:px-6 sm:pt-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3.5">
           <span
-            className="cot-tick inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]"
+            className="cot-tick hidden size-11 shrink-0 items-center justify-center rounded-[12px] bg-[#17235B] text-white shadow-[0_6px_16px_-8px_rgba(23,35,91,0.7)] sm:inline-flex dark:bg-[#2A3D8F]"
             aria-hidden
           >
-            <Users className="size-5" />
+            <CalendarRange className="size-5" />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Operación</p>
-            <h1 className="mt-1 text-[32px] font-bold leading-[1.15] tracking-[-1.1px]">Equipo</h1>
-            <p className="mt-1.5 max-w-[62ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70">
-              Órdenes de trabajo y proyectos de la semana por técnico
-              {tecnicosConTrabajo > 0
-                ? ` · ${tecnicosConTrabajo} ${tecnicosConTrabajo === 1 ? "técnico con carga" : "técnicos con carga"}`
-                : ""}
-              . Arrastra una tarjeta a otro técnico o a otro día para moverla.
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]">
+              Operación · Semana {semanaIso(lunes)}
+              {offset === 0 ? <span className="text-[#1B5CFF] dark:text-[#9BB6FF]"> · actual</span> : null}
+            </p>
+            <h1 className="mt-0.5 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-[#09090B] sm:text-[30px] dark:text-[#F8FAFC]">Equipo</h1>
+            <p className="mt-1 max-w-[64ch] text-[13.5px] leading-[20px] text-[#6E6E77] dark:text-[#8EA0B8]">
+              Órdenes y proyectos de la semana por técnico
+              {tecnicosConTrabajo > 0 ? (
+                <>
+                  {" · "}
+                  <span className="font-medium text-[#3F3F46] dark:text-[#D6DEEA]">
+                    {tecnicosConTrabajo} {tecnicosConTrabajo === 1 ? "técnico con carga" : "técnicos con carga"}
+                  </span>
+                </>
+              ) : null}
+              <span className="hidden lg:inline">. Arrastra una tarjeta a otro técnico o día para moverla.</span>
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
-          <WeekSwitcher lunes={lunes} esSemanaActual={esSemanaActual} onShiftWeek={onShiftWeek} onToday={onToday} />
-        </div>
+        <WeekSwitcher lunes={lunes} offset={offset} onShiftWeek={onShiftWeek} onToday={onToday} />
       </div>
     </header>
   );

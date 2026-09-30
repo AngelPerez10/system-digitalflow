@@ -80,5 +80,33 @@ export const TIPO_TONE = {
   },
 } as const;
 
+/*
+ * Barra de herramientas (Filtros · Sin asignar · Reporte · Historial): botones
+ * independientes de 44 px (igual que la búsqueda). En celular se reparten el
+ * ancho y solo muestran el ícono; desde `sm` llevan etiqueta y ancho propio.
+ */
+export const toolbarGroup = "flex w-full items-center gap-2 sm:w-auto";
+
+export function toolbarBtn(active: boolean, tone: "blue" | "amber" = "blue") {
+  const on =
+    tone === "amber"
+      ? "border-[#F0D7A3] bg-[#FFF8EB] text-[#8A5D0F] dark:border-[rgba(230,162,60,0.35)] dark:bg-[rgba(230,162,60,0.12)] dark:text-[#F2C27A]"
+      : "border-[#BFD3FF] bg-[#EEF3FF] text-[#1244D1] dark:border-[#2C3F7A] dark:bg-[#1B2A63]/60 dark:text-[#C9D7FF]";
+  return `cot-press relative inline-flex h-11 w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-[12px] border px-3.5 text-[13px] font-semibold shadow-[0_1px_2px_rgba(9,9,11,0.04)] sm:w-auto [&_svg]:size-4 [&_svg]:shrink-0 ${
+    active
+      ? on
+      : "border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D4D4DB] hover:bg-[#FAFAFA] hover:text-[#09090B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#D6DEEA] dark:hover:border-[#3A4661] dark:hover:text-white"
+  } ${focusRing}`;
+}
+
+const badgeBase = "cot-flash inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10.5px] font-bold tabular-nums";
+
+/** Contadores dentro de los botones de la barra. */
+export const toolbarBadge = {
+  blue: `${badgeBase} bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]`,
+  amber: `${badgeBase} bg-[#D08A1E] text-white dark:bg-[#E6A23C] dark:text-[#111827]`,
+  muted: `${badgeBase} bg-[#F1F1F4] text-[#52525B] dark:bg-white/[0.08] dark:text-[#D6DEEA]`,
+} as const;
+
 export const rowActionBtn = `cot-press inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] text-[#71717A] hover:bg-[#F4F4F5] hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/6 dark:hover:text-white [&_svg]:size-4 ${focusRing}`;
 

@@ -29,7 +29,11 @@ export type EquipoSemanaData = {
   destinos: EquipoDestino[];
 };
 
-export function useEquipoSemanaData(lunes: string, onError: (title: string, message: string) => void): EquipoSemanaData {
+/**
+ * `mesExtra` (`YYYY-MM`): mes que se carga siempre además de los de la semana
+ * (el mes actual, para la bandeja «Sin asignar» de todo el mes).
+ */
+export function useEquipoSemanaData(lunes: string, onError: (title: string, message: string) => void, mesExtra?: string): EquipoSemanaData {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roster, setRoster] = useState<Usuario[]>([]);
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
@@ -68,10 +72,10 @@ export function useEquipoSemanaData(lunes: string, onError: (title: string, mess
     };
   }, [onError]);
 
-  // Órdenes de los meses que toca la semana (uno o dos). Los meses ya
+  // Órdenes de los meses que toca la semana (uno o dos) y el mes extra. Los meses ya
   // cargados no se vuelven a pedir: navegar entre semanas es instantáneo y
   // las reasignaciones hechas en memoria se conservan.
-  const mesesKey = mesesDeSemana(lunes).join(",");
+  const mesesKey = [...new Set([...mesesDeSemana(lunes), ...(mesExtra ? [mesExtra] : [])])].join(",");
   const cargadosRef = useRef(new Set<string>());
   useEffect(() => {
     const faltan = mesesKey.split(",").filter((m) => !cargadosRef.current.has(m));
@@ -113,7 +117,7 @@ export function useEquipoSemanaData(lunes: string, onError: (title: string, mess
   );
 
   const destinos = useMemo<EquipoDestino[]>(
-    () => secciones.map((s) => ({ key: columnKey(s.tecnico.id), id: s.tecnico.id, nombre: s.tecnico.nombre })),
+    () => secciones.map((s) => ({ key: columnKey(s.tecnico.id), id: s.tecnico.id, nombre: s.tecnico.nombre, avatarUrl: s.tecnico.avatarUrl })),
     [secciones]
   );
 

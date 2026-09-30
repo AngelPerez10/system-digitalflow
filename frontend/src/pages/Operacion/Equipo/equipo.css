@@ -15,6 +15,27 @@
     animation: eq-slide-prev 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
+  /* Fila que aparece (carga, filtro o después de moverla): escalonada y corta. */
+  .eq-row-in {
+    animation: eq-row-in 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--eq-i, 0) * 24ms);
+  }
+
+  /* Panel lateral «Sin asignar»: entra desde la derecha. */
+  .eq-panel-in {
+    animation: eq-panel-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Fila recién movida: un pulso verde de fondo. */
+  .eq-moved-row {
+    animation: eq-moved-row 1400ms ease-out 1;
+  }
+
+  /* Plegar/abrir una sección de técnico. */
+  .eq-collapse {
+    transition: grid-template-rows 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   /* Tarjeta que aparece (carga, filtro o después de moverla). */
   /* `backwards`: al terminar no retiene `transform` (así funciona `.eq-lift:hover`). */
   .eq-card-in {
@@ -41,6 +62,34 @@
     transform: translateY(0) scale(0.99);
   }
 
+  /* Encabezado: entrada única al abrir la página. */
+  .eq-hero {
+    animation: eq-row-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Rango de la semana: se desliza al cambiar (se re-monta con `key`). */
+  .eq-week-label {
+    animation: eq-week-label 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Modal «Notas»: las secciones entran una tras otra, después del panel. */
+  .eq-notas-sec {
+    animation: eq-row-in 260ms 90ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .eq-notas-sec + .eq-notas-sec {
+    animation-delay: 150ms;
+  }
+
+  html.theme-changing .eq-notas-sec {
+    animation-name: eq-row-in !important;
+  }
+  html.theme-changing .eq-hero {
+    animation-name: eq-row-in !important;
+  }
+  html.theme-changing .eq-week-label {
+    animation-name: eq-week-label !important;
+  }
+
   /*
    * Cambio de tema: index.css pone `animation: none !important` un instante.
    * Conservar el nombre evita que las entradas se repitan (igual que motion.css).
@@ -57,6 +106,12 @@
   html.theme-changing .eq-moved {
     animation-name: eq-moved !important;
   }
+  html.theme-changing .eq-row-in {
+    animation-name: eq-row-in !important;
+  }
+  html.theme-changing .eq-moved-row {
+    animation-name: eq-moved-row !important;
+  }
   html.theme-changing .eq-today-bar {
     animation-name: eq-today-bar !important;
   }
@@ -68,8 +123,50 @@
   }
 }
 
+/* Sección plegable: filas de grid 1fr ↔ 0fr; lo plegado no se enfoca ni se lee. */
+.eq-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.eq-collapse > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.eq-collapse[data-open="false"] {
+  grid-template-rows: 0fr;
+}
+.eq-collapse[data-open="false"] > div {
+  visibility: hidden;
+  transition: visibility 0s 240ms;
+}
+
+/* Fila del tablero bajo el cursor: el nombre del técnico se tiñe apenas. */
+.eq-board-row:hover .eq-rowheader {
+  background-color: #fafafb;
+}
+.dark .eq-board-row:hover .eq-rowheader {
+  background-color: #131c2e;
+}
+
+/* Listas largas: no se pinta lo que está fuera de pantalla. */
+.eq-list {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+/* Fila de la lista: resalte suave al pasar el cursor (solo color). */
+.eq-row {
+  transition: background-color 150ms ease-out, opacity 200ms ease-out;
+}
+.eq-row:hover {
+  background-color: rgba(27, 92, 255, 0.035);
+}
+.dark .eq-row:hover {
+  background-color: rgba(75, 124, 255, 0.07);
+}
+
 /*
- * Mientras se arrastra, cada celda muestra un contorno tenue de destino.
+ * Mientras se arrastra, cada zona muestra un contorno tenue de destino.
  * Se activa con un solo atributo en el tablero (`data-dragging`), sin
  * volver a renderizar las celdas.
  */
@@ -99,6 +196,48 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes eq-week-label {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes eq-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes eq-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes eq-moved-row {
+  0% {
+    background-color: rgba(52, 195, 143, 0.28);
+  }
+  100% {
+    background-color: transparent;
   }
 }
 

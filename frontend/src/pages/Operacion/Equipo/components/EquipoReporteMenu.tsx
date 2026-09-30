@@ -13,6 +13,7 @@ import { fetchTodosLosUsuariosApi, fetchUsuariosApi } from "../../OrdenesTrabajo
 import { listProyectos } from "../../Proyectos/shared/proyectoApi";
 import { focusRing } from "../../Proyectos/shared/proyectoTokens";
 import { listEquipoHistorial } from "../shared/equipoHistorialApi";
+import { toolbarBtn } from "../shared/equipoTokens";
 import { buildReporteMes, etiquetaMes, mesDe, moverMes } from "../shared/equipoReporteMes";
 
 export function EquipoReporteMenu({ lunes }: { lunes: string }) {
@@ -79,7 +80,7 @@ export function EquipoReporteMenu({ lunes }: { lunes: string }) {
   const stepBtn = `cot-press inline-flex size-9 items-center justify-center rounded-[10px] text-[#52525B] hover:bg-[#F4F4F5] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-[#B7C1D1] dark:hover:bg-white/[0.06] ${focusRing}`;
 
   return (
-    <div className="relative flex-1 sm:flex-none">
+    <div className="relative min-w-0 flex-1 sm:flex-none">
       <button
         ref={btnRef}
         type="button"
@@ -89,13 +90,9 @@ export function EquipoReporteMenu({ lunes }: { lunes: string }) {
         aria-haspopup="dialog"
         aria-label="Reporte mensual"
         title="Reporte mensual"
-        className={`cot-press inline-flex h-10 w-full items-center justify-center gap-2 rounded-[12px] border px-3.5 text-[13px] font-semibold sm:w-auto ${
-          open
-            ? "border-[#BFD3FF] bg-[#EEF3FF] text-[#1244D1] dark:border-[#2C3F7A] dark:bg-[#1B2A63]/60 dark:text-[#C9D7FF]"
-            : "border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#D6DEEA] dark:hover:border-[#3A4661]"
-        } ${focusRing}`}
+        className={toolbarBtn(open)}
       >
-        <FileDown className="size-4" aria-hidden />
+        <FileDown aria-hidden />
         <span className="hidden sm:inline">Reporte</span>
       </button>
 

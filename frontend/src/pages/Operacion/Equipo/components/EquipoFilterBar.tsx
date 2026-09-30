@@ -13,7 +13,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, ClipboardList, FolderKanban, History, Layers, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { focusRing } from "../../Proyectos/shared/proyectoTokens";
 import type { EquipoEstadoFiltro, EquipoFiltros, EquipoTipoFiltro } from "../shared/equipoFiltros";
-import { TIPO_TONE } from "../shared/equipoTokens";
+import { TIPO_TONE, toolbarBadge, toolbarBtn, toolbarGroup } from "../shared/equipoTokens";
 
 type Counts = { todo: number; ordenes: number; proyectos: number };
 
@@ -169,7 +169,7 @@ export function EquipoFilterBar({
     <div className="flex flex-wrap items-center gap-2">
       <label className="relative min-w-[16rem] flex-1">
         <span className="sr-only">Buscar por folio, cliente o técnico</span>
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]" aria-hidden />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]" aria-hidden />
         <input
           ref={inputRef}
           type="search"
@@ -182,7 +182,7 @@ export function EquipoFilterBar({
             }
           }}
           placeholder="Buscar folio, cliente o técnico…"
-          className="h-10 w-full rounded-[12px] border border-[#E4E4E7] bg-white pl-9 pr-16 text-[13.5px] text-[#09090B] outline-none transition-[border-color,box-shadow] placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] [&::-webkit-search-cancel-button]:hidden"
+          className="h-11 w-full rounded-[12px] border border-[#E4E4E7] bg-white pl-10 pr-16 shadow-[0_1px_2px_rgba(9,9,11,0.04)] text-[13.5px] text-[#09090B] outline-none transition-[border-color,box-shadow] placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.14)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] [&::-webkit-search-cancel-button]:hidden"
         />
         {filtros.q ? (
           <button
@@ -217,8 +217,8 @@ export function EquipoFilterBar({
         </Chip>
       ) : null}
 
-      <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-        <div className="relative flex-1 sm:flex-none">
+      <div className={`${toolbarGroup} sm:ml-auto`} role="toolbar" aria-label="Herramientas del tablero">
+        <div className="relative min-w-0 flex-1 sm:flex-none">
           <button
             ref={btnRef}
             type="button"
@@ -226,21 +226,17 @@ export function EquipoFilterBar({
             aria-expanded={open}
             aria-controls={panelId}
             aria-haspopup="dialog"
-            className={`cot-press inline-flex h-10 w-full items-center justify-center gap-2 rounded-[12px] border px-3.5 text-[13px] font-semibold sm:w-auto ${
-              open || activos > 0
-                ? "border-[#BFD3FF] bg-[#EEF3FF] text-[#1244D1] dark:border-[#2C3F7A] dark:bg-[#1B2A63]/60 dark:text-[#C9D7FF]"
-                : "border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#D6DEEA] dark:hover:border-[#3A4661]"
-            } ${focusRing}`}
+            aria-label={activos > 0 ? `Filtros, ${activos} activos` : "Filtros"}
+            className={toolbarBtn(open || activos > 0)}
           >
-            <SlidersHorizontal className="size-4" aria-hidden />
-            Filtros
+            <SlidersHorizontal aria-hidden />
+            <span className="hidden sm:inline">Filtros</span>
             {activos > 0 ? (
-              <span key={activos} className="cot-flash inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#1B5CFF] px-1.5 text-[11px] font-bold tabular-nums text-white dark:bg-[#4B7CFF]">
+              <span key={activos} className={toolbarBadge.blue} aria-hidden>
                 {activos}
-                <span className="sr-only"> activos</span>
               </span>
             ) : null}
-            <ChevronDown className={`size-4 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden />
+            <ChevronDown className={`hidden size-3.5! opacity-60 transition-transform duration-200 motion-reduce:transition-none sm:block ${open ? "rotate-180" : ""}`} aria-hidden />
           </button>
 
           {open ? (
@@ -304,22 +300,12 @@ export function EquipoFilterBar({
 
         {reporte}
 
-        <button
-          type="button"
-          onClick={onOpenHistorial}
-          aria-haspopup="dialog"
-          className={`cot-press inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-[12px] border border-[#E4E4E7] bg-white px-3.5 text-[13px] font-semibold text-[#3F3F46] hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827] dark:text-[#D6DEEA] dark:hover:border-[#3A4661] sm:flex-none ${focusRing}`}
-        >
-          <History className="size-4" aria-hidden />
-          Historial
+        <button type="button" onClick={onOpenHistorial} aria-haspopup="dialog" aria-label={historialHoy > 0 ? `Historial, ${historialHoy} movimientos hoy` : "Historial"} className={`${toolbarBtn(false)} min-w-0 flex-1 sm:flex-none`}>
+          <History aria-hidden />
+          <span className="hidden sm:inline">Historial</span>
           {historialHoy > 0 ? (
-            <span
-              key={historialHoy}
-              className="cot-flash inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#1B5CFF] px-1.5 text-[11px] font-semibold tabular-nums text-white dark:bg-[#4B7CFF]"
-              title={`${historialHoy} movimientos hoy`}
-            >
+            <span key={historialHoy} className={toolbarBadge.muted} title={`${historialHoy} movimientos hoy`} aria-hidden>
               {historialHoy}
-              <span className="sr-only"> movimientos hoy</span>
             </span>
           ) : null}
         </button>
