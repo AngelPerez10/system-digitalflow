@@ -58,11 +58,18 @@ import {
   fetchCotizacionClientes,
   fetchCotizacionDetail,
 } from "@/pages/Ventas/Cotizacion/shared/cotizacionApi";
+import {
+  actualizarPreciosConceptos,
+  type PreciosVigentesDeps,
+  type ResumenPrecios,
+} from "@/pages/Ventas/Cotizacion/shared/cotizacionPreciosVigentes";
 import { useCotizacionCatalogos } from "@/pages/Ventas/Cotizacion/shared/useCotizacionCatalogos";
 import { useCotizacionCloneSearch } from "@/pages/Ventas/Cotizacion/shared/useCotizacionCloneSearch";
 import {
+  fetchSyscomProductoDetalle,
   fetchSyscomProductosSugerencia,
   fetchSyscomTipoCambio,
+  fetchTvcProductoDetalle,
   fetchTvcProductosSugerencia,
   fetchTvcTipoCambio,
   getCatalogProductoImageUrl,
@@ -797,7 +804,15 @@ export default function NuevaCotizacionPage() {
   const filteredClientes = clientes;
 
   const hydrateFormFromCotizacionDetail = useCallback(
-    async (data: ApiCotizacion, opts: { updateIdxBadge: boolean }) => {
+    async (
+      data: ApiCotizacion,
+      opts: {
+        updateIdxBadge: boolean;
+        /** Clonado: reemplaza los precios guardados por los vigentes del catálogo. */
+        precios?: Pick<PreciosVigentesDeps, "catalogoManual" | "tipoCambio">;
+      },
+    ): Promise<ResumenPrecios | null> => {
+      let resumenPrecios: ResumenPrecios | null = null;
       if (opts.updateIdxBadge) {
         setEditingCotizacionIdx(Number.isFinite(Number(data.idx)) ? Number(data.idx) : null);
       }
@@ -851,6 +866,15 @@ export default function NuevaCotizacionPage() {
         sin_iva: !!it.sin_iva,
         categoria_id: String(it.categoria_id || "").trim() || undefined,
       }));
+      if (opts.precios) {
+        const refrescado = await actualizarPreciosConceptos(conceptosList, {
+          ...opts.precios,
+          fetchSyscomDetalle: (id) => fetchSyscomProductoDetalle(id),
+          fetchTvcDetalle: (id) => fetchTvcProductoDetalle(id),
+        });
+        conceptosList.splice(0, conceptosList.length, ...refrescado.conceptos);
+        resumenPrecios = refrescado.resumen;
+      }
       const descCortas: Record<string, string> = {};
       conceptosList.forEach((c, i) => {
         const corta = String(itemsArr[i]?.pdf_descripcion_corta || "").trim();
@@ -884,6 +908,7 @@ export default function NuevaCotizacionPage() {
           /* ignore */
         }
       }
+      return resumenPrecios;
     },
     []
   );
@@ -1028,7 +1053,10 @@ export default function NuevaCotizacionPage() {
         });
         return;
       }
-      await hydrateFormFromCotizacionDetail(data, { updateIdxBadge: false });
+      const resumenPrecios = await hydrateFormFromCotizacionDetail(data, {
+        updateIdxBadge: false,
+        precios: { catalogoManual: catalogoManualProductos, tipoCambio: syscomTipoCambio },
+      });
 
       if (cloneClienteMode === "otro" && cloneTargetCliente) {
         selectCliente(cloneTargetCliente);
@@ -1042,13 +1070,31 @@ export default function NuevaCotizacionPage() {
         cloneClienteMode === "otro" && cloneTargetCliente
           ? String(cloneTargetCliente.nombre || "").trim()
           : "";
+      const fmt = (n: number) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+      const cambios = resumenPrecios?.actualizados ?? [];
+      const detallePrecios = resumenPrecios
+        ? ` Precios al día: ${cambios.length} actualizado${cambios.length === 1 ? "" : "s"}${
+            cambios.length
+              ? ` (${cambios
+                  .slice(0, 3)
+                  .map((c) => `${c.nombre}: ${fmt(c.anterior)} → ${fmt(c.nuevo)}`)
+                  .join("; ")}${cambios.length > 3 ? `; y ${cambios.length - 3} más` : ""})`
+              : ""
+          }${
+            resumenPrecios.noConsultados
+              ? `. ${resumenPrecios.noConsultados} no se pudo consultar y conserva el precio anterior: revísalo`
+              : ""
+          }.`
+        : "";
       setAlert({
         show: true,
-        variant: "success",
+        variant: resumenPrecios?.noConsultados ? "warning" : "success",
         title: "Cotización clonada",
-        message: clienteDestino
-          ? `Se copiaron conceptos y textos del folio ${folioOrigen} para ${clienteDestino}. Revisa y guarda como cotización nueva.`
-          : `Se copiaron los datos del folio ${folioOrigen}. Revisa la información y guarda como cotización nueva.`,
+        message:
+          (clienteDestino
+            ? `Se copiaron conceptos y textos del folio ${folioOrigen} para ${clienteDestino}. Revisa y guarda como cotización nueva.`
+            : `Se copiaron los datos del folio ${folioOrigen}. Revisa la información y guarda como cotización nueva.`) +
+          detallePrecios,
       });
     } catch {
       setAlert({
