@@ -10,6 +10,7 @@
  * Movimiento: entrada escalonada `cot-rise` (solo transform/opacity) y
  * transiciones de color; todo se apaga con prefers-reduced-motion.
  */
+import { HScrollArea } from "@/components/ui/scroll/HScrollArea";
 import { memo, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowUp, ClipboardList, FileText, Mail, MapPin, MessageSquareText, Pencil, Trash2, Wrench } from "lucide-react";
 import { resolveMediaUrl } from "@/config/api";
@@ -701,7 +702,7 @@ export function OrdenesTable({ sections, indexById, startIndex, usuarios, select
   let rowIndex = 0;
 
   return (
-    <div className="@container overflow-x-auto overflow-y-hidden">
+    <HScrollArea bodyClassName="@container" label="Desplazamiento horizontal de la tabla de órdenes">
       <table className="w-full min-w-176 table-auto border-collapse">
         <thead className="bg-[#FAFAFA] dark:bg-[#0F172A]">
           <tr>
@@ -787,6 +788,6 @@ export function OrdenesTable({ sections, indexById, startIndex, usuarios, select
           })
         )}
       </table>
-    </div>
+    </HScrollArea>
   );
 }

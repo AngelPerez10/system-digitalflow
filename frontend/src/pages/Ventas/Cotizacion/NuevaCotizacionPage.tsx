@@ -1080,7 +1080,7 @@ export default function NuevaCotizacionPage() {
                   .map((c) => `${c.nombre}: ${fmt(c.anterior)} → ${fmt(c.nuevo)}`)
                   .join("; ")}${cambios.length > 3 ? `; y ${cambios.length - 3} más` : ""})`
               : ""
-          }${
+          }${resumenPrecios.sinCambio ? `, ${resumenPrecios.sinCambio} sin cambio` : ""}${
             resumenPrecios.noConsultados
               ? `. ${resumenPrecios.noConsultados} no se pudo consultar y conserva el precio anterior: revísalo`
               : ""

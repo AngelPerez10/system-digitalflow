@@ -660,7 +660,7 @@ export default function Ordenes() {
   const shiftMonth = (delta: number) => selectMonth(shiftYearMonth(selectedMonth, delta));
 
   return (
-    <div className={erpPageCanvasClass} style={erpSansStyle}>
+    <div className={`${erpPageCanvasClass} overflow-x-clip!`} style={erpSansStyle}>
       <div className={erpPageInnerClass}>
         <PageMeta
           title="Órdenes de Trabajo | Sistema Grupo Intrax GPS"

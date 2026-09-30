@@ -331,7 +331,7 @@ export function EquipoBoard({ secciones, porDia, ...c }: EquipoBoardProps) {
   /** Dos columnas de día por pulsación (suave); con el teclado, una. */
   const desplazar = (dir: -1 | 1, pasos = 2) => bodyRef.current?.scrollBy({ left: dir * pasos * 17 * 16, behavior: "smooth" });
   const flechaCls =
-    "inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[#5B6478] transition-[background-color,color,opacity] duration-150 hover:bg-[#17235B]/8 hover:text-[#17235B] disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent dark:text-[#B7C1D1] dark:hover:bg-white/10 dark:hover:text-white dark:disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/50";
+    "inline-flex size-8 shrink-0 items-center justify-center rounded-full text-white/75 transition-[background-color,color,opacity] duration-150 hover:bg-white/12 hover:text-white disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E6A23C]/70";
 
   return (
     <div
@@ -373,17 +373,18 @@ export function EquipoBoard({ secciones, porDia, ...c }: EquipoBoardProps) {
 
       {/* Barra de desplazamiento: cápsula flotante fija al borde inferior de la ventana. */}
       <div className={`sticky bottom-3 z-20 mx-auto my-3 w-[min(40rem,calc(100%-1.5rem))] ${desborda ? "block" : "hidden"}`}>
-        <div className="flex items-center gap-1.5 rounded-full border border-[#D9DCE4] bg-white/90 p-1 pr-1.5 shadow-[0_12px_32px_-12px_rgba(9,9,11,0.45)] backdrop-blur-md dark:border-[#3A4661] dark:bg-[#151E33]/90 dark:shadow-[0_12px_32px_-10px_rgba(0,0,0,0.75)]">
+        <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-[#17235B]/95 p-1 pr-1.5 text-white shadow-[0_14px_34px_-12px_rgba(23,35,91,0.75)] backdrop-blur-md dark:bg-[#1B2A63]/95 dark:shadow-[0_14px_34px_-10px_rgba(0,0,0,0.8)]">
           <button type="button" onClick={() => desplazar(-1)} disabled={borde.izq} aria-label="Ver días anteriores" className={flechaCls}>
             <ChevronLeft className="size-[17px]" aria-hidden />
           </button>
           <span
             ref={rangoRef}
             aria-hidden
-            className="hidden w-[8.5rem] shrink-0 text-center text-[11.5px] font-semibold tabular-nums tracking-[0.01em] text-[#3F4A63] sm:block dark:text-[#D6DEEA]"
+            className="hidden w-[8.5rem] shrink-0 text-center text-[11.5px] font-semibold tabular-nums tracking-[0.01em] text-white/90 sm:block"
           />
-          <div ref={trackRef} className="group relative h-5 min-w-0 flex-1 cursor-pointer">
-            <div className="absolute inset-x-0 top-[6px] h-2 rounded-full bg-[#E3E6EE] dark:bg-white/10" aria-hidden />
+          {/* Zona de agarre alta (32 px): se puede arrastrar o pulsar aunque no se apunte justo a la línea. */}
+          <div ref={trackRef} className="relative h-8 min-w-0 flex-1 cursor-pointer">
+            <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-white/15" aria-hidden />
             <div
               ref={thumbRef}
               role="scrollbar"
@@ -402,8 +403,13 @@ export function EquipoBoard({ secciones, porDia, ...c }: EquipoBoardProps) {
                   desplazar(1, 1);
                 }
               }}
-              className="absolute left-0 top-[6px] h-2 cursor-grab touch-none rounded-full bg-[#17235B] transition-[background-color,height,top] duration-150 hover:top-[4px] hover:h-3 data-[drag]:top-[4px] data-[drag]:h-3 data-[drag]:cursor-grabbing data-[drag]:bg-[#1B5CFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/60 dark:bg-[#8FA6D6] dark:data-[drag]:bg-[#6B93FF]"
-            />
+              className="group/thumb absolute inset-y-0 left-0 cursor-grab touch-none focus-visible:outline-none data-[drag]:cursor-grabbing"
+            >
+              <span
+                className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-white/85 shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-[background-color,height] duration-150 group-hover/thumb:h-3 group-hover/thumb:bg-[#E6A23C] group-data-[drag]/thumb:h-3 group-data-[drag]/thumb:bg-[#E6A23C] group-focus-visible/thumb:ring-2 group-focus-visible/thumb:ring-[#E6A23C]/70"
+                aria-hidden
+              />
+            </div>
           </div>
           <button type="button" onClick={() => desplazar(1)} disabled={borde.der} aria-label="Ver días siguientes" className={flechaCls}>
             <ChevronRight className="size-[17px]" aria-hidden />
