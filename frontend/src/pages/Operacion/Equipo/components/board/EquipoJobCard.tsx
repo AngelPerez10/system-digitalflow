@@ -9,8 +9,8 @@
  * - Abierta: se arrastra a otra celda (técnico × día); en teclado/táctil se
  *   usan «Mover a…» y «Cambiar día».
  * - Cerrada (resuelta/cancelada, cerrado/cancelado): atenuada y fija.
- * - Clic en la tarjeta: abre la orden/proyecto (si hay permiso); «Abrir» es el
- *   equivalente accesible por teclado. No hay un botón que cubra la tarjeta:
+ * - Clic en la tarjeta: no navega; la orden/proyecto solo se abre con el botón
+ *   «Abrir» (si hay permiso). No hay un botón que cubra la tarjeta:
  *   en Firefox impide iniciar el arrastre.
  *
  * Variantes: `compact` (celda del tablero; acciones al pasar el cursor o con
@@ -120,7 +120,6 @@ export const EquipoJobCard = memo(function EquipoJobCard({ tarjeta: t, variant, 
   return (
     <article
       ref={ref}
-      onClick={onOpen}
       aria-label={`${esOrden ? "Orden" : "Proyecto"} ${d.folio}, ${d.cliente}, ${d.estadoLabel}`}
       className={`eq-lift eq-card-in group/card relative overflow-hidden rounded-[14px] border bg-white text-left dark:bg-[#0F172A] ${justMoved ? "eq-moved" : ""} ${
         compact ? "p-3 pl-4" : "flex items-start gap-3 py-3 pl-4 pr-2"
@@ -130,7 +129,7 @@ export const EquipoJobCard = memo(function EquipoJobCard({ tarjeta: t, variant, 
           : justMoved
             ? "border-[#34C38F] shadow-[0_0_0_3px_rgba(52,195,143,0.2)] dark:border-[#34D399]"
             : "eq-card-shadow border-[#E7E7EA] hover:border-[#D4D4DB] dark:border-[#243044] dark:hover:border-[#3A4661]"
-      } ${t.abierta ? "cursor-grab active:cursor-grabbing" : "eq-card-closed"}`}
+      } ${t.abierta ? "cursor-grab active:cursor-grabbing" : "opacity-55 saturate-[0.65] transition-[opacity,filter] duration-200 hover:opacity-90 hover:saturate-100 focus-within:opacity-90 focus-within:saturate-100"}`}
     >
       {/* Acento de tipo (TIPO_TONE), separado del borde: no comparte color con ningún status. */}
       <span className={`absolute bottom-3 left-[5px] top-3 w-[3px] rounded-full ${tipo.bar}`} aria-hidden />
