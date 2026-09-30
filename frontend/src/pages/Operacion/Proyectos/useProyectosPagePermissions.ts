@@ -1,4 +1,5 @@
 import { useAuth } from "@/context/AuthContext";
+import { canDeleteInModule } from "@/pages/Configuracion/usuarios/usuariosModel";
 import { moduleAllowsStatusChange } from "@/pages/Configuracion/usuarios/usuariosModel";
 
 export function useProyectosPagePermissions() {
@@ -7,7 +8,7 @@ export function useProyectosPagePermissions() {
   const canProyectosView = isAdmin || permissions?.proyectos?.view === true;
   const canProyectosCreate = isAdmin || permissions?.proyectos?.create === true;
   const canProyectosEdit = isAdmin || permissions?.proyectos?.edit === true;
-  const canProyectosDelete = isAdmin || permissions?.proyectos?.delete === true;
+  const canProyectosDelete = canDeleteInModule(permissions, isAdmin, "proyectos");
   /**
    * Puede marcar/desmarcar "Liquidado". A propósito SIN bypass de `isAdmin`:
    * es exclusivo de quien tenga esta casilla activa en Gestión de usuarios.

@@ -1,6 +1,8 @@
 import { useEffect, useId, useState } from "react";
+import { canDeleteInModule } from "@/pages/Configuracion/usuarios/usuariosModel";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
+import { useAuth } from "@/context/AuthContext";
 import type { ClienteContacto } from "@/types/cliente";
 import {
   type ClienteContactoInput,
@@ -63,6 +65,9 @@ function draftFromContacto(c: ClienteContacto): ClienteContactoInput {
  */
 export function ClienteContactosManager({ clienteId }: Props) {
   const formId = useId();
+  const { permissions, isAdmin } = useAuth();
+  // El servidor exige `clientes.delete` para borrar contactos: sin él no se ofrece el botón.
+  const canDelete = canDeleteInModule(permissions, isAdmin, "clientes");
   const [contactos, setContactos] = useState<ClienteContacto[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
@@ -230,18 +235,20 @@ export function ClienteContactosManager({ clienteId }: Props) {
                         <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                       </svg>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => c.id && setConfirmDeleteId(c.id)}
-                      aria-label={`Eliminar ${c.nombre_apellido || "contacto"}`}
-                      className="inline-flex size-8 items-center justify-center rounded-lg text-[#6E6E77] transition-colors hover:bg-white hover:text-[#C22B2B] dark:text-[#8EA0B8] dark:hover:bg-white/10 dark:hover:text-[#F87171]"
-                    >
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                        <path d="M3 6h18" />
-                        <path d="M8 6V4h8v2" />
-                        <path d="m6 6 1 14h10l1-14" />
-                      </svg>
-                    </button>
+                    {canDelete ? (
+                      <button
+                        type="button"
+                        onClick={() => c.id && setConfirmDeleteId(c.id)}
+                        aria-label={`Eliminar ${c.nombre_apellido || "contacto"}`}
+                        className="inline-flex size-8 items-center justify-center rounded-lg text-[#6E6E77] transition-colors hover:bg-white hover:text-[#C22B2B] dark:text-[#8EA0B8] dark:hover:bg-white/10 dark:hover:text-[#F87171]"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4h8v2" />
+                          <path d="m6 6 1 14h10l1-14" />
+                        </svg>
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>

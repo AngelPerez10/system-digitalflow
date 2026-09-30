@@ -33,6 +33,24 @@ def _module_perms_for_key(permissions, module_key):
     return module_perms
 
 
+def staff_delete_denied(user, module_key: str) -> bool:
+    """True si un admin (staff, no superuser) tiene «Eliminar» desmarcado a propósito.
+
+    Solo cuenta un `delete: false` explícito guardado en Gestión de usuarios: los
+    admins sin perfil configurado siguen con acceso total (no hay bloqueos por
+    omisión). Los superusuarios nunca se bloquean.
+    """
+    if not user or getattr(user, 'is_superuser', False) or not getattr(user, 'is_staff', False):
+        return False
+    perms_obj = getattr(user, 'permissions_profile', None)
+    permissions = getattr(perms_obj, 'permissions', None) or {}
+    module_perms = _module_perms_for_key(permissions, module_key)
+    return module_perms.get('delete') is False or (
+        isinstance(module_perms.get('delete'), str)
+        and module_perms.get('delete').strip().lower() == 'false'
+    )
+
+
 def user_module_own_only(user, module_key: str) -> bool:
     """
     Returns True when user permissions request "solo sus registros" for a module.
@@ -147,8 +165,10 @@ class ModulePermission(BasePermission):
         if not user or not getattr(user, 'is_authenticated', False):
             return False
 
-        # Superusers and staff always have access
+        # Superusers and staff always have access (salvo «Eliminar» desmarcado en un admin)
         if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            if (request.method or '').upper() == 'DELETE' and staff_delete_denied(user, self.module_key):
+                return False
             return True
 
         # Get user's permission profile
@@ -211,6 +231,8 @@ class ModulePermission(BasePermission):
         if not user or not getattr(user, 'is_authenticated', False):
             return False
         if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            if (request.method or '').upper() == 'DELETE' and staff_delete_denied(user, self.module_key):
+                return False
             return True
 
         method = (request.method or '').upper()
@@ -307,6 +329,8 @@ class InventarioPermission(ModulePermission):
         if not user or not getattr(user, 'is_authenticated', False):
             return False
         if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            if (request.method or '').upper() == 'DELETE' and staff_delete_denied(user, self.module_key):
+                return False
             return True
         method = (request.method or '').upper()
         if method not in ('PUT', 'PATCH', 'DELETE'):

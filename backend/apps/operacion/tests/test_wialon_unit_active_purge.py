@@ -102,6 +102,16 @@ class WialonUnitActiveAndPurgeTests(TestCase):
         self.assertEqual(res.data["purged_count"], 1)
         mock_purge.assert_called_once_with(days=35, dry_run=True)
 
+    @patch("apps.operacion.wialon_views.purge_blocked_accounts")
+    def test_purge_blocked_endpoint_refuses_real_deletion(self, mock_purge):
+        res = self.client.patch(
+            "/api/wialon/usuarios/limpiar-bloqueados/",
+            {"days": 35, "dry_run": False},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 403)
+        mock_purge.assert_not_called()
+
     @patch("apps.operacion.wialon_client.delete_wialon_user")
     @patch("apps.operacion.wialon_client.set_wialon_unit_active")
     @patch("apps.operacion.wialon_client.fetch_user_units")

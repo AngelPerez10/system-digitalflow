@@ -11,6 +11,7 @@ import { fetchApi } from "@/config/api";
 import { formatMonthLabelEs, getCurrentMonthKey } from "@/utils/statsMonthKey";
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import { MobileOrderList } from "../OrdenServicio/list/MobileOrderCard";
+import { useOrdenesPagePermissions } from "../OrdenServicio/useOrdenesPagePermissions";
 import { OrdenPdfLoadingModal } from "../OrdenServicio/list/OrdenPdfLoadingModal";
 import { handleOrdenPdfClick, displayOrdenFolio, fetchOrdenDetail } from "../OrdenServicio/shared/useOrdenesShared";
 import {
@@ -101,6 +102,8 @@ const parseYearMonth = (ym: string) => {
 export default function LevantamientoPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  // Los levantamientos son órdenes: se rigen por los permisos del módulo `ordenes`.
+  const { canOrdenesCreate, canOrdenesEdit, canOrdenesDelete } = useOrdenesPagePermissions();
   const [loading, setLoading] = useState(true);
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [search, setSearch] = useState("");
@@ -335,6 +338,7 @@ export default function LevantamientoPage() {
   };
 
   const handleDeleteClick = (orden: Orden) => {
+    if (!canOrdenesDelete) return;
     setOrdenToDelete(orden);
     setShowDeleteModal(true);
   };
@@ -505,19 +509,21 @@ export default function LevantamientoPage() {
             </button>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setEditingOrdenForModal(null);
-            setShowOrderModal(true);
-          }}
-          className={erpPrimaryBtnClass + " lg:shrink-0"}
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-          </svg>
-          Nueva orden
-        </button>
+        {canOrdenesCreate ? (
+          <button
+            type="button"
+            onClick={() => {
+              setEditingOrdenForModal(null);
+              setShowOrderModal(true);
+            }}
+            className={erpPrimaryBtnClass + " lg:shrink-0"}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            </svg>
+            Nueva orden
+          </button>
+        ) : null}
       </div>
 
       <ComponentCard
@@ -619,8 +625,8 @@ export default function LevantamientoPage() {
             onPdf={handleOrdenPdf}
             onEdit={handleEdit}
             onDelete={handleDeleteClick}
-            canEdit={true}
-            canDelete={true}
+            canEdit={canOrdenesEdit}
+            canDelete={canOrdenesDelete}
             usuarios={[]}
           />
           <div className={"hidden md:block " + erpTableWrapClass}>
@@ -765,22 +771,26 @@ export default function LevantamientoPage() {
                                 </g>
                               </svg>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleEdit(orden)}
-                              className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] transition"
-                              title="Editar"
-                            >
-                              <PencilIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteClick(orden)}
-                              className={erpRowActionBtnClass + " hover:border-rose-400 hover:text-rose-600"}
-                              title="Eliminar"
-                            >
-                              <TrashBinIcon className="w-4 h-4" />
-                            </button>
+                            {canOrdenesEdit ? (
+                              <button
+                                type="button"
+                                onClick={() => handleEdit(orden)}
+                                className="group inline-flex items-center justify-center w-7 h-7 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-white/10 hover:border-[#ffa057] hover:text-[#ea580c] dark:hover:border-[#ff801f] transition"
+                                title="Editar"
+                              >
+                                <PencilIcon className="w-4 h-4" />
+                              </button>
+                            ) : null}
+                            {canOrdenesDelete ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteClick(orden)}
+                                className={erpRowActionBtnClass + " hover:border-rose-400 hover:text-rose-600"}
+                                title="Eliminar"
+                              >
+                                <TrashBinIcon className="w-4 h-4" />
+                              </button>
+                            ) : null}
                           </div>
                         </TableCell>
                       </TableRow>

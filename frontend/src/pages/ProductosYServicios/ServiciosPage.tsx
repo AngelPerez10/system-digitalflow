@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { canDeleteInModule } from "@/pages/Configuracion/usuarios/usuariosModel";
 import { useDropzone } from "react-dropzone";
 
 import { useAuth } from "@/context/AuthContext";
@@ -370,7 +371,7 @@ export default function Servicios() {
   const canServiciosView = isAdmin || asBool(modulePerms.view, false);
   const canServiciosCreate = isAdmin || asBool(modulePerms.create, false);
   const canServiciosEdit = isAdmin || asBool(modulePerms.edit, false);
-  const canServiciosDelete = isAdmin || asBool(modulePerms.delete, false);
+  const canServiciosDelete = canDeleteInModule(permissions, isAdmin, "servicios");
 
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [conceptos, setConceptos] = useState<Concepto[]>([]);

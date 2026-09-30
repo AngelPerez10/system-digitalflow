@@ -33,7 +33,8 @@ function agruparPorDia(rows: PolizaRow[], today: string): Dia[] {
 type Props = {
   rows: PolizaRow[];
   loading: boolean;
-  onOpen: (row: PolizaRow) => void;
+  /** Sin permiso de edición no se pasa y las visitas quedan solo de lectura. */
+  onOpen?: (row: PolizaRow) => void;
 };
 
 function PolizasAgenda({ rows, loading, onOpen }: Props) {
@@ -122,7 +123,8 @@ function PolizasAgenda({ rows, loading, onOpen }: Props) {
                       <li key={`${row.id}-${numero}`}>
                         <button
                           type="button"
-                          onClick={() => onOpen(row)}
+                          onClick={() => onOpen?.(row)}
+                          disabled={!onOpen}
                           aria-label={`Abrir ${row.folio}, ${row.cliente}: visita ${numero} de ${row.visitas.length}`}
                           className="group -mx-1.5 flex w-[calc(100%+0.75rem)] min-w-0 items-baseline gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-[#F4F4F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:hover:bg-white/[0.05]"
                         >

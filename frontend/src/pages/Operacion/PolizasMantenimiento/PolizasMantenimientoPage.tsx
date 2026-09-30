@@ -23,6 +23,7 @@ import Alert from "@/components/ui/alert/Alert";
 import "@/components/ui/modal-kit/motion.css";
 import { erpPrimaryBtnClass, pageSearchInputClass } from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import { useAuth } from "@/context/AuthContext";
+import { canDeleteInModule } from "@/pages/Configuracion/usuarios/usuariosModel";
 import { FOLIO_SERIE, formatDocumentFolio, matchesDocumentFolio } from "@/utils/documentFolio";
 import {
   polBreadcrumbLinkClass,
@@ -74,7 +75,12 @@ function coincide(row: PolizaRow, q: string): boolean {
 
 export default function PolizasMantenimientoPage() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, permissions } = useAuth();
+  // Mismo criterio que el servidor (`PolizasPermission`): crear, editar y eliminar por separado.
+  const polizasPerms = permissions?.polizas;
+  const canCreate = isAdmin || polizasPerms?.create === true;
+  const canEdit = isAdmin || polizasPerms?.edit === true;
+  const canDelete = canDeleteInModule(permissions, isAdmin, "polizas");
 
   const [rows, setRows] = useState<PolizaRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,18 +272,20 @@ export default function PolizasMantenimientoPage() {
             ) : null}
           </div>
 
-          <button
-            type="button"
-            onClick={openNew}
-            onMouseEnter={prefetchForm}
-            onFocus={prefetchForm}
-            className={`${erpPrimaryBtnClass} w-full sm:w-auto lg:shrink-0`}
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-            </svg>
-            Nueva póliza
-          </button>
+          {canCreate ? (
+            <button
+              type="button"
+              onClick={openNew}
+              onMouseEnter={prefetchForm}
+              onFocus={prefetchForm}
+              className={`${erpPrimaryBtnClass} w-full sm:w-auto lg:shrink-0`}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+              Nueva póliza
+            </button>
+          ) : null}
         </div>
 
 
@@ -308,10 +316,10 @@ export default function PolizasMantenimientoPage() {
                 rows={visibles}
                 loading={loading}
                 filtered={filtrado}
-                onEdit={openEdit}
+                onEdit={canEdit ? openEdit : undefined}
                 onPdf={openPdf}
-                onDelete={isAdmin ? setDeletingRow : undefined}
-                onNew={openNew}
+                onDelete={canDelete ? setDeletingRow : undefined}
+                onNew={canCreate ? openNew : undefined}
                 onClearFilters={clearFilters}
               />
             </div>
@@ -322,7 +330,7 @@ export default function PolizasMantenimientoPage() {
             style={{ "--cot-i": 3 } as CSSProperties}
             aria-label="Agenda de visitas"
           >
-            <PolizasAgenda rows={rows} loading={loading} onOpen={openEdit} />
+            <PolizasAgenda rows={rows} loading={loading} onOpen={canEdit ? openEdit : undefined} />
           </aside>
         </div>
       </div>

@@ -190,3 +190,35 @@ class AuthViewTests(TestCase):
         cookies = response.cookies
         self.assertIn("refresh_token", cookies)
         self.assertNotEqual(cookies["refresh_token"].value, original_refresh)
+
+
+class StaffDeleteFlagTests(TestCase):
+    """Un admin con «Eliminar» desmarcado no borra; sin perfil o superuser conserva acceso."""
+
+    def setUp(self):
+        self.factory = APIRequestFactory()
+
+    def _delete(self, user):
+        request = self.factory.delete("/api/ordenes/1/")
+        request.user = user
+        perm = OrdenesPermission()
+        return perm.has_permission(request, None), perm.has_object_permission(request, None, object())
+
+    def test_staff_with_explicit_delete_false_is_denied(self):
+        admin = User.objects.create_user(username="adm1", password="x", is_staff=True)
+        UserPermissions.objects.create(user=admin, permissions={"ordenes": {"view": True, "delete": False}})
+        self.assertEqual(self._delete(admin), (False, False))
+
+    def test_staff_with_delete_true_is_allowed(self):
+        admin = User.objects.create_user(username="adm2", password="x", is_staff=True)
+        UserPermissions.objects.create(user=admin, permissions={"ordenes": {"view": True, "delete": True}})
+        self.assertEqual(self._delete(admin), (True, True))
+
+    def test_staff_without_profile_keeps_full_access(self):
+        admin = User.objects.create_user(username="adm3", password="x", is_staff=True)
+        self.assertEqual(self._delete(admin), (True, True))
+
+    def test_superuser_is_never_blocked(self):
+        root = User.objects.create_superuser(username="root1", password="x")
+        UserPermissions.objects.create(user=root, permissions={"ordenes": {"delete": False}})
+        self.assertEqual(self._delete(root), (True, True))

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { canDeleteInModule } from "@/pages/Configuracion/usuarios/usuariosModel";
 import { Link } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
 
@@ -298,7 +299,7 @@ export default function ProductosPage() {
   const canProductosView = isAdmin || asBool((modulePerms as { view?: unknown }).view, false);
   const canProductosCreate = isAdmin || asBool((modulePerms as { create?: unknown }).create, false);
   const canProductosEdit = isAdmin || asBool((modulePerms as { edit?: unknown }).edit, false);
-  const canProductosDelete = isAdmin || asBool((modulePerms as { delete?: unknown }).delete, false);
+  const canProductosDelete = canDeleteInModule(permissions, isAdmin, "productos");
 
   const [productos, setProductos] = useState<SyscomProducto[]>([]);
   const [pagina, setPagina] = useState(1);

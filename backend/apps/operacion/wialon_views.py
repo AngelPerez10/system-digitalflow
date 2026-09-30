@@ -88,6 +88,13 @@ class WialonPurgeBlockedView(APIView):
         data = request.data if isinstance(request.data, dict) else {}
         days_raw = data.get("days", WIALON_BLOCKED_PURGE_DAYS_DEFAULT)
         dry_run = bool(data.get("dry_run", False))
+        if not dry_run:
+            # Son cuentas reales: la eliminación en Wialon está deshabilitada.
+            # Solo se permite la simulación (dry_run), que no modifica nada.
+            return Response(
+                {"detail": "La eliminación de cuentas en Wialon está deshabilitada. Usa dry_run para simular."},
+                status=403,
+            )
         try:
             days = int(days_raw)
         except (TypeError, ValueError):

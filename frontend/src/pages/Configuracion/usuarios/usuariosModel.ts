@@ -381,3 +381,17 @@ export const validateUserForm = (
   }
   return null;
 };
+
+/**
+ * ¿Puede ver/usar «Eliminar» en un módulo? Espejo de `staff_delete_denied`
+ * (backend): un admin conserva el acceso salvo que su casilla esté desmarcada
+ * de forma explícita (`delete: false`); el resto necesita `delete: true`.
+ */
+export function canDeleteInModule(
+  permissions: Partial<Record<string, { delete?: boolean }>> | null | undefined,
+  isAdmin: boolean,
+  moduleKey: string,
+): boolean {
+  const flag = permissions?.[moduleKey]?.delete;
+  return isAdmin ? flag !== false : flag === true;
+}

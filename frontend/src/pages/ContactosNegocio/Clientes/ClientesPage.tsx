@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useId } from "react";
 
+import { canDeleteInModule } from "@/pages/Configuracion/usuarios/usuariosModel";
 import { useAuth } from "@/context/AuthContext";
 import PageMeta from "@/components/common/PageMeta";
 import { Link, useSearchParams } from "react-router-dom";
@@ -316,7 +317,7 @@ const ClientesPage = () => {
   const canClientesView = isAdmin || permissions?.clientes?.view === true;
   const canClientesCreate = isAdmin || permissions?.clientes?.create === true;
   const canClientesEdit = isAdmin || permissions?.clientes?.edit === true;
-  const canClientesDelete = isAdmin || permissions?.clientes?.delete === true;
+  const canClientesDelete = canDeleteInModule(permissions, isAdmin, "clientes");
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [totalCount, setTotalCount] = useState(0);

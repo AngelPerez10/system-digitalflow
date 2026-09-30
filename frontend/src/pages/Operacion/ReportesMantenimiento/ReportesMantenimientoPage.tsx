@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { canDeleteInModule } from "@/pages/Configuracion/usuarios/usuariosModel";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
@@ -125,7 +126,7 @@ export default function ReportesMantenimientoPage() {
 
   const canCreate = isAdmin || permissions?.reportes_mantenimiento?.create === true;
   const canEdit = isAdmin || permissions?.reportes_mantenimiento?.edit === true;
-  const canDelete = isAdmin || permissions?.reportes_mantenimiento?.delete === true;
+  const canDelete = canDeleteInModule(permissions, isAdmin, "reportes_mantenimiento");
 
   const showAlert = useCallback(
     (variant: "success" | "warning" | "error", title: string, message: string, ms = 3500) => {

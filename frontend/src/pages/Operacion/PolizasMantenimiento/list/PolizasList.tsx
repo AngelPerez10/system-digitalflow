@@ -27,10 +27,12 @@ type Props = {
   loading: boolean;
   /** Hay búsqueda o filtro: el vacío es «sin resultados», no «sin pólizas». */
   filtered: boolean;
-  onEdit: (row: PolizaRow) => void;
+  /** Sin permiso de edición no se pasa y el botón se oculta. */
+  onEdit?: (row: PolizaRow) => void;
   onPdf: (row: PolizaRow) => void;
   onDelete?: (row: PolizaRow) => void;
-  onNew: () => void;
+  /** Sin permiso de creación no se pasa y se ocultan las acciones «Nueva póliza». */
+  onNew?: () => void;
   onClearFilters: () => void;
 };
 
@@ -47,9 +49,11 @@ function RowActions({
       <button type="button" className={polIconBtnClass} onClick={() => onPdf(row)} aria-label={`Ver PDF de ${row.folio}`} title="Ver PDF">
         <FileText className="size-[18px]" aria-hidden />
       </button>
-      <button type="button" className={polIconBtnClass} onClick={() => onEdit(row)} aria-label={`Editar ${row.folio}`} title="Editar">
-        <Pencil className="size-[18px]" aria-hidden />
-      </button>
+      {onEdit ? (
+        <button type="button" className={polIconBtnClass} onClick={() => onEdit(row)} aria-label={`Editar ${row.folio}`} title="Editar">
+          <Pencil className="size-[18px]" aria-hidden />
+        </button>
+      ) : null}
       {onDelete ? (
         <button
           type="button"
@@ -128,9 +132,11 @@ function PolizasList({ rows, loading, filtered, onEdit, onPdf, onDelete, onNew, 
         title="Aún no hay pólizas"
         body="Registra la primera póliza: cliente, cotización y hasta 4 visitas al año."
         action={
-          <button type="button" onClick={onNew} className={polPrimaryBtnClass}>
-            Nueva póliza
-          </button>
+          onNew ? (
+            <button type="button" onClick={onNew} className={polPrimaryBtnClass}>
+              Nueva póliza
+            </button>
+          ) : undefined
         }
       />
     );

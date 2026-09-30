@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { canDeleteInModule } from "@/pages/Configuracion/usuarios/usuariosModel";
 import { Link } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import "@/components/ui/modal-kit/motion.css";
@@ -83,7 +84,7 @@ export default function InventarioPage() {
 
   const canCreate = isAdmin || inventarioPerm(perms, "create");
   const canEdit = isAdmin || inventarioPerm(perms, "edit");
-  const canDelete = isAdmin || inventarioPerm(perms, "delete");
+  const canDelete = canDeleteInModule(permissions, isAdmin, "inventario");
   const canEditFicha = canCreate || canEdit;
 
   const [modo, setModo] = useState<ScanModo>("entrada");

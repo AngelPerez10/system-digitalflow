@@ -3,6 +3,7 @@ import { ListOrdered, Pencil, Satellite, Trash2 } from "lucide-react";
 import { AppConfirmDialog, AppModalContext } from "@/components/ui/modal-kit/ModalKit";
 import { Notice, SectionCard } from "../shared/ProyectoUi";
 import { btn, btnSm, emptyPanel, fontSans, iconBtn, iconBtnDanger } from "../shared/proyectoTokens";
+import { useProyectosPagePermissions } from "../useProyectosPagePermissions";
 import InstalacionForm from "./InstalacionForm";
 import {
   deleteProyectoInstalacion,
@@ -45,6 +46,8 @@ export function ProyectoFormInstalacionesPanel({
   draft,
   onDraftChange,
 }: Props) {
+  // El servidor exige `proyectos.delete` para borrar instalaciones: sin él no se ofrece el botón.
+  const { canProyectosDelete } = useProyectosPagePermissions();
   const [rows, setRows] = useState<ProyectoInstalacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -183,15 +186,17 @@ export function ProyectoFormInstalacionesPanel({
                         >
                           <Pencil aria-hidden />
                         </button>
-                        <button
-                          type="button"
-                          className={iconBtnDanger}
-                          aria-label={`Eliminar ${folio}`}
-                          aria-haspopup="dialog"
-                          onClick={() => setDeletingRow(row)}
-                        >
-                          <Trash2 aria-hidden />
-                        </button>
+                        {canProyectosDelete ? (
+                          <button
+                            type="button"
+                            className={iconBtnDanger}
+                            aria-label={`Eliminar ${folio}`}
+                            aria-haspopup="dialog"
+                            onClick={() => setDeletingRow(row)}
+                          >
+                            <Trash2 aria-hidden />
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </li>
