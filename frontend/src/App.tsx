@@ -33,9 +33,6 @@ const PolizaPdfPage = lazy(() => import("@/pages/Operacion/PolizasMantenimiento/
 const ReportesMantenimientoPage = lazy(
   () => import("@/pages/Operacion/ReportesMantenimiento/ReportesMantenimientoPage"),
 );
-const ReporteMantenimientoEditorPage = lazy(
-  () => import("@/pages/Operacion/ReportesMantenimiento/ReporteMantenimientoEditorPage"),
-);
 const ReportePdfPage = lazy(
   () => import("@/pages/Operacion/ReportesMantenimiento/ReportePdfPage"),
 );
@@ -135,7 +132,7 @@ export default function App() {
               path="/reportes-mantenimiento/nuevo"
               element={
                 <RequirePermission module="reportes_mantenimiento" required="create">
-                  <ReporteMantenimientoEditorPage />
+                  <ReportesMantenimientoPage />
                 </RequirePermission>
               }
             />
@@ -151,7 +148,7 @@ export default function App() {
               path="/reportes-mantenimiento/:id"
               element={
                 <RequirePermission module="reportes_mantenimiento" required="edit">
-                  <ReporteMantenimientoEditorPage />
+                  <ReportesMantenimientoPage />
                 </RequirePermission>
               }
             />
