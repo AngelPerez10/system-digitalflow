@@ -160,6 +160,76 @@ class ReporteMantenimientoCrudTests(APITestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_con_proyecto_en_lugar_de_orden(self):
+        from apps.operacion.models import Proyecto
+
+        self._auth_admin()
+        proyecto = Proyecto.objects.create(cliente_nombre="Cliente Proyecto RM")
+        payload = {k: v for k, v in self.payload.items() if k != "orden_id"}
+        payload["proyecto_id"] = proyecto.id
+        res = self.client.post(LIST_URL, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(res.data["origen_tipo"], "proyecto")
+        self.assertEqual(res.data["proyecto_id"], proyecto.id)
+        self.assertIsNone(res.data["orden_id"])
+        self.assertEqual(res.data["orden_cliente"], "Cliente Proyecto RM")
+        self.assertTrue(str(res.data["orden_folio"]).startswith("PRJ-"))
+        pdf = self.client.get(f"{LIST_URL}{res.data['id']}/pdf/?html=1")
+        self.assertEqual(pdf.status_code, status.HTTP_200_OK)
+        self.assertIn("Proyecto:", pdf.content.decode("utf-8"))
+
+    def test_create_rechaza_orden_y_proyecto_juntos_o_ninguno(self):
+        from apps.operacion.models import Proyecto
+
+        self._auth_admin()
+        proyecto = Proyecto.objects.create(cliente_nombre="X")
+        ambos = {**self.payload, "proyecto_id": proyecto.id}
+        self.assertEqual(self.client.post(LIST_URL, ambos, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+        ninguno = {k: v for k, v in self.payload.items() if k != "orden_id"}
+        self.assertEqual(self.client.post(LIST_URL, ninguno, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_cambia_de_orden_a_proyecto(self):
+        from apps.operacion.models import Proyecto
+
+        self._auth_admin()
+        created = self.client.post(LIST_URL, self.payload, format="json")
+        proyecto = Proyecto.objects.create(cliente_nombre="Destino")
+        res = self.client.patch(f"{LIST_URL}{created.data['id']}/", {"proyecto_id": proyecto.id}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.assertEqual(res.data["origen_tipo"], "proyecto")
+        self.assertIsNone(res.data["orden_id"])
+
+    def test_un_proyecto_solo_puede_tener_un_reporte(self):
+        from apps.operacion.models import Proyecto
+
+        self._auth_admin()
+        proyecto = Proyecto.objects.create(cliente_nombre="Unico")
+        payload = {k: v for k, v in self.payload.items() if k != "orden_id"}
+        payload["proyecto_id"] = proyecto.id
+        primero = self.client.post(LIST_URL, payload, format="json")
+        self.assertEqual(primero.status_code, status.HTTP_201_CREATED, primero.data)
+        segundo = self.client.post(LIST_URL, payload, format="json")
+        self.assertEqual(segundo.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(primero.data["folio"], str(segundo.data))
+        # Editar el mismo reporte con su propio proyecto sigue siendo válido.
+        patch = self.client.patch(f"{LIST_URL}{primero.data['id']}/", {"proyecto_id": proyecto.id}, format="json")
+        self.assertEqual(patch.status_code, status.HTTP_200_OK, patch.data)
+
+    def test_proyectos_ocupados_lista_y_excluye_el_reporte_actual(self):
+        from apps.operacion.models import Proyecto
+
+        self._auth_admin()
+        proyecto = Proyecto.objects.create(cliente_nombre="Ocupado")
+        payload = {k: v for k, v in self.payload.items() if k != "orden_id"}
+        payload["proyecto_id"] = proyecto.id
+        creado = self.client.post(LIST_URL, payload, format="json")
+        res = self.client.get(f"{LIST_URL}proyectos-ocupados/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["by_id"][str(proyecto.id)]["folio"], creado.data["folio"])
+        excl = self.client.get(f"{LIST_URL}proyectos-ocupados/?exclude_reporte_id={creado.data['id']}")
+        self.assertNotIn(str(proyecto.id), excl.data["by_id"])
+        self.assertEqual(self.client.get(f"{LIST_URL}proyectos-ocupados/?exclude_reporte_id=x").status_code, 400)
+
     def test_secciones_malformadas_400(self):
         self._auth_admin()
         res = self.client.post(
@@ -306,6 +376,24 @@ class ReporteMantenimientoOwnOnlyTests(APITestCase):
             format="json",
         )
         self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+
+    def test_proyecto_propio_visible_y_ajeno_no(self):
+        from apps.operacion.models import Proyecto
+
+        propio = Proyecto.objects.create(cliente_nombre="PP", tecnico=self.tecnico)
+        ajeno = Proyecto.objects.create(cliente_nombre="PA", tecnico=self.otro)
+        self.client.force_authenticate(user=self.tecnico)
+        base = {"fecha_servicio": "2026-08-22", "tecnico_nombre": "Técnico Propio", "secciones": []}
+        ok = self.client.post(LIST_URL, {**base, "proyecto_id": propio.id}, format="json")
+        self.assertEqual(ok.status_code, status.HTTP_201_CREATED, ok.data)
+        bad = self.client.post(LIST_URL, {**base, "proyecto_id": ajeno.id}, format="json")
+        self.assertEqual(bad.status_code, status.HTTP_400_BAD_REQUEST)
+        rep_ajeno = ReporteMantenimiento.objects.create(
+            proyecto=ajeno, fecha_servicio="2026-08-22", tecnico_nombre="X", secciones=[], creado_por=self.otro
+        )
+        ids = {row["id"] for row in self.client.get(LIST_URL).data}
+        self.assertIn(ok.data["id"], ids)
+        self.assertNotIn(rep_ajeno.id, ids)
 
     def test_own_only_false_ve_todos(self):
         from apps.users.models import UserPermissions

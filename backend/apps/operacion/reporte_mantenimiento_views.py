@@ -37,6 +37,7 @@ from .reporte_scope import (
     filter_reportes_visible_to_user,
     user_can_access_reporte,
     user_can_use_orden_for_reporte,
+    user_can_use_proyecto_for_reporte,
 )
 from .serializers import ReporteMantenimientoSerializer
 from .views import _pdf_response_from_html
@@ -53,7 +54,7 @@ class ReporteMantenimientoViewSet(viewsets.ModelViewSet):
     pagination_class = None
     serializer_class = ReporteMantenimientoSerializer
     queryset = ReporteMantenimiento.objects.select_related(
-        "creado_por", "orden", "orden__tecnico_asignado"
+        "creado_por", "orden", "orden__tecnico_asignado", "proyecto"
     ).all()
     filter_backends = [filters.SearchFilter]
     search_fields = ["folio", "tecnico_nombre", "orden_folio", "orden_cliente"]
@@ -81,7 +82,7 @@ class ReporteMantenimientoViewSet(viewsets.ModelViewSet):
             raise NotFound()
 
         obj = (
-            ReporteMantenimiento.objects.select_related("creado_por", "orden", "orden__tecnico_asignado")
+            ReporteMantenimiento.objects.select_related("creado_por", "orden", "orden__tecnico_asignado", "proyecto")
             .filter(**{self.lookup_field: lookup_value})
             .first()
         )
@@ -93,29 +94,51 @@ class ReporteMantenimientoViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("No tienes acceso a este reporte de mantenimiento.")
         return obj
 
-    def _assert_orden_in_scope(self, orden) -> None:
+    def _assert_origen_in_scope(self, orden, proyecto) -> None:
         user = getattr(self.request, "user", None)
         if not user_module_own_only(user, "reportes_mantenimiento"):
             return
-        if not user_can_use_orden_for_reporte(user, orden):
-            raise ValidationError(
-                {
-                    "orden_id": [
-                        "Solo puedes usar órdenes de trabajo asignadas a ti."
-                    ]
-                }
-            )
+        if orden is not None and not user_can_use_orden_for_reporte(user, orden):
+            raise ValidationError({"orden_id": ["Solo puedes usar órdenes de trabajo asignadas a ti."]})
+        if proyecto is not None and not user_can_use_proyecto_for_reporte(user, proyecto):
+            raise ValidationError({"proyecto_id": ["Solo puedes usar proyectos donde formas parte del equipo."]})
 
     def perform_create(self, serializer):
         user = self.request.user if getattr(self.request.user, "is_authenticated", False) else None
-        orden = serializer.validated_data.get("orden")
-        self._assert_orden_in_scope(orden)
+        self._assert_origen_in_scope(serializer.validated_data.get("orden"), serializer.validated_data.get("proyecto"))
         serializer.save(creado_por=user)
 
     def perform_update(self, serializer):
-        orden = serializer.validated_data.get("orden", getattr(serializer.instance, "orden", None))
-        self._assert_orden_in_scope(orden)
+        data = serializer.validated_data
+        orden = data["orden"] if "orden" in data else getattr(serializer.instance, "orden", None)
+        proyecto = data["proyecto"] if "proyecto" in data else getattr(serializer.instance, "proyecto", None)
+        self._assert_origen_in_scope(orden, proyecto)
         serializer.save()
+
+    @action(detail=False, methods=["get"], url_path="proyectos-ocupados")
+    def proyectos_ocupados(self, request):
+        """Proyectos que ya tienen reporte: `{by_id: {<proyecto_id>: {id, folio}}}`.
+
+        Query: `exclude_reporte_id` — al editar, excluye el reporte actual. No se limita al
+        alcance own_only: un proyecto con reporte de otra persona también queda ocupado.
+        """
+        exclude_pk = None
+        raw = request.query_params.get("exclude_reporte_id")
+        if raw not in (None, ""):
+            try:
+                exclude_pk = int(raw)
+            except (TypeError, ValueError):
+                exclude_pk = -1
+            if exclude_pk <= 0:
+                return Response({"detail": "exclude_reporte_id inválido."}, status=status.HTTP_400_BAD_REQUEST)
+        qs = ReporteMantenimiento.objects.filter(proyecto__isnull=False)
+        if exclude_pk:
+            qs = qs.exclude(pk=exclude_pk)
+        by_id = {
+            str(proyecto_id): {"id": rid, "folio": folio or f"RM-{rid}"}
+            for rid, proyecto_id, folio in qs.values_list("id", "proyecto_id", "folio")
+        }
+        return Response({"by_id": by_id}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="pdf")
     def pdf(self, request, pk=None):

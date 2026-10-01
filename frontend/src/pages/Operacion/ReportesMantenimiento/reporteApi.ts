@@ -52,11 +52,14 @@ function normalizeSecciones(raw: unknown): ReporteSeccion[] {
 function mapReporte(raw: unknown): ReporteMantenimiento {
   const row = asRecord(raw);
   const ordenId = row.orden_id == null ? null : Number(row.orden_id);
+  const proyectoId = row.proyecto_id == null ? null : Number(row.proyecto_id);
   return {
     id: Number(row.id) || 0,
     idx: Number(row.idx) || 0,
     folio: String(row.folio || ""),
     orden_id: Number.isFinite(ordenId) && (ordenId as number) > 0 ? (ordenId as number) : null,
+    proyecto_id: Number.isFinite(proyectoId) && (proyectoId as number) > 0 ? (proyectoId as number) : null,
+    origen_tipo: row.origen_tipo === "proyecto" || (proyectoId as number) > 0 ? "proyecto" : "orden",
     orden_folio: String(row.orden_folio || ""),
     orden_cliente: String(row.orden_cliente || ""),
     fecha_servicio: String(row.fecha_servicio || "").slice(0, 10),
@@ -79,7 +82,9 @@ function unwrapList(data: unknown): unknown[] {
 
 function payloadFromDraft(draft: ReporteDraft): Record<string, unknown> {
   return {
-    orden_id: Number(draft.orden_id),
+    // Siempre se envían los dos: el que no aplica va en null (así un PATCH puede cambiar de orden a proyecto).
+    orden_id: draft.origen === "orden" ? Number(draft.orden_id) : null,
+    proyecto_id: draft.origen === "proyecto" ? Number(draft.proyecto_id) : null,
     fecha_servicio: draft.fecha_servicio,
     tecnico_nombre: draft.tecnico_nombre.trim(),
     foto_orden_url: draft.foto_orden_url.trim(),
@@ -134,6 +139,28 @@ export async function updateReporte(id: number, draft: ReporteDraft): Promise<Re
     throw { status: res.status, message: messageFromDrf(data, "No se pudo actualizar el reporte.") };
   }
   return mapReporte(data);
+}
+
+/** Proyectos que ya tienen reporte (`id` del proyecto → reporte que lo usa). */
+export async function fetchProyectosOcupados(
+  excludeReporteId?: number | null
+): Promise<{ byId: Record<string, { id: number; folio: string }>; error: string }> {
+  const qs = excludeReporteId != null && excludeReporteId > 0 ? `?exclude_reporte_id=${excludeReporteId}` : "";
+  const fallback = "No se pudo comprobar qué proyectos ya tienen reporte.";
+  try {
+    const res = await fetchApi(`${BASE}proyectos-ocupados/${qs}`, { cache: "no-store" as RequestCache });
+    if (!res.ok) return { byId: {}, error: fallback };
+    const data = asRecord(await res.json().catch(() => null));
+    const raw = asRecord(data.by_id);
+    const byId: Record<string, { id: number; folio: string }> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      const row = asRecord(value);
+      byId[key] = { id: Number(row.id) || 0, folio: String(row.folio || "") };
+    }
+    return { byId, error: "" };
+  } catch {
+    return { byId: {}, error: fallback };
+  }
 }
 
 export async function deleteReporte(id: number): Promise<void> {

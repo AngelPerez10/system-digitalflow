@@ -35,7 +35,7 @@ const ReporteTableRow = memo(function ReporteTableRow({ row, index, avatars, ...
               {row.orden_cliente || "Sin cliente"}
             </p>
           )}
-          <p className="mt-0.5 truncate font-mono text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{row.orden_folio || "Sin orden"}</p>
+          <p className="mt-0.5 truncate font-mono text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{row.orden_folio || "Sin origen"}</p>
         </div>
       </td>
       <td className={td}>

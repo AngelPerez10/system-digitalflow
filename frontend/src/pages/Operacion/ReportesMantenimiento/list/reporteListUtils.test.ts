@@ -23,6 +23,8 @@ const rm = (idx: number, fecha: string, tecnicos: string, secciones = [sec(1, 1)
   idx,
   folio: `RM-${idx}`,
   orden_id: idx,
+  proyecto_id: null,
+  origen_tipo: "orden",
   orden_folio: `ODT-${idx}`,
   orden_cliente: cliente,
   fecha_servicio: fecha,

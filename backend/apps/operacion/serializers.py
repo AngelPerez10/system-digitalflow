@@ -957,15 +957,26 @@ def normalize_reporte_secciones(raw) -> list[dict]:
 
 
 class ReporteMantenimientoSerializer(serializers.ModelSerializer):
+    # Exactamente uno de orden_id / proyecto_id (ver validate()).
     orden_id = serializers.PrimaryKeyRelatedField(
         source="orden",
         queryset=Orden.objects.all(),
-        required=True,
-        allow_null=False,
+        required=False,
+        allow_null=True,
     )
+    proyecto_id = serializers.PrimaryKeyRelatedField(
+        source="proyecto",
+        queryset=Proyecto.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    origen_tipo = serializers.SerializerMethodField()
     creado_por_username = serializers.CharField(
         source="creado_por.username", read_only=True, allow_null=True
     )
+
+    def get_origen_tipo(self, obj) -> str:
+        return "proyecto" if getattr(obj, "proyecto_id", None) else "orden"
 
     class Meta:
         model = ReporteMantenimiento
@@ -974,6 +985,8 @@ class ReporteMantenimientoSerializer(serializers.ModelSerializer):
             "idx",
             "folio",
             "orden_id",
+            "proyecto_id",
+            "origen_tipo",
             "orden_folio",
             "orden_cliente",
             "fecha_servicio",
@@ -1020,22 +1033,50 @@ class ReporteMantenimientoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Indique la fecha de servicio.")
         return value
 
-    def _apply_orden_snapshot(self, attrs: dict) -> dict:
-        from apps.common.document_folio import FOLIO_SERIE_ODT, format_document_folio
+    def validate(self, attrs):
+        # Con PATCH parcial, lo que no se envía conserva el valor guardado.
+        orden = attrs["orden"] if "orden" in attrs else getattr(self.instance, "orden", None)
+        proyecto = attrs["proyecto"] if "proyecto" in attrs else getattr(self.instance, "proyecto", None)
+        if orden is not None and proyecto is not None:
+            # Cambiar de uno a otro: lo que llega explícito gana y el otro se limpia.
+            if "orden" in attrs and "proyecto" not in attrs:
+                attrs["proyecto"] = proyecto = None
+            elif "proyecto" in attrs and "orden" not in attrs:
+                attrs["orden"] = orden = None
+            else:
+                raise serializers.ValidationError("Elija una orden de servicio o un proyecto, no ambos.")
+        if orden is None and proyecto is None:
+            raise serializers.ValidationError({"proyecto_id": "Seleccione el proyecto del reporte."})
+        if proyecto is not None:
+            clash = ReporteMantenimiento.objects.filter(proyecto=proyecto)
+            if self.instance is not None:
+                clash = clash.exclude(pk=self.instance.pk)
+            otro = clash.first()
+            if otro is not None:
+                raise serializers.ValidationError(
+                    {"proyecto_id": f"Este proyecto ya tiene el reporte {otro.folio or f'#{otro.pk}'}."}
+                )
+        return attrs
 
-        orden = attrs.get("orden")
-        if orden is None and self.instance is not None:
-            orden = self.instance.orden
-        if orden is None:
-            raise serializers.ValidationError({"orden_id": "Seleccione una orden de servicio."})
-        attrs["orden_folio"] = (getattr(orden, "folio", None) or "").strip() or format_document_folio(
-            FOLIO_SERIE_ODT, getattr(orden, "idx", None) or orden.pk, empty=""
-        )
-        attrs["orden_cliente"] = (getattr(orden, "cliente", None) or "").strip()[:255]
+    def _apply_origen_snapshot(self, attrs: dict) -> dict:
+        from apps.common.document_folio import FOLIO_SERIE_ODT, FOLIO_SERIE_PRJ, format_document_folio
+
+        orden = attrs["orden"] if "orden" in attrs else getattr(self.instance, "orden", None)
+        proyecto = attrs["proyecto"] if "proyecto" in attrs else getattr(self.instance, "proyecto", None)
+        if proyecto is not None:
+            attrs["orden_folio"] = (getattr(proyecto, "folio", None) or "").strip() or format_document_folio(
+                FOLIO_SERIE_PRJ, getattr(proyecto, "idx", None) or proyecto.pk, empty=""
+            )
+            attrs["orden_cliente"] = (getattr(proyecto, "cliente_nombre", None) or "").strip()[:255]
+        elif orden is not None:
+            attrs["orden_folio"] = (getattr(orden, "folio", None) or "").strip() or format_document_folio(
+                FOLIO_SERIE_ODT, getattr(orden, "idx", None) or orden.pk, empty=""
+            )
+            attrs["orden_cliente"] = (getattr(orden, "cliente", None) or "").strip()[:255]
         return attrs
 
     def create(self, validated_data):
-        return super().create(self._apply_orden_snapshot(validated_data))
+        return super().create(self._apply_origen_snapshot(validated_data))
 
     def update(self, instance, validated_data):
-        return super().update(instance, self._apply_orden_snapshot(validated_data))
+        return super().update(instance, self._apply_origen_snapshot(validated_data))

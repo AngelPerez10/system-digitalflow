@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { CSSProperties } from "react";
-import { ArrowLeft, ArrowRight, CalendarClock, Camera, Check, ChevronDown, ChevronUp, ClipboardList, FileText, Image as ImageIcon, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarClock, CalendarDays, Camera, Check, ChevronDown, ChevronUp, FileText, FilePlus2, FolderKanban, Image as ImageIcon, Plus, Search, Trash2, Users, Wrench, X } from "lucide-react";
 import Alert from "@/components/ui/alert/Alert";
 import DatePicker from "@/components/form/date-picker";
-import SearchableSelect from "@/components/form/SearchableSelect";
 import { Modal } from "@/components/ui/modal";
 import { AppSpinner } from "@/components/ui/modal-kit/ModalKit";
 import { useAuth } from "@/context/AuthContext";
@@ -14,19 +13,24 @@ import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
 import { erpDeleteModalClass, erpDeleteModalPanelClass } from "../../OrdenesTrabajo/ordenTrabajoStyles";
 import { OrdenPhotoPreviewModal } from "../../OrdenesTrabajo/OrdenTrabajoModals";
 import { erpDangerBtnClass, erpSecondaryBtnClass } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
-import { fetchOrdenesApi, fetchTodosLosUsuariosApi } from "../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
-import type { Orden, Usuario } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
-import { Field, SectionCard } from "../../Proyectos/shared/ProyectoUi";
+import { fetchTodosLosUsuariosApi } from "../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
+import type { Usuario } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import { listProyectos } from "../../Proyectos/shared/proyectoApi";
+import type { ProyectoRow } from "../../Proyectos/shared/proyectoTypes";
+import { displayProyectoFolio } from "../../Proyectos/shared/proyectoFormUtils";
+import { formatFechaCorta, proyectoTiposLabels } from "../../Proyectos/shared/proyectoListUtils";
+import { AvatarStack, EstadoPill, Field, SectionCard } from "../../Proyectos/shared/ProyectoUi";
 import { btn, btnSm, emptyPanel, fontSans, iconBtn, iconBtnDanger, input, metaChip } from "../../Proyectos/shared/proyectoTokens";
-import { createReporte, deleteReporteImage, getReporte, isReporteApiError, updateReporte } from "../reporteApi";
+import { createReporte, deleteReporteImage, fetchProyectosOcupados, getReporte, isReporteApiError, updateReporte } from "../reporteApi";
 import { uploadReporteFile } from "../reporteImageUpload";
 import { ReporteTecnicosField } from "../ReporteTecnicosField";
 import { usuarioDisplayName } from "../reporteTecnicos";
 import { countReporteFotos, countSeccionFotos, emptyReporteDraft, newSeccion, REPORTE_MAX_FOTOS_POR_LADO, type ReporteDraft, type ReporteSeccion } from "../reporteTypes";
+import { ReporteProyectoPickerModal, type ProyectoOcupadoInfo } from "./ReporteProyectoPickerModal";
 import { ReporteStepChips, ReporteStepRail } from "./ReporteFormSteps";
 import { REPORTE_STEPS, type ReporteStepId, type ReporteStepState } from "./reporteSteps";
 
-const modalShell = `${fontSans} flex h-[min(94dvh,58rem)] w-full flex-col overflow-hidden rounded-t-[22px] border border-[#E7E7EA] bg-white! p-0 shadow-[0_32px_80px_-24px_rgba(9,9,11,0.45)] dark:border-[#273244] dark:bg-[#111827]! sm:h-[min(92dvh,58rem)] sm:w-[min(96vw,74rem)] sm:max-w-none sm:rounded-[22px] 2xl:h-[min(90dvh,66rem)] 2xl:w-[min(94vw,96rem)]`;
+const modalShell = `${fontSans} flex h-[min(94dvh,58rem)] w-full flex-col overflow-hidden rounded-t-[22px] border border-[#E7E7EA] bg-white! p-0 shadow-[0_32px_80px_-24px_rgba(9,9,11,0.45)] dark:border-[#273244] dark:bg-[#111827]! sm:h-[min(92dvh,58rem)] sm:w-[min(96vw,74rem)] sm:max-w-none sm:rounded-[22px]`;
 
 /* -------------------------------------------------------------------------- */
 /*  Tokens locales — lenguaje marino/azul, sobrio (igual que Órdenes)         */
@@ -59,14 +63,6 @@ const ACCENT: Record<Accent, { label: string; chip: string; ring: string; add: s
 
 /* -------------------------------------------------------------------------- */
 
-function ordenLabel(o: Orden): string {
-  const folio =
-    (o.folio || "").trim() || formatDocumentFolio(FOLIO_SERIE.orden, o.idx || o.id);
-  const cliente = (o.cliente || "").trim() || "Sin cliente";
-  const fecha = (o.fecha_inicio || "").slice(0, 10);
-  return fecha ? `${folio} · ${cliente} · ${fecha}` : `${folio} · ${cliente}`;
-}
-
 /** `2026-10-01` → «01/10/2026» (formato del calendario). */
 function isoToMx(iso: string): string {
   const [y, m, d] = String(iso || "").slice(0, 10).split("-");
@@ -79,13 +75,13 @@ function mxToIso(mx: string): string {
   return y && m && d ? `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}` : "";
 }
 
-function tecnicoFromOrden(o: Orden): string {
-  return (
-    (o.tecnico_asignado_full_name || "").trim() ||
-    (o.tecnico_asignado_username || "").trim() ||
-    (o.quien_instalo_full_name || "").trim() ||
-    ""
-  );
+/** Técnicos del proyecto (el responsable primero) como texto «Ana, Luis». */
+function tecnicosFromProyecto(p: ProyectoRow): string {
+  const list = [...(p.draft?.tecnicos ?? [])].sort((a, b) => Number(Boolean(b.responsable)) - Number(Boolean(a.responsable)));
+  return list
+    .map((t) => (t.nombre || "").trim())
+    .filter(Boolean)
+    .join(", ");
 }
 
 type Props = {
@@ -106,7 +102,6 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
   const isNew = reporteId == null;
   const { user, isAdmin } = useAuth();
   const titleId = useId();
-  const ordenHintId = useId();
   const tecnicosHintId = useId();
   const ordenErrorId = useId();
   const deleteSeccionTitleId = useId();
@@ -116,8 +111,11 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
   const [folio, setFolio] = useState("");
   const [ordenFolio, setOrdenFolio] = useState("");
   const [ordenCliente, setOrdenCliente] = useState("");
-  const [ordenes, setOrdenes] = useState<Orden[]>([]);
-  const [loadingOrdenes, setLoadingOrdenes] = useState(true);
+  const [proyectos, setProyectos] = useState<ProyectoRow[]>([]);
+  const [loadingProyectos, setLoadingProyectos] = useState(true);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [ocupados, setOcupados] = useState<Record<string, ProyectoOcupadoInfo>>({});
+  const [ocupadosError, setOcupadosError] = useState("");
   /** Usuarios con foto de perfil para el selector de técnicos. */
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loadingUsuarios, setLoadingUsuarios] = useState(true);
@@ -148,11 +146,29 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
     if (!open) return;
     let cancelled = false;
     (async () => {
-      setLoadingOrdenes(true);
-      const rows = await fetchOrdenesApi(true);
+      const res = await fetchProyectosOcupados(reporteId);
       if (!cancelled) {
-        setOrdenes(rows);
-        setLoadingOrdenes(false);
+        setOcupados(res.byId);
+        setOcupadosError(res.error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, reporteId]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingProyectos(true);
+      try {
+        const rows = await listProyectos();
+        if (!cancelled) setProyectos(rows);
+      } catch {
+        if (!cancelled) setProyectos([]);
+      } finally {
+        if (!cancelled) setLoadingProyectos(false);
       }
     })();
     return () => {
@@ -181,6 +197,7 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
     setActiveStep(1);
     setOrdenError("");
     setPhotoPreview(null);
+    setPickerOpen(false);
     if (isNew) {
       setDraft(emptyReporteDraft());
       setFolio("");
@@ -190,7 +207,7 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
   }, [open, isNew]);
 
   // Quien no es administrador no elige técnicos: en un reporte nuevo queda su propio nombre
-  // (o el de la orden vinculada, ver `applyOrden`).
+  // (o el del proyecto vinculado, ver `applyProyecto`).
   useEffect(() => {
     if (!open || isAdmin || !isNew || !user) return;
     const propio = usuarioDisplayName(user);
@@ -209,7 +226,9 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
         setOrdenFolio(row.orden_folio);
         setOrdenCliente(row.orden_cliente);
         setDraft({
+          origen: row.origen_tipo,
           orden_id: row.orden_id != null ? String(row.orden_id) : "",
+          proyecto_id: row.proyecto_id != null ? String(row.proyecto_id) : "",
           fecha_servicio: row.fecha_servicio,
           tecnico_nombre: row.tecnico_nombre,
           foto_orden_url: row.foto_orden_url,
@@ -233,45 +252,35 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
     };
   }, [open, reporteId, showAlert]);
 
-  const ordenOptions = useMemo(() => {
-    const opts = ordenes.map((o) => ({ value: String(o.id), label: ordenLabel(o) }));
-    if (
-      draft.orden_id &&
-      !opts.some((o) => o.value === draft.orden_id) &&
-      (ordenFolio || ordenCliente)
-    ) {
-      opts.unshift({
-        value: draft.orden_id,
-        label: `${ordenFolio || `Orden #${draft.orden_id}`} · ${ordenCliente || "Cliente"}`,
-      });
-    }
-    return opts;
-  }, [ordenes, draft.orden_id, ordenFolio, ordenCliente]);
-
-  const selectedOrden = useMemo(
-    () => ordenes.find((o) => String(o.id) === draft.orden_id) || null,
-    [ordenes, draft.orden_id]
-  );
+  const esProyecto = draft.origen === "proyecto";
+  const origenId = esProyecto ? draft.proyecto_id : draft.orden_id;
+  /** Reporte anterior vinculado a una orden de trabajo (ya no se crean así): se muestra de solo lectura. */
+  const esLegacyOrden = !esProyecto && Boolean(draft.orden_id);
+  /** Proyectos libres más recientes: atajo para vincular sin abrir el buscador. */
+  const sugeridos = useMemo(() => proyectos.filter((p) => !ocupados[String(p.id)]).slice(0, 3), [proyectos, ocupados]);
+  const proyectoSel = useMemo(() => proyectos.find((p) => String(p.id) === draft.proyecto_id) || null, [proyectos, draft.proyecto_id]);
 
   const totalFotos = useMemo(() => countReporteFotos(draft.secciones), [draft.secciones]);
 
-  const applyOrden = (ordenId: string) => {
+  const applyProyecto = (p: ProyectoRow) => {
     setOrdenError("");
-    const o = ordenes.find((row) => String(row.id) === ordenId);
-    if (!o) {
-      setDraft((prev) => ({ ...prev, orden_id: ordenId }));
-      return;
-    }
-    const folioOdt =
-      (o.folio || "").trim() || formatDocumentFolio(FOLIO_SERIE.orden, o.idx || o.id);
-    setOrdenFolio(folioOdt);
-    setOrdenCliente((o.cliente || "").trim());
+    setPickerOpen(false);
+    setOrdenFolio(displayProyectoFolio(p.folio));
+    setOrdenCliente((p.cliente || "").trim());
     setDraft((prev) => ({
       ...prev,
-      orden_id: ordenId,
-      fecha_servicio: (o.fecha_inicio || prev.fecha_servicio || "").slice(0, 10),
-      tecnico_nombre: tecnicoFromOrden(o) || prev.tecnico_nombre,
+      origen: "proyecto",
+      orden_id: "",
+      proyecto_id: String(p.id),
+      fecha_servicio: (p.draft?.fechasInicio?.[0] || prev.fecha_servicio || "").slice(0, 10),
+      tecnico_nombre: tecnicosFromProyecto(p) || prev.tecnico_nombre,
     }));
+  };
+
+  const quitarProyecto = () => {
+    setOrdenFolio("");
+    setOrdenCliente("");
+    setDraft((prev) => ({ ...prev, origen: "proyecto", orden_id: "", proyecto_id: "" }));
   };
 
   const updateSeccion = (secId: string, patch: Partial<ReporteSeccion>) => {
@@ -434,9 +443,9 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
   };
 
   const validate = (): ReporteStepId | null => {
-    if (!draft.orden_id) {
-      setOrdenError("Selecciona una orden de servicio del listado.");
-      showAlert("warning", "Falta la orden", "Vincula una orden de trabajo.");
+    if (!origenId) {
+      setOrdenError("Vincula el proyecto al que pertenece este reporte.");
+      showAlert("warning", "Falta el proyecto", "Vincula un proyecto.");
       return 1;
     }
     if (!draft.fecha_servicio) {
@@ -483,16 +492,16 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
   const formBusy = loading || saving;
 
   const stepState: Record<ReporteStepId, ReporteStepState> = {
-    1: draft.orden_id ? "done" : "pending",
+    1: origenId ? "done" : "pending",
     2: draft.fecha_servicio && draft.tecnico_nombre.trim() ? "done" : "pending",
     3: draft.secciones.length > 0 ? "done" : "pending",
   };
   const stepHints: Record<ReporteStepId, string> = {
-    1: ordenFolio ? `${ordenFolio}${ordenCliente ? ` · ${ordenCliente}` : ""}` : "Vincula la ODT",
+    1: ordenFolio ? `${ordenFolio}${ordenCliente ? ` · ${ordenCliente}` : ""}` : "Vincula el proyecto",
     2: draft.tecnico_nombre.trim() ? draft.tecnico_nombre : "Fecha y técnicos",
     3: draft.secciones.length > 0 ? `${draft.secciones.length} ${draft.secciones.length === 1 ? "zona" : "zonas"} · ${totalFotos} fotos` : "Antes / Después",
   };
-  const requiredDone = [Boolean(draft.orden_id), Boolean(draft.fecha_servicio), Boolean(draft.tecnico_nombre.trim())].filter(Boolean).length;
+  const requiredDone = [Boolean(origenId), Boolean(draft.fecha_servicio), Boolean(draft.tecnico_nombre.trim())].filter(Boolean).length;
   const pct = Math.round((requiredDone / 3) * 100);
 
   const stepIndex = REPORTE_STEPS.findIndex((s) => s.id === activeStep);
@@ -500,22 +509,22 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === REPORTE_STEPS.length - 1;
   const goStep = (delta: 1 | -1) => setActiveStep(REPORTE_STEPS[Math.min(REPORTE_STEPS.length - 1, Math.max(0, stepIndex + delta))].id);
-  const titulo = (ordenCliente || selectedOrden?.cliente || "").trim();
+  const titulo = ordenCliente.trim();
   const stepProps = { active: activeStep, state: stepState, disabled: formBusy, onSelect: setActiveStep, idPrefix: panelId };
   const saveLabel = saving ? "Guardando…" : isNew ? "Crear reporte" : "Guardar cambios";
   const blockedEscape = saving || Boolean(seccionToDelete) || Boolean(photoPreview);
 
-  const ordenResumen = draft.orden_id ? (
+  const ordenResumen = origenId ? (
     <div className="rounded-[14px] border border-[rgba(27,92,255,0.22)] bg-[rgba(27,92,255,0.05)] p-4 dark:border-[#4B7CFF]/25 dark:bg-[rgba(75,124,255,0.08)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1244D1] dark:text-[#4B7CFF]">Orden vinculada</p>
-          <p className="mt-1 font-mono text-[13px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{ordenFolio || (selectedOrden ? ordenLabel(selectedOrden) : "—")}</p>
-          <p className="mt-0.5 truncate text-[14px] font-medium text-[#27272A] dark:text-[#E2E8F0]">{ordenCliente || selectedOrden?.cliente || "—"}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1244D1] dark:text-[#4B7CFF]">{esProyecto ? "Proyecto vinculado" : "Orden vinculada"}</p>
+          <p className="mt-1 font-mono text-[13px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{ordenFolio || "—"}</p>
+          <p className="mt-0.5 truncate text-[14px] font-medium text-[#27272A] dark:text-[#E2E8F0]">{ordenCliente || "—"}</p>
         </div>
-        <Link to={`/ordenes/${draft.orden_id}/pdf`} target="_blank" rel="noreferrer" className={`${btn.secondary} ${btnSm} shrink-0`}>
+        <Link to={esProyecto ? `/proyectos/${draft.proyecto_id}/pdf` : `/ordenes/${draft.orden_id}/pdf`} target="_blank" rel="noreferrer" className={`${btn.secondary} ${btnSm} shrink-0`}>
           <FileText aria-hidden />
-          Ver orden PDF
+          {esProyecto ? "Ver proyecto PDF" : "Ver orden PDF"}
         </Link>
       </div>
     </div>
@@ -523,37 +532,162 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
 
   const renderStep1 = () => (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
-      <SectionCard id={`${panelId}-s-orden`} index={0} title="Orden de trabajo" icon={<ClipboardList />} hint="Vincula la orden de servicio a la que pertenece este reporte.">
-        <div>
-          <SearchableSelect
-            id="rm-elegir-orden"
-            label="Elegir orden"
-            required
-            value={draft.orden_id}
-            onChange={applyOrden}
-            options={ordenOptions}
-            placeholder={loadingOrdenes ? "Cargando…" : "Buscar folio, cliente o fecha"}
-            filterLocally
-            invalid={Boolean(ordenError)}
-            describedBy={ordenError ? ordenErrorId : ordenHintId}
-          />
-          {ordenError ? (
-            <p id={ordenErrorId} className="mt-1.5 text-[12px] text-[#C22B2B]" role="alert">
-              {ordenError}
+      <SectionCard id={`${panelId}-s-orden`} index={0} title="Proyecto" icon={<FolderKanban />} hint="El reporte pertenece a un proyecto. Cada proyecto tiene un solo reporte.">
+        {esLegacyOrden ? (
+          <div className="space-y-3">
+            {ordenResumen}
+            <p className="text-[12.5px] leading-snug text-[#71717A] dark:text-[#8EA0B8]">
+              Este reporte se hizo sobre una orden de trabajo. Los reportes nuevos se vinculan a un proyecto; puedes pasarlo a uno si lo necesitas.
             </p>
-          ) : (
-            <p id={ordenHintId} className="mt-1.5 text-[12px] leading-snug text-[#71717A] dark:text-[#8EA0B8]">
-              Al vincularla se rellenan la fecha y los técnicos si la orden los trae.
-            </p>
-          )}
-        </div>
-        {ordenResumen}
+            <button type="button" className={`${btn.secondary} ${btnSm}`} onClick={() => setPickerOpen(true)} aria-haspopup="dialog">
+              <FolderKanban aria-hidden />
+              Cambiar a un proyecto
+            </button>
+          </div>
+        ) : esProyecto && draft.proyecto_id ? (
+          <article className="cot-pop overflow-hidden rounded-[18px] border border-[#E7E7EA] bg-white shadow-[0_8px_24px_-16px_rgba(23,35,91,0.35)] dark:border-[#273244] dark:bg-[#0F172A] dark:shadow-none" aria-label="Proyecto vinculado">
+            {/* Banda marina: misma identidad que el encabezado del modal */}
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#17235B_0%,#1B2A63_100%)] px-5 pb-5 pt-4 text-white">
+              <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 size-44 rounded-full bg-[rgba(230,162,60,0.14)] blur-2xl" />
+              <div className="relative flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[rgba(230,162,60,0.18)] px-2.5 font-mono text-[12.5px] font-semibold text-[#F5C26B] ring-1 ring-inset ring-[rgba(230,162,60,0.35)]">
+                    <FolderKanban className="size-3.5" aria-hidden />
+                    {ordenFolio || "—"}
+                  </span>
+                  {proyectoSel ? <EstadoPill estado={proyectoSel.estado} size="sm" /> : null}
+                </div>
+                <p className="shrink-0 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-white/55">Proyecto vinculado</p>
+              </div>
+              <p className="relative mt-4 truncate text-[24px] font-semibold leading-tight tracking-[-0.5px]" title={ordenCliente}>
+                {ordenCliente || "Sin cliente"}
+              </p>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-px bg-[#F0F0F2] dark:bg-[#1F2A3C]">
+              <div className="flex items-start gap-3 bg-white px-4 py-3.5 dark:bg-[#0F172A] sm:px-5 sm:py-4">
+                <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]" aria-hidden>
+                  <CalendarDays className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#71717A] dark:text-[#8EA0B8]">Inicio</dt>
+                  <dd className="mt-0.5 text-[14.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+                    {proyectoSel?.draft?.fechasInicio?.[0] ? formatFechaCorta(proyectoSel.draft.fechasInicio[0]) : "Sin fecha"}
+                  </dd>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 bg-white px-4 py-3.5 dark:bg-[#0F172A] sm:px-5 sm:py-4">
+                <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]" aria-hidden>
+                  <Users className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#71717A] dark:text-[#8EA0B8]">Equipo</dt>
+                  <dd className="mt-0.5 flex items-center gap-2">
+                    {proyectoSel && proyectoSel.draft.tecnicos.length > 0 ? (
+                      <>
+                        <AvatarStack people={proyectoSel.draft.tecnicos.map((t) => ({ id: t.id, nombre: t.nombre, avatar_url: t.avatar_url }))} max={4} />
+                        <span className="text-[14.5px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">{proyectoSel.draft.tecnicos.length}</span>
+                      </>
+                    ) : (
+                      <span className="text-[14.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">Sin asignar</span>
+                    )}
+                  </dd>
+                </div>
+              </div>
+              <div className="col-span-2 flex items-start gap-3 bg-white px-4 py-3.5 dark:bg-[#0F172A] sm:px-5 sm:py-4">
+                <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]" aria-hidden>
+                  <Wrench className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#71717A] dark:text-[#8EA0B8]">Servicio</dt>
+                  <dd className="mt-0.5 text-[14.5px] font-semibold leading-snug text-[#09090B] dark:text-[#F8FAFC]">
+                    {proyectoSel && proyectoTiposLabels(proyectoSel).length > 0 ? proyectoTiposLabels(proyectoSel).join(", ") : "Sin definir"}
+                  </dd>
+                </div>
+              </div>
+            </dl>
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-[#F0F0F2] bg-[#FAFAFB] px-4 py-3 dark:border-[#1F2A3C] dark:bg-[#111827]/70 sm:px-5">
+              <button type="button" className={`${btn.secondary} ${btnSm}`} onClick={() => setPickerOpen(true)} aria-haspopup="dialog">
+                <FilePlus2 aria-hidden />
+                Cambiar proyecto
+              </button>
+              <Link to={`/proyectos/${draft.proyecto_id}/pdf`} target="_blank" rel="noreferrer" className={`${btn.secondary} ${btnSm}`}>
+                <FileText aria-hidden />
+                Ver PDF
+              </Link>
+              <button
+                type="button"
+                className={`${btn.ghost} ${btnSm} ml-auto text-[#B42323]! hover:bg-[#FEF2F2]! dark:text-[#F87171]! dark:hover:bg-[#3F1518]!`}
+                onClick={quitarProyecto}
+              >
+                <X aria-hidden />
+                Quitar
+              </button>
+            </div>
+          </article>
+        ) : (
+          <div className="space-y-4">
+            {/* Disparador con forma de buscador: abre el selector */}
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              aria-haspopup="dialog"
+              aria-describedby={ordenError ? ordenErrorId : undefined}
+              className={`cot-press group flex min-h-14 w-full items-center gap-3 rounded-[14px] border bg-white px-4 text-left shadow-[0_1px_2px_rgba(9,9,11,0.04)] transition-[border-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:bg-[#0F172A] dark:shadow-none ${
+                ordenError
+                  ? "border-[#E8A5A5] dark:border-[#7F1D1D]"
+                  : "border-[#E4E4E7] hover:border-[#BFD3FF] hover:shadow-[0_6px_18px_-12px_rgba(27,92,255,0.45)] dark:border-[#273244] dark:hover:border-[#4B7CFF]/60"
+              }`}
+            >
+              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] transition-transform duration-200 group-hover:scale-105 dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF] motion-reduce:transition-none" aria-hidden>
+                <Search className="size-4.5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Buscar proyecto por folio o cliente…</span>
+                <span className="block text-[12px] text-[#A1A1AA] dark:text-[#6B7A90]">{loadingProyectos ? "Cargando proyectos…" : `${proyectos.length} ${proyectos.length === 1 ? "proyecto" : "proyectos"} · uno por reporte`}</span>
+              </span>
+              <span className="hidden shrink-0 rounded-full bg-[#1B5CFF] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-colors group-hover:bg-[#1244D1] dark:bg-[#4B7CFF] dark:group-hover:bg-[#3B6AF0] sm:inline-flex">
+                Elegir
+              </span>
+            </button>
+            {ordenError ? (
+              <p id={ordenErrorId} className="text-[12.5px] font-medium text-[#C22B2B]" role="alert">
+                {ordenError}
+              </p>
+            ) : null}
+
+            {sugeridos.length > 0 ? (
+              <div>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]">Recientes disponibles</p>
+                <ul className="grid gap-2 sm:grid-cols-3">
+                  {sugeridos.map((p, i) => (
+                    <li key={p.id} className="cot-rise" style={{ "--cot-i": i } as CSSProperties}>
+                      <button
+                        type="button"
+                        onClick={() => applyProyecto(p)}
+                        className="cot-press group flex h-full w-full flex-col gap-1.5 rounded-[14px] border border-[#E7E7EA] bg-[#FAFAFB] p-3.5 text-left transition-colors duration-150 hover:border-[#BFD3FF] hover:bg-[#F5F8FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:border-[#273244] dark:bg-[#0F172A]/60 dark:hover:border-[#4B7CFF]/50 dark:hover:bg-[#1B2A63]/25"
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[12.5px] font-semibold text-[#1244D1] dark:text-[#9BB6FF]">{displayProyectoFolio(p.folio)}</span>
+                          <EstadoPill estado={p.estado} size="sm" />
+                        </span>
+                        <span className="truncate text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{p.cliente || "Sin cliente"}</span>
+                        <span className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{formatFechaCorta(p.draft?.fechasInicio?.[0] || p.fecha)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        )}
       </SectionCard>
 
-      <SectionCard id={`${panelId}-s-foto`} index={1} title="Imagen de la orden" icon={<ImageIcon />} hint="Opcional. Aparece en el PDF junto a los datos de la orden.">
+      <SectionCard id={`${panelId}-s-foto`} index={1} title="Imagen del proyecto" icon={<ImageIcon />} hint="Opcional. Aparece en el PDF junto a los datos del proyecto.">
         <SinglePhoto
           accent="orden"
-          title="Orden"
+          title="Proyecto"
           url={draft.foto_orden_url}
           busy={uploadingKey === "foto-orden"}
           onPick={(file) => void handleUploadFotoOrden(file)}
@@ -727,7 +861,7 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
             </div>
 
             <div className="custom-scrollbar erp-modal-form-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[#F7F7F8] dark:bg-[#0B1220]">
-              <div className="mx-auto w-full max-w-4xl space-y-4 p-3 sm:p-5 lg:p-6 xl:max-w-5xl 2xl:max-w-6xl 2xl:space-y-5 2xl:p-8">
+              <div className="mx-auto w-full max-w-4xl space-y-4 p-3 sm:p-5 lg:p-6 xl:max-w-5xl">
                 {alert.show ? (
                   <div role="alert">
                     <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} placement="inline" />
@@ -829,6 +963,17 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
           </div>
         </div>
       </Modal>
+
+      <ReporteProyectoPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        proyectos={proyectos}
+        loading={loadingProyectos}
+        ocupados={ocupados}
+        ocupadosError={ocupadosError}
+        selectedId={draft.proyecto_id}
+        onSelect={applyProyecto}
+      />
 
       {/* Vista ampliada de fotos (Antes/Después/Orden) */}
       <OrdenPhotoPreviewModal

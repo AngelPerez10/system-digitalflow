@@ -8,11 +8,18 @@ export type ReporteSeccion = {
   fotos_despues: string[];
 };
 
+/** El reporte se vincula a una orden de trabajo o a un proyecto (uno de los dos). */
+export type ReporteOrigen = "orden" | "proyecto";
+
 export type ReporteMantenimiento = {
   id: number;
   idx: number;
   folio: string;
   orden_id: number | null;
+  proyecto_id: number | null;
+  /** De dónde cuelga el reporte. */
+  origen_tipo: ReporteOrigen;
+  /** Folio y cliente del documento origen (orden o proyecto). */
   orden_folio: string;
   orden_cliente: string;
   fecha_servicio: string;
@@ -26,7 +33,9 @@ export type ReporteMantenimiento = {
 };
 
 export type ReporteDraft = {
+  origen: ReporteOrigen;
   orden_id: string;
+  proyecto_id: string;
   fecha_servicio: string;
   tecnico_nombre: string;
   foto_orden_url: string;
@@ -52,7 +61,9 @@ export function emptyReporteDraft(): ReporteDraft {
   const m = String(today.getMonth() + 1).padStart(2, "0");
   const d = String(today.getDate()).padStart(2, "0");
   return {
+    origen: "proyecto",
     orden_id: "",
+    proyecto_id: "",
     fecha_servicio: `${y}-${m}-${d}`,
     tecnico_nombre: "",
     foto_orden_url: "",

@@ -46,7 +46,7 @@ const ReporteCardImpl = memo(function ReporteCard({ row, index, avatars, ...hand
             <h3 className="line-clamp-2 text-[16px] font-semibold leading-snug tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">{row.orden_cliente || "Sin cliente"}</h3>
           )}
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className={`${metaChip} font-mono`}>{row.orden_folio || "Sin orden"}</span>
+            <span className={`${metaChip} font-mono`}>{row.orden_folio || "Sin origen"}</span>
             {row.secciones.length > 0 ? (
               <span className={metaChip}>
                 <Layers className="size-3" aria-hidden />

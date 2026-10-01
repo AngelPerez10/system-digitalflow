@@ -77,6 +77,7 @@ def overlay_from_reporte(reporte) -> dict[str, Any]:
         "folio": folio,
         "fecha_servicio": _format_fecha_mx(getattr(reporte, "fecha_servicio", None)),
         "tecnico_nombre": str(getattr(reporte, "tecnico_nombre", "") or "").strip() or "—",
+        "origen_label": "Proyecto" if getattr(reporte, "proyecto_id", None) else "Orden de trabajo",
         "orden_folio": str(getattr(reporte, "orden_folio", "") or "").strip() or "—",
         "orden_cliente": str(getattr(reporte, "orden_cliente", "") or "").strip() or "—",
         "foto_orden_url": str(getattr(reporte, "foto_orden_url", "") or "").strip(),
@@ -201,14 +202,15 @@ def generate_reporte_mantenimiento_pdf_html(data: dict[str, Any] | None = None) 
     if foto_orden_src:
         foto_orden_block = (
             '<div class="callout">'
-            '<div class="label">Imagen adjunta de la orden</div>'
-            f'<div class="ordenimg"><img src="{esc(foto_orden_src)}" alt="Foto de la orden de trabajo" /></div>'
+            '<div class="label">Imagen adjunta</div>'
+            f'<div class="ordenimg"><img src="{esc(foto_orden_src)}" alt="Imagen adjunta" /></div>'
             "</div>"
         )
 
     folio = esc(payload.get("folio") or "—")
     fecha = esc(payload.get("fecha_servicio") or "—")
     tecnico = esc(payload.get("tecnico_nombre") or "—")
+    origen_label = esc(payload.get("origen_label") or "Orden de trabajo")
     orden_folio = esc(payload.get("orden_folio") or "—")
     orden_cliente = esc(payload.get("orden_cliente") or "—")
 
@@ -406,7 +408,7 @@ def generate_reporte_mantenimiento_pdf_html(data: dict[str, Any] | None = None) 
   <table class="client-table">
     <tbody>
       <tr>
-        <th>Orden de trabajo:</th><td>{orden_folio}</td>
+        <th>{origen_label}:</th><td>{orden_folio}</td>
         <th>Cliente:</th><td>{orden_cliente}</td>
       </tr>
       <tr>

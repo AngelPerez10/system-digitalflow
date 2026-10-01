@@ -362,7 +362,7 @@ REPORTE_MANTENIMIENTO_IDX_START = 10001
 
 
 class ReporteMantenimiento(models.Model):
-    """Reporte imprimible: orden de servicio + secciones Antes/Después con título libre."""
+    """Reporte imprimible: orden de servicio o proyecto + secciones Antes/Después con título libre."""
 
     idx = models.IntegerField(unique=True, db_index=True, null=True, blank=True)
     folio = models.CharField(max_length=50, unique=True, db_index=True, null=True, blank=True)
@@ -374,6 +374,16 @@ class ReporteMantenimiento(models.Model):
         blank=True,
         related_name="reportes_mantenimiento",
     )
+    # Alternativa a la orden: el reporte también puede colgar de un proyecto.
+    # Exactamente uno de `orden` / `proyecto` (lo valida el serializer).
+    proyecto = models.ForeignKey(
+        "operacion.Proyecto",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reportes_mantenimiento",
+    )
+    # Folio y cliente del documento origen (orden o proyecto) al guardar.
     orden_folio = models.CharField(max_length=50, blank=True, default="")
     orden_cliente = models.CharField(max_length=255, blank=True, default="")
 
@@ -396,6 +406,14 @@ class ReporteMantenimiento(models.Model):
         ordering = ["-idx"]
         verbose_name = "Reporte de mantenimiento"
         verbose_name_plural = "Reportes de mantenimiento"
+        constraints = [
+            # Un proyecto tiene a lo sumo un reporte de mantenimiento.
+            models.UniqueConstraint(
+                fields=["proyecto"],
+                condition=models.Q(proyecto__isnull=False),
+                name="operacion_rm_proyecto_unico",
+            ),
+        ]
         indexes = [
             models.Index(fields=["idx"], name="operacion_rm_idx_idx"),
             models.Index(fields=["folio"], name="operacion_rm_folio_idx"),
