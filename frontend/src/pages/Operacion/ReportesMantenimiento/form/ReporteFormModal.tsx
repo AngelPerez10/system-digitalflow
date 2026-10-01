@@ -97,6 +97,11 @@ type Props = {
   onSaved: (flash: { variant: "success"; title: string; message: string }) => void;
 };
 
+/** Botones de navegación del pie: más grandes que el estándar para que se vean cómodos en pantallas amplias. */
+const big = " min-h-12! text-[15px]! sm:min-h-10! sm:text-[14px]! sm:[&_svg]:size-4! [&_svg]:size-5!";
+/** Los botones del pie comparten el mismo ancho: se reparten la fila en móvil y miden igual en escritorio. */
+const eq = " flex-1 sm:w-32 sm:flex-none";
+
 export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: Props) {
   const isNew = reporteId == null;
   const { user, isAdmin } = useAuth();
@@ -755,24 +760,24 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
               </div>
             </div>
 
-            <footer className="grid shrink-0 grid-cols-[2.75rem_1fr_1fr] gap-2 border-t border-[#F0F0F2] bg-white px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#1F2A3C] dark:bg-[#111827] sm:flex sm:items-center sm:px-5 sm:pb-3">
-              <button type="button" disabled={saving} onClick={isFirst ? onClose : () => goStep(-1)} className={`${btn.secondary} px-0 sm:px-4`} aria-label={isFirst ? "Cancelar" : "Paso anterior"} title={isFirst ? "Cancelar" : "Paso anterior"}>
+            <footer className="flex shrink-0 items-center gap-2 border-t border-[#F0F0F2] bg-white px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#1F2A3C] dark:bg-[#111827] sm:px-5 sm:py-3 sm:pb-3">
+              <button type="button" disabled={saving} onClick={isFirst ? onClose : () => goStep(-1)} className={`${btn.secondary}${big}${eq} px-3!`} aria-label={isFirst ? "Cancelar" : "Paso anterior"} title={isFirst ? "Cancelar" : "Paso anterior"}>
                 {isFirst ? <X aria-hidden /> : <ArrowLeft aria-hidden />}
-                <span className="hidden sm:inline">{isFirst ? "Cancelar" : "Anterior"}</span>
+                <span>{isFirst ? "Cancelar" : "Anterior"}</span>
               </button>
 
-              <span className="hidden flex-1 text-center text-[12.5px] text-[#71717A] dark:text-[#8EA0B8] lg:block" aria-hidden>
+              <span className="hidden min-w-0 flex-1 text-center text-[13px] text-[#71717A] dark:text-[#8EA0B8] lg:block" aria-hidden>
                 Paso {stepIndex + 1} de {REPORTE_STEPS.length} · {step.label}
               </span>
 
               {!isLast ? (
-                <button type="button" disabled={saving} onClick={() => goStep(1)} className={`${isNew ? btn.primary : btn.secondary} px-3 sm:ml-auto lg:ml-0`}>
+                <button type="button" disabled={saving} onClick={() => goStep(1)} className={`${isNew ? btn.primary : btn.secondary}${big} px-3!${eq} sm:ml-auto lg:ml-0`}>
                   Siguiente
                   <ArrowRight aria-hidden />
                 </button>
               ) : null}
               {!isNew || isLast ? (
-                <button type="button" disabled={formBusy} aria-busy={saving || undefined} onClick={() => void handleSave()} className={`${btn.primary} px-3 ${isLast ? "sm:ml-auto lg:ml-0" : ""}`}>
+                <button type="button" disabled={formBusy} aria-busy={saving || undefined} onClick={() => void handleSave()} className={`${btn.primary}${big} px-3!${eq} ${isLast ? "sm:ml-auto lg:ml-0" : ""}`}>
                   {saving ? <AppSpinner /> : <Check aria-hidden />}
                   <span className="sm:hidden">{saving ? "Guardando…" : isNew ? "Crear" : "Guardar"}</span>
                   <span className="hidden sm:inline">{saveLabel}</span>
