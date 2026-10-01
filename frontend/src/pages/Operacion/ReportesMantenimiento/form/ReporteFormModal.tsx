@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { CSSProperties } from "react";
-import { ArrowLeft, ArrowRight, CalendarClock, CalendarDays, Camera, Check, ChevronDown, ChevronUp, FileText, FilePlus2, FolderKanban, Image as ImageIcon, Plus, Search, Trash2, Users, Wrench, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarClock, CalendarDays, Camera, Check, ChevronDown, ChevronRight, ChevronUp, FileText, FilePlus2, FolderKanban, Image as ImageIcon, Plus, Search, Trash2, Users, Wrench, X } from "lucide-react";
 import Alert from "@/components/ui/alert/Alert";
 import DatePicker from "@/components/form/date-picker";
 import { Modal } from "@/components/ui/modal";
@@ -660,20 +660,23 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
             {sugeridos.length > 0 ? (
               <div>
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]">Recientes disponibles</p>
-                <ul className="grid gap-2 sm:grid-cols-3">
+                <ul className="space-y-1.5">
                   {sugeridos.map((p, i) => (
                     <li key={p.id} className="cot-rise" style={{ "--cot-i": i } as CSSProperties}>
                       <button
                         type="button"
                         onClick={() => applyProyecto(p)}
-                        className="cot-press group flex h-full w-full flex-col gap-1.5 rounded-[14px] border border-[#E7E7EA] bg-[#FAFAFB] p-3.5 text-left transition-colors duration-150 hover:border-[#BFD3FF] hover:bg-[#F5F8FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:border-[#273244] dark:bg-[#0F172A]/60 dark:hover:border-[#4B7CFF]/50 dark:hover:bg-[#1B2A63]/25"
+                        className="cot-press group flex min-h-14 w-full items-center gap-3 rounded-[14px] border border-[#E7E7EA] bg-[#FAFAFB] px-3.5 py-2.5 text-left transition-colors duration-150 hover:border-[#BFD3FF] hover:bg-[#F5F8FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:border-[#273244] dark:bg-[#0F172A]/60 dark:hover:border-[#4B7CFF]/50 dark:hover:bg-[#1B2A63]/25"
                       >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[12.5px] font-semibold text-[#1244D1] dark:text-[#9BB6FF]">{displayProyectoFolio(p.folio)}</span>
-                          <EstadoPill estado={p.estado} size="sm" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-baseline gap-2">
+                            <span className="shrink-0 whitespace-nowrap font-mono text-[12.5px] font-semibold text-[#1244D1] dark:text-[#9BB6FF]">{displayProyectoFolio(p.folio)}</span>
+                            <span className="truncate text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{p.cliente || "Sin cliente"}</span>
+                          </span>
+                          <span className="mt-0.5 block text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{formatFechaCorta(p.draft?.fechasInicio?.[0] || p.fecha)}</span>
                         </span>
-                        <span className="truncate text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{p.cliente || "Sin cliente"}</span>
-                        <span className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{formatFechaCorta(p.draft?.fechasInicio?.[0] || p.fecha)}</span>
+                        <EstadoPill estado={p.estado} size="sm" className="shrink-0 whitespace-nowrap" />
+                        <ChevronRight className="size-4 shrink-0 text-[#A1A1AA] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[#1B5CFF] motion-reduce:transition-none" aria-hidden />
                       </button>
                     </li>
                   ))}
