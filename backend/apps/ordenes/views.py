@@ -147,6 +147,43 @@ def _stamp_status_changed_at(data: dict, instance=None, user=None) -> dict:
     return data
 
 
+# Una orden está en la bolsa si alguien la liberó (`en_pool`) o si sigue abierta
+# sin técnico asignado y es de este mes en adelante: así una orden creada sin
+# técnico la puede tomar cualquiera, sin que un admin tenga que «liberarla», y
+# el rezago de meses pasados sin técnico no inunda la bolsa.
+ORDEN_STATUS_TOMABLES = ('pendiente', 'pausado')
+
+
+def _inicio_mes_actual():
+    """Medianoche (aware) del día 1 del mes en curso, en la zona del proyecto."""
+    return timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def orden_disponible_q() -> Q:
+    """Filtro de la bolsa. Fecha de la orden = `fecha_inicio` o, si falta, `fecha_creacion`."""
+    inicio = _inicio_mes_actual()
+    desde_este_mes = Q(fecha_inicio__gte=inicio.date()) | Q(
+        fecha_inicio__isnull=True, fecha_creacion__gte=inicio
+    )
+    sin_tecnico = Q(tecnico_asignado__isnull=True, status__in=ORDEN_STATUS_TOMABLES)
+    return Q(en_pool=True) | (sin_tecnico & desde_este_mes)
+
+
+def _orden_disponible(orden) -> bool:
+    """Mismo criterio que `orden_disponible_q()`, sobre una instancia ya cargada."""
+    if orden.en_pool:
+        return True
+    if orden.tecnico_asignado_id is not None or orden.status not in ORDEN_STATUS_TOMABLES:
+        return False
+    inicio = _inicio_mes_actual()
+    if orden.fecha_inicio is not None:
+        fecha = orden.fecha_inicio
+        # `default=timezone.now` deja un datetime en instancias sin recargar.
+        fecha = fecha.date() if isinstance(fecha, datetime) else fecha
+        return fecha >= inicio.date()
+    return orden.fecha_creacion is not None and orden.fecha_creacion >= inicio
+
+
 def _notify_orden_liberada(orden) -> None:
     """Avisa por push a los técnicos que hay una orden nueva disponible.
 
@@ -2200,7 +2237,8 @@ class OrdenViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='tomar')
     def tomar(self, request, pk=None):
-        """Toma una orden de la bolsa: el primero gana (row lock).
+        """Toma una orden de la bolsa (liberada o abierta sin técnico): el
+        primero gana (row lock).
 
         Segundo intento (o si ya no está en la bolsa) → 409. El `status` no se
         toca: la orden se retoma exactamente donde estaba.
@@ -2210,7 +2248,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
             orden = Orden.objects.select_for_update().filter(pk=pk).first()
             if orden is None:
                 raise NotFound()
-            if not orden.en_pool:
+            if not _orden_disponible(orden):
                 return Response(
                     {'detail': 'Otro técnico ya tomó esta orden.'}, status=409
                 )
@@ -2316,20 +2354,24 @@ class OrdenViewSet(viewsets.ModelViewSet):
     def pool(self, request):
         """Órdenes disponibles en la bolsa, ordenadas por prioridad.
 
+        Incluye las liberadas (`en_pool`) y las abiertas que nunca tuvieron
+        técnico asignado desde este mes (ver `orden_disponible_q`).
+
         NO usa `get_queryset()` a propósito: así el filtro own_only no aplica y
         todo técnico con permiso de ver órdenes ve la bolsa completa.
         """
         ahora = timezone.now()
         ordenes = list(
-            Orden.objects.filter(en_pool=True)
+            Orden.objects.filter(orden_disponible_q())
             .select_related('cliente_id', 'liberada_por', 'creado_por', 'tecnico_asignado')
         )
         # Ordena por prioridad EFECTIVA (base + escalado por antigüedad): primero
-        # alta, luego media, luego baja; a igualdad, la liberada hace más tiempo.
+        # alta, luego media, luego baja; a igualdad, la que lleva más tiempo
+        # esperando (liberada o, si nunca tuvo técnico, creada) va primero.
         ordenes.sort(
             key=lambda o: (
                 2 - PRIORIDAD_NIVEL.get(orden_prioridad_pool_efectiva(o, ahora), 1),
-                o.liberada_at or ahora,
+                o.liberada_at or o.fecha_creacion or ahora,
             )
         )
         return Response(

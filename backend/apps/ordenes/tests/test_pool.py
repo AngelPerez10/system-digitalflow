@@ -1,6 +1,9 @@
 """Bolsa de órdenes: liberar / tomar (primero gana) / listar pool."""
 
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -161,6 +164,54 @@ class OrdenesPoolTests(APITestCase):
         ids = {row["id"] for row in resp.data}
         self.assertIn(self.orden.id, ids)
         self.assertNotIn(otra.id, ids)
+
+    def test_pool_incluye_abiertas_sin_tecnico(self):
+        pendiente = Orden.objects.create(cliente="Sin técnico", status="pendiente")
+        pausada = Orden.objects.create(cliente="Pausada sin técnico", status="pausado")
+        resuelta = Orden.objects.create(cliente="Resuelta sin técnico", status="resuelto")
+        cancelada = Orden.objects.create(cliente="Cancelada sin técnico", status="cancelada")
+        self._auth(self.tecnico_c)
+        ids = {row["id"] for row in self.client.get("/api/ordenes/pool/").data}
+        self.assertIn(pendiente.id, ids)
+        self.assertIn(pausada.id, ids)
+        self.assertNotIn(resuelta.id, ids)
+        self.assertNotIn(cancelada.id, ids)
+        self.assertNotIn(self.orden.id, ids)  # asignada a tecnico_a
+
+    def test_pool_excluye_sin_tecnico_de_meses_pasados(self):
+        hoy = timezone.localdate()
+        mes_pasado = hoy.replace(day=1) - timedelta(days=1)
+        vieja = Orden.objects.create(cliente="Mes pasado", status="pendiente", fecha_inicio=mes_pasado)
+        futura = Orden.objects.create(
+            cliente="Mes próximo", status="pendiente", fecha_inicio=hoy.replace(day=1) + timedelta(days=40)
+        )
+        liberada_vieja = Orden.objects.create(
+            cliente="Liberada vieja", status="pendiente", fecha_inicio=mes_pasado,
+            en_pool=True, liberada_por=self.tecnico_a,
+        )
+        self._auth(self.tecnico_c)
+        ids = {row["id"] for row in self.client.get("/api/ordenes/pool/").data}
+        self.assertNotIn(vieja.id, ids)
+        self.assertIn(futura.id, ids)
+        self.assertIn(liberada_vieja.id, ids)  # liberarla la mete a la bolsa sin importar la fecha
+        self.assertEqual(self._tomar(vieja.id).status_code, status.HTTP_409_CONFLICT)
+
+    def test_tomar_orden_sin_tecnico_sin_liberar(self):
+        sin_tecnico = Orden.objects.create(cliente="Sin técnico", status="pendiente")
+        self._auth(self.tecnico_b)
+        r1 = self._tomar(sin_tecnico.id)
+        self._auth(self.tecnico_c)
+        r2 = self._tomar(sin_tecnico.id)
+        self.assertEqual(r1.status_code, status.HTTP_200_OK)
+        self.assertEqual(r2.status_code, status.HTTP_409_CONFLICT)
+        sin_tecnico.refresh_from_db()
+        self.assertEqual(sin_tecnico.tecnico_asignado_id, self.tecnico_b.id)
+        self.assertEqual(sin_tecnico.tomada_por_id, self.tecnico_b.id)
+
+    def test_tomar_resuelta_sin_tecnico_409(self):
+        resuelta = Orden.objects.create(cliente="Resuelta", status="resuelto")
+        self._auth(self.tecnico_b)
+        self.assertEqual(self._tomar(resuelta.id).status_code, status.HTTP_409_CONFLICT)
 
     def test_pool_ordena_por_prioridad(self):
         alta = Orden.objects.create(
