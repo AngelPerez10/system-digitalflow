@@ -15,6 +15,8 @@ export interface SeccionCotizaciones {
 }
 
 export interface UseCotizacionesResult {
+  /** Hay búsqueda: el listado abarca todos los meses, no solo `mes`. */
+  global: boolean;
   mes: string;
   setMes: (mes: string) => void;
   busqueda: string;
@@ -41,10 +43,19 @@ export function useCotizaciones(): UseCotizacionesResult {
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<FiltroCotizacion>('todas');
 
-  const fetcher = useCallback((signal: AbortSignal) => listCotizaciones(mes, signal), [mes]);
+  // Con texto en el buscador se trae todo el historial (sin `mes`); el fetcher
+  // solo cambia al pasar de vacío a con texto, no en cada tecla.
+  const global = busqueda.trim().length > 0;
+  const fetcher = useCallback(
+    (signal: AbortSignal) => listCotizaciones(global ? undefined : mes, signal),
+    [mes, global],
+  );
   const { items, cargando, refrescando, error, recargar } = useEntityList<CotizacionListItem>({ fetcher });
 
-  const encontradas = useMemo(() => items.filter((c) => coincideBusqueda(c, busqueda)), [items, busqueda]);
+  const encontradas = useMemo(() => {
+    const coinciden = items.filter((c) => coincideBusqueda(c, busqueda));
+    return global ? coinciden.sort((a, b) => (b.idx ?? b.id) - (a.idx ?? a.id)) : coinciden;
+  }, [items, busqueda, global]);
 
   const secciones = useMemo(
     () =>
@@ -55,6 +66,7 @@ export function useCotizaciones(): UseCotizacionesResult {
   );
 
   return {
+    global,
     mes,
     setMes,
     busqueda,
@@ -62,8 +74,8 @@ export function useCotizaciones(): UseCotizacionesResult {
     filtro,
     setFiltro,
     secciones,
-    resumen: useMemo(() => resumenDelMes(items), [items]),
-    total: items.length,
+    resumen: useMemo(() => resumenDelMes(global ? encontradas : items), [global, encontradas, items]),
+    total: global ? encontradas.length : items.length,
     cargando,
     refrescando,
     error,

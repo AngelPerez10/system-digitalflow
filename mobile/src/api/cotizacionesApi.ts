@@ -18,9 +18,10 @@ import {
 /**
  * Cotizaciones del mes (`YYYY-MM`, por `fecha`). El backend ya recorta a «solo
  * las mías» cuando el permiso lo pide; `page_size` alto trae el mes completo
- * en una sola página.
+ * en una sola página. Sin `mes` trae las más recientes de todo el historial
+ * (hasta 500, de la más nueva a la más antigua), para la búsqueda global.
  */
-export async function listCotizaciones(mes: string, signal?: AbortSignal): Promise<CotizacionListItem[]> {
+export async function listCotizaciones(mes: string | undefined, signal?: AbortSignal): Promise<CotizacionListItem[]> {
   const raw = await apiClient.request<unknown>('/cotizaciones/', {
     query: { month: mes, page_size: 500 },
     signal,

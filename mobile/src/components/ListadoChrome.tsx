@@ -69,12 +69,15 @@ export function MesEncabezado({
   resumen,
   cargando,
   onChange,
+  global = false,
 }: {
   mes: string;
   /** Línea bajo el mes («12 órdenes asignadas»). */
   resumen: string;
   cargando: boolean;
   onChange: (mes: string) => void;
+  /** Búsqueda activa: se busca en todo el historial, así que no hay mes que hojear. */
+  global?: boolean;
 }) {
   const { colors } = useTheme();
   const reduced = useReducedMotion();
@@ -99,22 +102,26 @@ export function MesEncabezado({
           accessibilityRole="header"
           accessibilityLiveRegion="polite"
         >
-          {etiquetaMes(mes)}
+          {global ? 'Todos los meses' : etiquetaMes(mes)}
         </Text>
         <Text style={[styles.mesSub, { color: colors.inkSubtle }]}>{cargando ? 'Actualizando…' : resumen}</Text>
       </Animated.View>
-      <IconButton
-        icon={<IconChevron direction="left" color={colors.inkMuted} />}
-        accessibilityLabel="Mes anterior"
-        onPress={() => onChange(desplazarMes(mes, -1))}
-        disabled={cargando}
-      />
-      <IconButton
-        icon={<IconChevron direction="right" color={colors.inkMuted} />}
-        accessibilityLabel="Mes siguiente"
-        onPress={() => onChange(desplazarMes(mes, 1))}
-        disabled={cargando}
-      />
+      {global ? null : (
+        <>
+          <IconButton
+            icon={<IconChevron direction="left" color={colors.inkMuted} />}
+            accessibilityLabel="Mes anterior"
+            onPress={() => onChange(desplazarMes(mes, -1))}
+            disabled={cargando}
+          />
+          <IconButton
+            icon={<IconChevron direction="right" color={colors.inkMuted} />}
+            accessibilityLabel="Mes siguiente"
+            onPress={() => onChange(desplazarMes(mes, 1))}
+            disabled={cargando}
+          />
+        </>
+      )}
     </View>
   );
 }

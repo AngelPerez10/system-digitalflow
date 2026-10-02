@@ -14,6 +14,8 @@ import {
 } from './reporteFormat';
 
 export interface UseReportesResult {
+  /** Hay búsqueda: el listado abarca todos los meses, no solo `mes`. */
+  global: boolean;
   mes: string;
   setMes: (mes: string) => void;
   busqueda: string;
@@ -42,14 +44,17 @@ export function useReportes(): UseReportesResult {
   const fetcher = useCallback((signal: AbortSignal) => listReportes(signal), []);
   const { items, cargando, refrescando, error, recargar } = useEntityList<Reporte>({ fetcher });
 
+  // Con texto en el buscador se ignora el mes (las secciones ya ordenan lo más reciente primero).
+  const global = busqueda.trim().length > 0;
   const delMes = useMemo(
-    () => items.filter((r) => perteneceAlMes(r, mes) && coincideBusqueda(r, busqueda)),
-    [items, mes, busqueda],
+    () => items.filter((r) => (global ? coincideBusqueda(r, busqueda) : perteneceAlMes(r, mes))),
+    [items, mes, busqueda, global],
   );
 
   const conteos = useMemo(() => contarPorEvidencia(delMes), [delMes]);
 
   return {
+    global,
     mes,
     setMes,
     busqueda,

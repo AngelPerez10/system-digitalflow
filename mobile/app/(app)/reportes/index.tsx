@@ -51,7 +51,7 @@ function Listado({ puedeCrear, soloPropios }: { puedeCrear: boolean; soloPropios
   const { user } = useSession();
   const { colors, scheme } = useTheme();
   const {
-    mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, total, conteos,
+    global, mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, total, conteos,
     cargando, refrescando, error, recargar,
   } = useReportes();
 
@@ -75,9 +75,14 @@ function Listado({ puedeCrear, soloPropios }: { puedeCrear: boolean; soloPropios
     <View style={styles.controles}>
       <MesEncabezado
         mes={mes}
-        resumen={`${total} ${total === 1 ? 'reporte' : 'reportes'} ${soloPropios ? 'tuyos ' : ''}en el mes`}
+        resumen={
+          global
+            ? `${total} ${total === 1 ? 'resultado' : 'resultados'}, lo más reciente primero`
+            : `${total} ${total === 1 ? 'reporte' : 'reportes'} ${soloPropios ? 'tuyos ' : ''}en el mes`
+        }
         cargando={cargando && !cargaInicial}
         onChange={setMes}
+        global={global}
       />
       <TextField
         label="Buscar"

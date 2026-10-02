@@ -10,9 +10,19 @@ import {
   type FiltroProyecto,
   type ProyectoSection,
 } from './agrupar';
-import { coincideBusqueda, perteneceAlMes } from './proyectoFormat';
+import { coincideBusqueda, perteneceAlMes, primeraFechaInicio } from './proyectoFormat';
+
+function claveFecha(proyecto: ProyectoListItem): string {
+  return (primeraFechaInicio(proyecto) ?? proyecto.created_at ?? '').slice(0, 10);
+}
+
+function masRecientesPrimero(a: ProyectoListItem, b: ProyectoListItem): number {
+  return claveFecha(b).localeCompare(claveFecha(a)) || (b.idx ?? b.id) - (a.idx ?? a.id);
+}
 
 export interface UseProyectosResult {
+  /** Hay búsqueda: el listado abarca todos los meses, no solo `mes`. */
+  global: boolean;
   mes: string;
   setMes: (mes: string) => void;
   busqueda: string;
@@ -45,15 +55,15 @@ export function useProyectos(): UseProyectosResult {
     fetcher,
   });
 
-  const filtrados = useMemo(
-    () =>
-      items.filter(
-        (proyecto) => perteneceAlMes(proyecto, mes) && coincideBusqueda(proyecto, busqueda),
-      ),
-    [items, mes, busqueda],
-  );
+  // Con texto en el buscador se ignora el mes: busca en todo el historial.
+  const global = busqueda.trim().length > 0;
+  const filtrados = useMemo(() => {
+    if (!global) return items.filter((proyecto) => perteneceAlMes(proyecto, mes));
+    return items.filter((proyecto) => coincideBusqueda(proyecto, busqueda)).sort(masRecientesPrimero);
+  }, [items, mes, busqueda, global]);
 
   return {
+    global,
     mes,
     setMes,
     busqueda,

@@ -40,7 +40,7 @@ export default function CotizacionesScreen() {
   const { colors, scheme } = useTheme();
   const puedeCrear = canCreateModule(permissions, user, 'cotizaciones');
   const {
-    mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, resumen, total,
+    global, mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, resumen, total,
     cargando, refrescando, error, recargar,
   } = useCotizaciones();
 
@@ -49,16 +49,22 @@ export default function CotizacionesScreen() {
     [router],
   );
 
-  const cargaInicial = cargando && total === 0 && !error;
+  // Al buscar no se vuelve a la silueta: remontaría el buscador y cerraría el teclado.
+  const cargaInicial = cargando && total === 0 && !error && !global;
   const filtrado = filtro !== 'todas' || busqueda.trim().length > 0;
 
   const encabezado = (
     <View style={listadoStyles.controles}>
       <MesEncabezado
         mes={mes}
-        resumen={`${total} ${total === 1 ? 'cotización' : 'cotizaciones'} en el mes`}
+        resumen={
+          global
+            ? `${total} ${total === 1 ? 'resultado' : 'resultados'}, lo más reciente primero`
+            : `${total} ${total === 1 ? 'cotización' : 'cotizaciones'} en el mes`
+        }
         cargando={cargando && !cargaInicial}
         onChange={setMes}
+        global={global}
       />
       {!cargaInicial && total > 0 ? (
         <ResumenMesCotizaciones resumen={resumen} filtro={filtro} onFiltro={setFiltro} />
@@ -112,7 +118,7 @@ export default function CotizacionesScreen() {
             )}
             renderItem={({ item, index }) => <CotizacionCard cotizacion={item} onPress={abrir} indice={index} />}
             ListEmptyComponent={
-              error ? null : (
+              error || (global && cargando) ? null : (
                 <EmptyState
                   icon={<SinElementos />}
                   title={

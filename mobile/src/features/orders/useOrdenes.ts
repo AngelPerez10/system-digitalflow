@@ -12,7 +12,22 @@ import {
 } from './agrupar';
 import { coincideBusqueda } from './ordenFormat';
 
+/** Fecha de la orden (inicio, o creación si falta) para ordenar: `YYYY-MM-DD HH:MM`. */
+function claveFecha(orden: OrdenListItem): string {
+  const fecha = (orden.fecha_inicio ?? orden.fecha_creacion ?? '').slice(0, 10);
+  const hora = orden.fecha_inicio ? (orden.hora_inicio ?? '').slice(0, 5) : '';
+  return `${fecha} ${hora}`;
+}
+
+function masRecientesPrimero(ordenes: OrdenListItem[]): OrdenListItem[] {
+  return [...ordenes].sort(
+    (a, b) => claveFecha(b).localeCompare(claveFecha(a)) || (b.idx ?? b.id) - (a.idx ?? a.id),
+  );
+}
+
 export interface UseOrdenesResult {
+  /** Hay búsqueda: el listado abarca todos los meses, no solo `mes`. */
+  global: boolean;
   mes: string;
   setMes: (mes: string) => void;
   busqueda: string;
@@ -39,17 +54,24 @@ export function useOrdenes(): UseOrdenesResult {
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<FiltroStatus>('todas');
 
-  const fetcher = useCallback((signal: AbortSignal) => listOrdenes({ mes, signal }), [mes]);
+  // Con texto en el buscador se trae todo el historial (sin `mes`); el fetcher
+  // solo cambia al pasar de vacío a con texto, no en cada tecla.
+  const global = busqueda.trim().length > 0;
+  const fetcher = useCallback(
+    (signal: AbortSignal) => listOrdenes({ mes: global ? undefined : mes, signal }),
+    [mes, global],
+  );
   const { items, cargando, refrescando, error, recargar } = useEntityList<OrdenListItem>({
     fetcher,
   });
 
-  const filtradas = useMemo(
-    () => items.filter((orden) => coincideBusqueda(orden, busqueda)),
-    [items, busqueda],
-  );
+  const filtradas = useMemo(() => {
+    const coinciden = items.filter((orden) => coincideBusqueda(orden, busqueda));
+    return global ? masRecientesPrimero(coinciden) : coinciden;
+  }, [items, busqueda, global]);
 
   return {
+    global,
     mes,
     setMes,
     busqueda,

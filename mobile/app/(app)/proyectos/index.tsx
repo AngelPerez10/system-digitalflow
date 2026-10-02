@@ -43,7 +43,7 @@ export default function ProyectosScreen() {
   const { user } = useSession();
   const { colors, scheme } = useTheme();
   const {
-    mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, total, conteos,
+    global, mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, total, conteos,
     cargando, refrescando, error, recargar,
   } = useProyectos();
 
@@ -70,9 +70,14 @@ export default function ProyectosScreen() {
     <View style={styles.controles}>
       <MesEncabezado
         mes={mes}
-        resumen={`${total} ${total === 1 ? 'proyecto' : 'proyectos'} en el mes`}
+        resumen={
+          global
+            ? `${total} ${total === 1 ? 'resultado' : 'resultados'}, lo más reciente primero`
+            : `${total} ${total === 1 ? 'proyecto' : 'proyectos'} en el mes`
+        }
         cargando={cargando && !cargaInicial}
         onChange={setMes}
+        global={global}
       />
 
       <TextField

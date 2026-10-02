@@ -47,7 +47,7 @@ export default function OrdenesScreen() {
   const { colors, scheme } = useTheme();
   const { disponiblesSinVer } = usePush();
   const {
-    mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, total, conteos,
+    global, mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, total, conteos,
     cargando, refrescando, error, recargar,
   } = useOrdenes();
 
@@ -56,7 +56,8 @@ export default function OrdenesScreen() {
     [router],
   );
 
-  const cargaInicial = cargando && total === 0 && !error;
+  // Al buscar no se vuelve a la silueta: remontaría el buscador y cerraría el teclado.
+  const cargaInicial = cargando && total === 0 && !error && !global;
   const opcionesFiltro: OpcionFiltro<FiltroStatus>[] = [
     { key: 'todas', label: 'Todas', cantidad: total },
     // «Saldo pendiente» es raro en campo: solo aparece como filtro si hay órdenes ahí.
@@ -75,9 +76,14 @@ export default function OrdenesScreen() {
     <View style={styles.controles}>
       <MesEncabezado
         mes={mes}
-        resumen={`${total} ${total === 1 ? 'orden asignada' : 'órdenes asignadas'}`}
+        resumen={
+          global
+            ? `${total} ${total === 1 ? 'resultado' : 'resultados'}, lo más reciente primero`
+            : `${total} ${total === 1 ? 'orden asignada' : 'órdenes asignadas'}`
+        }
         cargando={cargando && !cargaInicial}
         onChange={setMes}
+        global={global}
       />
 
       <PoolAccesoCard nuevas={disponiblesSinVer} onPress={() => router.push('/ordenes/pool')} />
@@ -133,7 +139,7 @@ export default function OrdenesScreen() {
             )}
             renderItem={({ item }) => <OrdenCard orden={item} onPress={abrirOrden} />}
             ListEmptyComponent={
-              error ? null : (
+              error || (global && cargando) ? null : (
                 <EmptyState
                   icon={<SinElementos />}
                   title={
