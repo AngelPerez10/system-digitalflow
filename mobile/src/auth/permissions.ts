@@ -8,6 +8,16 @@ export function isAdmin(user: SessionUser | null): boolean {
   return Boolean(user?.is_staff || user?.is_superuser);
 }
 
+/**
+ * ¿Puede poner una orden o un proyecto en «Saldo pendiente»? Solo staff o
+ * superusuario, igual que los serializers del backend y la web: ningún
+ * permiso de Gestión de usuarios (`edit`, `cambiar_status`, `liquidar`) lo
+ * concede por sí solo.
+ */
+export function canMarcarSaldoPendiente(user: SessionUser | null): boolean {
+  return isAdmin(user);
+}
+
 export function modulePermissions(permissions: ModulePermissions, moduleKey: string): PermissionFlags {
   return permissions[moduleKey.toLowerCase()] ?? {};
 }

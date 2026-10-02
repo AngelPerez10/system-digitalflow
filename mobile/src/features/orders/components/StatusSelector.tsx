@@ -13,6 +13,12 @@ interface Props {
   disabled?: boolean;
   /** Sin técnico asignado no se permite «Resuelto» ni «Saldo pendiente». */
   sinTecnico?: boolean;
+  /**
+   * Quien puede poner «Saldo pendiente» (solo administración, ver
+   * `canMarcarSaldoPendiente`). Sin esto el técnico no ve la opción, y si la
+   * orden ya está ahí la ve bloqueada.
+   */
+  permiteSaldo?: boolean;
 }
 
 const DESCRIPCION: Record<OrdenStatus, string> = {
@@ -30,34 +36,56 @@ const ICONO: Record<OrdenStatus, (color: string) => React.ReactNode> = {
 };
 
 /**
- * Tres tarjetas en fila: ícono + nombre + qué significa. La activa toma el
+ * Tarjetas de estatus: ícono + nombre + qué significa. La activa toma el
  * tono del estatus (fondo suave, borde y placa sólidos), así el color nunca
  * es la única señal — también cambian el ícono relleno y el peso del texto.
+ *
+ * El técnico ve tres (en fila); administración ve además «Saldo pendiente»
+ * y las cuatro se acomodan en una cuadrícula de 2 × 2.
  */
-export function StatusSelector({ value, onChange, disabled = false, sinTecnico = false }: Props) {
+export function StatusSelector({ value, onChange, disabled = false, sinTecnico = false, permiteSaldo = false }: Props) {
   const { colors } = useTheme();
-  // «Saldo pendiente» lo pone un administrador: el técnico lo ve, pero no puede moverlo.
-  const bloqueadoPorAdmin = value === 'saldo_pendiente';
-  const opciones: readonly OrdenStatus[] = bloqueadoPorAdmin ? ORDEN_STATUSES : ORDEN_STATUSES_TECNICO;
+  // Sin permiso, una orden que ya está en «Saldo pendiente» se ve pero no se mueve.
+  const bloqueadoPorAdmin = !permiteSaldo && value === 'saldo_pendiente';
+  const opciones: readonly OrdenStatus[] =
+    permiteSaldo || bloqueadoPorAdmin ? ORDEN_STATUSES : ORDEN_STATUSES_TECNICO;
+  const cuadricula = opciones.length === 4;
+  const requiereTecnico = (status: OrdenStatus) =>
+    (status === 'resuelto' || status === 'saldo_pendiente') && status !== value;
+  const saldo = statusTone('saldo_pendiente', colors);
+
   return (
     <View style={styles.bloque}>
-      <View style={styles.fila} accessibilityRole="radiogroup" accessibilityLabel="Estatus de la orden">
+      <View
+        style={[styles.fila, cuadricula && styles.cuadricula]}
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Estatus de la orden"
+      >
         {opciones.map((status) => (
           <Opcion
             key={status}
             status={status}
             activo={status === value}
-            disabled={
-              disabled || bloqueadoPorAdmin || (sinTecnico && status === 'resuelto' && value !== 'resuelto')
-            }
+            cuadricula={cuadricula}
+            disabled={disabled || bloqueadoPorAdmin || (sinTecnico && requiereTecnico(status))}
             onPress={() => onChange(status)}
           />
         ))}
       </View>
       {sinTecnico ? (
         <Text style={[styles.aviso, { color: colors.inkSubtle }]}>
-          Asigna un técnico a la orden para poder marcarla como resuelta.
+          {permiteSaldo
+            ? 'Asigna un técnico a la orden para marcarla como resuelta o con saldo pendiente.'
+            : 'Asigna un técnico a la orden para poder marcarla como resuelta.'}
         </Text>
+      ) : null}
+      {permiteSaldo && value === 'saldo_pendiente' ? (
+        <View style={[styles.nota, { backgroundColor: saldo.bg }]} accessibilityLiveRegion="polite">
+          <View style={[styles.notaBarra, { backgroundColor: saldo.text }]} />
+          <Text style={[styles.notaTexto, { color: saldo.text }]}>
+            Trabajo terminado con cobro pendiente. Al liquidarla pasa a Resuelta.
+          </Text>
+        </View>
       ) : null}
       {bloqueadoPorAdmin ? (
         <Text style={[styles.aviso, { color: colors.inkSubtle }]}>
@@ -71,11 +99,13 @@ export function StatusSelector({ value, onChange, disabled = false, sinTecnico =
 function Opcion({
   status,
   activo,
+  cuadricula,
   disabled,
   onPress,
 }: {
   status: OrdenStatus;
   activo: boolean;
+  cuadricula: boolean;
   disabled: boolean;
   onPress: () => void;
 }) {
@@ -113,7 +143,9 @@ function Opcion({
   const borde = seleccion.interpolate({ inputRange: [0, 1], outputRange: [colors.line, solido.bg] });
 
   return (
-    <Animated.View style={[styles.celda, { transform: [{ scale: escala }] }]}>
+    <Animated.View
+      style={[cuadricula ? styles.celdaCuadricula : styles.celda, { opacity: disabled && !activo ? 0.55 : 1, transform: [{ scale: escala }] }]}
+    >
       <Pressable
         accessibilityRole="radio"
         accessibilityState={{ selected: activo, disabled }}
@@ -146,8 +178,22 @@ function Opcion({
 const styles = StyleSheet.create({
   bloque: { gap: spacing.sm },
   fila: { flexDirection: 'row', gap: spacing.sm },
+  cuadricula: { flexWrap: 'wrap' },
   aviso: { ...type.caption },
   celda: { flex: 1, minWidth: 0 },
+  // Dos por fila: 45 % + flexGrow deja el hueco del `gap` sin calcularlo.
+  celdaCuadricula: { flexBasis: '45%', flexGrow: 1, minWidth: 0 },
+  nota: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2,
+    paddingRight: spacing.md,
+    paddingLeft: spacing.sm,
+  },
+  notaBarra: { width: 3, alignSelf: 'stretch', borderRadius: 2 },
+  notaTexto: { ...type.label, fontSize: 13, flex: 1 },
   pressable: { flex: 1 },
   tarjeta: {
     flex: 1,

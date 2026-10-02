@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toUserMessage } from '@/api/errors';
 import { updateProyecto, uploadProyectoImage } from '@/api/proyectosApi';
 import { useSession } from '@/auth/SessionProvider';
-import { isAdmin } from '@/auth/permissions';
+import { canMarcarSaldoPendiente, isAdmin } from '@/auth/permissions';
 import { BarraCarga } from '@/components/BarraCarga';
 import { Colapsable } from '@/components/Colapsable';
 import { DateTimeField } from '@/components/DateTimeField';
@@ -260,6 +260,7 @@ export default function EditarProyectoScreen() {
                   <ProyectoStatusSegment
                     value={form.status}
                     permiteCancelar={admin}
+                    permiteSaldo={canMarcarSaldoPendiente(user)}
                     onChange={(status) => actualizar('status', status)}
                   />
                   <Colapsable abierto={form.status === 'pausado'}>

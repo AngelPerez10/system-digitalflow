@@ -13,6 +13,8 @@ interface Props {
   onChange: (status: ProyectoStatus) => void;
   /** Solo un admin puede cancelar el proyecto (espejo del candado del backend). */
   permiteCancelar?: boolean;
+  /** Solo administración pone «Saldo pendiente» (ver `canMarcarSaldoPendiente`). */
+  permiteSaldo?: boolean;
 }
 
 const STATUS_DETALLE: Record<ProyectoStatus, string> = {
@@ -31,14 +33,19 @@ const STATUS_DETALLE: Record<ProyectoStatus, string> = {
  * «Cancelado» solo existe para administradores: al técnico no se le muestra
  * (el backend también lo bloquea).
  */
-export function ProyectoStatusSegment({ value, onChange, permiteCancelar = false }: Props) {
+export function ProyectoStatusSegment({ value, onChange, permiteCancelar = false, permiteSaldo = false }: Props) {
   const { colors } = useTheme();
-  // El técnico ni siquiera ve «Cancelado»: es una decisión de administración.
-  // «Saldo pendiente» tampoco se ofrece; solo aparece si el proyecto ya está ahí.
+  // El técnico ni siquiera ve «Cancelado» ni «Saldo pendiente»: son decisiones
+  // de administración. Si el proyecto ya está en uno de ellos, se muestra igual.
   const opciones = PROYECTO_STATUSES.filter(
     (status) =>
-      (status !== 'cancelado' || permiteCancelar) && (status !== 'saldo_pendiente' || value === 'saldo_pendiente'),
+      (status !== 'cancelado' || permiteCancelar) &&
+      (status !== 'saldo_pendiente' || permiteSaldo || value === 'saldo_pendiente'),
   );
+  const detalle =
+    value === 'saldo_pendiente' && permiteSaldo
+      ? 'Trabajo concluido con cobro pendiente. Al liquidarlo pasa a Cerrado.'
+      : STATUS_DETALLE[value];
   const columnas = opciones.length === 3 ? 3 : 2;
   const tono = statusTone(value, colors);
 
@@ -56,7 +63,7 @@ export function ProyectoStatusSegment({ value, onChange, permiteCancelar = false
         ))}
       </View>
 
-      <Detalle key={value} texto={STATUS_DETALLE[value]} color={tono.text} fondo={tono.bg} />
+      <Detalle key={value} texto={detalle} color={tono.text} fondo={tono.bg} />
     </View>
   );
 }

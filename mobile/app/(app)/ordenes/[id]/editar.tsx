@@ -14,7 +14,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/auth/SessionProvider';
-import { isAdmin, ownsOrden } from '@/auth/permissions';
+import { canMarcarSaldoPendiente, isAdmin, ownsOrden } from '@/auth/permissions';
 import { inicialesUsuarioDisplay } from '@/auth/nombreUsuario';
 import { toUserMessage } from '@/api/errors';
 import { updateOrden } from '@/api/ordenesApi';
@@ -260,6 +260,7 @@ export default function EditarOrdenScreen() {
                     onChange={(status) => actualizar('status', status)}
                     disabled={guardando}
                     sinTecnico={!orden.tecnico_asignado}
+                    permiteSaldo={canMarcarSaldoPendiente(user)}
                   />
                   <Colapsable abierto={form.status === 'pausado'}>
                     <View style={[styles.colapsado, styles.sinMargenFinal]}>
