@@ -1034,6 +1034,14 @@ class ReporteMantenimientoSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        # El reporte ahora se liga solo a un proyecto. Los reportes viejos ligados a una
+        # orden se conservan: pueden reenviar su misma orden al editarse (la web manda
+        # `orden_id` en cada PATCH) o pasarse a un proyecto, pero no ligarse a otra orden.
+        nueva_orden = attrs.get("orden")
+        if nueva_orden is not None and nueva_orden.pk != getattr(self.instance, "orden_id", None):
+            raise serializers.ValidationError(
+                {"orden_id": "Los reportes de mantenimiento se ligan a un proyecto, ya no a una orden de trabajo."}
+            )
         # Con PATCH parcial, lo que no se envía conserva el valor guardado.
         orden = attrs["orden"] if "orden" in attrs else getattr(self.instance, "orden", None)
         proyecto = attrs["proyecto"] if "proyecto" in attrs else getattr(self.instance, "proyecto", None)

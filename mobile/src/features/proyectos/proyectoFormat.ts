@@ -1,6 +1,7 @@
 import { lightColors, type ThemeColors } from '@/theme/tokens';
 import type {
   EquipoEstadoInstalacion,
+  Proyecto,
   ProyectoEquipoLinea,
   ProyectoListItem,
   ProyectoStatus,
@@ -216,4 +217,94 @@ export function diasDeTrabajo(proyecto: Pick<ProyectoListItem, 'fechas_inicio' |
   const programados = new Set(proyecto.fechas_inicio.map((f) => f.trim().slice(0, 10)).filter(Boolean)).size;
   const enBitacora = proyecto.notas_por_dia.length;
   return { programados, enBitacora, total: Math.max(programados, enBitacora) };
+}
+
+export type RolEquipo = 'responsable' | 'tecnico' | 'auxiliar';
+
+export interface PersonaEquipo {
+  key: string;
+  nombre: string;
+  avatar: string | null;
+  rol: RolEquipo;
+}
+
+export const ROL_EQUIPO_LABEL: Record<RolEquipo, string> = {
+  responsable: 'Responsable',
+  tecnico: 'Técnico',
+  auxiliar: 'Auxiliar',
+};
+
+/** Responsable primero, luego técnicos y auxiliares (misma regla que la tarjeta del listado). */
+export function personasDelEquipo(proyecto: Pick<Proyecto, 'tecnicos' | 'auxiliares'>): PersonaEquipo[] {
+  const tecnicos = [...proyecto.tecnicos].sort((a, b) => Number(b.responsable) - Number(a.responsable));
+  return [
+    ...tecnicos.map((t, i) => ({
+      key: `t-${t.id ?? i}`,
+      nombre: t.nombre.trim() || 'Sin nombre',
+      avatar: t.avatar_url?.trim() || null,
+      rol: (t.responsable ? 'responsable' : 'tecnico') as RolEquipo,
+    })),
+    ...proyecto.auxiliares.map((a, i) => ({
+      key: `a-${a.id ?? i}`,
+      nombre: a.nombre.trim() || 'Sin nombre',
+      avatar: a.avatar_url?.trim() || null,
+      rol: 'auxiliar' as RolEquipo,
+    })),
+  ];
+}
+
+export type EstadoJornada = 'hecha' | 'hoy' | 'proxima';
+
+export interface Jornada {
+  iso: string;
+  /** 1..n en orden de calendario. */
+  numero: number;
+  estado: EstadoJornada;
+  /** La bitácora tiene nota o fotos para esta jornada (se emparejan por posición, como en `BitacoraTimeline`). */
+  conBitacora: boolean;
+}
+
+export interface ResumenJornadas {
+  jornadas: Jornada[];
+  /** Jornadas ya trabajadas (pasadas + hoy). */
+  hechas: number;
+  /** Índice de la jornada de hoy, o `null` si hoy no se trabaja. */
+  indiceHoy: number | null;
+  /** Próxima jornada después de hoy. */
+  siguiente: Jornada | null;
+}
+
+/** Jornadas programadas con su estado respecto a `hoy` (`YYYY-MM-DD`). */
+export function jornadasDelProyecto(
+  proyecto: Pick<ProyectoListItem, 'fechas_inicio' | 'notas_por_dia'>,
+  hoy: string,
+): ResumenJornadas {
+  const fechas = [...new Set(proyecto.fechas_inicio.map((f) => f.trim().slice(0, 10)).filter(Boolean))].sort();
+  const jornadas: Jornada[] = fechas.map((iso, i) => {
+    const nota = proyecto.notas_por_dia[i];
+    return {
+      iso,
+      numero: i + 1,
+      estado: iso < hoy ? 'hecha' : iso === hoy ? 'hoy' : 'proxima',
+      conBitacora: Boolean(nota && (nota.nota.trim() || nota.imagenesUrls.length > 0)),
+    };
+  });
+  const indice = jornadas.findIndex((j) => j.estado === 'hoy');
+  return {
+    jornadas,
+    hechas: jornadas.filter((j) => j.estado !== 'proxima').length,
+    indiceHoy: indice >= 0 ? indice : null,
+    siguiente: jornadas.find((j) => j.estado === 'proxima') ?? null,
+  };
+}
+
+const DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** Partes de un `YYYY-MM-DD` para la ficha del día (sin zona horaria). */
+export function partesFecha(iso: string): { dia: string; numero: number; mes: string } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  const fecha = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return { dia: DIAS_CORTOS[fecha.getDay()]!, numero: fecha.getDate(), mes: MESES_CORTOS[fecha.getMonth()]! };
 }

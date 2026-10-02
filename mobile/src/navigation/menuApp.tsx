@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Href } from 'expo-router';
-import { IconCotizaciones, IconOrdenes, IconProyectos, type NavItem } from '@/components/AppNavbar';
+import { IconCotizaciones, IconOrdenes, IconProyectos, IconReportes, type NavItem } from '@/components/AppNavbar';
 
 /**
  * Catálogo de vistas del menú de la app del técnico. Agregar una vista nueva
@@ -50,6 +50,18 @@ export const MENU_APP: readonly MenuEntrada[] = [
     seccion: 'proyectos',
     navegacion: 'replace',
     icon: (color) => <IconProyectos color={color} />,
+  },
+  {
+    key: 'reportes',
+    label: 'Reportes',
+    hint: 'Evidencia antes / después',
+    grupo: 'Trabajo de campo',
+    modulo: 'reportes_mantenimiento',
+    // Cast: los tipos de rutas de expo-router se regeneran al arrancar el servidor.
+    ruta: '/reportes' as Href,
+    seccion: 'reportes',
+    navegacion: 'replace',
+    icon: (color) => <IconReportes color={color} />,
   },
   {
     key: 'cotizaciones',

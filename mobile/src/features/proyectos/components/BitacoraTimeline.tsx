@@ -5,7 +5,7 @@ import { useVisorFotos } from '@/components/VisorFotos';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, font, radius, spacing, type } from '@/theme/tokens';
 import type { ProyectoNotaDia } from '@/types/proyecto';
-import { partesFecha } from './JornadasCalendario';
+import { partesFecha } from '../proyectoFormat';
 
 const FOTO = 72;
 

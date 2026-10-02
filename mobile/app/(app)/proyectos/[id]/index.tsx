@@ -1,27 +1,60 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { inicialesUsuarioDisplay } from '@/auth/nombreUsuario';
 import { useSession } from '@/auth/SessionProvider';
 import { canEditModule } from '@/auth/permissions';
+import { Avatar } from '@/components/Avatar';
+import {
+  DatosAvance,
+  DatosPersonas,
+  DatosRejilla,
+  DetalleBarraSuperior,
+  DetallePortada,
+  estiloTraslape,
+  HojaDatos,
+  type PersonaDato,
+} from '@/components/DetalleChrome';
 import { FotosGaleria } from '@/components/FotosGaleria';
-import { IconAlerta, IconBox, IconCamera, IconEditar, IconSignature, IconVisto } from '@/components/icons';
-import { ReportePdf } from '@/components/ReportePdf';
+import {
+  IconAlerta,
+  IconBox,
+  IconCalendar,
+  IconCamera,
+  IconClock,
+  IconPerson,
+  IconSignature,
+  IconVisto,
+} from '@/components/icons';
+import { DocumentoPdf } from '@/components/DocumentoPdf';
 import { SegmentedTabs } from '@/components/SegmentedTabs';
 import { ErrorState } from '@/components/StateViews';
 import { BitacoraTimeline } from '@/features/proyectos/components/BitacoraTimeline';
 import { CotizacionesResumen } from '@/features/proyectos/components/CotizacionesResumen';
 import { EquiposProyectoLista } from '@/features/proyectos/components/EquiposProyectoLista';
-import { EquipoTrabajo } from '@/features/proyectos/components/EquipoTrabajo';
 import { FirmasProyectoTarjeta } from '@/features/proyectos/components/FirmasProyectoTarjeta';
-import { JornadasCalendario } from '@/features/proyectos/components/JornadasCalendario';
-import { ProyectoDetalleHeader } from '@/features/proyectos/components/ProyectoDetalleHeader';
+import { DetallesProyecto } from '@/features/proyectos/components/DetallesProyecto';
+import { JornadasPanel } from '@/features/proyectos/components/JornadasPanel';
+import { colorPorAvance } from '@/features/proyectos/components/PorcentajeAvance';
+import { ProyectoStatusIcon } from '@/features/proyectos/components/ProyectoStatusIcon';
 import { DetalleProyectoSkeleton } from '@/features/proyectos/components/ProyectoSkeletons';
-import { diasDeTrabajo, folioDisplay, proyectoTieneTipoAlarmas, statusLabel } from '@/features/proyectos/proyectoFormat';
+import {
+  clienteDisplay,
+  diasDeTrabajo,
+  folioDisplay,
+  personasDelEquipo,
+  primeraFechaInicio,
+  ROL_EQUIPO_LABEL,
+  statusLabel,
+  statusTone,
+} from '@/features/proyectos/proyectoFormat';
 import { useProyecto } from '@/features/proyectos/useProyecto';
+import { usePdfDocumento } from '@/hooks/usePdfDocumento';
 import { useTheme } from '@/theme/ThemeProvider';
-import { elevationFor, font, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
+import { darkColors, elevationFor, font, radius, spacing, type } from '@/theme/tokens';
+import type { Proyecto } from '@/types/proyecto';
 import { formatFecha, formatHora } from '@/utils/fecha';
 import { useReducedMotion } from '@/utils/useReducedMotion';
 
@@ -58,22 +91,6 @@ function Grupo({
       >
         {children}
       </View>
-    </View>
-  );
-}
-
-/** Fila etiqueta → valor dentro de un grupo compacto. */
-function Fila({ label, valor, primera = false }: { label: string; valor: string; primera?: boolean }) {
-  const { colors } = useTheme();
-  const vacio = valor === '—';
-  return (
-    <View
-      style={[styles.fila, !primera ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line } : null]}
-      accessible
-      accessibilityLabel={`${label}: ${vacio ? 'sin dato' : valor}`}
-    >
-      <Text style={[styles.filaLabel, { color: colors.inkMuted }]}>{label}</Text>
-      <Text style={[styles.filaValor, { color: vacio ? colors.inkSubtle : colors.ink }]}>{vacio ? 'Sin dato' : valor}</Text>
     </View>
   );
 }
@@ -151,27 +168,39 @@ function Vacio({ icon, titulo, texto }: { icon: React.ReactNode; titulo: string;
 const piezasDe = (cantidad: number) => Math.max(1, cantidad || 1);
 
 /**
- * Detalle del proyecto: cabecera editorial y cuatro pestañas (Resumen,
- * Equipos, Bitácora, Evidencia) en lugar de una columna larga de secciones.
- * Las pestañas se quedan pegadas arriba al desplazar; «Editar» vive fijo abajo.
+ * Detalle del proyecto, mismo esquema que Órdenes y Reportes: portada marina
+ * (cliente, estatus, folio, avance) que se aleja al desplazar, barra fija con
+ * «Editar», y la hoja «Datos del proyecto» montada sobre la portada (jornadas,
+ * horario, equipo y avance). Debajo, las cuatro pestañas (se quedan pegadas
+ * arriba al desplazar).
  */
 export default function DetalleProyectoScreen() {
-  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const proyectoId = Number(id);
   const { proyecto, cargando, error, recargar } = useProyecto(Number.isFinite(proyectoId) ? proyectoId : null);
+
+  // Al volver de editar se recarga en segundo plano: el contenido se queda y se actualiza en su lugar.
+  if (!proyecto && (cargando || !error)) return <DetalleProyectoSkeleton />;
+  if (!proyecto) return <ErrorState message={error ?? 'Proyecto no encontrado.'} onRetry={recargar} />;
+  return <DetalleProyecto proyecto={proyecto} />;
+}
+
+function DetalleProyecto({ proyecto }: { proyecto: Proyecto }) {
+  const router = useRouter();
   const { user, permissions } = useSession();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const [pestana, setPestana] = useState<Pestana>('resumen');
   const scrollRef = useRef<ScrollView>(null);
-
-  if (cargando) return <DetalleProyectoSkeleton />;
-  if (error || !proyecto) return <ErrorState message={error ?? 'Proyecto no encontrado.'} onRetry={recargar} />;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  /** Posición de las pestañas en el contenido: al cambiar de pestaña se vuelve aquí, no al tope. */
+  const yPestanas = useRef(0);
 
   const puedeEditar = canEditModule(permissions, user, 'proyectos');
   const folio = folioDisplay(proyecto);
+  const cliente = clienteDisplay(proyecto);
   const dias = diasDeTrabajo(proyecto);
+  const pct = Math.max(0, Math.min(100, Math.round(proyecto.porcentaje_avance)));
   const piezas = proyecto.equipos.reduce((acc, e) => acc + piezasDe(e.cantidad), 0);
   const entregadas = proyecto.equipos.filter((e) => e.equipoEntregado).reduce((acc, e) => acc + piezasDe(e.cantidad), 0);
   const instaladas = proyecto.equipos
@@ -180,48 +209,126 @@ export default function DetalleProyectoScreen() {
   const notas = proyecto.notas_por_dia.filter((n) => n.nota.trim() || n.imagenesUrls.length > 0).length;
   const firmas = [proyecto.firma_cliente_url, proyecto.firma_tecnico_url].filter(Boolean).length;
   const evidencias = proyecto.evidencias_urls.length + firmas;
-  const personas = proyecto.tecnicos.length + proyecto.auxiliares.length;
   const hayIncidencias = Boolean(
     proyecto.incidencias || proyecto.requerimientos_adicionales || proyecto.requiere_presupuesto_adicional,
   );
+  const primera = primeraFechaInicio(proyecto);
+  const llegada = proyecto.hora_llegada ? formatHora(proyecto.hora_llegada) : null;
+  const salida = proyecto.hora_salida ? formatHora(proyecto.hora_salida) : null;
+  const irEditar = () => router.push(`/proyectos/${proyecto.id}/editar` as Href);
 
   const cambiarPestana = (p: Pestana) => {
     setPestana(p);
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    // Si ya se bajó más allá de las pestañas, vuelve a ellas (no al tope de la portada).
+    scrollRef.current?.scrollTo({ y: yPestanas.current, animated: false });
   };
 
-  const esAlarmas = proyectoTieneTipoAlarmas(proyecto.tipos_trabajo);
-  const detalles = [
-    { label: 'Tipo de trabajo', valor: proyecto.tipos_trabajo.map((t) => t.nombre).join(', ') || '—' },
-    ...(esAlarmas
-      ? [
-          {
-            label: 'Monitoreo',
-            valor: proyecto.monitoreo === true ? 'Sí cuenta' : proyecto.monitoreo === false ? 'No cuenta' : 'Pendiente',
-          },
-        ]
-      : []),
-    { label: 'Autorizado', valor: proyecto.fecha_autorizacion ? formatFecha(proyecto.fecha_autorizacion) : '—' },
-    { label: 'Autorizó', valor: proyecto.quien_autorizo?.trim() || '—' },
-    ...(proyecto.vehiculo_asignado ? [{ label: 'Vehículo', valor: proyecto.vehiculo_asignado }] : []),
-    ...(proyecto.herramientas_generales ? [{ label: 'Herramientas', valor: proyecto.herramientas_generales }] : []),
-  ];
+  const basePdf = `/proyectos/${proyecto.id}`;
+  const nombreArchivo = `Proyecto_${folio}.pdf`;
+  const pdf = usePdfDocumento(basePdf, nombreArchivo, `el reporte del proyecto ${folio}`);
+
+  // Responsable primero, luego técnicos y auxiliares; foto real o iniciales.
+  const personas: PersonaDato[] = personasDelEquipo(proyecto).map((p) => ({
+    nombre: p.nombre,
+    rol: p.rol === 'tecnico' ? undefined : ROL_EQUIPO_LABEL[p.rol],
+    avatar: (
+      <Avatar
+        uri={p.avatar}
+        iniciales={inicialesUsuarioDisplay(p.nombre, 'T')}
+        size={30}
+        fondo={p.rol === 'auxiliar' ? colors.primary : colors.navy}
+        color={colors.onNavy}
+      />
+    ),
+  }));
+
+  const tipo = proyecto.tipo_trabajo_nombre || proyecto.tipos_trabajo[0]?.nombre;
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.canvas }]}>
       <Stack.Screen options={{ title: `${folio} · ${statusLabel(proyecto.status)}`, headerShown: false }} />
       <StatusBar style="light" />
 
-      <ProyectoDetalleHeader proyecto={proyecto} onVolver={() => router.back()} />
+      <DetalleBarraSuperior
+        scrollY={scrollY}
+        titulo={cliente}
+        subtitulo={folio}
+        onVolver={() => router.back()}
+        volverLabel="Volver a mis proyectos"
+        editar={puedeEditar ? { label: 'Editar', onPress: irEditar, accessibilityLabel: 'Editar proyecto' } : undefined}
+      />
 
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
-        stickyHeaderIndices={[0]}
+        // Hijos: 0 portada, 1 hoja de datos, 2 pestañas (pegadas arriba), 3 contenido.
+        stickyHeaderIndices={[2]}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={{ paddingBottom: spacing.xxl + insets.bottom }}
         accessibilityLabel={`Detalle del proyecto ${folio}`}
       >
-        <View style={[styles.tabsCaja, { backgroundColor: colors.canvas }]}>
+        <DetallePortada
+          scrollY={scrollY}
+          eyebrow={tipo ? `Proyecto · ${tipo}` : 'Proyecto'}
+          titulo={cliente}
+          pildoras={[
+            {
+              key: 'status',
+              label: statusLabel(proyecto.status),
+              tono: statusTone(proyecto.status, darkColors),
+              icon: (c) => <ProyectoStatusIcon status={proyecto.status} color={c} size={12} />,
+              accessibilityLabel: `Estatus: ${statusLabel(proyecto.status)}`,
+            },
+            { key: 'folio', label: folio, mono: true },
+            { key: 'avance', label: `${pct}% de avance`, accessibilityLabel: `Avance ${pct} por ciento` },
+          ]}
+        />
+
+        <View style={styles.hojaCaja}>
+          <HojaDatos titulo="Datos del proyecto">
+            <DatosRejilla
+              celdas={[
+                {
+                  key: 'jornadas',
+                  icon: <IconCalendar color={colors.primary} size={12} />,
+                  label: 'Jornadas',
+                  valor: primera ? formatFecha(primera) : 'Sin fecha',
+                  secundario: dias.total ? `${dias.total} ${dias.total === 1 ? 'día' : 'días'} de trabajo` : null,
+                  apagado: !primera,
+                },
+                {
+                  key: 'horario',
+                  icon: <IconClock color={colors.primary} size={12} />,
+                  label: 'Horario',
+                  valor: llegada || salida ? `${llegada ?? '—'} – ${salida ?? '—'}` : 'Sin registrar',
+                  secundario: llegada || salida ? 'Llegada – salida' : null,
+                  apagado: !llegada && !salida,
+                },
+              ]}
+            />
+            <DatosPersonas
+              etiqueta="Equipo de trabajo"
+              icon={<IconPerson color={colors.primary} size={12} />}
+              vacio="Sin técnicos asignados"
+              personas={personas}
+            />
+            <DatosAvance
+              label="Avance del proyecto"
+              valor={`${pct}%`}
+              fraccion={pct / 100}
+              color={colorPorAvance(pct, colors).text}
+              completo={pct >= 100}
+            />
+          </HojaDatos>
+        </View>
+
+        <View
+          style={[styles.tabsCaja, { backgroundColor: colors.canvas }]}
+          onLayout={(e) => {
+            yPestanas.current = e.nativeEvent.layout.y;
+          }}
+        >
           <SegmentedTabs<Pestana>
             accessibilityLabel="Secciones del proyecto"
             value={pestana}
@@ -248,45 +355,15 @@ export default function DetalleProyectoScreen() {
                 </View>
               ) : null}
 
-              <Grupo titulo="Equipo de trabajo" meta={personas ? `${personas}` : undefined}>
-                <EquipoTrabajo proyecto={proyecto} />
-              </Grupo>
-
-              <Grupo
-                titulo="Jornadas"
-                meta={dias.total ? `${dias.total} ${dias.total === 1 ? 'día' : 'días'}` : undefined}
-              >
-                <JornadasCalendario fechas={proyecto.fechas_inicio} />
-                {dias.enBitacora !== dias.programados && dias.enBitacora > 0 ? (
-                  <Text style={[styles.nota, { color: colors.inkSubtle }]}>
-                    {dias.programados} {dias.programados === 1 ? 'día programado' : 'días programados'} ·{' '}
-                    {dias.enBitacora} {dias.enBitacora === 1 ? 'registrado' : 'registrados'} en bitácora
-                  </Text>
-                ) : null}
-                <View style={[styles.horario, { borderTopColor: colors.line }]}>
-                  <View style={styles.hora}>
-                    <Text style={[styles.horaLabel, { color: colors.inkSubtle }]}>Llegada</Text>
-                    <Text style={[styles.horaValor, { color: proyecto.hora_llegada ? colors.ink : colors.inkSubtle }]}>
-                      {proyecto.hora_llegada ? formatHora(proyecto.hora_llegada) : '—'}
-                    </Text>
-                  </View>
-                  <View style={[styles.horaDivisor, { backgroundColor: colors.line }]} />
-                  <View style={styles.hora}>
-                    <Text style={[styles.horaLabel, { color: colors.inkSubtle }]}>Salida</Text>
-                    <Text style={[styles.horaValor, { color: proyecto.hora_salida ? colors.ink : colors.inkSubtle }]}>
-                      {proyecto.hora_salida ? formatHora(proyecto.hora_salida) : '—'}
-                    </Text>
-                  </View>
-                </View>
+              <Grupo titulo="Jornadas" meta={dias.total ? `${dias.total} ${dias.total === 1 ? 'día' : 'días'}` : undefined}>
+                <JornadasPanel proyecto={proyecto} />
               </Grupo>
 
               <Grupo titulo="Detalles" compacto>
-                {detalles.map((d, i) => (
-                  <Fila key={d.label} label={d.label} valor={d.valor} primera={i === 0} />
-                ))}
+                <DetallesProyecto proyecto={proyecto} />
               </Grupo>
 
-              <Grupo titulo="Cotizaciones" meta={proyecto.cotizaciones.length ? `${proyecto.cotizaciones.length}` : undefined}>
+              <Grupo titulo="Cotizaciones" meta={proyecto.cotizaciones.length ? `${proyecto.cotizaciones.length}` : undefined} compacto>
                 <CotizacionesResumen bloques={proyecto.cotizaciones} />
               </Grupo>
 
@@ -315,14 +392,25 @@ export default function DetalleProyectoScreen() {
                 </Grupo>
               ) : null}
 
-              <Grupo titulo="Reporte PDF">
-                <ReportePdf
-                  base={`/proyectos/${proyecto.id}`}
-                  nombreArchivo={`Proyecto_${folio}.pdf`}
-                  meta={`Reporte del proyecto · ${statusLabel(proyecto.status)}`}
-                  documento={`el reporte del proyecto ${folio}`}
+              {/* El documento ya es una tarjeta: solo lleva su título afuera. */}
+              <View style={styles.grupo}>
+                <View style={styles.grupoCabeza}>
+                  <Text style={[styles.grupoTitulo, { color: colors.inkSubtle }]} accessibilityRole="header">
+                    Reporte PDF
+                  </Text>
+                </View>
+                <DocumentoPdf
+                  pdf={pdf}
+                  base={basePdf}
+                  nombreArchivo={nombreArchivo}
+                  incluye={`${statusLabel(proyecto.status)} · ${pct}% de avance · ${piezas} ${piezas === 1 ? 'equipo' : 'equipos'}`}
+                  conCorreo
                 />
-              </Grupo>
+              </View>
+
+              {!puedeEditar ? (
+                <Text style={[styles.sinPermiso, { color: colors.inkSubtle }]}>Tu cuenta no tiene permiso para editar proyectos.</Text>
+              ) : null}
             </Aparecer>
           ) : null}
 
@@ -368,10 +456,7 @@ export default function DetalleProyectoScreen() {
                 />
               ) : (
                 <>
-                  <Grupo
-                    titulo="Fotos"
-                    meta={proyecto.evidencias_urls.length ? `${proyecto.evidencias_urls.length}` : undefined}
-                  >
+                  <Grupo titulo="Fotos" meta={proyecto.evidencias_urls.length ? `${proyecto.evidencias_urls.length}` : undefined}>
                     {proyecto.evidencias_urls.length > 0 ? (
                       <FotosGaleria urls={proyecto.evidencias_urls} />
                     ) : (
@@ -393,37 +478,16 @@ export default function DetalleProyectoScreen() {
             </Aparecer>
           ) : null}
         </View>
-      </ScrollView>
-
-      <View
-        style={[
-          styles.barraInferior,
-          { backgroundColor: colors.surface, borderTopColor: colors.line, paddingBottom: Math.max(insets.bottom, spacing.md) },
-        ]}
-      >
-        {puedeEditar ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Editar proyecto"
-            accessibilityHint="Abre el formulario de campo"
-            onPress={() => router.push(`/proyectos/${proyecto.id}/editar` as Href)}
-            style={({ pressed }) => [styles.botonEditar, { backgroundColor: pressed ? colors.primaryPressed : colors.primary }]}
-          >
-            <IconEditar color={colors.onPrimary} size={16} />
-            <Text style={[styles.botonEditarTexto, { color: colors.onPrimary }]}>Editar proyecto</Text>
-          </Pressable>
-        ) : (
-          <Text style={[styles.sinPermiso, { color: colors.inkSubtle }]}>Tu cuenta no tiene permiso para editar proyectos.</Text>
-        )}
-      </View>
+      </Animated.ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  scroll: { paddingBottom: spacing.xxl },
-  tabsCaja: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  /** La hoja de datos sube sobre la portada. */
+  hojaCaja: { paddingHorizontal: spacing.lg, ...estiloTraslape(0) },
+  tabsCaja: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.sm },
   contenido: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   grupo: { gap: spacing.sm },
   grupoCabeza: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: spacing.xs },
@@ -431,14 +495,6 @@ const styles = StyleSheet.create({
   grupoMeta: { ...type.mono, fontSize: 12 },
   grupoTarjeta: { borderWidth: 1, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md, overflow: 'hidden' },
   grupoCompacto: { paddingVertical: 0, paddingHorizontal: spacing.lg, gap: 0 },
-  fila: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.lg, paddingVertical: spacing.md },
-  filaLabel: { ...type.body, fontSize: 14 },
-  filaValor: { ...type.bodyMedium, fontSize: 14, flexShrink: 1, textAlign: 'right' },
-  horario: { flexDirection: 'row', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md },
-  hora: { flex: 1, alignItems: 'center', gap: 2 },
-  horaLabel: { fontFamily: font.semibold, fontSize: 10, letterSpacing: 0.9, textTransform: 'uppercase' },
-  horaValor: { fontFamily: font.semibold, fontSize: 18, lineHeight: 23, letterSpacing: -0.4, fontVariant: ['tabular-nums'] },
-  horaDivisor: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
   aviso: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, borderRadius: radius.lg, padding: spacing.lg },
   avisoTextos: { flex: 1, gap: 2 },
   avisoTitulo: { ...type.label, fontFamily: font.semibold },
@@ -460,17 +516,6 @@ const styles = StyleSheet.create({
   vacioTitulo: { fontFamily: font.semibold, fontSize: 15 },
   vacioTexto: { ...type.caption, textAlign: 'center', paddingHorizontal: spacing.xl },
   sinDato: { ...type.caption },
-  nota: { ...type.caption, fontSize: 12 },
   sinFirmas: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  barraInferior: { borderTopWidth: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  botonEditar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    minHeight: TOUCH_TARGET,
-    borderRadius: radius.md,
-  },
-  botonEditarTexto: { ...type.button },
   sinPermiso: { ...type.caption, textAlign: 'center', paddingVertical: spacing.sm },
 });

@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import { Animated, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { RefreshControl, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
 import { useSession } from '@/auth/SessionProvider';
 import { canCreateModule } from '@/auth/permissions';
 import { BarraCarga } from '@/components/BarraCarga';
+import { BotonFlotante } from '@/components/BotonFlotante';
 import {
   hojaEstilo,
   listadoStyles,
@@ -24,9 +25,8 @@ import { CotizacionStatusIcon } from '@/features/cotizaciones/components/Cotizac
 import { ResumenMesCotizaciones } from '@/features/cotizaciones/components/ResumenMesCotizaciones';
 import { useCotizaciones } from '@/features/cotizaciones/useCotizaciones';
 import { useTheme } from '@/theme/ThemeProvider';
-import { elevationFor, font, radius, spacing, TOUCH_TARGET } from '@/theme/tokens';
+import { radius, spacing } from '@/theme/tokens';
 import type { CotizacionListItem } from '@/types/cotizacion';
-import { useReducedMotion } from '@/utils/useReducedMotion';
 
 /**
  * Cotizaciones del mes — misma anatomía que Órdenes y Proyectos (saludo, hoja
@@ -140,61 +140,13 @@ export default function CotizacionesScreen() {
       </View>
 
       {puedeCrear ? (
-        <BotonNueva bottom={insets.bottom + spacing.lg} onPress={() => router.push('/cotizaciones/nueva' as Href)} />
+        <BotonFlotante
+          label="Nueva cotización"
+          bottom={insets.bottom + spacing.lg}
+          onPress={() => router.push('/cotizaciones/nueva' as Href)}
+        />
       ) : null}
     </SafeAreaView>
-  );
-}
-
-/** Botón flotante «Nueva cotización»: entra desde abajo y se hunde al tocarlo. */
-function BotonNueva({ bottom, onPress }: { bottom: number; onPress: () => void }) {
-  const { colors } = useTheme();
-  const reduced = useReducedMotion();
-  const entrada = useRef(new Animated.Value(reduced ? 1 : 0)).current;
-  const escala = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (reduced) return;
-    const anim = Animated.spring(entrada, { toValue: 1, friction: 8, tension: 90, delay: 250, useNativeDriver: true });
-    anim.start();
-    return () => anim.stop();
-  }, [entrada, reduced]);
-
-  const presionar = (destino: number) => {
-    if (reduced) return;
-    Animated.spring(escala, { toValue: destino, friction: 9, tension: 300, useNativeDriver: true }).start();
-  };
-
-  return (
-    <Animated.View
-      style={[
-        styles.fabCaja,
-        {
-          bottom,
-          opacity: entrada,
-          transform: [
-            { translateY: entrada.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
-            { scale: escala },
-          ],
-        },
-      ]}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Nueva cotización"
-        onPress={onPress}
-        onPressIn={() => presionar(0.95)}
-        onPressOut={() => presionar(1)}
-        style={({ pressed }) => [
-          styles.fab,
-          { backgroundColor: pressed ? colors.primaryPressed : colors.primary },
-          elevationFor(colors, 'panel'),
-        ]}
-      >
-        <Text style={[styles.fabMas, { color: colors.onPrimary }]}>+</Text>
-        <Text style={[styles.fabTexto, { color: colors.onPrimary }]}>Nueva cotización</Text>
-      </Pressable>
-    </Animated.View>
   );
 }
 
@@ -220,17 +172,6 @@ function SiluetaLista() {
 }
 
 const styles = StyleSheet.create({
-  fabCaja: { position: 'absolute', right: spacing.lg },
-  fab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    height: TOUCH_TARGET + 4,
-    paddingHorizontal: spacing.lg + 2,
-    borderRadius: radius.pill,
-  },
-  fabMas: { fontFamily: font.semibold, fontSize: 22, lineHeight: 24, marginTop: -2 },
-  fabTexto: { fontFamily: font.semibold, fontSize: 15 },
   silueta: { borderWidth: 1, borderRadius: radius.card, padding: spacing.lg, gap: spacing.md, marginTop: spacing.md },
   siluetaFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   siluetaTextos: { flex: 1, gap: spacing.sm },

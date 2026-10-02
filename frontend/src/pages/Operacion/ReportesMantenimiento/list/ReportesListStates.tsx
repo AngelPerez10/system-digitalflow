@@ -68,7 +68,7 @@ export function ReportesEmptyState({ filtered, sinReportes, canCreate, onClear, 
         {filtered
           ? "Prueba con otro término o quita algunos filtros."
           : canCreate
-            ? "Vincula una orden de trabajo, captura las fotos de Antes y Después y genera el PDF. También puedes cambiar de mes con las flechas de arriba."
+            ? "Vincula un proyecto, captura las fotos de Antes y Después y genera el PDF. También puedes cambiar de mes con las flechas de arriba."
             : "Cuando se registre un reporte aparecerá aquí. Revisa otros meses con las flechas de arriba."}
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">

@@ -13,6 +13,7 @@ import { toUserMessage } from '@/api/errors';
 import { uploadOrdenImage } from '@/api/ordenesApi';
 import { useVisorFotos } from '@/components/VisorFotos';
 import { comprimirFotoParaSubida } from '@/utils/comprimirFoto';
+import { miniaturaUrl } from '@/utils/miniatura';
 import { useTheme } from '@/theme/ThemeProvider';
 import { elevationFor, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
 import { IconCamera } from '@/components/icons';
@@ -26,6 +27,8 @@ interface Props {
    *  defecto sube a `ordenes/fotos`; Proyectos pasa `uploadProyectoImage`
    *  con su propia carpeta (`proyectos/evidencias`). */
   subirFoto?: (dataUrl: string) => Promise<string>;
+  /** Contexto para lectores de pantalla cuando hay varios editores en la vista («antes, Tablero»). */
+  contexto?: string;
 }
 
 const HUECO = spacing.sm;
@@ -45,7 +48,9 @@ export function FotosEditor({
   onChange,
   disabled = false,
   subirFoto = (dataUrl) => uploadOrdenImage(dataUrl, 'ordenes/fotos'),
+  contexto,
 }: Props) {
+  const de = contexto ? ` de ${contexto}` : '';
   const { colors } = useTheme();
   const { abrir, visor } = useVisorFotos();
   const [subiendo, setSubiendo] = useState(false);
@@ -179,13 +184,14 @@ export function FotosEditor({
               ) : (
                 <Pressable
                   accessibilityRole="imagebutton"
-                  accessibilityLabel={`Ver foto ${index + 1} de ${urls.length}`}
+                  accessibilityLabel={`Ver foto ${index + 1} de ${urls.length}${de}`}
                   onPress={() => abrir(urls, index)}
                   style={styles.miniaturaTouch}
                 >
                   <Image
                     key={intento}
-                    source={{ uri: url }}
+                    // Miniatura recortada por Cloudinary: la foto completa solo se baja en el visor.
+                    source={{ uri: miniaturaUrl(url, 480) }}
                     style={[
                       styles.miniatura,
                       { backgroundColor: colors.surfaceSunken },
@@ -198,7 +204,7 @@ export function FotosEditor({
               )}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Quitar foto ${index + 1}`}
+                accessibilityLabel={`Quitar foto ${index + 1}${de}`}
                 disabled={disabled || subiendo}
                 onPress={() => quitar(index)}
                 style={({ pressed }) => [styles.quitar, pressed ? styles.quitarPressed : null]}
@@ -214,7 +220,7 @@ export function FotosEditor({
       <View style={styles.acciones}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Tomar foto"
+          accessibilityLabel={`Tomar foto${de}`}
           accessibilityState={{ disabled: disabled || lleno || subiendo }}
           disabled={disabled || lleno || subiendo}
           onPress={() => void tomarFoto()}
@@ -230,7 +236,7 @@ export function FotosEditor({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Elegir de la galería"
+          accessibilityLabel={`Elegir de la galería${de}`}
           accessibilityState={{ disabled: disabled || lleno || subiendo }}
           disabled={disabled || lleno || subiendo}
           onPress={() => void elegirGaleria()}

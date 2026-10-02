@@ -137,6 +137,17 @@ export function IconCotizaciones({ color, size = 20 }: { color: string; size?: n
   );
 }
 
+/** Dos marcos (antes / después) con una flecha entre ellos: reportes de mantenimiento. */
+export function IconReportes({ color, size = 20 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3.5 6.5h6.5v11H3.5zM14 6.5h6.5v11H14z" stroke={color} strokeWidth={1.9} strokeLinejoin="round" />
+      <Path d="M5.5 14.5l2-2.5 1.5 1.5M16 14.5l2-2.5 1.5 1.5" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M11 12h2" stroke={color} strokeWidth={1.9} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function IconProyectos({ color, size = 20 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

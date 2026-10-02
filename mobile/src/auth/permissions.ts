@@ -40,6 +40,16 @@ export function isOrdenesOwnOnly(permissions: ModulePermissions, user: SessionUs
   return !isAdmin(user);
 }
 
+/**
+ * «Solo mis reportes de mantenimiento». Mismo criterio que `user_module_own_only`
+ * del backend: si la bandera no está declarada, quien no es admin ve solo lo suyo.
+ */
+export function isReportesOwnOnly(permissions: ModulePermissions, user: SessionUser | null): boolean {
+  const flags = modulePermissions(permissions, 'reportes_mantenimiento');
+  if (typeof flags.own_only === 'boolean') return flags.own_only;
+  return !isAdmin(user);
+}
+
 /** Dueño de la orden: técnico asignado o quien la creó (igual que `orden_user_owns`). */
 export function ownsOrden(
   user: SessionUser | null,

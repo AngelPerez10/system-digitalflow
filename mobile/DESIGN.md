@@ -811,6 +811,122 @@ agregó como un campo más dentro de «Detalles del servicio».
 **Enlaces externos, misma regla que las direcciones** (ver «Enlaces externos» abajo): no
 aplica aquí porque fotos y firmas se muestran embebidas (`<Image>`), no como enlace tocable.
 
+## Reportes de mantenimiento (2026-10-02)
+
+Cuarta vista del menú («Reportes», grupo *Trabajo de campo*, permiso
+`reportes_mantenimiento`). **Misma gramática que Órdenes y Proyectos** — una primera versión
+con panel de métricas del mes y portada de fotos a sangre se retiró a petición del usuario
+(«sin métricas», «más parecido a órdenes y proyectos»).
+
+- **Listado** — saludo + hoja con el mes, búsqueda y `FiltroChips` (Todos / Sin evidencia /
+  Incompletos / Completos); secciones por **estado de la evidencia**, lo que falta primero.
+  Ámbar = sin fotos, índigo = le falta un lado, verde = completo (familias `status*`).
+- **Tarjeta** — la de Órdenes/Proyectos: placa de color con el ícono del estado, folio ·
+  origen, cliente como ancla, punto + estado; luego la evidencia: **tira de 4 miniaturas**
+  de 54 px (un Antes y un Después por zona, punto dorado/verde en la esquina, «+N» en la
+  última) y una **barra segmentada, un segmento por zona**, que crece con `scaleX` al
+  aparecer. Sin fotos: aviso punteado «Faltan las fotos…». Pie: fecha («Hoy» en dorado),
+  técnico con iniciales y la acción («Tomar fotos» con flecha dorada / «Ver reporte»).
+- **Detalle** (rediseñado desde cero) — la evidencia manda y va primero:
+  - **Cabecera en dos piezas, título grande que se encoge** (patrón «large title»):
+    - *Portada* (dentro de la lista, a sangre): sobria — «REPORTE DE MANTENIMIENTO» en
+      versalitas, el cliente a 26 px y dos píldoras (estado de la evidencia y folio con
+      contorno). Sin halos ni paneles translúcidos (una versión con medalla, halo y panel de
+      porcentaje se retiró: se leía recargada). Al desplazar se aleja con parallax y se
+      desvanece.
+    - *Datos del servicio*: hoja blanca que **sube 44 px sobre la portada** (patrón hoja
+      sobre cabecera del acceso): título, cuadrícula de dos celdas separadas por líneas de
+      1 px (Fecha + día de la semana · Proyecto + cliente), técnicos con avatar de iniciales
+      y, al pie, «Evidencia — 12 de 20 zonas completas» con barra de 6 px que se llena. Entra
+      subiendo después de la portada.
+    - *Barra fija*: volver, el título compacto (cliente + folio) que aparece cuando la
+      portada ya se fue, la **píldora dorada «Editar»** y **«⋯»**; una línea de cierre
+      aparece cuando el contenido pasa por debajo. Todo con `Animated.event` en el hilo
+      nativo (sin recalcular layout al desplazar).
+  - **Evidencia pensada para reportes largos** (20+ zonas, 2+ fotos por lado): el detalle
+    es una `FlatList` virtualizada (solo se dibujan las filas visibles). Cada zona es una
+    fila con número, nombre, estado y su par **Antes | Después lado a lado** (primera foto de
+    cada lado, miniatura de Cloudinary, conteo si hay más). Filtro rápido *Todas / Completas
+    / Con faltantes* para ir directo a lo que falta.
+  - **Visor de zona** a pantalla completa al tocar una fila: Antes arriba y Después abajo
+    (comparación vertical), cada lado con su carrusel, contador y puntos; tocar una foto abre
+    el visor con zoom. «Anterior / Siguiente» (mismo tamaño) recorre las zonas sin volver a
+    la lista; una barra dorada marca la posición y el contenido se desliza en la dirección
+    del cambio.
+  - **Sin barra de botones al pie.** Las acciones viven en la cabecera marina: «Editar» /
+    «Tomar fotos» como píldora dorada a la vista (solo con permiso) y «⋯», que abre una
+    **hoja de acciones** desde abajo (`HojaAcciones`): Editar, Descargar PDF, Enviar por
+    WhatsApp y, separado al final y en rojo, Eliminar (solo con permiso).
+  - **Tarjeta del documento** arriba, entre Servicio y la evidencia (no enterrada tras 20
+    zonas): ficha del PDF (nombre, zonas · fotos, «enlace seguro, válido 7 días») y dos
+    acciones del mismo tamaño, Descargar y WhatsApp; al guardar, una confirmación entra con
+    un fundido corto.
+  - Datos del servicio en filas con placa de ícono (fecha, proyecto + cliente, técnicos en
+    píldoras con iniciales) y la tarjeta del PDF.
+- **Acciones del mismo tamaño** — `BotonAccion` (`src/components/`) ocupa su parte de la
+  fila: «Eliminar» (borde rojo) y «Editar / Tomar fotos» (azul) miden exactamente lo mismo.
+  Antes el editar ocupaba casi todo y el eliminar era un cuadro chico que no se veía.
+- **Formulario** (crear y editar) — tres pasos que se palomean solos: Proyecto (selector a
+  pantalla completa; **el origen ya solo admite proyectos**, los reportes viejos ligados a
+  una orden se siguen mostrando), Servicio (fecha + técnicos) y Evidencia (zonas en una sola tarjeta,
+  separadas por divisor; cada lado en un panel hundido).
+
+**Permisos por rol** (`usePermisosReportes`, espejo de `user_module_own_only`): sin `view`
+cada pantalla explica que falta el permiso (no un error crudo); el botón flotante solo con
+`create`, «Editar» solo con `edit`, «Eliminar» solo con `delete`; las rutas `nuevo` y
+`editar` también se protegen por si se llega por enlace. El selector de proyecto solo
+carga si el rol puede ver Proyectos (si no, lo explica). «Solo mis reportes» lo recorta el
+servidor; la app lo refleja en el resumen del mes («reportes tuyos»).
+
+**Movimiento y rendimiento** — solo `transform`/`opacity` en el hilo nativo: entrada
+escalonada de las primeras 6 tarjetas, hundido al tocar (tarjetas y botones, con rebote al
+soltar), barra de zonas con `scaleX`, bloques del detalle/formulario con `useEntrance`
+(montados al llegar los datos), fundido de cada zona nueva. Miniaturas recortadas por
+Cloudinary con el fundido nativo de Android; lista con ventana corta y
+`removeClippedSubviews`. Todo respeta «Reducir movimiento».
+
+## Detalle unificado: Órdenes, Proyectos y Reportes (2026-10-02)
+
+Tras aprobar el detalle de Reportes, el usuario pidió el mismo esquema en Órdenes y
+Proyectos. Los tres usan ahora `DetalleChrome`:
+
+- **Barra fija** marina: volver, título compacto (cliente + folio) que aparece al
+  desplazar, **píldora dorada «Editar»** (solo con permiso) y **«⋯»** si hay más acciones.
+  Ya no hay barra de botones al pie en ningún detalle.
+- **Portada** marina sobria que se aleja con parallax: versalitas («Orden de trabajo ·
+  Mantenimiento», «Proyecto · Alarmas», «Reporte de mantenimiento»), el cliente a 26 px y
+  píldoras (estatus con su tono, folio con contorno, prioridad / disponible / avance).
+  Órdenes suma dos accesos de vidrio del mismo tamaño, **Llamar** y **Cómo llegar** (lo que
+  el técnico hace de pie frente al domicilio).
+- **Hoja de datos** que sube sobre la portada, misma anatomía en los tres:
+  - Órdenes — «Datos de la orden»: Inicio | Fin (con hora y duración), técnico asignado
+    con su foto, avance del reporte de cierre (secciones completas de 6).
+  - Proyectos — «Datos del proyecto»: Jornadas | Horario (llegada – salida), equipo de
+    trabajo (responsable primero, con rol), avance del proyecto (color por avance).
+  - Reportes — «Datos del servicio»: Fecha | Proyecto, técnicos, evidencia por zonas.
+- Debajo, el contenido propio: secciones del reporte (Órdenes), pestañas pegadas arriba
+  (Proyectos; al cambiar de pestaña se vuelve a las pestañas, no al tope) y la evidencia
+  por zona (Reportes). «⋯» en Órdenes: editar, llamar, cómo llegar y liberar (en rojo).
+
+## Resumen del proyecto: jornadas, detalles, cotizaciones y PDF (2026-10-02)
+
+- **Jornadas** (`JornadasPanel`): estado en una línea («Día 2 de 5 · Hoy se trabaja en
+  sitio», «Siguiente: jue 9 oct», «Jornadas completas») con el conteo hechas/total; barra
+  con un segmento por jornada (marino trabajada, dorado hoy, gris programada) que crece con
+  `scaleX`; línea de tiempo deslizable de fichas unidas por un riel — trabajadas en marino
+  con palomita verde, hoy en dorado, programadas con contorno, punto azul si hay nota en
+  bitácora — que se centra sola en hoy o en la siguiente; leyenda al pie. Las primeras 10
+  fichas suben escalonadas con un solo `Animated.Value`. Lógica en `jornadasDelProyecto`.
+- **Detalles** (`DetallesProyecto`): ficha técnica en dos columnas separadas por líneas de
+  1 px, cada dato con ícono + versalitas; tipos de trabajo en píldoras, monitoreo como estado
+  de color (Sí cuenta / No cuenta / Pendiente); vehículo y herramientas a todo el ancho.
+- **Cotizaciones**: filas dentro de la tarjeta con placa de documento, folio, insignia de
+  origen (DigitalFlow / SICAR en dorado), cliente, fecha y tipos; entrada escalonada; vacío
+  con explicación («se vinculan desde la oficina»).
+- **Reporte PDF** (`DocumentoPdf`, compartido con Reportes): ficha del documento (nombre,
+  estatus · avance · equipos, validez del enlace) y acciones del mismo tamaño — Descargar
+  arriba; WhatsApp y Correo debajo. Confirmaciones con fundido.
+
 ## Contraste medido
 
 Todos los pares de texto del sistema se verificaron por cálculo, no por ojo. El más ajustado

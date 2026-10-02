@@ -21,7 +21,7 @@ export function ReportesHero({ selectedMonth, onShiftMonth }: Props) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Operación</p>
             <h1 className="mt-1 text-[32px] font-bold leading-[1.15] tracking-[-1.1px]">Reporte de mantenimiento</h1>
             <p className="mt-1.5 max-w-[60ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70">
-              Evidencia Antes / Después de cada servicio, ligada a su orden de trabajo y lista para descargar en PDF.
+              Evidencia Antes / Después de cada servicio, ligada a su proyecto y lista para descargar en PDF.
             </p>
           </div>
         </div>

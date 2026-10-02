@@ -19,6 +19,8 @@ src/
   features/
     orders/        Todo lo específico de Órdenes (hooks, formato, componentes propios)
     proyectos/      Todo lo específico de Proyectos (mismo patrón)
+    cotizaciones/   Cotizaciones (listado, detalle, crear y editar)
+    reportes/       Reportes de mantenimiento (evidencia Antes / Después por zona)
     auth/           Formularios de acceso/registro
   navigation/    Configuración de transiciones
   notifications/ Push
@@ -170,8 +172,53 @@ no antes.
 - **`src/api/parsers.ts`** concentra el parseo de ambos dominios (Órdenes y Proyectos) en un
   solo archivo; si sigue creciendo, dividir en `ordenParsers.ts`/`proyectoParsers.ts`.
 
+## Reportes de mantenimiento (2026-10-02)
+
+`features/reportes/` sigue las convenciones de arriba al pie de la letra: `useReportes` /
+`useReporte` sobre `useEntityList` / `useEntityDetail`, lógica pura en `reporteFormat.ts` y
+`editarReporteForm.ts` (con tests), API en `src/api/reportesApi.ts` + `reporteParsers.ts`
+(parsers propios, no se sumaron a `parsers.ts`). Para elegir la orden o el proyecto de origen
+usa `listOrdenes` / `listProyectos` **de `src/api/`**, no de las features vecinas
+(`useOrigenesReporte`), y define su propio `folioReporte` en vez de importar el de Órdenes.
+
+Es la tercera entidad «listado por grupo + detalle + edición». **No** se extrajo el
+`<EntityCard>` genérico que sugiere «Duplicación pendiente»: su tarjeta es distinta en forma
+(portada de fotos Antes | Después, agrupa por estado de la evidencia y no por estatus), así
+que un genérico tendría que parametrizar casi todo. Lo que sí resultó compartible se promovió:
+
+- `src/components/BotonAccion.tsx` — botón de barra al pie con ícono que ocupa su parte de la
+  fila (acciones del mismo tamaño).
+- `src/components/BotonFlotante.tsx` — el botón «crear» flotante que vivía privado en
+  `cotizaciones/index.tsx`; ahora lo usan Cotizaciones y Reportes.
+- `src/utils/miniatura.ts` — URL de miniatura de Cloudinary (recorte + `q_auto,f_auto`).
+  La usan las tarjetas de reportes y, desde este cambio, `FotosEditor` para sus miniaturas
+  (la foto completa solo se baja en el visor).
+- `src/components/HojaAcciones.tsx` — hoja de «más opciones» desde abajo (acciones con
+  ícono, las destructivas al final), genérica.
+- El PDF del reporte no usa `ReportePdf` (que trae correo, y los reportes solo exponen el
+  enlace firmado): `usePdfReporte` + `PdfReporteTarjeta` en la feature.
+
+Backend: se agregaron `pdf-enlace` y `pdf-compartido` a `/api/reportes-mantenimiento/`
+(mismo patrón que Proyectos; salt propio), que `ReportePdf` necesita para descargar y
+compartir por WhatsApp.
+
+## Detalle compartido: `DetalleChrome` (2026-10-02)
+
+Con Reportes, Órdenes y Proyectos ya son tres detalles con la misma cabecera — el momento
+que «Duplicación pendiente» marcaba para extraer lo común. `src/components/DetalleChrome.tsx`
+reúne: `DetalleBarraSuperior` (fija: volver, título compacto al desplazar, píldora «Editar» y
+«⋯»), `DetallePortada` (marina, a sangre, con parallax), `HojaDatos` + `DatosRejilla` /
+`DatosPersonas` / `DatosAvance` (la hoja que sube `TRASLAPE_PORTADA` px sobre la portada) y
+`estiloTraslape`. Cada pantalla conecta un `Animated.Value` de desplazamiento con
+`Animated.event` y arma su contenido con estas piezas; no hay cabecera propia por entidad
+(`OrdenDetalleHeader`, `ProyectoDetalleHeader` y la de reportes se borraron).
+`personasDelEquipo` pasó de `EquipoTrabajo` (borrado) a `proyectoFormat.ts`.
+
 ## Historial de este documento
 
+- **2026-10-02** — `DetalleChrome` unifica la cabecera de los tres detalles.
+- **2026-10-02** — Agregada la feature `reportes/` (ver sección propia); `BotonFlotante` y
+  `miniaturaUrl` promovidos a `src/`.
 - **2026-09-18** — Creado. Se introdujeron `src/hooks/useEntityList` y `useEntityDetail`
   (eliminan la duplicación de carga/error/abort/refresco entre `useOrdenes`, `useProyectos`,
   `useOrdenesPool`, `useOrdenesCliente`, `useOrden`, `useProyecto`, `useOrdenCliente`); se

@@ -218,7 +218,7 @@ export default function ReportesMantenimientoPage() {
   return (
     <div className={`${erpPageCanvasClass} overflow-x-clip!`} style={erpSansStyle}>
       <div className={`${erpPageInnerClass} ${canCreate ? "max-sm:pb-24" : ""}`}>
-        <PageMeta title="Reporte de mantenimiento | Operación" description="Reportes ligados a órdenes de servicio con secciones Antes/Después" />
+        <PageMeta title="Reporte de mantenimiento | Operación" description="Reportes de mantenimiento ligados a proyectos, con evidencia Antes/Después" />
 
         <nav className={erpBreadcrumbNavClass} aria-label="Migas de pan">
           <Link to="/" className={erpBreadcrumbLinkClass}>

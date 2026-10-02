@@ -8,7 +8,10 @@ export type ReporteSeccion = {
   fotos_despues: string[];
 };
 
-/** El reporte se vincula a una orden de trabajo o a un proyecto (uno de los dos). */
+/**
+ * Origen del reporte. Los nuevos se vinculan solo a un proyecto; `orden` queda para los
+ * reportes anteriores hechos sobre una orden de trabajo (el servidor ya no acepta ligar uno nuevo).
+ */
 export type ReporteOrigen = "orden" | "proyecto";
 
 export type ReporteMantenimiento = {

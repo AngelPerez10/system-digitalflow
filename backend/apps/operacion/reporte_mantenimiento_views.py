@@ -8,13 +8,23 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import timedelta
 
+from django.core import signing
+from django.utils import timezone
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.pdf_enlace import (
+    PDF_ENLACE_MAX_AGE,
+    PDF_TOKEN_REGEX,
+    como_descarga,
+    crear_token_pdf,
+    leer_token_pdf,
+)
 from apps.common.pdf_html import request_wants_html_preview
 from apps.ordenes.image_services import (
     cloudinary,
@@ -45,6 +55,12 @@ from .views import _pdf_response_from_html
 logger = logging.getLogger(__name__)
 
 REPORTE_UPLOAD_FOLDER = "reportes-mantenimiento"
+REPORTE_PDF_SALT = "reportes-mantenimiento.pdf-compartido"
+
+
+def _reporte_pdf_filename(reporte) -> str:
+    folio = str(getattr(reporte, "folio", "") or f"RM-{reporte.pk}")
+    return f"Reporte_{folio}.pdf"
 
 
 class ReporteMantenimientoViewSet(viewsets.ModelViewSet):
@@ -61,6 +77,9 @@ class ReporteMantenimientoViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_permissions(self):
+        # Enlace firmado: lo abre quien lo recibe (p. ej. el cliente por WhatsApp), sin sesión.
+        if self.action == "pdf_compartido":
+            return [AllowAny()]
         # Subir/borrar fotos al editar: basta con create o edit en el módulo.
         if self.action in ("upload_image", "delete_image"):
             return [IsAuthenticated(), ReportesMantenimientoAttachmentPermission()]
@@ -145,9 +164,41 @@ class ReporteMantenimientoViewSet(viewsets.ModelViewSet):
         """Genera el PDF del reporte (HTML imprimible si no hay motor PDF)."""
         reporte = self.get_object()
         html = generate_reporte_mantenimiento_pdf_html(overlay_from_reporte(reporte))
-        folio = str(getattr(reporte, "folio", "") or f"RM-{reporte.pk}")
         wants_html = request_wants_html_preview(request)
-        return _pdf_response_from_html(html, f"Reporte_{folio}.pdf", wants_html=wants_html)
+        return _pdf_response_from_html(html, _reporte_pdf_filename(reporte), wants_html=wants_html)
+
+    @action(detail=True, methods=["post"], url_path="pdf-enlace")
+    def pdf_enlace(self, request, pk=None):
+        """Enlace firmado (7 días) al PDF, para descargarlo o compartirlo sin sesión (app móvil)."""
+        reporte = self.get_object()
+        token = crear_token_pdf(REPORTE_PDF_SALT, reporte.pk)
+        url = request.build_absolute_uri(f"/api/reportes-mantenimiento/pdf-compartido/{token}/")
+        expira = timezone.now() + timedelta(seconds=PDF_ENLACE_MAX_AGE)
+        return Response({"url": url, "expira": expira.isoformat(), "filename": _reporte_pdf_filename(reporte)})
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path=rf"pdf-compartido/(?P<token>{PDF_TOKEN_REGEX})",
+        authentication_classes=[],
+    )
+    def pdf_compartido(self, request, token=None):
+        """PDF del reporte a partir de un enlace firmado de `pdf_enlace`."""
+        try:
+            reporte_id = leer_token_pdf(REPORTE_PDF_SALT, token or "")
+        except signing.SignatureExpired:
+            return Response(
+                {"detail": "Este enlace ya expiró. Pide uno nuevo a quien te lo envió."},
+                status=410,
+            )
+        except signing.BadSignature:
+            raise NotFound()
+        reporte = ReporteMantenimiento.objects.filter(pk=reporte_id).first()
+        if not reporte:
+            raise NotFound()
+        html = generate_reporte_mantenimiento_pdf_html(overlay_from_reporte(reporte))
+        filename = _reporte_pdf_filename(reporte)
+        return como_descarga(_pdf_response_from_html(html, filename), filename, request)
 
     @action(detail=False, methods=["post"], url_path="upload-image")
     def upload_image(self, request):

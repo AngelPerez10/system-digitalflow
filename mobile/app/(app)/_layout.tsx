@@ -63,7 +63,7 @@ export default function AppLayout() {
         <View style={styles.center}>
           <Text style={[styles.titulo, { color: colors.ink }]}>Sin acceso</Text>
           <Text style={[styles.texto, { color: colors.inkMuted }]}>
-            Tu cuenta no tiene permiso para «Órdenes de trabajo», «Proyectos» ni «Cotizaciones».
+            Tu cuenta no tiene permiso para «Órdenes de trabajo», «Proyectos», «Reportes» ni «Cotizaciones».
             Solicítalo a un administrador.
           </Text>
           <AppButton label="Cerrar sesión" variant="secondary" onPress={() => void signOut()} />
@@ -136,6 +136,31 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="proyectos/[id]/editar"
+            options={{
+              headerShown: false,
+              animation: sheet,
+              animationDuration: animationDurationMs('sheet', reduced),
+            }}
+          />
+          <Stack.Screen name="reportes/index" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen
+            name="reportes/[id]/index"
+            options={{
+              headerShown: false,
+              animation: push,
+              animationDuration: animationDurationMs('push', reduced),
+            }}
+          />
+          <Stack.Screen
+            name="reportes/[id]/editar"
+            options={{
+              headerShown: false,
+              animation: sheet,
+              animationDuration: animationDurationMs('sheet', reduced),
+            }}
+          />
+          <Stack.Screen
+            name="reportes/nuevo"
             options={{
               headerShown: false,
               animation: sheet,

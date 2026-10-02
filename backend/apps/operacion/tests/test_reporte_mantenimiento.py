@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.operacion.models import ReporteMantenimiento
+from apps.operacion.models import Proyecto, ReporteMantenimiento
 from apps.ordenes.models import Orden
 
 User = get_user_model()
@@ -17,14 +17,9 @@ class ReporteMantenimientoCrudTests(APITestCase):
             password="test-pass-123",
             is_staff=True,
         )
-        self.orden = Orden.objects.create(
-            cliente="Cliente Demo RM",
-            fecha_inicio="2026-08-20",
-            status="resuelto",
-            servicios_realizados=["Mantenimiento"],
-        )
+        self.proyecto = Proyecto.objects.create(cliente_nombre="Cliente Demo RM")
         self.payload = {
-            "orden_id": self.orden.id,
+            "proyecto_id": self.proyecto.id,
             "fecha_servicio": "2026-08-20",
             "tecnico_nombre": "Juan Pérez",
             "foto_orden_url": "",
@@ -46,6 +41,23 @@ class ReporteMantenimientoCrudTests(APITestCase):
     def _auth_admin(self):
         self.client.force_authenticate(user=self.admin)
 
+    def _payload_con_proyecto_nuevo(self, nombre="Otro cliente"):
+        return {**self.payload, "proyecto_id": Proyecto.objects.create(cliente_nombre=nombre).id}
+
+    def _reporte_legacy_con_orden(self):
+        """Reporte creado antes del cambio, cuando el origen podía ser una orden de trabajo."""
+        orden = Orden.objects.create(cliente="Cliente Orden", fecha_inicio="2026-08-20", status="resuelto")
+        reporte = ReporteMantenimiento.objects.create(
+            orden=orden,
+            orden_folio="ODT-1",
+            orden_cliente="Cliente Orden",
+            fecha_servicio="2026-08-20",
+            tecnico_nombre="Juan Pérez",
+            secciones=[],
+            creado_por=self.admin,
+        )
+        return orden, reporte
+
     def test_list_requiere_autenticacion(self):
         res = self.client.get(LIST_URL)
         self.assertIn(res.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
@@ -62,8 +74,10 @@ class ReporteMantenimientoCrudTests(APITestCase):
         self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
         self.assertEqual(create_res.data["folio"], "RM-10001")
         self.assertEqual(create_res.data["idx"], 10001)
-        self.assertEqual(create_res.data["orden_id"], self.orden.id)
-        self.assertTrue(str(create_res.data["orden_folio"]).startswith("ODT-"))
+        self.assertEqual(create_res.data["proyecto_id"], self.proyecto.id)
+        self.assertEqual(create_res.data["origen_tipo"], "proyecto")
+        self.assertIsNone(create_res.data["orden_id"])
+        self.assertTrue(str(create_res.data["orden_folio"]).startswith("PRJ-"))
         self.assertEqual(create_res.data["orden_cliente"], "Cliente Demo RM")
         self.assertEqual(create_res.data["tecnico_nombre"], "Juan Pérez")
         self.assertEqual(len(create_res.data["secciones"]), 1)
@@ -147,11 +161,12 @@ class ReporteMantenimientoCrudTests(APITestCase):
         self._auth_admin()
         first = self.client.post(LIST_URL, self.payload, format="json")
         self.assertEqual(first.status_code, status.HTTP_201_CREATED, first.data)
-        second = self.client.post(LIST_URL, self.payload, format="json")
+        # Un proyecto admite un solo reporte: el segundo va en otro proyecto.
+        second = self.client.post(LIST_URL, self._payload_con_proyecto_nuevo(), format="json")
         self.assertEqual(second.status_code, status.HTTP_201_CREATED, second.data)
         self.assertEqual(second.data["folio"], "RM-10002")
 
-    def test_create_requiere_orden_fecha_y_tecnico(self):
+    def test_create_requiere_proyecto_fecha_y_tecnico(self):
         self._auth_admin()
         res = self.client.post(
             LIST_URL,
@@ -160,52 +175,56 @@ class ReporteMantenimientoCrudTests(APITestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_create_con_proyecto_en_lugar_de_orden(self):
-        from apps.operacion.models import Proyecto
-
+    def test_create_con_orden_ya_no_se_permite(self):
         self._auth_admin()
-        proyecto = Proyecto.objects.create(cliente_nombre="Cliente Proyecto RM")
-        payload = {k: v for k, v in self.payload.items() if k != "orden_id"}
-        payload["proyecto_id"] = proyecto.id
-        res = self.client.post(LIST_URL, payload, format="json")
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
-        self.assertEqual(res.data["origen_tipo"], "proyecto")
-        self.assertEqual(res.data["proyecto_id"], proyecto.id)
-        self.assertIsNone(res.data["orden_id"])
-        self.assertEqual(res.data["orden_cliente"], "Cliente Proyecto RM")
-        self.assertTrue(str(res.data["orden_folio"]).startswith("PRJ-"))
-        pdf = self.client.get(f"{LIST_URL}{res.data['id']}/pdf/?html=1")
-        self.assertEqual(pdf.status_code, status.HTTP_200_OK)
-        self.assertIn("Proyecto:", pdf.content.decode("utf-8"))
+        orden = Orden.objects.create(cliente="Cliente Orden", fecha_inicio="2026-08-20", status="resuelto")
+        payload = {k: v for k, v in self.payload.items() if k != "proyecto_id"}
+        res = self.client.post(LIST_URL, {**payload, "orden_id": orden.id}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("orden_id", res.data)
+        self.assertFalse(ReporteMantenimiento.objects.exists())
 
     def test_create_rechaza_orden_y_proyecto_juntos_o_ninguno(self):
-        from apps.operacion.models import Proyecto
-
         self._auth_admin()
-        proyecto = Proyecto.objects.create(cliente_nombre="X")
-        ambos = {**self.payload, "proyecto_id": proyecto.id}
+        orden = Orden.objects.create(cliente="X", fecha_inicio="2026-08-20", status="resuelto")
+        ambos = {**self.payload, "orden_id": orden.id}
         self.assertEqual(self.client.post(LIST_URL, ambos, format="json").status_code, status.HTTP_400_BAD_REQUEST)
-        ninguno = {k: v for k, v in self.payload.items() if k != "orden_id"}
+        ninguno = {k: v for k, v in self.payload.items() if k != "proyecto_id"}
         self.assertEqual(self.client.post(LIST_URL, ninguno, format="json").status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_patch_cambia_de_orden_a_proyecto(self):
-        from apps.operacion.models import Proyecto
-
+    def test_reporte_legacy_con_orden_se_sigue_editando(self):
         self._auth_admin()
-        created = self.client.post(LIST_URL, self.payload, format="json")
+        orden, reporte = self._reporte_legacy_con_orden()
+        # La web reenvía el mismo `orden_id` al guardar: sigue siendo válido.
+        res = self.client.patch(
+            f"{LIST_URL}{reporte.id}/",
+            {"orden_id": orden.id, "proyecto_id": None, "tecnico_nombre": "Ana López"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.assertEqual(res.data["origen_tipo"], "orden")
+        self.assertEqual(res.data["tecnico_nombre"], "Ana López")
+
+    def test_reporte_legacy_no_se_liga_a_otra_orden(self):
+        self._auth_admin()
+        _, reporte = self._reporte_legacy_con_orden()
+        otra = Orden.objects.create(cliente="Otra", fecha_inicio="2026-08-21", status="resuelto")
+        res = self.client.patch(f"{LIST_URL}{reporte.id}/", {"orden_id": otra.id}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_cambia_de_orden_a_proyecto(self):
+        self._auth_admin()
+        _, reporte = self._reporte_legacy_con_orden()
         proyecto = Proyecto.objects.create(cliente_nombre="Destino")
-        res = self.client.patch(f"{LIST_URL}{created.data['id']}/", {"proyecto_id": proyecto.id}, format="json")
+        res = self.client.patch(f"{LIST_URL}{reporte.id}/", {"proyecto_id": proyecto.id}, format="json")
         self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
         self.assertEqual(res.data["origen_tipo"], "proyecto")
         self.assertIsNone(res.data["orden_id"])
 
     def test_un_proyecto_solo_puede_tener_un_reporte(self):
-        from apps.operacion.models import Proyecto
-
         self._auth_admin()
-        proyecto = Proyecto.objects.create(cliente_nombre="Unico")
-        payload = {k: v for k, v in self.payload.items() if k != "orden_id"}
-        payload["proyecto_id"] = proyecto.id
+        proyecto = self.proyecto
+        payload = self.payload
         primero = self.client.post(LIST_URL, payload, format="json")
         self.assertEqual(primero.status_code, status.HTTP_201_CREATED, primero.data)
         segundo = self.client.post(LIST_URL, payload, format="json")
@@ -216,13 +235,9 @@ class ReporteMantenimientoCrudTests(APITestCase):
         self.assertEqual(patch.status_code, status.HTTP_200_OK, patch.data)
 
     def test_proyectos_ocupados_lista_y_excluye_el_reporte_actual(self):
-        from apps.operacion.models import Proyecto
-
         self._auth_admin()
-        proyecto = Proyecto.objects.create(cliente_nombre="Ocupado")
-        payload = {k: v for k, v in self.payload.items() if k != "orden_id"}
-        payload["proyecto_id"] = proyecto.id
-        creado = self.client.post(LIST_URL, payload, format="json")
+        proyecto = self.proyecto
+        creado = self.client.post(LIST_URL, self.payload, format="json")
         res = self.client.get(f"{LIST_URL}proyectos-ocupados/")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data["by_id"][str(proyecto.id)]["folio"], creado.data["folio"])
@@ -281,10 +296,11 @@ class ReporteMantenimientoCrudTests(APITestCase):
         self.assertIn("Cámara entrada", body)
         self.assertIn("Antes", body)
         self.assertIn("Después", body)
+        self.assertIn("Proyecto:", body)
 
 
 class ReporteMantenimientoOwnOnlyTests(APITestCase):
-    """Técnico con permiso del módulo solo ve reportes de sus órdenes (o creados por él)."""
+    """Técnico con permiso del módulo solo ve reportes de sus órdenes/proyectos (o creados por él)."""
 
     def setUp(self):
         from apps.users.models import UserPermissions
@@ -349,37 +365,17 @@ class ReporteMantenimientoOwnOnlyTests(APITestCase):
         res = self.client.get(f"{LIST_URL}{self.reporte_ajeno.id}/")
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_create_con_orden_ajena_400(self):
+    def test_create_con_orden_ya_no_se_permite_ni_propia(self):
         self.client.force_authenticate(user=self.tecnico)
-        res = self.client.post(
-            LIST_URL,
-            {
-                "orden_id": self.orden_ajena.id,
-                "fecha_servicio": "2026-08-22",
-                "tecnico_nombre": "Hack",
-                "secciones": [],
-            },
-            format="json",
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_create_con_orden_propia_201(self):
-        self.client.force_authenticate(user=self.tecnico)
-        res = self.client.post(
-            LIST_URL,
-            {
-                "orden_id": self.orden_propia.id,
-                "fecha_servicio": "2026-08-22",
-                "tecnico_nombre": "Técnico Propio",
-                "secciones": [],
-            },
-            format="json",
-        )
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        for orden in (self.orden_propia, self.orden_ajena):
+            res = self.client.post(
+                LIST_URL,
+                {"orden_id": orden.id, "fecha_servicio": "2026-08-22", "tecnico_nombre": "Técnico Propio", "secciones": []},
+                format="json",
+            )
+            self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST, res.data)
 
     def test_proyecto_propio_visible_y_ajeno_no(self):
-        from apps.operacion.models import Proyecto
-
         propio = Proyecto.objects.create(cliente_nombre="PP", tecnico=self.tecnico)
         ajeno = Proyecto.objects.create(cliente_nombre="PA", tecnico=self.otro)
         self.client.force_authenticate(user=self.tecnico)
