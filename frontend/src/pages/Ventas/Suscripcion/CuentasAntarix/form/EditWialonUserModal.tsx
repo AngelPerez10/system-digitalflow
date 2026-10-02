@@ -1,15 +1,12 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type KeyboardEvent } from "react";
+import { Check, Loader2, Satellite, Truck, UserCog, X } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { appModalBtn } from "@/components/ui/modal-kit/modalKitStyles";
+import "@/components/ui/modal-kit/motion.css";
 import { fetchApi } from "@/config/api";
 import { cn } from "@/lib/utils";
+import { erpModalShellClass } from "@/pages/Operacion/OrdenesTrabajo/ordenTrabajoStyles";
 import {
-  caaModalEyebrowClass,
-  caaModalHeaderClass,
-  caaModalHeaderIconClass,
-  caaModalSubtitleClass,
-  caaModalTabBtnClass,
-  caaModalTabTrackClass,
-  caaModalTitleClass,
   erpSansStyle,
   erpSearchInputClass,
   erpSelectFieldClass,
@@ -29,23 +26,38 @@ import {
 import { findMirrorAccounts } from "../shared/wialonAccountUtils";
 import {
   WialonErrorAlert,
-  WialonLoadingState,
-  WialonModalFooter,
-  WialonSharedBadge,
   WialonStatStrip,
   WialonStatusBadge,
   WialonSectionCard,
-  wialonEyebrowClass,
-  wialonUiBadge,
   wialonUiCaption,
   wialonUiLabel,
-  type WialonFooterAction,
 } from "./chrome/WialonModalChrome";
 import WialonMirrorAccountsPanel from "./panels/WialonMirrorAccountsPanel";
+import WialonFleetPanel from "./panels/WialonFleetPanel";
 import WialonUnitEditForm, { type UnitBusyState } from "./panels/WialonUnitEditForm";
 
-const wialonModalShellClass =
-  "flex max-h-[min(94dvh,94vh)] w-full flex-col overflow-hidden rounded-t-3xl border border-[#E7E7EA] bg-[#ffffff] p-0 shadow-[0_24px_48px_-12px_rgba(9,9,11,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] sm:max-h-[min(92vh,92vh)] sm:w-[min(96vw,72rem)] sm:max-w-[72rem] sm:rounded-2xl";
+/** Mismo cascarón que el modal de órdenes / proyectos, un poco más ancho por la vista de flota. */
+const wialonModalShellClass = `${erpModalShellClass} rounded-t-2xl! bg-white! dark:bg-[#111827]! sm:w-[min(96vw,78rem)]! sm:max-w-[78rem]! sm:rounded-2xl! lg:h-[min(90vh,880px)]`;
+
+const TAB_ORDER: UserModalTab[] = ["cuenta", "unidades"];
+
+const TAB_META: Record<UserModalTab, { label: string; hint: string; description: string }> = {
+  cuenta: {
+    label: "Cuenta",
+    hint: "Datos y cuentas espejo",
+    description: "Nombre, derechos de distribuidor y status. Los cambios se escriben en Wialon al guardar.",
+  },
+  unidades: {
+    label: "Flota",
+    hint: "Unidades, SIM y accesos",
+    description: "Elige una unidad para editar su ficha, la SIM y quién tiene acceso.",
+  },
+};
+
+const TAB_ICON: Record<UserModalTab, typeof UserCog> = {
+  cuenta: UserCog,
+  unidades: Truck,
+};
 
 type Props = {
   user: WialonUserRow | null;
@@ -174,17 +186,6 @@ export default function EditWialonUserModal({
     [fleetUnits, selectedUnitId],
   );
 
-  const filteredUnits = useMemo(() => {
-    const q = unitSearch.trim().toLowerCase();
-    if (!q) return fleetUnits;
-    return fleetUnits.filter((u) =>
-      [u.name, u.device_type, u.uid, u.phone, u.custom_fields, u.status, u.shared_with]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [fleetUnits, unitSearch]);
-
   const footerBusy = saving || unitBusy.saving || unitBusy.accessBusy || Boolean(unitBusy.activeBusy);
 
   const handleClose = useCallback(() => {
@@ -202,52 +203,51 @@ export default function EditWialonUserModal({
     }
   }, [selectedUnitId]);
 
-  const footerActions = useMemo((): WialonFooterAction[] => {
-    const actions: WialonFooterAction[] = [
-      {
-        key: "cancel",
-        label: "Cancelar",
-        variant: "secondary",
-        onClick: handleClose,
-        disabled: footerBusy,
-      },
-    ];
+  /** En Flota sin unidad elegida no hay nada que guardar: el pie solo ofrece cerrar. */
+  const saveTarget: string | null = !canEdit
+    ? null
+    : activeTab === "unidades"
+      ? selectedUnitId != null
+        ? unitFormId
+        : null
+      : cuentaPanelId;
+  const saveInFlight = activeTab === "unidades" ? unitBusy.saving : saving;
 
-    const editingUnit = activeTab === "unidades" && selectedUnitId != null;
+  const tabIds: Record<UserModalTab, string> = {
+    cuenta: `${cuentaPanelId}-tab`,
+    unidades: `${unidadesPanelId}-tab`,
+  };
+  const panelIds: Record<UserModalTab, string> = {
+    cuenta: cuentaPanelId,
+    unidades: unidadesPanelId,
+  };
 
-    if (canEdit && editingUnit) {
-      actions.push({
-        key: "save-unit",
-        label: unitBusy.saving ? "Guardando…" : "Guardar",
-        variant: "primary",
-        type: "submit",
-        form: unitFormId,
-        disabled: unitBusy.saving || unitBusy.accessBusy || footerBusy,
-      });
-    } else if (canEdit) {
-      actions.push({
-        key: "save-cuenta",
-        label: saving ? "Guardando…" : "Guardar",
-        variant: "primary",
-        type: "submit",
-        form: cuentaPanelId,
-        disabled: footerBusy,
-      });
-    }
+  const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, current: UserModalTab) => {
+    const idx = TAB_ORDER.indexOf(current);
+    const last = TAB_ORDER.length - 1;
+    const map: Record<string, number> = {
+      ArrowRight: idx === last ? 0 : idx + 1,
+      ArrowDown: idx === last ? 0 : idx + 1,
+      ArrowLeft: idx === 0 ? last : idx - 1,
+      ArrowUp: idx === 0 ? last : idx - 1,
+      Home: 0,
+      End: last,
+    };
+    if (!(e.key in map)) return;
+    e.preventDefault();
+    const next = TAB_ORDER[map[e.key]];
+    setActiveTab(next);
+    requestAnimationFrame(() => document.getElementById(tabIds[next])?.focus());
+  };
 
-    return actions;
-  }, [
-    canEdit,
-    saving,
-    footerBusy,
-    cuentaPanelId,
-    unitFormId,
-    activeTab,
-    selectedUnitId,
-    unitBusy.saving,
-    unitBusy.accessBusy,
-    handleClose,
-  ]);
+  const meta = TAB_META[activeTab];
+  const SectionIcon = TAB_ICON[activeTab];
+  const summaryRows = [
+    { label: "Usuario", value: user?.user_id, mono: true },
+    { label: "Cuenta padre", value: user?.parent_account },
+    { label: "Creador", value: user?.creator },
+    { label: "Distribuidor", value: user?.dealer_rights },
+  ];
 
   const handleAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -312,356 +312,281 @@ export default function EditWialonUserModal({
 
   return (
     <Modal
+      mobileBottomSheet
       isOpen={isOpen}
       onClose={handleClose}
-      closeOnBackdropClick={!saving}
+      closeOnBackdropClick={false}
+      closeOnEscape={!footerBusy}
+      showCloseButton={false}
       ariaLabelledBy={titleId}
-      mobileBottomSheet
       className={wialonModalShellClass}
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={erpSansStyle}>
-        {/* Cabecera marina */}
-        <header className={caaModalHeaderClass}>
-          <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+      <div
+        className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden lg:flex-row"
+        style={erpSansStyle}
+      >
+        <button
+          type="button"
+          onClick={handleClose}
+          disabled={footerBusy}
+          aria-label="Cerrar ventana"
+          className="absolute right-3 top-3 z-20 inline-flex size-10 items-center justify-center rounded-lg text-[#A1A1AA] transition-colors hover:bg-[#F4F4F5] hover:text-[#3F3F46] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-40 dark:text-[#64748B] dark:hover:bg-[#1B2539] dark:hover:text-[#D6DEEA] lg:right-5 lg:top-5"
+        >
+          <X className="size-5" aria-hidden />
+        </button>
+
+        {/* ============================ Barra lateral ============================ */}
+        <aside className="custom-scrollbar flex shrink-0 flex-col border-b border-[#F0F0F2] bg-[#FAFAFA] dark:border-[#1F2A3C] dark:bg-[#0B1220] lg:w-70 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+          <div className="flex items-center gap-3 px-5 pb-3 pr-16 pt-5 lg:block lg:px-6 lg:pb-5 lg:pr-6 lg:pt-6">
             <span
-              className={cn(caaModalHeaderIconClass, "hidden sm:inline-flex")}
+              className="cot-tick inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#17235B] text-[#E6A23C] dark:bg-[#1B2A63] lg:size-11"
               aria-hidden
             >
-              <svg
-                className="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.65"
-                aria-hidden
-              >
-                <path d="M12 2 4 7v10l8 5 8-5V7l-8-5Z" strokeLinejoin="round" />
-                <path d="M12 12 8 9.5V7l4 2.5v2.5L12 12Z" strokeLinejoin="round" />
-              </svg>
+              <Satellite className="size-5" strokeWidth={1.9} />
             </span>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className={caaModalEyebrowClass}>Ventas · Suscripción · Antarix</p>
-                {user ? <WialonStatusBadge status={user.status} /> : null}
-                {user?.dealer_rights === "Sí" ? (
-                  <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/80">
-                    Distribuidor
-                  </span>
-                ) : null}
-              </div>
-              <h2 id={titleId} className={cn("mt-1 text-balance", caaModalTitleClass)}>
-                {user?.name || "Cuenta"}
-              </h2>
-              <p className={caaModalSubtitleClass}>
-                <span className="font-mono text-[13px] font-medium tracking-wide text-[#E6A23C]">
-                  {user?.user_id || "—"}
-                </span>
-                {user?.parent_account ? (
-                  <>
-                    <span className="mx-1.5 text-white/30">·</span>
-                    {user.parent_account}
-                  </>
-                ) : null}
+            <div className="min-w-0 lg:mt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]">
+                Cuenta Antarix GPS
               </p>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                <h2
+                  id={titleId}
+                  className="min-w-0 truncate text-[18px] font-semibold leading-tight tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC] lg:whitespace-normal lg:text-[20px]"
+                  title={user?.name || undefined}
+                >
+                  {user?.name && user.name !== "—" ? user.name : "Cuenta"}
+                </h2>
+                {user ? <WialonStatusBadge status={user.status} /> : null}
+              </div>
             </div>
           </div>
 
-          <div
-            role="tablist"
-            aria-label="Secciones de la cuenta"
-            className={cn(caaModalTabTrackClass, "relative mt-4")}
-          >
-            <button
-              type="button"
-              role="tab"
-              id={`${cuentaPanelId}-tab`}
-              aria-selected={activeTab === "cuenta"}
-              aria-controls={cuentaPanelId}
-              onClick={() => setActiveTab("cuenta")}
-              className={caaModalTabBtnClass(activeTab === "cuenta")}
+          <nav aria-label="Secciones de la cuenta" className="shrink-0">
+            <div
+              role="tablist"
+              aria-label="Secciones de la cuenta"
+              className="flex gap-1 overflow-x-auto px-3 pb-3 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-col lg:overflow-visible lg:pb-0 [&::-webkit-scrollbar]:hidden"
             >
-              Cuenta
-            </button>
-            <button
-              type="button"
-              role="tab"
-              id={`${unidadesPanelId}-tab`}
-              aria-selected={activeTab === "unidades"}
-              aria-controls={unidadesPanelId}
-              onClick={() => setActiveTab("unidades")}
-              className={caaModalTabBtnClass(activeTab === "unidades")}
-            >
-              Flota
-              {fleetUnits.length > 0 ? (
-                <span
-                  className={cn(
-                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
-                    activeTab === "unidades"
-                      ? "bg-[#17235B]/10 text-[#17235B]"
-                      : "bg-white/15 text-white",
-                  )}
-                >
-                  {fleetUnits.length}
-                </span>
-              ) : null}
-            </button>
-          </div>
-        </header>
+              {TAB_ORDER.map((tab) => {
+                const active = activeTab === tab;
+                const Icon = TAB_ICON[tab];
+                const { label, hint } = TAB_META[tab];
+                const count = tab === "unidades" && fleetUnits.length > 0 ? fleetUnits.length : null;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    id={tabIds[tab]}
+                    tabIndex={active ? 0 : -1}
+                    aria-selected={active}
+                    aria-controls={panelIds[tab]}
+                    onClick={() => setActiveTab(tab)}
+                    onKeyDown={(e) => handleTabKeyDown(e, tab)}
+                    className={cn(
+                      "flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 lg:w-full",
+                      active
+                        ? "bg-white shadow-[0_1px_3px_rgba(9,9,11,0.08)] ring-1 ring-[#E4E4E7] dark:bg-[#111827] dark:ring-[#273244]"
+                        : "hover:bg-white/70 dark:hover:bg-[#111827]/60",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors duration-300",
+                        active
+                          ? "bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]"
+                          : "bg-white text-[#71717A] ring-1 ring-inset ring-[#E4E4E7] dark:bg-[#111827] dark:text-[#8EA0B8] dark:ring-[#273244]",
+                      )}
+                      aria-hidden
+                    >
+                      <Icon className="size-3.5" strokeWidth={2.2} />
+                    </span>
+                    <span className="min-w-0 flex-1 pr-1">
+                      <span
+                        className={cn(
+                          "block whitespace-nowrap text-[14px]",
+                          active
+                            ? "font-semibold text-[#09090B] dark:text-[#F8FAFC]"
+                            : "font-medium text-[#3F3F46] dark:text-[#D6DEEA]",
+                        )}
+                      >
+                        {label}
+                      </span>
+                      <span className="hidden text-[12px] text-[#71717A] dark:text-[#8EA0B8] lg:block">{hint}</span>
+                    </span>
+                    {count != null ? (
+                      <span className="rounded-full bg-[#EEF3FF] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF]">
+                        {count}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
 
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-[#ffffff] dark:bg-[#111827]">
+          {user ? (
+            <dl className="mt-auto hidden shrink-0 space-y-3 border-t border-[#F0F0F2] px-6 py-5 dark:border-[#1F2A3C] lg:mt-6 lg:block">
+              {summaryRows.map((r) => {
+                const value = r.value && r.value !== "—" ? r.value : "";
+                return (
+                  <div key={r.label}>
+                    <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#A1A1AA] dark:text-[#64748B]">
+                      {r.label}
+                    </dt>
+                    <dd
+                      className={cn(
+                        "mt-0.5 truncate text-[13px]",
+                        value ? "font-medium text-[#27272A] dark:text-[#E5E7EB]" : "text-[#A1A1AA] dark:text-[#64748B]",
+                        value && r.mono && "font-mono text-[12.5px] text-[#1B5CFF] dark:text-[#7FA2FF]",
+                      )}
+                      title={value || undefined}
+                    >
+                      {value || "Sin definir"}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
+          ) : null}
+        </aside>
+
+        {/* ============================ Contenido de la sección ============================ */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <header className="relative hidden shrink-0 border-b border-[#F0F0F2] dark:border-[#1F2A3C] lg:block lg:px-8 lg:py-5 lg:pr-16">
+            <div key={activeTab} className="cot-fade flex items-start gap-3.5">
+              <span
+                className="mt-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF]"
+                aria-hidden
+              >
+                <SectionIcon className="size-5" strokeWidth={1.9} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[12px] font-medium text-[#1B5CFF] dark:text-[#7FA2FF]">
+                  {canEdit ? "Edición" : "Solo lectura"}
+                </p>
+                <h3 className="text-[20px] font-semibold tracking-[-0.4px] text-[#09090B] dark:text-[#F8FAFC]">
+                  {meta.label}
+                </h3>
+                <p className="mt-0.5 text-[13px] text-[#71717A] dark:text-[#8EA0B8]">{meta.description}</p>
+              </div>
+            </div>
+          </header>
+
           {/* Panel Cuenta */}
           <form
             id={cuentaPanelId}
             role="tabpanel"
-            aria-labelledby={`${cuentaPanelId}-tab`}
+            aria-labelledby={tabIds.cuenta}
             hidden={activeTab !== "cuenta"}
             onSubmit={handleAccountSubmit}
-            className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain p-4 sm:space-y-5 sm:p-6"
+            noValidate
+            className="erp-modal-form-scroll custom-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain bg-[#F7F7F8] touch-pan-y dark:bg-[#0F172A]/60 sm:touch-auto"
           >
-            {error ? <WialonErrorAlert message={error} /> : null}
+            <div className="cot-fade mx-auto w-full max-w-3xl space-y-5 px-4 py-5 sm:px-8 sm:py-7">
+              {error ? <WialonErrorAlert message={error} /> : null}
 
-            <WialonStatStrip
-              items={[
-                {
-                  label: "Activas",
-                  value:
-                    unitsLoading && fleetUnits.length === 0
-                      ? "…"
-                      : String(user?.assigned_units ?? fleetUnits.length),
-                  serif: true,
-                },
-                { label: "Espejos", value: String(mirrorAccounts.length), serif: true },
-                { label: "Creador", value: user?.creator || "—" },
-                { label: "Bloqueado", value: user?.blocked || "—" },
-              ]}
-            />
+              <WialonStatStrip
+                items={[
+                  {
+                    label: "Activas",
+                    value:
+                      unitsLoading && fleetUnits.length === 0
+                        ? "…"
+                        : String(user?.assigned_units ?? fleetUnits.length),
+                    serif: true,
+                  },
+                  { label: "Espejos", value: String(mirrorAccounts.length), serif: true },
+                  { label: "Creador", value: user?.creator || "—" },
+                  { label: "Bloqueado", value: user?.blocked || "—" },
+                ]}
+              />
 
-            <WialonSectionCard
-              eyebrow="Facturación"
-              title="Datos de la cuenta"
-              subtitle="Nombre, distribuidor y status se escriben en Wialon al guardar"
-            >
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label htmlFor="wialon-edit-name" className={wialonUiLabel}>
-                    Nombre de cuenta
-                  </label>
-                  <input
-                    id="wialon-edit-name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className={cn(erpSearchInputClass, "mt-2 w-full pl-4")}
-                    required
-                    disabled={!canEdit || saving}
-                  />
+              <WialonSectionCard
+                eyebrow="Facturación"
+                title="Datos de la cuenta"
+                subtitle="Nombre, distribuidor y status se escriben en Wialon al guardar"
+              >
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="wialon-edit-name" className={wialonUiLabel}>
+                      Nombre de cuenta
+                    </label>
+                    <input
+                      id="wialon-edit-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className={cn(erpSearchInputClass, "mt-2 w-full pl-4")}
+                      required
+                      disabled={!canEdit || saving}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="wialon-edit-dealer" className={wialonUiLabel}>
+                      Derechos de distribuidor
+                    </label>
+                    <select
+                      id="wialon-edit-dealer"
+                      value={dealerRights}
+                      onChange={(e) => setDealerRights(e.target.value)}
+                      className={cn(erpSelectFieldClass, "mt-2")}
+                      disabled={!canEdit || saving}
+                    >
+                      <option value="No">No</option>
+                      <option value="Sí">Sí</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="wialon-edit-status" className={wialonUiLabel}>
+                      Status de cuenta
+                    </label>
+                    <select
+                      id="wialon-edit-status"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                      className={cn(erpSelectFieldClass, "mt-2")}
+                      disabled={!canEdit || saving}
+                    >
+                      <option value="Activo">Activo</option>
+                      <option value="Bloqueado">Bloqueado</option>
+                    </select>
+                  </div>
                 </div>
+              </WialonSectionCard>
 
-                <div>
-                  <label htmlFor="wialon-edit-dealer" className={wialonUiLabel}>
-                    Derechos de distribuidor
-                  </label>
-                  <select
-                    id="wialon-edit-dealer"
-                    value={dealerRights}
-                    onChange={(e) => setDealerRights(e.target.value)}
-                    className={cn(erpSelectFieldClass, "mt-2")}
-                    disabled={!canEdit || saving}
-                  >
-                    <option value="No">No</option>
-                    <option value="Sí">Sí</option>
-                  </select>
-                </div>
+              <WialonMirrorAccountsPanel
+                mirrors={mirrorAccounts}
+                currentUser={user}
+                onOpenUser={onOpenUser}
+              />
 
-                <div>
-                  <label htmlFor="wialon-edit-status" className={wialonUiLabel}>
-                    Status de cuenta
-                  </label>
-                  <select
-                    id="wialon-edit-status"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className={cn(erpSelectFieldClass, "mt-2")}
-                    disabled={!canEdit || saving}
-                  >
-                    <option value="Activo">Activo</option>
-                    <option value="Bloqueado">Bloqueado</option>
-                  </select>
-                </div>
-              </div>
-            </WialonSectionCard>
-
-            <WialonMirrorAccountsPanel
-              mirrors={mirrorAccounts}
-              currentUser={user}
-              onOpenUser={onOpenUser}
-            />
-
-            {!canEdit ? (
-              <p className={cn("text-center", wialonUiCaption)}>
-                No tienes permiso para editar esta cuenta.
-              </p>
-            ) : null}
+              {!canEdit ? (
+                <p className={cn("text-center", wialonUiCaption)}>
+                  No tienes permiso para editar esta cuenta.
+                </p>
+              ) : null}
+            </div>
           </form>
 
           {/* Panel Flota */}
           <div
             id={unidadesPanelId}
             role="tabpanel"
-            aria-labelledby={`${unidadesPanelId}-tab`}
+            aria-labelledby={tabIds.unidades}
             hidden={activeTab !== "unidades"}
-            className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row"
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
           >
-            {/* Sidebar: lista de unidades */}
-            <aside
-              className={cn(
-                "flex min-h-0 flex-col border-[#E7E7EA] bg-[#FAFAFA]/80 p-3 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:p-4",
-                "lg:w-[min(100%,22rem)] lg:shrink-0 lg:self-stretch lg:border-b-0 lg:border-r",
-                selectedUnitId != null
-                  ? "hidden border-b lg:flex"
-                  : "flex flex-1 border-b lg:flex-none",
-              )}
-            >
-              <div className="mb-3 flex shrink-0 items-end justify-between gap-2">
-                <div>
-                  <p className={wialonEyebrowClass}>Flota</p>
-                  <p className="mt-0.5 text-sm font-semibold text-[#09090B] dark:text-[#f8fafc]">
-                    Unidades activas
-                  </p>
-                </div>
-                <span className={cn(wialonUiCaption, "tabular-nums")}>
-                  {filteredUnits.length}/{fleetUnits.length}
-                </span>
-              </div>
-
-              <div className="relative mb-3 shrink-0">
-                <input
-                  type="search"
-                  value={unitSearch}
-                  onChange={(e) => setUnitSearch(e.target.value)}
-                  placeholder="Nombre, UID, placa…"
-                  className={cn(erpSearchInputClass, "w-full")}
-                  aria-label="Buscar unidad en la flota"
-                />
-                <svg
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E6E77] dark:text-[#8ea0b8]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="M20 20l-3-3" />
-                </svg>
-              </div>
-
-              <div
-                className="custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-2 touch-pan-y [-webkit-overflow-scrolling:touch]"
-                role="listbox"
-                aria-label="Unidades de la flota"
-              >
-                {unitsLoading ? (
-                  <WialonLoadingState label="Cargando unidades…" compact />
-                ) : unitsError ? (
-                  <WialonErrorAlert message={unitsError} />
-                ) : filteredUnits.length === 0 ? (
-                  <p className={cn("py-8 text-center", wialonUiCaption)}>
-                    {fleetUnits.length === 0
-                      ? "Sin unidades asignadas."
-                      : "Ninguna unidad coincide con la búsqueda."}
-                  </p>
-                ) : (
-                  filteredUnits.map((unit) => {
-                    const selected = selectedUnitId === unit.wialon_id;
-                    const inactive = unit.is_active === false || unit.status === "Inactivo";
-                    return (
-                      <button
-                        key={unit.wialon_id}
-                        type="button"
-                        role="option"
-                        aria-selected={selected}
-                        onClick={() => setSelectedUnitId(unit.wialon_id)}
-                        className={cn(
-                          "relative flex w-full gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 motion-reduce:transition-none",
-                          selected
-                            ? "border-[#1B5CFF]/55 bg-[#F1F5FF] shadow-sm dark:border-[#4B7CFF]/50 dark:bg-[#4B7CFF]/10"
-                            : inactive
-                              ? "border-rose-200/70 bg-rose-50/40 opacity-90 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/20"
-                              : unit.is_shared
-                                ? "border-[#1B5CFF]/20 bg-[#ffffff] hover:border-[#1B5CFF]/40 dark:border-[#4B7CFF]/25 dark:bg-[#111827]/40"
-                                : "border-[#E7E7EA] bg-[#ffffff] hover:border-[#D3D3D8] dark:border-[#273244] dark:bg-[#111827] dark:hover:border-[#475569]/80",
-                        )}
-                      >
-                        {selected ? (
-                          <span
-                            className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-full bg-[#1B5CFF]"
-                            aria-hidden
-                          />
-                        ) : null}
-                        <span
-                          className={cn(
-                            "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-medium",
-                            selected
-                              ? "bg-[#1B5CFF] text-white"
-                              : inactive
-                                ? "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200"
-                                : "bg-[#1B5CFF]/12 text-[#1244D1] dark:bg-[#4B7CFF]/15 dark:text-[#4B7CFF]",
-                          )}
-                          aria-hidden
-                        >
-                          {(unit.name || "?").slice(0, 1).toUpperCase()}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-start justify-between gap-2">
-                            <span className="truncate text-sm font-medium text-[#141413] dark:text-[#f8fafc]">
-                              {unit.name || "Sin nombre"}
-                            </span>
-                            <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                              {inactive ? (
-                                <span
-                                  className={cn(
-                                    wialonUiBadge,
-                                    "bg-[#ebe6df] text-[#52525B] ring-1 ring-inset ring-[#D3D3D8] dark:bg-[#27272a] dark:text-[#d4d4d8] dark:ring-[#273244]",
-                                  )}
-                                >
-                                  <span
-                                    className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[#A1A1AA]"
-                                    aria-hidden
-                                  />
-                                  Inactiva
-                                </span>
-                              ) : null}
-                              {unit.is_shared ? (
-                                <WialonSharedBadge
-                                  sharedWith={unit.shared_with}
-                                  count={unit.shared_users_count}
-                                  compact
-                                />
-                              ) : null}
-                            </span>
-                          </span>
-                          <span className="mt-0.5 block truncate font-mono text-[11px] text-[#1B5CFF] dark:text-[#4B7CFF]">
-                            {unit.uid !== "—" ? unit.uid : "Sin UID"}
-                          </span>
-                          <span className={cn("mt-1 block truncate", wialonUiCaption)}>
-                            {unit.device_type}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </aside>
-
-            {/* Detalle de unidad */}
-            <div
-              className={cn(
-                "custom-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-[#ffffff] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:bg-[#111827] sm:p-6",
-                selectedUnitId == null ? "hidden lg:block" : "block",
-              )}
+            <WialonFleetPanel
+              units={fleetUnits}
+              loading={unitsLoading}
+              error={unitsError}
+              search={unitSearch}
+              onSearchChange={setUnitSearch}
+              selectedUnitId={selectedUnitId}
+              onSelect={setSelectedUnitId}
             >
               <WialonUnitEditForm
                 unitId={selectedUnitId}
@@ -673,11 +598,44 @@ export default function EditWialonUserModal({
                 onSaved={handleUnitSaved}
                 onBackToList={() => setSelectedUnitId(null)}
               />
-            </div>
+            </WialonFleetPanel>
           </div>
-        </div>
 
-        <WialonModalFooter actions={footerActions} busy={footerBusy} />
+          {/* ============================ Pie ============================ */}
+          <footer
+            className="flex shrink-0 items-center justify-between gap-3 border-t border-[#F0F0F2] bg-white px-4 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] dark:border-[#1F2A3C] dark:bg-[#111827] sm:px-8 sm:pb-3.5"
+            aria-busy={footerBusy || undefined}
+          >
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={footerBusy}
+              className="inline-flex min-h-11 items-center rounded-lg px-3 text-[14px] font-medium text-[#71717A] transition-colors hover:bg-[#F4F4F5] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-50 dark:text-[#8EA0B8] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]"
+            >
+              {saveTarget ? "Cancelar" : "Cerrar"}
+            </button>
+            {saveTarget ? (
+              <button
+                type="submit"
+                form={saveTarget}
+                disabled={footerBusy}
+                aria-busy={saveInFlight || undefined}
+                className={appModalBtn.primary}
+              >
+                {saveInFlight ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <Check className="size-4" aria-hidden />
+                )}
+                {saveInFlight
+                  ? "Guardando…"
+                  : activeTab === "unidades"
+                    ? "Guardar unidad"
+                    : "Guardar cambios"}
+              </button>
+            ) : null}
+          </footer>
+        </div>
       </div>
     </Modal>
   );

@@ -1946,6 +1946,13 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     # null = omitir (p. ej. cliente antiguo / listado incompleto).
                     data.pop("firma_cliente_url", None)
                     serializer.validated_data.pop("firma_cliente_url", None)
+                elif isinstance(firma_cliente, str) and (
+                    firma_cliente.strip() == str(old_firma_cliente or "").strip()
+                ):
+                    # Sin cambios: la firma ya guardada puede ser de un formato
+                    # anterior (otra carpeta/host) y no debe bloquear el guardado.
+                    data.pop("firma_cliente_url", None)
+                    serializer.validated_data.pop("firma_cliente_url", None)
                 elif isinstance(firma_cliente, str):
                     if not _extract_public_id_from_url(firma_cliente):
                         raise ValidationError("firma_cliente_url inválida")
@@ -1985,6 +1992,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     new_fotos.append(_upload_data_url(f, folder='ordenes/fotos', max_size_kb=80))
                 elif isinstance(f, str) and f and _extract_public_id_from_url(f):
                     new_fotos.append(_normalize_http_url(f))
+                elif isinstance(f, str) and f in old_fotos:
+                    # Foto ya guardada con un formato anterior: se conserva tal cual.
+                    new_fotos.append(f)
                 else:
                     raise ValidationError("fotos_urls contiene una entrada inválida")
             data['fotos_urls'] = new_fotos

@@ -1,5 +1,4 @@
-import { emptyFormData } from "@/components/clientes/clienteFormShared";
-import { estadosMX, paisOptions } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
+import { emptyFormData, estadosMX, paisOptions } from "@/components/clientes/domain";
 import type { ApiCotizacionItem } from "@/pages/Ventas/Cotizacion/shared/cotizacionFormTypes";
 
 export type SicarSerieOption = {

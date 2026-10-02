@@ -1,6 +1,4 @@
-import { ClienteSimplifiedFormFields } from "@/components/clientes/ClienteSimplifiedFormFields";
-import { ClienteMapPickerModal } from "@/components/clientes/ClienteMapPickerModal";
-import { emptyFormData } from "@/components/clientes/clienteFormShared";
+import { ClienteMapPickerModal, ClienteSimplifiedFormFields, emptyFormData } from "@/components/clientes";
 import { Modal } from "@/components/ui/modal";
 import { fetchApi } from "@/config/api";
 import { fetchSicarApi } from "./sicarApi";

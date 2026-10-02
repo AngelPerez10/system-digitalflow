@@ -1,5 +1,4 @@
-import type { ClienteTipo } from "@/components/clientes/clienteFormShared";
-import { TIPO_OPTIONS } from "@/components/clientes/clienteFormShared";
+import { type ClienteTipo, TIPO_OPTIONS } from "@/components/clientes/domain";
 
 const TIPO_SET = new Set<string>(TIPO_OPTIONS.map((o) => o.value));
 

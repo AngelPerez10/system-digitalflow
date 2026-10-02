@@ -4,8 +4,7 @@ import { fetchApi } from "@/config/api";
 import { fetchMarcaPublic } from "@/config/marcaApi";
 import { MARCA_NOMBRE_DEFAULT } from "@/config/marcaIniciales";
 import { terminosCotizacionDefault } from "@/pages/Ventas/Cotizacion/shared/terminosCotizacionDefault";
-import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
-import { direccionParaOrden } from "@/components/clientes/clienteFormShared";
+import { direccionParaOrden, fetchClientesCatalog } from "@/components/clientes";
 import type { Cliente } from "@/types/cliente";
 import type { CotizacionResumen } from "@/pages/Operacion/Proyectos/shared/proyectoTypes";
 import {

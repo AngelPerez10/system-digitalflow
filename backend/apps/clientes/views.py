@@ -5,7 +5,7 @@ import os
 import cloudinary
 import cloudinary.uploader
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import Http404
 from rest_framework import filters, status, viewsets
 from rest_framework.exceptions import APIException
@@ -30,6 +30,15 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+def _positive_int(value) -> int | None:
+    """Convierte a entero positivo o None (evita 500 y rutas manipuladas con ids no numéricos)."""
+    try:
+        number = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
 
 ALLOWED_CLIENTE_TIPOS = frozenset(code for code, _label in Cliente.TIPO_CHOICES)
 
@@ -109,6 +118,22 @@ class ClienteViewSet(viewsets.ModelViewSet):
     ordering_fields = ['idx', 'nombre', 'fecha_creacion']
     ordering = ['idx']
 
+    # `Cliente.save()` toma el primer `idx` libre: dos altas simultáneas pueden
+    # elegir el mismo y la segunda choca con el UNIQUE. Se reintenta dentro de
+    # un savepoint (cada intento recalcula el `idx`) antes de responder 409.
+    CREATE_IDX_ATTEMPTS = 3
+
+    def perform_create(self, serializer):
+        for attempt in range(1, self.CREATE_IDX_ATTEMPTS + 1):
+            try:
+                with transaction.atomic():
+                    serializer.save()
+                return
+            except IntegrityError:
+                if attempt == self.CREATE_IDX_ATTEMPTS:
+                    raise
+                logger.warning("Choque de idx al crear cliente; reintento %s", attempt + 1)
+
     def get_queryset(self):
         qs = super().get_queryset()
         tipos = parse_tipo_query(self.request.query_params)
@@ -168,9 +193,11 @@ class ClienteContactoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        cliente_id = self.request.query_params.get('cliente')
-        if cliente_id:
-            qs = qs.filter(cliente_id=cliente_id)
+        raw = self.request.query_params.get('cliente')
+        if raw:
+            cliente_id = _positive_int(raw)
+            # Id inválido => sin resultados (antes: ValueError => 500).
+            qs = qs.filter(cliente_id=cliente_id) if cliente_id else qs.none()
         return qs
 
 
@@ -190,9 +217,11 @@ class ClienteDireccionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        cliente_id = self.request.query_params.get('cliente')
-        if cliente_id:
-            qs = qs.filter(cliente_id=cliente_id)
+        raw = self.request.query_params.get('cliente')
+        if raw:
+            cliente_id = _positive_int(raw)
+            # Id inválido => sin resultados (antes: ValueError => 500).
+            qs = qs.filter(cliente_id=cliente_id) if cliente_id else qs.none()
         return qs
     # La promoción a principal tras borrar vive en `ClienteDireccion.delete()`
     # (modelo), no aquí, para que también aplique fuera de la API (admin,
@@ -213,10 +242,14 @@ class ClienteDocumentoViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser]
 
     def create(self, request, *args, **kwargs):
-        cliente_id = request.data.get('cliente')
+        raw_cliente = request.data.get('cliente')
         archivo = request.FILES.get('archivo')
-        if not cliente_id:
+        if not raw_cliente:
             return Response({'cliente': ['Este campo es requerido.']}, status=status.HTTP_400_BAD_REQUEST)
+        # El id se usa en la carpeta de Cloudinary: debe ser un entero de un cliente real.
+        cliente_id = _positive_int(raw_cliente)
+        if cliente_id is None or not Cliente.objects.filter(pk=cliente_id).exists():
+            return Response({'cliente': ['Cliente no válido.']}, status=status.HTTP_400_BAD_REQUEST)
         if not archivo:
             return Response({'archivo': ['Este campo es requerido.']}, status=status.HTTP_400_BAD_REQUEST)
 

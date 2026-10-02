@@ -1,97 +1,50 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
+/**
+ * Alta / edición de un cliente (Contactos, Órdenes de servicio…).
+ *
+ * Este componente solo orquesta: estado del formulario y pasos. El guardado
+ * vive en `useClienteSave`; la presentación en `ClienteFormHeader`,
+ * `ClienteFormSteps`, `fields/` y `ClienteFormFooter`.
+ *
+ * - No se cierra con un clic fuera; con X, Escape o Cancelar avisa si hay
+ *   cambios sin guardar. Ctrl/⌘+S guarda.
+ */
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Modal } from "@/components/ui/modal";
-import { fetchApi } from "@/config/api";
+import "@/components/ui/modal-kit/motion.css";
+import "./clienteForm.css";
 import type { Cliente } from "@/types/cliente";
-import { onlyDigits10 } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
-import { ClienteMapPickerModal } from "./ClienteMapPickerModal";
-import { ClienteSimplifiedFormFields } from "./ClienteSimplifiedFormFields";
-import { seedPrincipalDireccion } from "./clienteDireccionesApi";
-import {
-  type ClienteFormTab,
-  type ClienteTipo,
-  buildClientePayload,
-  emptyFormData,
-  formatApiErrors,
-  formDataFromCliente,
-  upsertClienteContactoFromForm,
-} from "./clienteFormShared";
+import { emptyFormData, formDataFromCliente, type ClienteFormData } from "../domain/clienteFormData";
+import { mapsUrlForCoords } from "../domain/clienteLinks";
+import { CLIENTE_STEP_ORDER, clienteStepState } from "../domain/clienteSteps";
+import { TIPO_OPTIONS, type ClienteFormTab, type ClienteTipo } from "../domain/clienteTipos";
+import { useClienteDuplicates } from "../hooks/useClienteDuplicates";
+import { ClienteMapPickerModal } from "../map/ClienteMapPickerModal";
+import type { LatLng } from "../map/leaflet";
+import { Notice } from "../ui/FormUi";
+import { formFont } from "../ui/tokens";
+import { ClienteDuplicatesNotice } from "./ClienteDuplicatesNotice";
+import { SINGULAR } from "./clienteFormCopy";
+import { ClienteFormFooter } from "./ClienteFormFooter";
+import { ClienteFormHeader } from "./ClienteFormHeader";
+import { ClienteStepChips, ClienteStepRail } from "./ClienteFormSteps";
+import { CLIENTE_STEPS } from "./clienteStepMeta";
+import { ClienteSimplifiedFormFields } from "./fields/ClienteSimplifiedFormFields";
+import { useClienteSave, type ClienteSaveMeta } from "./useClienteSave";
 
-/* --------------------------------------------------------------------------
-   Mismo cascarón que `ClientesPage`: cabecera marina, cuerpo en lienzo,
-   pie hundido, azul eléctrico como acento de acción (no naranja legacy).
-   -------------------------------------------------------------------------- */
+export type { ClienteSaveMeta };
 
+// Mismo cascarón que el modal de Proyectos: alto fijo (cambiar de paso no hace saltar el modal).
 const modalShellClass =
-  "flex max-h-[min(92vh,860px)] w-full max-w-5xl flex-col overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]";
+  "flex h-[min(94dvh,52rem)] w-full flex-col overflow-hidden rounded-t-[22px] border border-[#E7E7EA] !bg-white p-0 shadow-[0_32px_80px_-24px_rgba(9,9,11,0.45)] dark:border-[#273244] dark:!bg-[#111827] sm:h-[min(92dvh,52rem)] sm:w-[min(96vw,66rem)] sm:max-w-none sm:rounded-[22px]";
 
-const modalHeaderClass = "relative shrink-0 bg-[#17235B] px-6 py-5 pr-16 dark:bg-[#1B2A63]";
-const modalHeaderIconClass =
-  "inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]";
-const modalEyebrowClass = "text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55";
-const modalTitleClass = "text-[20px] font-semibold leading-[1.25] tracking-[-0.5px] text-white";
-const modalSubtitleClass = "mt-1 text-[14px] leading-5 text-white/70";
-const modalFooterClass =
-  "shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-4 dark:border-[#273244] dark:bg-[#151E32] sm:px-6";
+const MAP_CONTAINER_ID = "cliente-form-modal-leaflet-map";
 
-const primaryBtnClass =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-6 text-[15px] font-medium tracking-[-0.1px] text-white transition-[background-color,border-color,transform] duration-150 hover:border-[#1244D1] hover:bg-[#1244D1] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0] dark:disabled:border-[#1A2748] dark:disabled:bg-[#1A2748] dark:disabled:text-[#9BB0F0] max-sm:w-full sm:h-11";
-
-const secondaryBtnClass =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-5 text-[15px] font-medium tracking-[-0.1px] text-[#09090B] transition-[background-color,border-color,transform] duration-150 hover:border-[#D3D3D8] hover:bg-[#FAFAFA] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048] max-sm:w-full sm:h-11";
-
-type AlertVariant = "error" | "warning";
-
-const alertTone: Record<AlertVariant, { border: string; bg: string; dot: string; title: string; msg: string }> = {
-  error: {
-    border: "border-[#F6CFCF] dark:border-[#7F1D1D]",
-    bg: "bg-[#FEF2F2] dark:bg-[#3F1518]",
-    dot: "bg-[#C22B2B] dark:bg-[#F87171]",
-    title: "text-[#C22B2B] dark:text-[#F87171]",
-    msg: "text-[#C22B2B]/85 dark:text-[#F87171]/80",
-  },
-  warning: {
-    border: "border-[rgba(230,162,60,0.4)] dark:border-[rgba(230,162,60,0.3)]",
-    bg: "bg-[rgba(230,162,60,0.10)] dark:bg-[rgba(230,162,60,0.10)]",
-    dot: "bg-[#9A6B15] dark:bg-[#E6A23C]",
-    title: "text-[#9A6B15] dark:text-[#E6A23C]",
-    msg: "text-[#9A6B15]/85 dark:text-[#E6A23C]/85",
-  },
-};
-
-function InlineAlert({
-  variant,
-  title,
-  message,
-  id,
-}: {
-  variant: AlertVariant;
-  title: string;
-  message: string;
-  id?: string;
-}) {
-  const tone = alertTone[variant];
-  return (
-    <div
-      id={id}
-      role="alert"
-      aria-live="assertive"
-      className={`flex items-start gap-3 rounded-[14px] border px-4 py-3 ${tone.border} ${tone.bg}`}
-    >
-      <span className={`mt-1.5 size-1.75 shrink-0 rounded-full ${tone.dot}`} aria-hidden />
-      <div className="min-w-0">
-        <p className={`text-[15px] font-medium ${tone.title}`}>{title}</p>
-        <p className={`mt-0.5 text-[13px] ${tone.msg}`}>{message}</p>
-      </div>
-    </div>
-  );
-}
-
-const trimOrEmpty = (value: unknown) => String(value ?? "").trim();
+const snapshot = (data: ClienteFormData) => JSON.stringify(data);
 
 export interface ClienteFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (cliente: Cliente) => void;
+  onSuccess: (cliente: Cliente, meta?: ClienteSaveMeta) => void;
   editingCliente?: Cliente | null;
   permissions?: {
     clientes?: {
@@ -101,9 +54,12 @@ export interface ClienteFormModalProps {
   };
   fixedTipo?: ClienteTipo;
   sectionTitle?: string;
+  /**
+   * Si se define, al crear se avisa de posibles duplicados y se ofrece abrir el
+   * registro existente en edición. Sin esto no se hace ninguna consulta extra.
+   */
+  onEditExisting?: (cliente: Cliente) => void;
 }
-
-const MAP_CONTAINER_ID = "cliente-form-modal-leaflet-map";
 
 export function ClienteFormModal({
   isOpen,
@@ -113,243 +69,286 @@ export function ClienteFormModal({
   permissions,
   fixedTipo,
   sectionTitle = "Contactos de negocio",
+  onEditExisting,
 }: ClienteFormModalProps) {
   const titleId = useId();
   const descId = useId();
   const errorId = useId();
+  const stepsId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [formData, setFormData] = useState<Record<string, unknown>>(emptyFormData(fixedTipo));
+  const [formData, setFormData] = useState<ClienteFormData>(() => emptyFormData(fixedTipo));
+  const [initialData, setInitialData] = useState<ClienteFormData>(() => emptyFormData(fixedTipo));
   const [activeTab, setActiveTab] = useState<ClienteFormTab>("general");
-  const [modalError, setModalError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [showMapModal, setShowMapModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [mapError, setMapError] = useState("");
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<LatLng | null>(null);
 
-  const canClientesCreate = permissions?.clientes?.create === true;
-  const canClientesEdit = permissions?.clientes?.edit === true;
+  const isEditing = editingCliente !== null;
+  const canSave = isEditing ? permissions?.clientes?.edit === true : permissions?.clientes?.create === true;
+  const dirty = snapshot(formData) !== snapshot(initialData);
 
-  const viewSingular =
-    fixedTipo === "EMPRESA"
-      ? "empresa"
-      : fixedTipo === "PERSONA_FISICA"
-        ? "persona física"
-        : fixedTipo === "PROVEEDOR"
-          ? "proveedor"
-          : "contacto";
+  /* ---------------- Navegación ---------------- */
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setModalError("");
-    setActiveTab("general");
-    setMapError("");
-    if (editingCliente) {
-      setFormData(formDataFromCliente(editingCliente, fixedTipo));
-    } else {
-      setFormData(emptyFormData(fixedTipo));
-    }
-  }, [isOpen, editingCliente, fixedTipo]);
+  function selectTab(tab: ClienteFormTab) {
+    setActiveTab(tab);
+    scrollRef.current?.scrollTo({ top: 0 });
+  }
 
-  useEffect(() => {
-    if (!fixedTipo) return;
-    setFormData((prev) => ({ ...prev, tipo: fixedTipo }));
-  }, [fixedTipo]);
-
-  const handleClose = () => {
-    setModalError("");
-    setActiveTab("general");
-    setFormData(emptyFormData(fixedTipo));
-    setSelectedLocation(null);
-    onClose();
+  /** Cambia de paso y, si se indica, enfoca el campo (dos cuadros: montar la pestaña y luego enfocar). */
+  const goToField = (tab: ClienteFormTab, field?: string) => {
+    selectTab(tab);
+    if (!field) return;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>(`[name="${field}"]`)?.focus()),
+    );
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setModalError("");
+  /* ---------------- Guardado ---------------- */
 
-    if (!editingCliente && !canClientesCreate) {
-      setModalError("No tienes permiso para crear clientes.");
+  const save = useClienteSave({
+    formData,
+    initialData,
+    editingCliente,
+    fixedTipo,
+    canSave,
+    dirty,
+    goToField,
+    onSaved: (cliente, meta) => {
+      onClose();
+      onSuccess(cliente, meta);
+    },
+  });
+
+  // Un error general (sin campo) aparece arriba: llevar la vista ahí.
+  useEffect(() => {
+    if (save.apiError) scrollRef.current?.scrollTo({ top: 0 });
+  }, [save.apiError]);
+
+  const duplicates = useClienteDuplicates({
+    enabled: isOpen && !isEditing && save.createdId === null && Boolean(onEditExisting),
+    nombre: String(formData.nombre ?? "").trim(),
+    telefono: String(formData.telefono ?? ""),
+  });
+
+  // Cada apertura (o cambio de registro) arranca limpio.
+  const { reset: resetSave } = save;
+  useEffect(() => {
+    if (!isOpen) return;
+    const data = editingCliente ? formDataFromCliente(editingCliente, fixedTipo) : emptyFormData(fixedTipo);
+    setFormData(data);
+    setInitialData(data);
+    setActiveTab("general");
+    setMapError("");
+    setConfirmDiscard(false);
+    setSelectedLocation(null);
+    resetSave();
+  }, [isOpen, editingCliente, fixedTipo, resetSave]);
+
+  /* ---------------- Cerrar ---------------- */
+
+  const close = () => {
+    setConfirmDiscard(false);
+    // El cliente se creó pero el guardado quedó a medias: la vista debe enterarse.
+    const pending = save.takeUnreported();
+    onClose();
+    if (pending) onSuccess(pending, { contactoPendiente: true });
+  };
+
+  /** X, Escape y «Cancelar» pasan por aquí. */
+  const requestClose = () => {
+    if (save.isSavingNow()) return;
+    if (dirty && !confirmDiscard) {
+      setConfirmDiscard(true);
       return;
     }
+    close();
+  };
 
-    if (editingCliente && !canClientesEdit) {
-      setModalError("No tienes permiso para editar clientes.");
-      return;
-    }
+  const handleSubmit = (e?: FormEvent) => {
+    e?.preventDefault();
+    setConfirmDiscard(false);
+    void save.submit();
+  };
 
-    const missingFields: string[] = [];
-    if (!trimOrEmpty(formData.nombre)) missingFields.push("Nombre");
-    if (!trimOrEmpty(formData.telefono) || !onlyDigits10(String(formData.telefono || ""))) {
-      missingFields.push("Teléfono (10 dígitos)");
-    }
-
-    if (missingFields.length > 0) {
-      setModalError(`Campos requeridos faltantes: ${missingFields.join(", ")}`);
-      return;
-    }
-
-    const url = editingCliente ? `/api/clientes/${editingCliente.id}/` : "/api/clientes/";
-    const method = editingCliente ? "PUT" : "POST";
-    const isEditing = !!editingCliente;
-
-    setSaving(true);
-    try {
-      const response = await fetchApi(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildClientePayload(formData, fixedTipo, isEditing)),
-      });
-
-      if (!response.ok) {
-        const txt = await response.text().catch(() => "");
-        setModalError(formatApiErrors(txt) || "No se pudo guardar el cliente.");
-        return;
-      }
-
-      const saved = (await response.json().catch(() => null)) as Cliente | null;
-      if (!saved?.id) {
-        setModalError("No se pudo obtener el ID del cliente guardado.");
-        return;
-      }
-
-      try {
-        await upsertClienteContactoFromForm(saved.id, formData);
-      } catch (contactError) {
-        setModalError(
-          contactError instanceof Error
-            ? contactError.message
-            : "El cliente se guardó, pero no se pudo guardar el contacto."
-        );
-        return;
-      }
-
-      if (!isEditing) {
-        await seedPrincipalDireccion(saved.id, formData);
-      }
-
-      handleClose();
-      onSuccess(saved);
-    } catch (error) {
-      setModalError(String(error));
-    } finally {
-      setSaving(false);
+  /** Ctrl/⌘ + S guarda desde cualquier campo. */
+  const onFormKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      handleSubmit();
     }
   };
 
   const handleConfirmMap = () => {
-    if (!selectedLocation) {
-      setShowMapModal(false);
-      return;
+    if (selectedLocation) {
+      const url = mapsUrlForCoords(selectedLocation);
+      setFormData((prev) => ({ ...prev, direccion: url }));
     }
-    const { lat, lng } = selectedLocation;
-    setFormData((prev) => ({
-      ...prev,
-      direccion: `https://www.google.com/maps?q=${lat},${lng}`,
-    }));
     setShowMapModal(false);
   };
 
-  const isValidationWarning = modalError.startsWith("Campos requeridos faltantes:");
+  /* ---------------- Derivados de presentación ---------------- */
+
+  const stepIndex = CLIENTE_STEP_ORDER.indexOf(activeTab);
+  const step = CLIENTE_STEPS[stepIndex];
+  const stepState = clienteStepState(formData, save.errors, Boolean(editingCliente?.id));
+  const doneCount = CLIENTE_STEP_ORDER.filter((t) => stepState[t] === "done").length;
+  const completion = Math.round((doneCount / CLIENTE_STEP_ORDER.length) * 100);
+
+  const stepProps = {
+    activeTab,
+    stepState,
+    tabId: (t: ClienteFormTab) => `${stepsId}-tab-${t}`,
+    panelId: (t: ClienteFormTab) => `${stepsId}-panel-${t}`,
+    disabled: save.saving,
+    onSelect: selectTab,
+  };
+
+  const singular = SINGULAR[fixedTipo ?? "DEFAULT"];
+  const nombre = String(formData.nombre ?? "").trim();
+  const tipo = (fixedTipo ?? String(formData.tipo || "EMPRESA")) as ClienteTipo;
+  const nothingToSave = isEditing && !dirty;
 
   return (
     <>
       <Modal
         mobileBottomSheet
         isOpen={isOpen}
-        onClose={handleClose}
-        closeOnBackdropClick={!saving}
-        closeOnEscape={!saving}
+        onClose={requestClose}
+        showCloseButton={false}
+        // Un clic fuera no cierra: un formulario largo no se pierde por accidente.
+        closeOnBackdropClick={false}
+        closeOnEscape={!save.saving && !showMapModal}
         ariaLabelledBy={titleId}
         ariaDescribedBy={descId}
         className={modalShellClass}
       >
-        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden" style={{ fontFamily: "Geist, Outfit, system-ui, sans-serif" }}>
-          <header className={modalHeaderClass}>
-            <div className="flex min-w-0 items-start gap-3.5">
-              <span className={modalHeaderIconClass}>
-                <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden>
-                  <path
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                    d="M6.75 6.5C6.75 3.6005 9.1005 1.25 12 1.25C14.8995 1.25 17.25 3.6005 17.25 6.5C17.25 9.3995 14.8995 11.75 12 11.75C9.1005 11.75 6.75 9.3995 6.75 6.5Z"
-                    fill="currentColor"
-                  />
-                  <path
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                    d="M4.25 18.5714C4.25 15.6325 6.63249 13.25 9.57143 13.25H14.4286C17.3675 13.25 19.75 15.6325 19.75 18.5714C19.75 20.8792 17.8792 22.75 15.5714 22.75H8.42857C6.12081 22.75 4.25 20.8792 4.25 18.5714Z"
-                    fill="currentColor"
-                  />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <p className={modalEyebrowClass}>{sectionTitle}</p>
-                <h3 id={titleId} className={`mt-1 ${modalTitleClass}`}>
-                  {editingCliente ? `Editar ${viewSingular}` : `Nuevo ${viewSingular}`}
-                </h3>
-                <p id={descId} className={modalSubtitleClass}>
-                  Captura y revisa los datos antes de guardar.
-                </p>
-              </div>
+        <ClienteFormHeader
+          titleId={titleId}
+          descId={descId}
+          isEditing={isEditing}
+          eyebrow={
+            isEditing
+              ? `${sectionTitle}${editingCliente?.idx != null ? ` · No. ${editingCliente.idx}` : ""}`
+              : `Nuevo ${singular}`
+          }
+          tipoLabel={TIPO_OPTIONS.find((o) => o.value === tipo)?.label ?? "Contacto"}
+          title={nombre || (isEditing ? "Registro sin nombre" : `Nuevo ${singular}`)}
+          completion={completion}
+          closeDisabled={save.saving}
+          onClose={requestClose}
+        />
+
+        <div className="flex min-h-0 flex-1" style={formFont}>
+          <aside className="hidden w-64 shrink-0 flex-col border-r border-[#F0F0F2] bg-[#FAFAFA] p-3 dark:border-[#1F2A3C] dark:bg-[#0F172A]/60 md:flex">
+            <ClienteStepRail {...stepProps} />
+            <div className="mt-auto space-y-2">
+              <p className="rounded-2xl bg-white px-3 py-2.5 text-[12px] leading-relaxed text-[#6E6E77] ring-1 ring-[#F0F0F2] dark:bg-[#111827] dark:text-[#8EA0B8] dark:ring-[#1F2A3C]">
+                {isEditing
+                  ? "Los contactos y direcciones se guardan al instante desde sus tarjetas."
+                  : "Solo el nombre y el teléfono son obligatorios; lo demás puedes completarlo después."}
+              </p>
+              <p className="px-1 text-[11.5px] text-[#8E8E96] dark:text-[#64748B]">
+                <kbd className="rounded border border-[#E4E4E7] bg-white px-1 font-sans text-[11px] dark:border-[#273244] dark:bg-[#111827]">Ctrl</kbd>{" "}
+                +{" "}
+                <kbd className="rounded border border-[#E4E4E7] bg-white px-1 font-sans text-[11px] dark:border-[#273244] dark:bg-[#111827]">S</kbd>{" "}
+                para guardar
+              </p>
             </div>
-          </header>
+          </aside>
 
           <form
+            ref={formRef}
             onSubmit={handleSubmit}
-            className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
-            aria-busy={saving}
+            onKeyDown={onFormKeyDown}
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
+            aria-busy={save.saving}
+            aria-keyshortcuts="Control+S Meta+S"
             noValidate
           >
-            <div className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#FAFAFA] p-4 dark:bg-[#0d1420] sm:p-6">
-              {modalError ? (
-                <InlineAlert
-                  id={errorId}
-                  variant={isValidationWarning ? "warning" : "error"}
-                  title={isValidationWarning ? "Faltan campos" : "Error"}
-                  message={modalError}
-                />
-              ) : null}
-
-              {mapError ? (
-                <InlineAlert variant="error" title="Error de mapa" message={mapError} />
-              ) : null}
-
-              <ClienteSimplifiedFormFields
-                formData={formData}
-                setFormData={setFormData}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                fixedTipo={fixedTipo}
-                editingCliente={editingCliente}
-                onOpenMap={() => setShowMapModal(true)}
-              />
+            <div className="shrink-0 border-b border-[#F0F0F2] px-3 py-2.5 dark:border-[#1F2A3C] md:hidden">
+              <ClienteStepChips {...stepProps} />
             </div>
 
-            <div className={modalFooterClass}>
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <button type="button" onClick={handleClose} disabled={saving} className={secondaryBtnClass}>
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  aria-describedby={modalError ? errorId : undefined}
-                  className={primaryBtnClass}
-                >
-                  <svg
-                    className="size-4.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden
+            <div ref={scrollRef} className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[#F7F7F8] dark:bg-[#0B1220]">
+              {/* Mientras se guarda nada se puede editar (evita cambios que no se enviarían). */}
+              <fieldset disabled={save.saving} className={`cf-body m-0 min-w-0 border-0 p-0 ${save.saving ? "opacity-70" : ""}`}>
+                <div className="mx-auto w-full max-w-3xl space-y-4 p-3 sm:p-5 lg:p-6">
+                  {save.apiError ? (
+                    <Notice tone="error" title="No se pudo guardar" id={errorId}>
+                      {save.apiError}
+                    </Notice>
+                  ) : null}
+
+                  {mapError ? (
+                    <Notice tone="warning" title="Mapa no disponible">
+                      {mapError}
+                    </Notice>
+                  ) : null}
+
+                  {onEditExisting && !isEditing && save.createdId === null ? (
+                    <ClienteDuplicatesNotice matches={duplicates} onEditExisting={onEditExisting} />
+                  ) : null}
+
+                  <div
+                    key={activeTab}
+                    id={stepProps.panelId(activeTab)}
+                    role="tabpanel"
+                    aria-labelledby={stepProps.tabId(activeTab)}
+                    className="space-y-4"
                   >
-                    <path d="m5 12.5 4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  {saving ? "Guardando…" : editingCliente ? "Actualizar" : "Guardar"}
-                </button>
-              </div>
+                    <div className="cot-fade hidden items-center gap-3 px-1 pt-1 sm:flex">
+                      <span
+                        className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1B5CFF] ring-1 ring-[#E4E4E7] dark:bg-[#111827] dark:text-[#7EA0FF] dark:ring-[#273244]"
+                        aria-hidden
+                      >
+                        <step.icon className="size-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] dark:text-[#7EA0FF]">
+                          Paso {stepIndex + 1} de {CLIENTE_STEP_ORDER.length}
+                        </p>
+                        <p className="text-[20px] font-semibold leading-tight tracking-[-0.4px] text-[#09090B] dark:text-[#F8FAFC]">
+                          {step.label}
+                        </p>
+                      </div>
+                    </div>
+
+                    <ClienteSimplifiedFormFields
+                      formData={formData}
+                      setFormData={setFormData}
+                      activeTab={activeTab}
+                      setActiveTab={selectTab}
+                      fixedTipo={fixedTipo}
+                      editingCliente={editingCliente}
+                      onOpenMap={() => setShowMapModal(true)}
+                      errors={save.errors}
+                      hideTabs
+                    />
+                  </div>
+                </div>
+              </fieldset>
             </div>
+
+            <ClienteFormFooter
+              confirmDiscard={confirmDiscard}
+              onKeepEditing={() => setConfirmDiscard(false)}
+              onDiscard={close}
+              phase={save.phase}
+              errorCount={save.errorCount}
+              dirty={dirty}
+              step={{ index: stepIndex, count: CLIENTE_STEP_ORDER.length, label: step.label }}
+              onPrev={() => selectTab(CLIENTE_STEP_ORDER[stepIndex - 1])}
+              onNext={() => selectTab(CLIENTE_STEP_ORDER[stepIndex + 1])}
+              onCancel={requestClose}
+              saveDisabled={save.saving || !canSave || nothingToSave}
+              nothingToSave={nothingToSave}
+              saveLabel={nothingToSave ? "Sin cambios" : isEditing ? "Guardar cambios" : `Crear ${singular}`}
+              saveShortLabel={nothingToSave ? "Sin cambios" : isEditing ? "Guardar" : "Crear"}
+              errorId={save.apiError ? errorId : undefined}
+            />
           </form>
         </div>
       </Modal>
@@ -362,7 +361,10 @@ export function ClienteFormModal({
         selectedLocation={selectedLocation}
         setSelectedLocation={setSelectedLocation}
         onConfirm={handleConfirmMap}
-        onMapError={(message) => setMapError(message)}
+        onMapError={(message) => {
+          setMapError(message);
+          setShowMapModal(false);
+        }}
       />
     </>
   );

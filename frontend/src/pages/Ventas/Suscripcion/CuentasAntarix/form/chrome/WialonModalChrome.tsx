@@ -25,7 +25,7 @@ export const wialonUiBadge =
 export const wialonEyebrowClass =
   "text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1B5CFF] dark:text-[#4B7CFF] sm:text-[11px]";
 export const wialonPanelClass =
-  "rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] p-4 dark:border-[#273244] dark:bg-[#0f172a]/90 sm:p-5";
+  "rounded-2xl border border-[#E7E7EA] bg-white p-4 dark:border-[#273244] dark:bg-[#111827] sm:p-5";
 export const wialonDossierZoneClass = "relative space-y-3 sm:space-y-4";
 export const wialonDossierHeadingClass =
   "text-base font-medium tracking-[-0.01em] text-[#09090B] dark:text-[#f8fafc] sm:text-lg";

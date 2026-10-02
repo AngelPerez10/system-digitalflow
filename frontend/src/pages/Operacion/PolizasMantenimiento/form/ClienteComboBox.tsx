@@ -8,7 +8,7 @@ import {
   Label,
   ListBox,
 } from "@heroui/react";
-import { fetchClientesCatalog } from "@/components/clientes/fetchClientesCatalog";
+import { fetchClientesCatalog } from "@/components/clientes";
 import { useComboBoxScrollLock } from "@/hooks/useComboBoxScrollLock";
 import { clienteToSelectOption, mergeClienteOptions } from "../list/polizaClienteOptions";
 

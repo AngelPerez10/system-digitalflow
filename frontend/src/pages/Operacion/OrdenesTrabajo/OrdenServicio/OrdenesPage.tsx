@@ -48,7 +48,7 @@ import {
   parseYearMonth,
 } from "./shared/ordenesPageUtils";
 import { groupOrdenesByStatus } from "./shared/ordenStatusSections";
-import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
+import { ClienteFormModal } from "@/components/clientes";
 import { Cliente } from "@/types/cliente";
 import { OrdenDeleteDialog, OrdenDetailModal } from "./shared/OrdenDialogs";
 import {

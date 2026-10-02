@@ -1,0 +1,59 @@
+/*
+ * Movimiento del guardado del formulario de cliente.
+ * Solo `transform`/`opacity`; con `prefers-reduced-motion: reduce` la barra
+ * queda fija y no hay rebote.
+ */
+
+/* Barra de «guardando» en el borde superior del pie. */
+.cf-saving-bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  overflow: hidden;
+  background: rgba(27, 92, 255, 0.12);
+}
+.cf-saving-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: #1b5cff;
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cf-saving-bar::after {
+    animation: cf-indeterminate 1100ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  /* Botón que pasa a «¡Guardado!»: un pulso corto. */
+  .cf-saved {
+    animation: cf-saved 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Contenido del formulario mientras se guarda: se atenúa sin saltar. */
+  .cf-body {
+    transition: opacity 180ms ease-out;
+  }
+}
+
+@keyframes cf-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes cf-saved {
+  0% {
+    transform: scale(0.96);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: none;
+  }
+}

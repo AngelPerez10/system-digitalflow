@@ -1,34 +1,28 @@
-import { useEffect, useRef } from "react";
+/**
+ * Elegir una ubicación en el mapa (Leaflet + OpenStreetMap, cargado bajo
+ * demanda con SRI).
+ *
+ * - Mapa a todo lo ancho; se marca con un toque/clic o arrastrando el pin.
+ *   «Mi ubicación» centra en la posición del dispositivo. No se muestran
+ *   coordenadas: el resultado es una liga de Google Maps en el formulario
+ *   (que también acepta una liga pegada a mano, la alternativa sin ratón).
+ * - Si el domicilio no trae coordenadas no hay punto preseleccionado: no se
+ *   puede confirmar sin elegir (antes se guardaba el centro por omisión).
+ * - El mapa se crea al abrir y se destruye al cerrar o desmontar; una carga
+ *   que termina después de cerrar ya no crea un mapa huérfano.
+ */
+import { useEffect, useId, useRef, useState } from "react";
+import { CircleCheck, ExternalLink, LocateFixed, MapPin, MousePointerClick } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { ModalHeader, Spinner } from "../ui/FormUi";
+import { btnPrimary, btnSecondary, focusRing, formFont, modalFooterClass } from "../ui/tokens";
+import { mapsUrlForCoords, parseCoords } from "../domain/clienteLinks";
+import { leaflet, loadLeaflet, placeMarker, type LatLng, type LeafletMapLike, type LeafletMarkerLike } from "./leaflet";
 
-type LatLng = { lat: number; lng: number };
-
-type LeafletClickEvent = {
-  latlng: LatLng;
-};
-
-type LeafletMarkerLike = {
-  setLatLng: (coords: [number, number]) => void;
-  addTo: (map: LeafletMapLike) => LeafletMarkerLike;
-};
-
-type LeafletMapLike = {
-  setView: (coords: [number, number], zoom: number) => LeafletMapLike;
-  on(event: "zoomend", handler: () => void): void;
-  on(event: "click", handler: (event: LeafletClickEvent) => void): void;
-  getZoom: () => number;
-  remove: () => void;
-};
-
-type LeafletLike = {
-  map: (container: HTMLElement) => LeafletMapLike;
-  tileLayer: (url: string, options: { maxZoom: number; attribution: string }) => { addTo: (map: LeafletMapLike) => void };
-  marker: (coords: [number, number]) => LeafletMarkerLike;
-};
-
-function windowWithLeaflet(): Window & { L?: LeafletLike } {
-  return window as unknown as Window & { L?: LeafletLike };
-}
+/** Centro de la vista cuando no hay punto: Manzanillo, Colima. */
+const DEFAULT_CENTER: LatLng = { lat: 19.0653, lng: -104.2831 };
+const DEFAULT_ZOOM = 13;
+const PICKED_ZOOM = 16;
 
 type Props = {
   isOpen: boolean;
@@ -41,6 +35,10 @@ type Props = {
   onMapError?: (message: string) => void;
 };
 
+/** Capa flotante sobre el mapa (por encima de los paneles de Leaflet, z ≤ 1000). */
+const overlayCard =
+  "rounded-full border border-black/5 bg-white/95 shadow-[0_6px_20px_-8px_rgba(9,9,11,0.35)] backdrop-blur-sm dark:border-white/10 dark:bg-[#111827]/95";
+
 export function ClienteMapPickerModal({
   isOpen,
   onClose,
@@ -51,181 +49,198 @@ export function ClienteMapPickerModal({
   onConfirm,
   onMapError,
 }: Props) {
+  const titleId = useId();
+  const descId = useId();
   const mapRef = useRef<LeafletMapLike | null>(null);
   const markerRef = useRef<LeafletMarkerLike | null>(null);
-  const zoomRef = useRef<number>(15);
+  const zoomRef = useRef(DEFAULT_ZOOM);
+  // Las props cambian en cada render del padre; el efecto de carga solo debe correr al abrir.
+  const latest = useRef({ direccion, setSelectedLocation, onMapError });
+  useEffect(() => {
+    latest.current = { direccion, setSelectedLocation, onMapError };
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState("");
 
   useEffect(() => {
-    if (!isOpen) {
-      if (mapRef.current) {
-        try {
-          mapRef.current.remove();
-        } catch {
-          /* ignore */
-        }
-        mapRef.current = null;
-        markerRef.current = null;
-      }
-      return;
-    }
+    if (!isOpen) return;
+    let cancelled = false;
+    setLoading(true);
+    setGeoError("");
 
-    const initFromDireccion = () => {
-      const d = String(direccion || "").trim();
-      const m = d.match(/q=([-\d.]+),([-\d.]+)/);
-      if (m) {
-        const lat = parseFloat(m[1]);
-        const lng = parseFloat(m[2]);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setSelectedLocation({ lat, lng });
-          return true;
-        }
-      }
-      const m2 = d.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
-      if (m2) {
-        const lat = parseFloat(m2[1]);
-        const lng = parseFloat(m2[2]);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setSelectedLocation({ lat, lng });
-          return true;
-        }
-      }
-      return false;
-    };
+    const { direccion: dir, setSelectedLocation: select } = latest.current;
+    // Solo hay punto inicial si el domicilio ya trae coordenadas.
+    const start = parseCoords(dir);
+    select(start);
+    zoomRef.current = start ? PICKED_ZOOM : DEFAULT_ZOOM;
+    const center = start ?? DEFAULT_CENTER;
 
-    const ensureLeaflet = async () => {
-      const w = windowWithLeaflet();
-      if (w.L) return w.L;
-      if (!document.getElementById("leaflet-css")) {
-        const link = document.createElement("link");
-        link.id = "leaflet-css";
-        link.rel = "stylesheet";
-        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-        link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
-        link.crossOrigin = "";
-        document.head.appendChild(link);
-      }
-      await new Promise<void>((resolve, reject) => {
-        if (document.getElementById("leaflet-js")) return resolve();
-        const script = document.createElement("script");
-        script.id = "leaflet-js";
-        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
-        script.crossOrigin = "";
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Leaflet load error"));
-        document.body.appendChild(script);
-      });
-      return windowWithLeaflet().L;
-    };
-
-    (async () => {
-      try {
-        const L = await ensureLeaflet();
-        if (!L) {
-          throw new Error("Leaflet unavailable");
-        }
-        const had = initFromDireccion();
-        if (!had && !selectedLocation) {
-          setSelectedLocation({ lat: 19.0653, lng: -104.2831 });
-        }
+    loadLeaflet()
+      .then((L) => {
+        if (cancelled) return;
         const container = document.getElementById(mapContainerId);
         if (!container) return;
-        const center = selectedLocation || { lat: 19.0653, lng: -104.2831 };
-        const map = L.map(container).setView([center.lat, center.lng], zoomRef.current || 15);
+        const map = L.map(container).setView([center.lat, center.lng], zoomRef.current);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
-          attribution: "&copy; OpenStreetMap contributors",
+          attribution: "&copy; OpenStreetMap",
         }).addTo(map);
         map.on("zoomend", () => {
-          try {
-            zoomRef.current = map.getZoom();
-          } catch {
-            /* ignore */
-          }
+          zoomRef.current = map.getZoom();
         });
-        map.on("click", (e: LeafletClickEvent) => {
-          const { lat, lng } = e.latlng;
-          setSelectedLocation({ lat, lng });
-        });
+        map.on("click", (e) => latest.current.setSelectedLocation({ lat: e.latlng.lat, lng: e.latlng.lng }));
         mapRef.current = map;
-        if (selectedLocation) {
-          markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
-        }
+        if (start) markerRef.current = placeMarker(L, map, start, (p) => latest.current.setSelectedLocation(p));
+        // El panel entra con una animación: recalcula el tamaño cuando termina.
+        window.setTimeout(() => {
+          if (!cancelled) map.invalidateSize();
+        }, 220);
+      })
+      .catch(() => {
+        if (!cancelled) latest.current.onMapError?.("No se pudo cargar el mapa. Pega una liga de Google Maps en el campo de ubicación.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      try {
+        mapRef.current?.remove();
       } catch {
-        onMapError?.("No se pudo cargar el mapa interactivo.");
+        /* el contenedor ya no existe */
       }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      mapRef.current = null;
+      markerRef.current = null;
+    };
   }, [isOpen, mapContainerId]);
 
+  // Mueve (o crea) el pin al cambiar el punto.
   useEffect(() => {
-    const L = windowWithLeaflet().L;
-    if (!mapRef.current || !selectedLocation || !L) return;
+    const L = leaflet();
     const map = mapRef.current;
-    const currentZoom = typeof zoomRef.current === "number" ? zoomRef.current : map.getZoom?.() || 15;
-    map.setView([selectedLocation.lat, selectedLocation.lng], currentZoom);
-    if (markerRef.current) {
-      markerRef.current.setLatLng([selectedLocation.lat, selectedLocation.lng]);
-    } else {
-      markerRef.current = L.marker([selectedLocation.lat, selectedLocation.lng]).addTo(map);
-    }
+    if (!map || !selectedLocation || !L) return;
+    if (markerRef.current) markerRef.current.setLatLng([selectedLocation.lat, selectedLocation.lng]);
+    else markerRef.current = placeMarker(L, map, selectedLocation, (p) => latest.current.setSelectedLocation(p));
+    map.setView([selectedLocation.lat, selectedLocation.lng], Math.max(zoomRef.current, PICKED_ZOOM - 1));
   }, [selectedLocation]);
+
+  const useMyLocation = () => {
+    if (!("geolocation" in navigator)) {
+      setGeoError("Este navegador no permite obtener tu ubicación.");
+      return;
+    }
+    setLocating(true);
+    setGeoError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        zoomRef.current = PICKED_ZOOM;
+        setSelectedLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      (err) => {
+        setLocating(false);
+        setGeoError(err.code === err.PERMISSION_DENIED ? "Permiso de ubicación denegado." : "No se pudo obtener tu ubicación.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
 
   return (
     <Modal
       mobileBottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      ariaLabel="Seleccionar ubicación en el mapa"
-      className="w-[94vw] max-w-3xl overflow-hidden rounded-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827]"
+      showCloseButton={false}
+      closeOnBackdropClick={false}
+      ariaLabelledBy={titleId}
+      ariaDescribedBy={descId}
+      className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[20px] border border-[#E7E7EA] bg-white p-0 shadow-[0_24px_60px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:!bg-[#111827] sm:rounded-[20px]"
     >
-      <div style={{ fontFamily: "Geist, Outfit, system-ui, sans-serif" }}>
-        <div className="relative bg-[#17235B] px-5 pb-4 pt-5 dark:bg-[#1B2A63]">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]">
-              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path
-                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <div>
-              <h5 className="text-[17px] font-semibold leading-[1.3] tracking-[-0.3px] text-white">Seleccionar ubicación</h5>
-              <p className="mt-0.5 text-[13px] text-white/70">Haz clic en el mapa para seleccionar la ubicación.</p>
+      <div className="flex min-h-0 flex-1 flex-col" style={formFont}>
+        <ModalHeader
+          icon={<MapPin className="size-5" />}
+          eyebrow="Domicilio"
+          title="Ubicación en el mapa"
+          subtitle="Toca el mapa o arrastra el pin hasta el lugar exacto."
+          titleId={titleId}
+          descId={descId}
+          onClose={onClose}
+        />
+
+        <div className="relative isolate min-h-0 flex-1 bg-[#EEF0F3] dark:bg-[#0d1420]">
+          <div id={mapContainerId} className="h-[min(62dvh,520px)] w-full" aria-hidden />
+
+          {/* Indicación flotante (no recibe clics). */}
+          {!loading && !selectedLocation ? (
+            <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] flex justify-center px-14">
+              <p className={`${overlayCard} cot-pop inline-flex items-center gap-2 px-3.5 py-2 text-[13px] font-medium text-[#09090B] dark:text-[#F8FAFC]`}>
+                <MousePointerClick className="size-4 text-[#1B5CFF] dark:text-[#7FA2FF]" aria-hidden />
+                Toca el mapa para marcar el lugar
+              </p>
             </div>
+          ) : null}
+
+          <div className="absolute bottom-4 right-3 z-[1000] flex flex-col items-end gap-2">
+            {geoError ? (
+              <p role="alert" className={`${overlayCard} cot-pop px-3.5 py-2 text-[12.5px] font-medium text-[#B42318] dark:text-[#FCA5A5]`}>
+                {geoError}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={useMyLocation}
+              disabled={locating || loading}
+              className={`${overlayCard} cot-press inline-flex h-11 items-center gap-2 px-4 text-[13.5px] font-semibold text-[#17235B] hover:bg-white disabled:opacity-60 dark:text-[#F8FAFC] dark:hover:bg-[#151E32] ${focusRing}`}
+            >
+              {locating ? <Spinner /> : <LocateFixed className="size-4 text-[#1B5CFF] dark:text-[#7FA2FF]" aria-hidden />}
+              {locating ? "Buscando…" : "Mi ubicación"}
+            </button>
           </div>
+
+          {loading ? (
+            <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-[#EEF0F3]/70 backdrop-blur-[2px] dark:bg-[#0d1420]/70" role="status">
+              <span className={`${overlayCard} inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-[#52525B] dark:text-[#B7C1D1]`}>
+                <Spinner />
+                Cargando mapa…
+              </span>
+            </div>
+          ) : null}
         </div>
-        <div className="bg-white p-4 dark:bg-[#111827]">
-          <div className="overflow-hidden rounded-[14px] border border-[#E7E7EA] dark:border-[#273244]">
-            <div id={mapContainerId} className="w-full" style={{ height: 420 }} />
-          </div>
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <div className="text-[13px] text-[#52525B] dark:text-[#B7C1D1]">
+
+        <div className={modalFooterClass}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0" aria-live="polite">
               {selectedLocation ? (
-                <span>
-                  Lat: {selectedLocation.lat.toFixed(6)} | Lng: {selectedLocation.lng.toFixed(6)}
-                </span>
+                <p className="cot-fade flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px]">
+                  <span className="inline-flex items-center gap-1.5 font-medium text-[#04724D] dark:text-[#4ADE80]">
+                    <CircleCheck className="size-4" aria-hidden />
+                    Lugar marcado
+                  </span>
+                  <a
+                    href={mapsUrlForCoords(selectedLocation)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-1 rounded-[6px] text-[12.5px] font-medium text-[#1244D1] hover:underline dark:text-[#7FA2FF] ${focusRing}`}
+                  >
+                    Verificar en Google Maps
+                    <ExternalLink className="size-3.5" aria-hidden />
+                    <span className="sr-only"> (abre en una pestaña nueva)</span>
+                  </a>
+                </p>
               ) : (
-                <span>Selecciona un punto en el mapa</span>
+                <p className="text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">Aún no has marcado un lugar.</p>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#E7E7EA] bg-white px-4 text-[14px] font-medium text-[#09090B] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#243048]"
-              >
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              <button type="button" onClick={onClose} className={btnSecondary}>
                 Cancelar
               </button>
-              <button
-                type="button"
-                disabled={!selectedLocation}
-                onClick={onConfirm}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#1B5CFF] bg-[#1B5CFF] px-4 text-[14px] font-medium text-white transition-colors hover:border-[#1244D1] hover:bg-[#1244D1] disabled:cursor-not-allowed disabled:border-[#DCE7FF] disabled:bg-[#DCE7FF] disabled:text-[#2F4899] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:border-[#3B6AF0] dark:hover:bg-[#3B6AF0]"
-              >
-                Usar ubicación
+              <button type="button" onClick={onConfirm} disabled={!selectedLocation} className={btnPrimary}>
+                <MapPin className="size-4" aria-hidden />
+                Usar esta ubicación
               </button>
             </div>
           </div>

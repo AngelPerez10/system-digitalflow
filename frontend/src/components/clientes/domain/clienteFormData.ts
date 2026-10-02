@@ -1,46 +1,13 @@
-import { fetchApi } from "@/config/api";
-import { formatPhoneE164, parsePhoneToForm } from "@/pages/ContactosNegocio/Clientes/clientesCatalogos";
-import type { Cliente, ClienteDireccion } from "@/types/cliente";
+/**
+ * Datos del formulario de cliente: estado vacío, carga desde un registro y
+ * armado del payload para la API. Puro (sin red ni React).
+ */
+import type { Cliente } from "@/types/cliente";
+import { formatPhoneE164, parsePhoneToForm } from "./clienteCatalogos";
+import type { ClienteTipo } from "./clienteTipos";
 
-export type ClienteTipo = "EMPRESA" | "PERSONA_FISICA" | "PROVEEDOR";
-
-export type ClienteFormTab = "general" | "contacto" | "more";
-
-export const TIPO_OPTIONS: { value: ClienteTipo; label: string }[] = [
-  { value: "EMPRESA", label: "Empresa" },
-  { value: "PERSONA_FISICA", label: "Persona física" },
-  { value: "PROVEEDOR", label: "Proveedor" },
-];
-
-/* --------------------------------------------------------------------------
-   Mismo sistema que `ContactosNegocio/Clientes/ClientesPage` y el resto de
-   vistas ya rediseñadas: marino + dorado sobre lienzo blanco, azul eléctrico
-   como único acento de acción. En oscuro, la familia slate del contenedor de
-   la app (panel #111827 → tarjeta hundida #1B2539).
-   -------------------------------------------------------------------------- */
-
-export const selectLikeClassName =
-  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
-
-/** Inputs de texto/número dentro del formulario de contacto (mismo token que selects). */
-export const modalInputClass =
-  "h-11 w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)]";
-
-/** Contenedor teléfono (código país + dígitos) alineado al input nuevo. */
-export const modalPhoneShellClass =
-  "flex h-11 w-full items-stretch overflow-hidden rounded-[10px] border border-[#E7E7EA] bg-white transition-colors focus-within:border-[#1B5CFF] focus-within:ring-4 focus-within:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:focus-within:border-[#4B7CFF] dark:focus-within:ring-[rgba(75,124,255,0.28)]";
-
-export const modalPanelClass =
-  "rounded-[16px] border border-[#E7E7EA] bg-white p-5 shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#1B2539] sm:p-6";
-
-export const modalSectionTitleClass =
-  "text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6E6E77] dark:text-[#8EA0B8]";
-
-export const modalTextareaClass =
-  "w-full rounded-[10px] border border-[#E7E7EA] bg-white px-3 py-2.5 text-[15px] tracking-[-0.1px] text-[#09090B] outline-none transition-colors placeholder:text-[#A1A1AA] hover:border-[#D3D3D8] focus:border-[#1B5CFF] focus:ring-4 focus:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#111827] dark:text-[#F8FAFC] dark:placeholder:text-[#8EA0B8] dark:hover:border-[#3A4661] dark:focus:border-[#4B7CFF] dark:focus:ring-[rgba(75,124,255,0.28)] resize-none";
-
-export const modalTabBaseClass =
-  "rounded-[8px] px-3.5 py-2.5 text-[13px] font-medium leading-[1.5] tracking-[-0.05px] transition-colors";
+/** Estado plano del formulario (lo comparten Contactos, Órdenes y Facturas CFDI). */
+export type ClienteFormData = Record<string, unknown>;
 
 const trimOrEmpty = (value: unknown) => String(value ?? "").trim();
 
@@ -49,13 +16,6 @@ const toNumberOr = (value: unknown, fallback: number | null) => {
   if (!raw) return fallback;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-export const getNoClienteLabelByTipo = (tipo?: ClienteTipo) => {
-  if (tipo === "EMPRESA") return "No. de Empresa";
-  if (tipo === "PERSONA_FISICA") return "No. de Persona";
-  if (tipo === "PROVEEDOR") return "No. de Proveedor";
-  return "No. de Cliente";
 };
 
 export const emptyFormData = (fixedTipo?: ClienteTipo) => ({
@@ -241,127 +201,4 @@ export const formDataFromCliente = (cliente: Cliente, fixedTipo?: ClienteTipo) =
       };
     })(),
   };
-};
-
-/** Crea o actualiza el contacto principal del cliente a partir del formulario. */
-export const upsertClienteContactoFromForm = async (
-  clienteId: number,
-  formData: Record<string, unknown>
-): Promise<void> => {
-  const nombre = trimOrEmpty(formData.contacto_nombre);
-  if (!nombre) return;
-
-  const body = {
-    cliente: clienteId,
-    nombre_apellido: nombre.slice(0, 200).toUpperCase(),
-    titulo: "",
-    area_puesto: trimOrEmpty(formData.contacto_puesto).slice(0, 150),
-    celular: trimOrEmpty(formData.contacto_telefono).replace(/\D/g, "").slice(0, 25),
-    correo: trimOrEmpty(formData.contacto_correo).slice(0, 254),
-    is_principal: true,
-  };
-
-  const contactoId = Number(formData.contacto_id);
-  if (Number.isFinite(contactoId) && contactoId > 0) {
-    const res = await fetchApi(`/api/cliente-contactos/${contactoId}/`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(formatApiErrors(txt) || "No se pudo actualizar el contacto.");
-    }
-    return;
-  }
-
-  const res = await fetchApi("/api/cliente-contactos/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(formatApiErrors(txt) || "No se pudo guardar el contacto.");
-  }
-};
-
-export const validateClienteForm = (formData: Record<string, unknown>) => {
-  const missing: string[] = [];
-  if (!trimOrEmpty(formData.nombre)) missing.push("Nombre");
-  const tel = String(formData.telefono || "").replace(/\D/g, "");
-  if (tel.length !== 10) missing.push("Teléfono (10 dígitos)");
-  return { ok: missing.length === 0, missing };
-};
-
-export const isGoogleMapsLink = (value: string | null | undefined) => {
-  if (!value) return false;
-  const s = String(value).trim();
-  if (!s) return false;
-  if (!(s.startsWith("http://") || s.startsWith("https://"))) return false;
-  try {
-    const u = new URL(s);
-    const host = (u.hostname || "").toLowerCase();
-    const href = u.href.toLowerCase();
-    if (host === "maps.app.goo.gl") return true;
-    if (host.endsWith("google.com") && href.includes("/maps")) return true;
-    return false;
-  } catch {
-    return false;
-  }
-};
-
-/** Resumen legible de una dirección de la libreta (calle / colonia / ciudad). */
-export function direccionResumen(
-  d: Pick<
-    ClienteDireccion,
-    "calle" | "numero_exterior" | "colonia" | "ciudad" | "estado" | "direccion"
-  >
-): string {
-  const linea1 = [d.calle, d.numero_exterior].filter(Boolean).join(" ");
-  const linea2 = [d.colonia, d.ciudad, d.estado].filter(Boolean).join(", ");
-  const resumen = [linea1, linea2].filter(Boolean).join(" — ");
-  if (resumen) return resumen;
-  return String(d.direccion || "").trim() || "Sin datos capturados";
-}
-
-/**
- * Valor a copiar en `Orden.direccion` al elegir una sucursal:
- * preferir Maps URL o texto libre; si no, el resumen estructurado.
- */
-export function direccionParaOrden(
-  d: Pick<
-    ClienteDireccion,
-    "calle" | "numero_exterior" | "colonia" | "ciudad" | "estado" | "direccion"
-  >
-): string {
-  const raw = String(d.direccion || "").trim();
-  if (raw && (isGoogleMapsLink(raw) || raw.length > 0)) return raw;
-  const resumen = direccionResumen(d);
-  return resumen === "Sin datos capturados" ? "" : resumen;
-}
-
-export const formatApiErrors = (txt: string) => {
-  if (!txt) return "";
-  try {
-    const data = JSON.parse(txt);
-    if (data && typeof data === "object") {
-      const detail = typeof (data as { detail?: unknown }).detail === "string"
-        ? String((data as { detail: string }).detail)
-        : "";
-      if (/csrf/i.test(detail)) {
-        return "La sesión no pudo validarse (CSRF). Cierra sesión, vuelve a entrar e intenta de nuevo.";
-      }
-      return Object.entries(data)
-        .map(([k, v]) => {
-          if (Array.isArray(v)) return `${k}: ${v.join(", ")}`;
-          if (typeof v === "string") return `${k}: ${v}`;
-          return `${k}: ${JSON.stringify(v)}`;
-        })
-        .join("\n");
-    }
-  } catch {
-    // ignore
-  }
-  return txt;
 };

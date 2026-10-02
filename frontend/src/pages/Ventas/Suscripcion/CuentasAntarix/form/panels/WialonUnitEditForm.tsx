@@ -494,7 +494,7 @@ export default function WialonUnitEditForm({
             onClick={onBackToList}
             disabled={saving || accessBusy}
             aria-label="Volver a la lista de flota"
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-[#6E6E77] underline-offset-2 hover:text-[#1B5CFF] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:text-[#8EA0B8] dark:hover:text-[#4B7CFF] lg:hidden"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-[#6E6E77] underline-offset-2 hover:text-[#1B5CFF] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:text-[#8EA0B8] dark:hover:text-[#4B7CFF] xl:hidden"
           >
             <svg
               className="h-4 w-4"

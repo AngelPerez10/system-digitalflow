@@ -1,77 +1,45 @@
-import { fetchApi } from "@/config/api";
+/** `/api/cliente-contactos/`: libreta de contactos de un cliente. */
 import type { ClienteContacto } from "@/types/cliente";
-import { formatApiErrors } from "./clienteFormShared";
+import { contactoPrincipalFromForm, type ClienteContactoInput } from "../domain/clienteContacto";
+import type { ClienteFormData } from "../domain/clienteFormData";
+import { requestJson, unwrapList } from "./http";
 
-export type ClienteContactoInput = {
-  nombre_apellido: string;
-  titulo: string;
-  area_puesto: string;
-  celular: string;
-  correo: string;
-  is_principal: boolean;
-};
+const BASE = "/api/cliente-contactos/";
 
-function unwrapList(data: unknown): ClienteContacto[] {
-  if (Array.isArray(data)) return data as ClienteContacto[];
-  const results = (data as { results?: ClienteContacto[] } | null)?.results;
-  return Array.isArray(results) ? results : [];
-}
-
-export async function listClienteContactos(clienteId: number): Promise<ClienteContacto[]> {
-  const res = await fetchApi(`/api/cliente-contactos/?cliente=${clienteId}`, {
-    cache: "no-store" as RequestCache,
+export async function listClienteContactos(clienteId: number, signal?: AbortSignal): Promise<ClienteContacto[]> {
+  const params = new URLSearchParams({ cliente: String(clienteId) });
+  const data = await requestJson<unknown>(`${BASE}?${params.toString()}`, {
+    signal,
+    fallbackError: "No se pudieron cargar los contactos.",
   });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) return [];
-  return unwrapList(data);
+  return unwrapList<ClienteContacto>(data);
 }
 
-export async function createClienteContacto(
-  clienteId: number,
-  input: ClienteContactoInput
-): Promise<ClienteContacto> {
-  const res = await fetchApi("/api/cliente-contactos/", {
+export const createClienteContacto = (clienteId: number, input: ClienteContactoInput) =>
+  requestJson<ClienteContacto>(BASE, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cliente: clienteId, ...input }),
+    body: { cliente: clienteId, ...input },
+    fallbackError: "No se pudo guardar el contacto.",
   });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(formatApiErrors(txt) || "No se pudo guardar el contacto.");
-  }
-  return res.json();
-}
 
-export async function updateClienteContacto(
-  id: number,
-  input: ClienteContactoInput
-): Promise<ClienteContacto> {
-  const res = await fetchApi(`/api/cliente-contactos/${id}/`, {
+export const updateClienteContacto = (id: number, input: ClienteContactoInput) =>
+  requestJson<ClienteContacto>(`${BASE}${id}/`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: input,
+    fallbackError: "No se pudo actualizar el contacto.",
   });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(formatApiErrors(txt) || "No se pudo actualizar el contacto.");
-  }
-  return res.json();
-}
 
-export async function deleteClienteContacto(id: number): Promise<void> {
-  const res = await fetchApi(`/api/cliente-contactos/${id}/`, { method: "DELETE" });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(formatApiErrors(txt) || "No se pudo eliminar el contacto.");
-  }
-}
+export const deleteClienteContacto = (id: number) =>
+  requestJson<void>(`${BASE}${id}/`, { method: "DELETE", fallbackError: "No se pudo eliminar el contacto." });
 
-export const emptyClienteContactoInput = (overrides?: Partial<ClienteContactoInput>): ClienteContactoInput => ({
-  nombre_apellido: "",
-  titulo: "",
-  area_puesto: "",
-  celular: "",
-  correo: "",
-  is_principal: false,
-  ...overrides,
-});
+/**
+ * Crea o actualiza el contacto principal capturado en el formulario del
+ * cliente. No hace nada si el formulario no trae nombre de contacto.
+ */
+export async function upsertContactoPrincipal(clienteId: number, formData: ClienteFormData): Promise<void> {
+  const input = contactoPrincipalFromForm(formData);
+  if (!input) return;
+  const contactoId = Number(formData.contacto_id);
+  if (Number.isFinite(contactoId) && contactoId > 0) await updateClienteContacto(contactoId, input);
+  else await createClienteContacto(clienteId, input);
+}

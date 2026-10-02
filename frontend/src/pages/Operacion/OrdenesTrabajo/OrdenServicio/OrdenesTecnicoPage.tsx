@@ -36,7 +36,7 @@ import {
   getNowHHMM,
   fetchOrdenDetail,
 } from "./shared/useOrdenesShared";
-import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
+import { ClienteFormModal } from "@/components/clientes";
 import { Cliente } from "@/types/cliente";
 import { OrdenDeleteDialog, OrdenDetailModal } from "./shared/OrdenDialogs";
 import {

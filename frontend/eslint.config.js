@@ -25,4 +25,23 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Módulo de clientes: fuera de su carpeta solo se usa su API pública
+    // (`@/components/clientes` o `@/components/clientes/domain`).
+    files: ['**/*.{ts,tsx}'],
+    ignores: ['src/components/clientes/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '^@/components/clientes/(?!domain$).+',
+              message: 'Importa desde "@/components/clientes" (o "@/components/clientes/domain"); lo demás es interno del módulo.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 )

@@ -6,8 +6,9 @@ type OrdenArrastreBadgeProps = {
   selectedMonth: string;
   className?: string;
   /**
-   * `compact` — «Retraso · jul» (fila de tabla junto al folio).
-   * `inline` — «Retraso · jul 2026» (tarjetas con más ancho).
+   * `compact` — fila de tabla junto al folio.
+   * `inline` — tarjetas con más ancho.
+   * Ambos muestran «Retraso · jul 2026».
    */
   layout?: "compact" | "inline";
 };
@@ -20,13 +21,13 @@ export function OrdenArrastreBadge({
   orden,
   selectedMonth,
   className = "",
-  layout = "compact",
 }: OrdenArrastreBadgeProps) {
   if (!isOrdenArrastre(orden, selectedMonth)) return null;
   const mesLabel = labelMesOrden(orden);
   const mesCorto = labelMesOrdenCorto(orden);
   const full = `Retraso: orden de ${mesLabel} que sigue abierta; se arrastra al mes actual`;
-  const mes = layout === "inline" ? mesCorto : mesCorto.split(" ")[0];
+  // Siempre con año: una orden de «sep» puede ser de cualquier año anterior.
+  const mes = mesCorto;
 
   return (
     <span
