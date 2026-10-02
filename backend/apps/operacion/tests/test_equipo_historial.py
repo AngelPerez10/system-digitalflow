@@ -101,7 +101,8 @@ class EquipoHistorialTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_filtra_por_mes_y_permite_mas_de_200(self):
-        from datetime import datetime, timezone as dt_tz
+        from datetime import datetime
+        from datetime import timezone as dt_tz
 
         self.client.force_authenticate(self.admin)
         viejo = self.client.post(URL, self._payload(objeto_id=1, folio="ODT-VIEJO"), format="json")

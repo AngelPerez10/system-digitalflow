@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from .equipo_views import EquipoReasignacionViewSet
 from .m2m_views import (
     M2mSimDetailView,
     M2mSimResetView,
@@ -13,7 +14,6 @@ from .poliza_views import (
     PolizaMantenimientoViewSet,
     PolizaMantenimientoXmlView,
 )
-from .equipo_views import EquipoReasignacionViewSet
 from .reporte_mantenimiento_views import ReporteMantenimientoViewSet
 from .views import ProyectoInstalacionViewSet, ProyectoViewSet
 from .wialon_unit_views import (

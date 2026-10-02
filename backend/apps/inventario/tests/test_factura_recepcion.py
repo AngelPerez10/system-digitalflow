@@ -74,7 +74,7 @@ class FacturaRecepcionTests(APITestCase):
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['folio'], 'FA26/1405777')
-        self.assertEqual([l['indice'] for l in res.data['lineas']], [0, 1])
+        self.assertEqual([linea['indice'] for linea in res.data['lineas']], [0, 1])
         self.assertEqual(res.data['lineas'][0]['precio_unitario'], '1755.69')
         self.assertIsNone(res.data['lineas'][0]['en_inventario'])
         self.assertEqual(res.data['lineas'][1]['en_inventario']['cantidad'], 3)

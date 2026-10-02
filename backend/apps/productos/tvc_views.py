@@ -175,8 +175,8 @@ def _html_a_texto(value: object) -> str:
 
     texto = _HTML_BLOQUE_RE.sub('\n', str(value or ''))
     texto = _html.unescape(_HTML_TAG_RE.sub('', texto)).replace('\xa0', ' ')
-    lineas = [' '.join(l.split()) for l in texto.split('\n')]
-    return '\n'.join(l for l in lineas if l).strip()
+    lineas = [' '.join(linea.split()) for linea in texto.split('\n')]
+    return '\n'.join(linea for linea in lineas if linea).strip()
 
 
 def _tvc_stock(raw: dict) -> int | None:

@@ -1,7 +1,6 @@
 from unittest import mock
 
 from django.contrib.auth import get_user_model
-from django.http import HttpResponse
 from django.test import TestCase
 from rest_framework.test import APIClient
 
