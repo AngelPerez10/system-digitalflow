@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "mx.sertel.digitalflow.tecnico",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
