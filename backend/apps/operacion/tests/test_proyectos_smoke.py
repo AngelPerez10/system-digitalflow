@@ -920,14 +920,19 @@ class ProyectosEnviarPdfTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_enviar_pdf_sin_smtp_usuario_bloquea(self):
+        from django.test import override_settings
+
         from apps.users.models import UserSmtpCredentials
 
         UserSmtpCredentials.objects.filter(user=self.user).delete()
-        response = self.client.post(
-            f"/api/proyectos/{self.proyecto_id}/enviar-pdf/",
-            {"correo": "alguien@example.com"},
-            format="json",
-        )
+        # Sin EMAIL_HOST el endpoint responde 503 (host del servidor); hay que
+        # aislar el caso "usuario sin SMTP" como en órdenes.
+        with override_settings(EMAIL_HOST="mail.example.com"):
+            response = self.client.post(
+                f"/api/proyectos/{self.proyecto_id}/enviar-pdf/",
+                {"correo": "alguien@example.com"},
+                format="json",
+            )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("proy_envio_pdf", response.data.get("detail", ""))
 
