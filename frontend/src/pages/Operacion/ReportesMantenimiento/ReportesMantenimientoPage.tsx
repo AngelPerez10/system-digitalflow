@@ -40,6 +40,7 @@ import { ReportesCardGrid } from "./list/ReportesCardGrid";
 import { ReportesEvidenciaSegmentFilter } from "./list/ReportesEvidenciaSegmentFilter";
 import { ReportesHero } from "./list/ReportesHero";
 import { ReportesListFiltersPopover } from "./list/ReportesListFiltersPopover";
+import { ReportesMobileHeader } from "./list/ReportesMobileHeader";
 import { ReportesCardsSkeleton, ReportesEmptyState, ReportesErrorState, ReportesTableSkeleton } from "./list/ReportesListStates";
 import { ReportesPageStats } from "./list/ReportesPageStats";
 import { ReportesTable } from "./list/ReportesTable";
@@ -91,6 +92,8 @@ export default function ReportesMantenimientoPage() {
   const canCreate = isAdmin || permissions?.reportes_mantenimiento?.create === true;
   const canEdit = isAdmin || permissions?.reportes_mantenimiento?.edit === true;
   const canDelete = canDeleteInModule(permissions, isAdmin, "reportes_mantenimiento");
+  // Técnico: solo ve sus reportes (mismo criterio que `user_module_own_only` del backend).
+  const fieldMode = !isAdmin && permissions?.reportes_mantenimiento?.own_only !== false;
 
   const showAlert = useCallback((variant: Flash["variant"], title: string, message: string, ms = 3500) => {
     setAlert({ show: true, variant, title, message });
@@ -206,7 +209,7 @@ export default function ReportesMantenimientoPage() {
       <ReportesTable sections={secciones} grouped={!evidencia} avatars={avatars} {...handlers} />
     ) : (
       <div className="p-3 sm:p-4">
-        <ReportesCardGrid rows={visibles} avatars={avatars} {...handlers} />
+        <ReportesCardGrid sections={secciones} grouped={!evidencia} avatars={avatars} fieldMode={fieldMode} {...handlers} />
       </div>
     );
 
@@ -214,7 +217,7 @@ export default function ReportesMantenimientoPage() {
 
   return (
     <div className={`${erpPageCanvasClass} overflow-x-clip!`} style={erpSansStyle}>
-      <div className={erpPageInnerClass}>
+      <div className={`${erpPageInnerClass} ${canCreate ? "max-sm:pb-24" : ""}`}>
         <PageMeta title="Reporte de mantenimiento | Operación" description="Reportes ligados a órdenes de servicio con secciones Antes/Después" />
 
         <nav className={erpBreadcrumbNavClass} aria-label="Migas de pan">
@@ -232,8 +235,11 @@ export default function ReportesMantenimientoPage() {
         {alert.show ? <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} /> : null}
 
         <ReportesHero selectedMonth={mes} onShiftMonth={shiftMonth} />
+        <ReportesMobileHeader selectedMonth={mes} onShiftMonth={shiftMonth} stats={stats} fieldMode={fieldMode} />
 
-        <ReportesPageStats stats={stats} />
+        <div className="hidden sm:block">
+          <ReportesPageStats stats={stats} />
+        </div>
 
         <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
           <div className="relative min-w-0 w-full shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
@@ -258,7 +264,7 @@ export default function ReportesMantenimientoPage() {
           </div>
 
           {canCreate ? (
-            <button type="button" onClick={irNuevo} className={`${erpPrimaryBtnClass} lg:shrink-0`}>
+            <button type="button" onClick={irNuevo} className={`${erpPrimaryBtnClass} max-sm:hidden! lg:shrink-0`}>
               <Plus className="size-4" aria-hidden />
               Nuevo reporte
             </button>
@@ -343,6 +349,18 @@ export default function ReportesMantenimientoPage() {
             void load();
           }}
         />
+
+        {/* Celular: «Nuevo reporte» flotante, al alcance del pulgar y fuera de la zona segura. */}
+        {canCreate && !formOpen ? (
+          <button
+            type="button"
+            onClick={irNuevo}
+            className={`cot-tick cot-press fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-14 items-center gap-2 rounded-full bg-[#1B5CFF] pl-4 pr-5 text-[15px] font-semibold text-white shadow-[0_12px_28px_-10px_rgba(27,92,255,0.65)] active:bg-[#1244D1] dark:bg-[#4B7CFF] sm:hidden ${focusRing}`}
+          >
+            <Plus className="size-5" aria-hidden />
+            Nuevo reporte
+          </button>
+        ) : null}
 
         <ReporteDeleteModal row={deletingRow} deleting={deleting} onCancel={() => setDeletingRow(null)} onConfirm={() => void confirmDelete()} />
       </div>

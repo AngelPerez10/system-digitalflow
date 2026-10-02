@@ -208,6 +208,9 @@ class OrdenesSaldoPendienteTests(APITestCase):
         self.assertEqual(self.orden.status, "pendiente")
 
     def test_admin_marca_saldo_pendiente(self):
+        # Saldo pendiente exige técnico asignado.
+        self.orden.tecnico_asignado = self.tecnico
+        self.orden.save(update_fields=["tecnico_asignado"])
         self.client.force_authenticate(user=self.admin)
         resp = self.client.patch(
             f"/api/ordenes/{self.orden.id}/cambiar-status/",

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ReporteMantenimiento } from "../reporteTypes";
 import {
   baseDelListado,
+  evidenciaDe,
+  miniaturaUrl,
   busquedaActiva,
   filtrarPorEvidencia,
   formatFechaCorta,
@@ -94,5 +96,29 @@ describe("tecnicosDeReportes, resumenReportes y fechas", () => {
   it("formatea la fecha corta", () => {
     expect(formatFechaCorta("2026-09-30")).toBe("30 sep 2026");
     expect(formatFechaCorta("")).toBe("—");
+  });
+});
+
+describe("evidenciaDe", () => {
+  it("cuenta fotos, zonas completas y toma la primera foto de cada lado como portada", () => {
+    const ev = evidenciaDe({ secciones: [sec(0, 2), sec(1, 1), sec(3, 0)] });
+    expect(ev).toEqual({ antes: 4, despues: 3, zonas: 3, zonasCompletas: 1, portadaAntes: "a0", portadaDespues: "d0" });
+  });
+
+  it("sin secciones no hay evidencia ni portada", () => {
+    expect(evidenciaDe({ secciones: [] })).toMatchObject({ antes: 0, despues: 0, zonas: 0, portadaAntes: "", portadaDespues: "" });
+  });
+});
+
+describe("miniaturaUrl", () => {
+  it("agrega la transformación a URLs de Cloudinary", () => {
+    expect(miniaturaUrl("https://res.cloudinary.com/demo/image/upload/v1/ordenes/fotos/x.jpg", 300)).toBe(
+      "https://res.cloudinary.com/demo/image/upload/c_fill,w_300,h_198,q_auto,f_auto/v1/ordenes/fotos/x.jpg"
+    );
+  });
+
+  it("deja intactas las demás URLs", () => {
+    expect(miniaturaUrl("data:image/png;base64,AAA")).toBe("data:image/png;base64,AAA");
+    expect(miniaturaUrl("")).toBe("");
   });
 });

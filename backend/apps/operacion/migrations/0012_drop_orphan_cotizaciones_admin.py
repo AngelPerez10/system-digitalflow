@@ -1,6 +1,16 @@
 from django.db import migrations
 
 
+def drop_cotizaciones_admin_column(apps, schema_editor):
+    # `DROP COLUMN IF EXISTS` es sintaxis de PostgreSQL; SQLite (tests) no la
+    # soporta y en una base nueva la columna nunca existió.
+    if schema_editor.connection.vendor != "postgresql":
+        return
+    schema_editor.execute(
+        "ALTER TABLE operacion_proyecto DROP COLUMN IF EXISTS cotizaciones_admin;"
+    )
+
+
 class Migration(migrations.Migration):
     """
     Limpia la columna `cotizaciones_admin` que quedó huérfana en bases de datos
@@ -15,8 +25,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql="ALTER TABLE operacion_proyecto DROP COLUMN IF EXISTS cotizaciones_admin;",
-            reverse_sql=migrations.RunSQL.noop,
+        migrations.RunPython(
+            drop_cotizaciones_admin_column,
+            reverse_code=migrations.RunPython.noop,
         ),
     ]

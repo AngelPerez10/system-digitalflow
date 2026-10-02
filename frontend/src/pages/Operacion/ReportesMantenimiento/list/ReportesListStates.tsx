@@ -26,7 +26,8 @@ export function ReportesCardsSkeleton() {
   return (
     <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Cargando reportes">
       {Array.from({ length: 6 }, (_, i) => (
-        <li key={i} className="space-y-4 rounded-[18px] border border-[#F0F0F2] p-4 dark:border-[#1F2A3C]" style={{ opacity: 1 - i * 0.12 }} aria-hidden>
+        <li key={i} className="space-y-4 overflow-hidden rounded-[18px] border border-[#F0F0F2] p-4 dark:border-[#1F2A3C]" style={{ opacity: 1 - i * 0.12 }} aria-hidden>
+          <span className="-mx-4 -mt-4 block aspect-[32/10] bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]" />
           <div className="flex justify-between">
             <span className={`${bone} h-3 w-16`} />
             <span className={`${bone} h-3 w-20`} />

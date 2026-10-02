@@ -115,6 +115,44 @@ export function filtrosSecundarios(f: Pick<ReporteFiltros, "tecnico" | "fecha">)
   return (f.tecnico ? 1 : 0) + (f.fecha ? 1 : 0);
 }
 
+export type EvidenciaReporte = {
+  antes: number;
+  despues: number;
+  zonas: number;
+  /** Zonas con al menos una foto de Antes y una de Después. */
+  zonasCompletas: number;
+  /** Primera foto de Antes y de Después (portada de la tarjeta). */
+  portadaAntes: string;
+  portadaDespues: string;
+};
+
+export function evidenciaDe(row: Pick<ReporteMantenimiento, "secciones">): EvidenciaReporte {
+  let antes = 0;
+  let despues = 0;
+  let zonasCompletas = 0;
+  let portadaAntes = "";
+  let portadaDespues = "";
+  for (const s of row.secciones) {
+    antes += s.fotos_antes.length;
+    despues += s.fotos_despues.length;
+    if (s.fotos_antes.length && s.fotos_despues.length) zonasCompletas += 1;
+    if (!portadaAntes && s.fotos_antes[0]) portadaAntes = s.fotos_antes[0];
+    if (!portadaDespues && s.fotos_despues[0]) portadaDespues = s.fotos_despues[0];
+  }
+  return { antes, despues, zonas: row.secciones.length, zonasCompletas, portadaAntes, portadaDespues };
+}
+
+/**
+ * Miniatura ligera de una foto de Cloudinary (recorte, calidad y formato
+ * automáticos). Cualquier otra URL se devuelve tal cual.
+ */
+export function miniaturaUrl(url: string, width = 320): string {
+  const marker = "/image/upload/";
+  if (!url || !url.includes("res.cloudinary.com") || !url.includes(marker)) return url;
+  const [head, tail] = url.split(marker);
+  return `${head}${marker}c_fill,w_${width},h_${Math.round(width * 0.66)},q_auto,f_auto/${tail}`;
+}
+
 export type ResumenReportes = {
   total: number;
   conEvidencia: number;
