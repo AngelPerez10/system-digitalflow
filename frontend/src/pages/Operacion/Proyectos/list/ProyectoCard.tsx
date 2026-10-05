@@ -13,6 +13,7 @@ import {
 import { AvatarStack, EstadoPill, LiquidarControl, ProgressBar } from "../shared/ProyectoUi";
 import { btn, btnSm, focusRing, folioText, metaChip, toneForEstado } from "../shared/proyectoTokens";
 import type { ProyectoRow } from "../shared/proyectoTypes";
+import { ProyectoArrastreBadge } from "./ProyectoArrastreBadge";
 import { ProyectoRowActions, type ProyectoRowHandlers } from "./ProyectoRowActions";
 
 type Props = {
@@ -42,7 +43,10 @@ function ProyectoCardImpl({ row, index, fieldMode, ...handlers }: Props) {
     >
       <div className="flex flex-1 flex-col gap-3.5 p-4">
         <div className="flex items-center justify-between gap-2">
-          <span className={folioText}>{folio}</span>
+          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className={folioText}>{folio}</span>
+            <ProyectoArrastreBadge row={row} arrastreMonth={handlers.arrastreMonth} />
+          </span>
           <div className="flex flex-wrap items-center justify-end gap-1.5">
             <StatusChangedByChip
               name={row.draft.statusChangedByName}

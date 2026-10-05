@@ -13,6 +13,8 @@ export type ProyectoRowHandlers = {
   /** Puede marcar/desmarcar "Liquidado" (marcar solo en Saldo pendiente). */
   canLiquidar?: boolean;
   onToggleLiquidado?: (row: ProyectoRow, next: boolean) => void;
+  /** Mes actual del listado: marca con «Retraso» los proyectos arrastrados de meses anteriores. */
+  arrastreMonth?: string;
 };
 
 /** Acciones secundarias de un proyecto (PDF, correo, editar, eliminar). */

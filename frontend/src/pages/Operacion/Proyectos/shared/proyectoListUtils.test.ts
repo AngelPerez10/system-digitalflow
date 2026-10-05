@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createEmptyProyectoDraft } from "./proyectoFormUtils";
 import {
   countSecondaryProyectoFilters,
+  isProyectoArrastre,
   proyectoIncluyeUsuario,
   proyectoMatchesSecondaryFilters,
   proyectoPassesListFilters,
@@ -159,5 +160,29 @@ describe("shiftYearMonth", () => {
   it("cruza límites de año", () => {
     expect(shiftYearMonth("2026-01", -1)).toBe("2025-12");
     expect(shiftYearMonth("2026-12", 1)).toBe("2027-01");
+  });
+});
+
+describe("arrastre de proyectos abiertos al mes actual", () => {
+  const conEstado = (estado: ProyectoRow["estado"], fecha: string) => ({ ...row({}, fecha), estado });
+
+  it("arrastra en proceso y pausados de meses anteriores desde julio 2026", () => {
+    expect(isProyectoArrastre(conEstado("en_proceso", "2026-08-20"), "2026-10")).toBe(true);
+    expect(isProyectoArrastre(conEstado("pausado", "2026-07-01"), "2026-10")).toBe(true);
+  });
+
+  it("no arrastra cerrados, cancelados, saldo pendiente, junio o antes, ni el mismo mes", () => {
+    expect(isProyectoArrastre(conEstado("cerrado", "2026-08-20"), "2026-10")).toBe(false);
+    expect(isProyectoArrastre(conEstado("cancelado", "2026-08-20"), "2026-10")).toBe(false);
+    expect(isProyectoArrastre(conEstado("saldo_pendiente", "2026-08-20"), "2026-10")).toBe(false);
+    expect(isProyectoArrastre(conEstado("en_proceso", "2026-06-30"), "2026-10")).toBe(false);
+    expect(isProyectoArrastre(conEstado("en_proceso", "2026-10-02"), "2026-10")).toBe(false);
+  });
+
+  it("el filtro del listado solo los incluye con arrastreAbiertas", () => {
+    const viejo = conEstado("pausado", "2026-08-20");
+    const base = { search: "", selectedMonth: "2026-10", secondary: sinFiltros };
+    expect(proyectoPassesListFilters(viejo, base)).toBe(false);
+    expect(proyectoPassesListFilters(viejo, { ...base, arrastreAbiertas: true })).toBe(true);
   });
 });

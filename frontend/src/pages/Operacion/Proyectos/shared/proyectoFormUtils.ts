@@ -575,12 +575,13 @@ export function proyectoRowFromDraft(draft: ProyectoDraft, existing?: ProyectoRo
 }
 
 export function computeProyectoStats(rows: ProyectoRow[]): ProyectoStats {
-  return {
-    total: rows.length,
-    enProceso: rows.filter((r) => r.estado === "en_proceso").length,
-    pausados: rows.filter((r) => r.estado === "pausado").length,
-    cerrados: rows.filter((r) => r.estado === "cerrado").length,
-  };
+  const s: ProyectoStats = { total: rows.length, enProceso: 0, pausados: 0, cerrados: 0 };
+  for (const r of rows) {
+    if (r.estado === "en_proceso") s.enProceso += 1;
+    else if (r.estado === "pausado") s.pausados += 1;
+    else if (r.estado === "cerrado") s.cerrados += 1;
+  }
+  return s;
 }
 
 export function estadoBadgeClass(estado: EquipoEstadoInstalacion): string {

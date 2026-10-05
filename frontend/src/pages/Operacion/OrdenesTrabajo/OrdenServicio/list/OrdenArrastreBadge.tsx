@@ -11,6 +11,8 @@ type OrdenArrastreBadgeProps = {
    * Ambos muestran «Retraso · jul 2026».
    */
   layout?: "compact" | "inline";
+  /** Sustantivo del aviso (p. ej. «proyecto»); por defecto «orden». */
+  noun?: string;
 };
 
 /**
@@ -21,11 +23,12 @@ export function OrdenArrastreBadge({
   orden,
   selectedMonth,
   className = "",
+  noun = "orden",
 }: OrdenArrastreBadgeProps) {
   if (!isOrdenArrastre(orden, selectedMonth)) return null;
   const mesLabel = labelMesOrden(orden);
   const mesCorto = labelMesOrdenCorto(orden);
-  const full = `Retraso: orden de ${mesLabel} que sigue abierta; se arrastra al mes actual`;
+  const full = `Retraso: ${noun} de ${mesLabel} que sigue sin cerrar; se arrastra al mes actual`;
   // Siempre con año: una orden de «sep» puede ser de cualquier año anterior.
   const mes = mesCorto;
 

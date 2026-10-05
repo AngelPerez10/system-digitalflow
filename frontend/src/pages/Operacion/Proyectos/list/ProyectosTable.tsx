@@ -13,6 +13,7 @@ import type { ProyectoStatusSection } from "../shared/proyectoStatusSections";
 import { AvatarStack, EstadoPill, LiquidarControl, ProgressBar } from "../shared/ProyectoUi";
 import { ESTADO_TONE, focusRing, folioText, toneForEstado } from "../shared/proyectoTokens";
 import type { ProyectoEstado, ProyectoRow } from "../shared/proyectoTypes";
+import { ProyectoArrastreBadge } from "./ProyectoArrastreBadge";
 import { ProyectoRowActions, type ProyectoRowHandlers } from "./ProyectoRowActions";
 
 const th = "px-3 py-2.5 text-left text-[12px] font-medium text-[#71717A] dark:text-[#8EA0B8]";
@@ -47,7 +48,10 @@ const ProyectoTableRow = memo(function ProyectoTableRow({ row, index, ...handler
     >
       <td className={`${td} pl-5`}>
         <div className="min-w-0">
-          <span className={folioText}>{folio}</span>
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span className={folioText}>{folio}</span>
+            <ProyectoArrastreBadge row={row} arrastreMonth={handlers.arrastreMonth} />
+          </span>
           {canEdit ? (
             <button
               type="button"

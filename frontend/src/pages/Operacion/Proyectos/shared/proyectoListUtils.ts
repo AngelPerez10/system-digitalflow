@@ -75,7 +75,26 @@ export type ProyectoListFilterOpts = {
   search: string;
   selectedMonth: string;
   secondary: ProyectoSecondaryFilters;
+  /** Mes actual: incluye proyectos abiertos (en proceso / pausados) de meses anteriores. */
+  arrastreAbiertas?: boolean;
 };
+
+/** Igual que Órdenes (`ARRASTRE_ABIERTAS_DESDE`): junio 2026 y antes no se arrastran. */
+export const PROYECTO_ARRASTRE_DESDE = "2026-07";
+
+/** Proyecto que sigue abierto y debe arrastrarse al mes actual. */
+export function isProyectoAbierto(row: ProyectoRow): boolean {
+  const estado = row.estado ?? row.draft?.status;
+  return estado === "en_proceso" || estado === "pausado";
+}
+
+/** Proyecto de un mes anterior (desde julio 2026) que sigue abierto. */
+export function isProyectoArrastre(row: ProyectoRow, selectedMonth: string): boolean {
+  const mes = proyectoRowFecha(row).slice(0, 7);
+  return Boolean(
+    mes && selectedMonth && mes < selectedMonth && mes >= PROYECTO_ARRASTRE_DESDE && isProyectoAbierto(row)
+  );
+}
 
 /**
  * Filtros del listado. Con texto de búsqueda se ignora el mes (y la fecha del
@@ -90,7 +109,13 @@ export function proyectoPassesListFilters(row: ProyectoRow, opts: ProyectoListFi
     return proyectoMatchesSecondaryFilters(row, { ...opts.secondary, date: "" });
   }
 
-  if (opts.selectedMonth && !proyectoRowFecha(row).startsWith(opts.selectedMonth)) return false;
+  if (
+    opts.selectedMonth &&
+    !proyectoRowFecha(row).startsWith(opts.selectedMonth) &&
+    !(opts.arrastreAbiertas && isProyectoArrastre(row, opts.selectedMonth))
+  ) {
+    return false;
+  }
   return proyectoMatchesSecondaryFilters(row, opts.secondary);
 }
 

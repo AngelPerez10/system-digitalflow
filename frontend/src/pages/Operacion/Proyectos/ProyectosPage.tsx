@@ -229,15 +229,19 @@ export default function ProyectosPage() {
     setFilterStatus("");
   }, [clearSecondaryFilters]);
 
+  /** Como en Órdenes: en el mes actual se arrastran los proyectos abiertos (en proceso / pausados) de meses anteriores. */
+  const arrastreActivo = !searchTerm.trim() && selectedMonth === getCurrentYearMonth();
+
   const rowsBeforeStatus = useMemo(() => {
     return rows.filter((r) =>
       proyectoPassesListFilters(r, {
         search: searchTerm,
         selectedMonth,
         secondary: secondaryFilters,
+        arrastreAbiertas: arrastreActivo,
       })
     );
-  }, [rows, searchTerm, selectedMonth, secondaryFilters]);
+  }, [rows, searchTerm, selectedMonth, secondaryFilters, arrastreActivo]);
 
   const statusCounts = useMemo(() => {
     const c: ProyectoStatusCounts = { en_proceso: 0, pausado: 0, saldo_pendiente: 0, cerrado: 0, cancelado: 0 };
@@ -487,6 +491,7 @@ export default function ProyectosPage() {
     onEnviarPdf: openEnviarPdf,
     canLiquidar: canLiquidarProyectos,
     onToggleLiquidado: handleToggleLiquidado,
+    arrastreMonth: arrastreActivo ? selectedMonth : undefined,
   };
 
   const grouped = !filterStatus;
@@ -536,9 +541,7 @@ export default function ProyectosPage() {
           onShiftMonth={shiftMonth}
         />
 
-        <div className="hidden sm:block">
-          <ProyectosPageStats stats={stats} />
-        </div>
+        <ProyectosPageStats stats={stats} />
 
         {/* Búsqueda + «Nuevo proyecto» (misma disposición que antes). */}
         <div

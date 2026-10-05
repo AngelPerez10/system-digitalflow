@@ -1,25 +1,24 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { AnimatePresence, LazyMotion, MotionConfig, domAnimation, m, stagger, type Variants } from "motion/react";
 import {
   ArrowLeft,
-  BookOpen,
-  Camera,
+  Check,
+  ChevronRight,
   Download,
   ExternalLink,
   FileText,
   FileWarning,
-  Info,
   Mail,
-  PenLine,
+  Maximize2,
+  Minimize2,
   RotateCw,
-  Users,
 } from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { AppProgressDialog } from "@/components/ui/modal-kit/ModalKit";
 import { fetchApi } from "@/config/api";
 import { objectUrlsForPdfViewer } from "@/utils/pdfViewerPreview";
-import { erpPageCanvasClass, erpPageInnerClass } from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import ProyectoEnviarPdfModal, { type ProyectoEnviarPdfTarget } from "./list/ProyectoEnviarPdfModal";
 import { proyectoRowFromApi, type ApiProyecto } from "./shared/proyectoApi";
 import {
@@ -29,32 +28,56 @@ import {
   proyectoTeam,
   proyectoTiposLabels,
 } from "./shared/proyectoListUtils";
-import { Avatar, EstadoPill, ProgressBar } from "./shared/ProyectoUi";
+import { Avatar } from "./shared/ProyectoUi";
 import { focusRing, sansStyle, toneForEstado } from "./shared/proyectoTokens";
 import type { ProyectoRow } from "./shared/proyectoTypes";
 
-/* Botones de la barra: misma altura (40 px), radio y tipografía; solo cambia el tono. */
+/* ==========================================================================
+   Tokens de la vista
+   ========================================================================== */
+
 const btnBase = `cot-press inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[10px] px-3.5 text-[14px] font-medium disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 ${focusRing}`;
-const btnPrimary = `${btnBase} border border-[#1B5CFF] bg-[#1B5CFF] font-semibold text-white hover:border-[#1244D1] hover:bg-[#1244D1] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:bg-[#3B6AF0]`;
+const btnPrimary = `${btnBase} border border-[#1B5CFF] bg-[#1B5CFF] font-semibold text-white shadow-[0_1px_2px_rgba(27,92,255,0.25),inset_0_1px_0_rgba(255,255,255,0.14)] hover:border-[#1244D1] hover:bg-[#1244D1] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:bg-[#3B6AF0]`;
 const btnSecondary = `${btnBase} border border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D4D4D8] hover:bg-[#FAFAFA] hover:text-[#09090B] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]`;
-const btnGhost = `${btnBase} border border-transparent text-[#52525B] hover:bg-[#F4F4F5] hover:text-[#09090B] dark:text-[#B7C1D1] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]`;
+/* Acciones sobre la banda marina: translúcida y una clara de alto contraste. */
+const btnOnDark = `${btnBase} border border-white/15 bg-white/8 text-white hover:bg-white/14 hover:border-white/25`;
+const btnLight = `${btnBase} border border-white bg-white font-semibold text-[#17235B] shadow-[0_8px_20px_-10px_rgba(0,0,0,0.5)] hover:bg-[#F1F4FF]`;
+const btnIcon = `cot-press inline-flex size-9 shrink-0 items-center justify-center rounded-[9px] text-[#52525B] hover:bg-[#F4F4F5] hover:text-[#09090B] disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#B7C1D1] dark:hover:bg-white/6 dark:hover:text-[#F8FAFC] [&_svg]:size-4 ${focusRing}`;
 
-const panelClass =
-  "min-w-0 overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827]";
+const card =
+  "min-w-0 overflow-hidden rounded-[18px] border border-[#E7E7EA] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827]";
+const eyebrow = "text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]";
+const bone = "block animate-pulse rounded bg-[#ECECEF] motion-reduce:animate-none dark:bg-[#1F2A3C]";
 
-/** Visor: ocupa el alto útil del viewport (menos layout y barra del documento). */
-const viewerFrameClass =
-  "pdf-browser-viewer block h-[72vh] min-h-[480px] w-full border-0 bg-white sm:h-[calc(100dvh-13rem)] sm:min-h-[640px]";
+/** Alto útil del visor: viewport menos layout y barra del documento. */
+const viewerHeight = "h-[72vh] min-h-[480px] sm:h-[calc(100dvh-15rem)] sm:min-h-[640px]";
 
-const bone = "block animate-pulse rounded bg-[#F0F0F2] motion-reduce:animate-none dark:bg-[#1F2A3C]";
+const LOADING_STEPS = ["Reuniendo bitácora y equipo", "Insertando firmas y evidencias", "Preparando la vista previa"];
 
-/** Secciones que trae el PDF del proyecto. */
-const CONTENT_SECTIONS: { id: string; label: string; icon: ReactNode }[] = [
-  { id: "bitacora", label: "Bitácora", icon: <BookOpen /> },
-  { id: "equipo", label: "Equipo", icon: <Users /> },
-  { id: "firmas", label: "Firmas", icon: <PenLine /> },
-  { id: "evidencias", label: "Evidencias", icon: <Camera /> },
-];
+/* Movimiento: solo transform/opacity; MotionConfig desactiva transforms con «reducir movimiento». */
+const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+
+const pageVariants: Variants = {
+  hidden: {},
+  show: { transition: { delayChildren: stagger(0.06, { startDelay: 0.02 }) } },
+};
+const riseVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: EASE_OUT } },
+};
+const listVariants: Variants = {
+  hidden: {},
+  show: { transition: { delayChildren: stagger(0.045, { startDelay: 0.12 }) } },
+};
+const itemVariants: Variants = {
+  hidden: { opacity: 0, x: -6 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: EASE_OUT } },
+};
+const stageVariants: Variants = {
+  initial: { opacity: 0, scale: 0.985 },
+  enter: { opacity: 1, scale: 1, transition: { duration: 0.32, ease: EASE_OUT } },
+  exit: { opacity: 0, scale: 0.995, transition: { duration: 0.16, ease: "easeIn" } },
+};
 
 type AlertState = {
   show: boolean;
@@ -63,36 +86,131 @@ type AlertState = {
   message: string;
 };
 
-const riseStyle = (i: number) => ({ "--cot-i": i }) as CSSProperties;
+function formatBytes(bytes: number | null): string {
+  if (!bytes || bytes <= 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
-function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
+/* ==========================================================================
+   Piezas
+   ========================================================================== */
+
+/** Anillo de avance: `pathLength` animado por Motion (stroke-dasharray en un SVG chico). */
+function AvanceRing({ value, toneText, ready, loaded }: { value: number; toneText: string; ready: boolean; loaded: boolean }) {
+  const share = ready ? value / 100 : 0;
+  const size = 104;
+  const stroke = 9;
+  const r = (size - stroke) / 2;
   return (
-    <div className="py-1.5 first:pt-0 last:pb-0">
-      <dt className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{label}</dt>
-      <dd className="mt-0.5 break-words text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{children}</dd>
+    <div className="relative size-26 shrink-0" role="img" aria-label={`Avance del proyecto: ${value}%`}>
+      <svg viewBox={`0 0 ${size} ${size}`} className="size-full -rotate-90" aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-[#F0F0F2] dark:stroke-[#1F2A3C]" />
+        <m.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          stroke="currentColor"
+          className={toneText}
+          initial={{ pathLength: 0, opacity: 0 }}
+          // Con 0 el extremo redondeado pintaría un punto: se oculta.
+          animate={{ pathLength: share, opacity: share > 0 ? 1 : 0 }}
+          transition={{ duration: 0.9, ease: EASE_OUT, delay: 0.15 }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        {ready ? (
+          <m.span
+            key={value}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: EASE_OUT }}
+            className="text-[24px] font-semibold leading-none tracking-[-0.8px] tabular-nums text-[#09090B] dark:text-[#F8FAFC]"
+          >
+            {value}%
+          </m.span>
+        ) : loaded ? (
+          <span className="text-[24px] font-semibold leading-none text-[#A1A1AA] dark:text-[#64748B]">—</span>
+        ) : (
+          <span className={`${bone} h-6 w-12`} />
+        )}
+        <span className="mt-1 text-[10.5px] font-medium uppercase tracking-widest text-[#A1A1AA] dark:text-[#64748B]">avance</span>
+      </div>
     </div>
   );
 }
 
-function EquiposMeter({ label, value, total, barClass }: { label: string; value: number; total: number; barClass: string }) {
-  const pct = total > 0 ? (value / total) * 100 : 0;
+/** Barra horizontal: escala en X (sin animar `width`). */
+function Meter({ label, value, total, barClass }: { label: string; value: number; total: number; barClass: string }) {
+  const share = total > 0 ? Math.min(1, value / total) : 0;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{label}</span>
+        <span className="text-[12.5px] text-[#52525B] dark:text-[#B7C1D1]">{label}</span>
         <span className="text-[13px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
           {value}
-          <span className="font-normal text-[#A1A1AA] dark:text-[#64748B]">/{total}</span>
+          <span className="font-normal text-[#A1A1AA] dark:text-[#64748B]"> / {total}</span>
         </span>
       </div>
-      <ProgressBar value={pct} barClass={barClass} size="sm" className="mt-1.5" label={`${label}: ${value} de ${total}`} />
+      <div
+        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#F0F0F2] dark:bg-[#1F2A3C]"
+        role="meter"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={value}
+      >
+        <m.div
+          className={`h-full w-full origin-left rounded-full ${barClass}`}
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: share }}
+          transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.2 }}
+        />
+      </div>
     </div>
   );
 }
 
+/** Hoja esqueleto en el visor mientras el modal de progreso arma el PDF. */
+function LoadingStage() {
+  return (
+    <div className={`relative flex ${viewerHeight} flex-col items-center overflow-hidden px-4 pt-8 sm:px-10`} aria-busy="true" aria-label="Cargando documento">
+      <div className="w-full max-w-155 flex-1 rounded-t-md bg-white p-8 shadow-[0_24px_48px_-28px_rgba(9,9,11,0.45)] dark:bg-[#1B2539] sm:p-10" aria-hidden>
+        <div className="flex items-start justify-between gap-6">
+          <span className={`${bone} h-10 w-40`} />
+          <span className={`${bone} h-14 w-32`} />
+        </div>
+        <span className={`${bone} mt-6 h-16 w-full rounded-md!`} />
+        <div className="mt-5 grid grid-cols-2 gap-4">
+          <span className={`${bone} h-20 rounded-md!`} />
+          <span className={`${bone} h-20 rounded-md!`} />
+        </div>
+        <div className="mt-5 space-y-2.5">
+          <span className={`${bone} h-2.5 w-[88%]`} />
+          <span className={`${bone} h-2.5 w-[72%]`} />
+          <span className={`${bone} h-2.5 w-[80%]`} />
+        </div>
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <span className={`${bone} aspect-4/3 rounded-md!`} />
+          <span className={`${bone} aspect-4/3 rounded-md!`} />
+          <span className={`${bone} aspect-4/3 rounded-md!`} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Página
+   ========================================================================== */
+
 /**
- * Vista previa / descarga del PDF de un proyecto.
- * Mismo esquema que la vista PDF de Cotizaciones: barra del documento, visor y resumen lateral.
+ * Vista previa / descarga del PDF de un proyecto: barra del documento, escenario
+ * del visor (carga, documento o error) y panel de resumen.
  */
 export default function ProyectoPdfPage() {
   const params = useParams();
@@ -104,12 +222,14 @@ export default function ProyectoPdfPage() {
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
   const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState("proyecto.pdf");
+  const [fileSize, setFileSize] = useState<number | null>(null);
   const [isHtmlFallback, setIsHtmlFallback] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(8);
   const [proyecto, setProyecto] = useState<ProyectoRow | null>(null);
   const [metaLoaded, setMetaLoaded] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [focusMode, setFocusMode] = useState(false);
   const [enviarTarget, setEnviarTarget] = useState<ProyectoEnviarPdfTarget | null>(null);
   const [alert, setAlert] = useState<AlertState>({ show: false, variant: "error", title: "", message: "" });
 
@@ -185,12 +305,13 @@ export default function ProyectoPdfPage() {
           urlsRef.current = [];
           setPdfObjectUrl(null);
           setPdfDownloadUrl(null);
+          setFileSize(null);
           return;
         }
 
         const ct = (resp.headers.get("content-type") || "").toLowerCase();
         const dispo = resp.headers.get("content-disposition") || "";
-        const m = dispo.match(/filename="?([^";]+)"?/i);
+        const match = dispo.match(/filename="?([^";]+)"?/i);
         const isPdf = ct.includes("application/pdf");
 
         const blob = await resp.blob();
@@ -203,7 +324,8 @@ export default function ProyectoPdfPage() {
             })();
 
         setIsHtmlFallback(!isPdf);
-        setFilename(m?.[1] ? String(m[1]) : `Proyecto_${proyectoId}.${isPdf ? "pdf" : "html"}`);
+        setFileSize(blob.size);
+        setFilename(match?.[1] ? String(match[1]) : `Proyecto_${proyectoId}.${isPdf ? "pdf" : "html"}`);
         revokeLater(urlsRef.current);
         urlsRef.current = Array.from(new Set([urls.previewUrl, urls.downloadUrl]));
         setPdfObjectUrl(urls.previewUrl);
@@ -229,7 +351,7 @@ export default function ProyectoPdfPage() {
     };
   }, [proyectoId, reloadKey, revokeLater]);
 
-  // Progreso simulado del diálogo mientras el servidor arma el PDF.
+  // Progreso estimado mientras el servidor arma el PDF.
   useEffect(() => {
     if (!loading) {
       setLoadingProgress(100);
@@ -243,6 +365,16 @@ export default function ProyectoPdfPage() {
   }, [loading]);
 
   useEffect(() => () => revokeLater(urlsRef.current), [revokeLater]);
+
+  // Esc sale del modo enfoque.
+  useEffect(() => {
+    if (!focusMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFocusMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusMode]);
 
   const handleDownload = () => {
     if (!pdfDownloadUrl) return;
@@ -269,6 +401,8 @@ export default function ProyectoPdfPage() {
   const liquidado = Boolean(proyecto?.draft?.liquidado);
   const puedeEnviar = estado === "listo" && !!proyecto && proyecto.estado !== "cancelado";
   const viewerTitle = folio ? `Vista previa del documento del proyecto ${folio}` : "Vista previa del documento del proyecto";
+  const sizeLabel = formatBytes(fileSize);
+  const placeholder = metaLoaded ? "—" : <span className={`${bone} inline-block! h-3.5 w-28 align-middle`} />;
 
   const abrirEnvio = () => {
     if (!proyecto) return;
@@ -276,310 +410,417 @@ export default function ProyectoPdfPage() {
   };
 
   return (
-    <div className={erpPageCanvasClass} style={sansStyle}>
-      <div className={`${erpPageInnerClass} space-y-4! sm:space-y-5!`}>
-        <PageMeta title="PDF Proyecto | Digitalflow" description="Vista previa y descarga del PDF del proyecto" />
-
-        <AppProgressDialog
-          open={loading}
-          icon={<FileText />}
-          title="Generando PDF"
-          description="Estamos armando el documento con la bitácora, el equipo y las evidencias más recientes."
-          subject={folio ?? undefined}
-          progress={loadingProgress}
-          steps={["Reuniendo bitácora y equipo", "Insertando firmas y evidencias", "Preparando la vista previa"]}
-        />
-
-        <ProyectoEnviarPdfModal
-          open={enviarTarget != null}
-          proyecto={enviarTarget}
-          onClose={() => setEnviarTarget(null)}
-          onSent={(correo) => {
-            setEnviarTarget(null);
-            setAlert({ show: true, variant: "success", title: "Correo enviado", message: `El PDF se envió a ${correo}.` });
-          }}
-          onError={(message) => setAlert({ show: true, variant: "error", title: "Correo", message })}
-        />
-
-        {alert.show ? (
-          <Alert
-            variant={alert.variant}
-            title={alert.title}
-            message={alert.message}
-            showLink={false}
-            onClose={() => setAlert((a) => ({ ...a, show: false }))}
-          />
-        ) : null}
-
-        {/* ============================ Barra del documento ============================ */}
-        <header
-          className="cot-rise flex flex-col gap-4 rounded-2xl border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827] sm:px-5 lg:flex-row lg:items-center lg:justify-between"
-          style={riseStyle(0)}
-        >
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate(returnPath)}
-              className={`${btnGhost} w-10! px-0!`}
-              aria-label="Volver al listado de proyectos"
-              title="Volver al listado"
-            >
-              <ArrowLeft aria-hidden />
-            </button>
-            <span className="h-8 w-px shrink-0 bg-[#E4E4E7] dark:bg-[#273244]" aria-hidden />
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-[17px] font-semibold tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
-                  {folio ? `Proyecto ${folio}` : "Proyecto"}
-                </h1>
-                {proyecto ? <EstadoPill estado={proyecto.estado} size="sm" className="cot-fade" /> : null}
-                {liquidado ? (
-                  <span className="cot-fade inline-flex h-5 items-center rounded-full bg-[#E6F6F2] px-2 text-[11px] font-semibold text-[#0B6B5C] ring-1 ring-inset ring-[#BEE5DA] dark:bg-[rgba(45,212,191,0.12)] dark:text-[#5EEAD4] dark:ring-[rgba(45,212,191,0.3)]">
-                    Liquidado
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-0.5 truncate text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
-                {proyecto ? (
-                  <>
-                    {clienteNombre || "Sin cliente"}
-                    {tipos.length ? <span className="text-[#A1A1AA] dark:text-[#64748B]"> · {tipos.join(" · ")}</span> : null}
-                  </>
-                ) : metaLoaded ? (
-                  "Documento operativo del proyecto"
-                ) : (
-                  <span className={`${bone} inline-block! h-3 w-48 align-middle`} />
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={!puedeEnviar}
-              onClick={abrirEnvio}
-              title={proyecto?.estado === "cancelado" ? "No se puede enviar un proyecto cancelado" : undefined}
-              className={btnSecondary}
-            >
-              <Mail aria-hidden />
-              <span className="hidden sm:inline">Enviar por correo</span>
-              <span className="sm:hidden">Enviar</span>
-            </button>
-            <a
-              href={pdfDownloadUrl || undefined}
-              target="_blank"
-              rel="noreferrer"
-              tabIndex={pdfDownloadUrl ? undefined : -1}
-              aria-disabled={!pdfDownloadUrl}
-              onClick={(e) => {
-                if (!pdfDownloadUrl) e.preventDefault();
-              }}
-              className={`${btnSecondary} ${!pdfDownloadUrl ? "pointer-events-none opacity-50" : ""}`}
-            >
-              <ExternalLink aria-hidden />
-              Abrir
-            </a>
-            <button type="button" disabled={!pdfDownloadUrl} onClick={handleDownload} className={btnPrimary}>
-              <Download aria-hidden />
-              {isHtmlFallback ? "Descargar HTML" : "Descargar"}
-            </button>
-          </div>
-        </header>
-
-        <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-          {/* ============================ Documento ============================ */}
-          <section
-            aria-label="Documento"
-            className="cot-rise min-w-0 overflow-hidden rounded-2xl border border-[#E4E4E7] bg-[#EDEEF1] shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#0B1220]"
-            style={riseStyle(1)}
+    <LazyMotion features={domAnimation}>
+      <MotionConfig reducedMotion="user">
+        <div className="min-h-[calc(100dvh-5rem)] overflow-x-hidden" style={sansStyle}>
+          <m.div
+            className="mx-auto w-full max-w-[min(100%,1920px)] space-y-4 px-3 pb-10 pt-5 sm:space-y-5 sm:px-5 sm:pt-6 md:px-6 lg:px-8 xl:px-10"
+            variants={pageVariants}
+            initial="hidden"
+            animate="show"
           >
-            {estado === "cargando" ? (
-              <div className="flex justify-center px-3 py-6 sm:px-8 sm:py-10" aria-busy="true" aria-label="Cargando documento">
-                <div className="w-full max-w-[760px] rounded-md bg-white p-8 shadow-[0_18px_40px_-24px_rgba(9,9,11,0.45)] dark:bg-[#1B2539] sm:p-12">
-                  <div className="flex items-start justify-between gap-6">
-                    <span className={`${bone} h-10 w-36`} />
-                    <span className={`${bone} h-14 w-40`} />
-                  </div>
-                  <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    {[0, 1, 2, 3].map((i) => (
-                      <div key={i} className="space-y-2">
-                        <span className={`${bone} h-2 w-14`} />
-                        <span className={`${bone} h-3 w-full`} />
+            <PageMeta title="PDF Proyecto | Digitalflow" description="Vista previa y descarga del PDF del proyecto" />
+
+            <AppProgressDialog
+              open={loading}
+              icon={<FileText />}
+              title="Generando PDF"
+              description="Estamos armando el documento con la bitácora, el equipo y las evidencias más recientes."
+              subject={folio ?? undefined}
+              progress={loadingProgress}
+              steps={LOADING_STEPS}
+            />
+
+            <ProyectoEnviarPdfModal
+              open={enviarTarget != null}
+              proyecto={enviarTarget}
+              onClose={() => setEnviarTarget(null)}
+              onSent={(correo) => {
+                setEnviarTarget(null);
+                setAlert({ show: true, variant: "success", title: "Correo enviado", message: `El PDF se envió a ${correo}.` });
+              }}
+              onError={(message) => setAlert({ show: true, variant: "error", title: "Correo", message })}
+            />
+
+            <AnimatePresence initial={false}>
+              {alert.show ? (
+                <m.div
+                  key="alert"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+                >
+                  <Alert
+                    variant={alert.variant}
+                    title={alert.title}
+                    message={alert.message}
+                    showLink={false}
+                    onClose={() => setAlert((a) => ({ ...a, show: false }))}
+                  />
+                </m.div>
+              ) : null}
+            </AnimatePresence>
+
+            {/* ============================ Encabezado del documento ============================ */}
+            <m.div variants={riseVariants}>
+              <nav className="mb-3 flex items-center gap-1.5 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]" aria-label="Migas de pan">
+                <Link
+                  to="/"
+                  className={`hidden rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC] sm:inline ${focusRing}`}
+                >
+                  Inicio
+                </Link>
+                <ChevronRight className="hidden size-3.5 text-[#D3D3D8] dark:text-[#3A4661] sm:block" aria-hidden />
+                <Link
+                  to={returnPath}
+                  className={`rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC] ${focusRing}`}
+                >
+                  Proyectos
+                </Link>
+                <ChevronRight className="size-3.5 text-[#D3D3D8] dark:text-[#3A4661]" aria-hidden />
+                <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]" aria-current="page">
+                  {folio ? `${folio} · PDF` : "Documento PDF"}
+                </span>
+              </nav>
+
+              <header className="relative overflow-hidden rounded-[24px] bg-[#17235B] text-white shadow-[0_24px_48px_-32px_rgba(23,35,91,0.7)] dark:bg-[#1B2A63]">
+                {/* Decoración: retícula de puntos y dos brillos (estáticos, sin costo por cuadro). */}
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-[0.07] bg-[radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] bg-size-[18px_18px] mask-[linear-gradient(to_left,black,transparent_70%)]"
+                  aria-hidden
+                />
+                <div className="pointer-events-none absolute -bottom-36 left-1/4 size-72 rounded-full bg-[#1B5CFF]/25 blur-3xl" aria-hidden />
+                <div className="pointer-events-none absolute -right-24 -top-28 size-80 rounded-full bg-[#E6A23C]/15 blur-3xl" aria-hidden />
+
+                <div className="relative flex flex-col gap-5 px-4 pb-4 pt-5 sm:px-7 sm:pt-7 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate(returnPath)}
+                      className={`cot-press inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/8 text-white/80 ring-1 ring-inset ring-white/15 hover:bg-white/14 hover:text-white sm:size-11 ${focusRing}`}
+                      aria-label="Volver al listado de proyectos"
+                      title="Volver al listado"
+                    >
+                      <ArrowLeft className="size-4.5" aria-hidden />
+                    </button>
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#E6A23C]">
+                        <FileText className="size-3.5" aria-hidden />
+                        Reporte de proyecto
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <h1 className="font-mono text-[26px] font-bold leading-none tracking-[-0.8px] sm:text-[32px]">
+                          {folio ?? (metaLoaded ? "Proyecto" : <span className="inline-block h-7 w-40 animate-pulse rounded-md bg-white/10 align-middle motion-reduce:animate-none" />)}
+                        </h1>
+                        <AnimatePresence>
+                          {proyecto ? (
+                            <m.span
+                              key="estado"
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="inline-flex h-6 items-center gap-1.5 rounded-full bg-white/10 px-2.5 text-[12px] font-semibold text-white ring-1 ring-inset ring-white/20"
+                            >
+                              <span className={`size-1.5 rounded-full ${tone.dot}`} aria-hidden />
+                              {tone.label}
+                            </m.span>
+                          ) : null}
+                          {liquidado ? (
+                            <m.span
+                              key="liquidado"
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="inline-flex h-6 items-center gap-1 rounded-full bg-[rgba(45,212,191,0.16)] px-2.5 text-[12px] font-semibold text-[#5EEAD4] ring-1 ring-inset ring-[rgba(45,212,191,0.35)]"
+                            >
+                              <Check className="size-3" strokeWidth={3} aria-hidden />
+                              Liquidado
+                            </m.span>
+                          ) : null}
+                        </AnimatePresence>
                       </div>
-                    ))}
+                      <p className="mt-2 max-w-[70ch] truncate text-[15px] leading-5.5 text-white/75">
+                        {proyecto ? (
+                          <>
+                            <span className="font-medium text-white">{clienteNombre || "Sin cliente"}</span>
+                            {tipos.length ? <span className="text-white/55"> · {tipos.join(" · ")}</span> : null}
+                          </>
+                        ) : metaLoaded ? (
+                          "Documento operativo del proyecto"
+                        ) : (
+                          <span className="inline-block h-3.5 w-56 animate-pulse rounded bg-white/10 align-middle motion-reduce:animate-none" />
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  {/* Jornadas de la bitácora */}
-                  <div className="mt-8 space-y-5">
-                    {[0, 1, 2].map((d) => (
-                      <div key={d} className="flex gap-4">
-                        <span className="mt-0.5 size-3 shrink-0 rounded-full bg-[#1B5CFF]/25" />
-                        <div className="flex-1 space-y-2">
-                          <span className={`${bone} h-2.5 w-28`} />
-                          <span className={`${bone} h-2.5`} style={{ width: `${92 - d * 9}%` }} />
-                          <span className={`${bone} h-2.5`} style={{ width: `${70 - d * 6}%` }} />
+
+                  <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0 sm:items-center">
+                    <button
+                      type="button"
+                      disabled={!puedeEnviar}
+                      onClick={abrirEnvio}
+                      title={proyecto?.estado === "cancelado" ? "No se puede enviar un proyecto cancelado" : undefined}
+                      className={btnOnDark}
+                    >
+                      <Mail aria-hidden />
+                      <span className="hidden sm:inline">Enviar por correo</span>
+                      <span className="sm:hidden">Enviar</span>
+                    </button>
+                    <a
+                      href={pdfDownloadUrl || undefined}
+                      target="_blank"
+                      rel="noreferrer"
+                      tabIndex={pdfDownloadUrl ? undefined : -1}
+                      aria-disabled={!pdfDownloadUrl}
+                      onClick={(e) => {
+                        if (!pdfDownloadUrl) e.preventDefault();
+                      }}
+                      className={`${btnOnDark} ${!pdfDownloadUrl ? "pointer-events-none opacity-50" : ""}`}
+                    >
+                      <ExternalLink aria-hidden />
+                      Abrir
+                    </a>
+                    <button type="button" disabled={!pdfDownloadUrl} onClick={handleDownload} className={btnLight}>
+                      <Download aria-hidden />
+                      {isHtmlFallback ? "HTML" : "Descargar"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Franja de datos clave. */}
+                <dl className="relative grid grid-cols-2 border-t border-white/10 bg-black/12 sm:grid-cols-4">
+                  {[
+                    {
+                      label: "Avance",
+                      value: proyecto ? (
+                        <span className="flex items-center gap-2">
+                          <span className="tabular-nums">{avance}%</span>
+                          <span className="h-1 w-14 overflow-hidden rounded-full bg-white/15" aria-hidden>
+                            <m.span
+                              className="block h-full w-full origin-left rounded-full bg-[#E6A23C]"
+                              initial={{ scaleX: 0 }}
+                              animate={{ scaleX: avance / 100 }}
+                              transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.25 }}
+                            />
+                          </span>
+                        </span>
+                      ) : null,
+                    },
+                    { label: "Periodo", value: proyecto ? formatPeriodoLabel(periodo) : null },
+                    {
+                      label: cotizaciones.length > 1 ? "Cotizaciones" : "Cotización",
+                      value: proyecto ? (cotizaciones.length ? cotizaciones.map((c) => c.folio).join(", ") : "—") : null,
+                    },
+                    {
+                      label: "Documento",
+                      value:
+                        estado === "listo"
+                          ? `${isHtmlFallback ? "HTML" : "PDF"}${sizeLabel ? ` · ${sizeLabel}` : ""}`
+                          : estado === "cargando"
+                            ? "Generando…"
+                            : "No disponible",
+                    },
+                  ].map((f, i) => (
+                    <div
+                      key={f.label}
+                      className={`min-w-0 px-4 py-3 sm:px-7 ${i % 2 === 1 ? "border-l border-white/10" : ""} ${i >= 2 ? "border-t border-white/10 sm:border-t-0" : ""} ${i === 2 ? "sm:border-l" : ""}`}
+                    >
+                      <dt className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-white/50">{f.label}</dt>
+                      <dd className="mt-1 truncate text-[14px] font-medium text-white">
+                        {f.value ?? (metaLoaded ? "—" : <span className="inline-block h-3.5 w-20 animate-pulse rounded bg-white/10 align-middle motion-reduce:animate-none" />)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </header>
+            </m.div>
+
+            <div
+              className={`grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-5 ${
+                focusMode ? "" : "xl:grid-cols-[minmax(0,1fr)_340px]"
+              }`}
+            >
+              {/* ============================ Escenario del documento ============================ */}
+              <m.section variants={riseVariants} aria-label="Documento" className={`${card} flex flex-col`}>
+                <div className="flex items-center gap-2 border-b border-[#EFEFF1] px-3 py-2 dark:border-[#1F2A3C] sm:px-4">
+                  <span className="relative inline-flex size-2 shrink-0" aria-hidden>
+                    <span
+                      className={`size-2 rounded-full transition-colors duration-300 ${
+                        estado === "listo"
+                          ? "bg-[#0E8A5F] dark:bg-[#34D399]"
+                          : estado === "cargando"
+                            ? "bg-[#1B5CFF] dark:bg-[#4B7CFF]"
+                            : "bg-[#C22B2B] dark:bg-[#F87171]"
+                      }`}
+                    />
+                  </span>
+                  <p className="min-w-0 truncate font-mono text-[12px] text-[#52525B] dark:text-[#B7C1D1]" title={filename}>
+                    {estado === "cargando" ? "Generando documento…" : estado === "listo" ? filename : "Documento no disponible"}
+                  </p>
+                  <div className="ml-auto flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setReloadKey((k) => k + 1)}
+                      disabled={loading}
+                      className={btnIcon}
+                      aria-label="Regenerar documento"
+                      title="Regenerar documento"
+                    >
+                      <RotateCw aria-hidden className={loading ? "animate-spin motion-reduce:animate-none" : ""} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFocusMode((v) => !v)}
+                      className={`${btnIcon} hidden xl:inline-flex`}
+                      aria-pressed={focusMode}
+                      aria-label={focusMode ? "Mostrar panel de resumen" : "Ampliar documento"}
+                      title={focusMode ? "Mostrar resumen (Esc)" : "Ampliar documento"}
+                    >
+                      {focusMode ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative bg-[#EDEEF1] dark:bg-[#0B1220]">
+                  <AnimatePresence mode="wait" initial={false}>
+                    {estado === "cargando" ? (
+                      <m.div key="cargando" variants={stageVariants} initial="initial" animate="enter" exit="exit">
+                        <LoadingStage />
+                      </m.div>
+                    ) : estado === "listo" ? (
+                      <m.div key={`listo-${pdfObjectUrl}`} variants={stageVariants} initial="initial" animate="enter" exit="exit">
+                        {/*
+                          Solo iframe. El <object data="blob…#toolbar=…"> hace que Chrome pida
+                          recursos internos `invalid/` y llene la consola con net::ERR_FAILED.
+                        */}
+                        <iframe
+                          title={viewerTitle}
+                          aria-label={viewerTitle}
+                          src={pdfObjectUrl ?? undefined}
+                          className={`pdf-browser-viewer block w-full border-0 bg-white ${viewerHeight}`}
+                        />
+                      </m.div>
+                    ) : (
+                      <m.div
+                        key="error"
+                        variants={stageVariants}
+                        initial="initial"
+                        animate="enter"
+                        exit="exit"
+                        className="flex flex-col items-center px-6 py-16 text-center sm:py-24"
+                      >
+                        <m.span
+                          initial={{ scale: 0.7, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ duration: 0.35, ease: EASE_OUT, delay: 0.05 }}
+                          className="inline-flex size-14 items-center justify-center rounded-2xl bg-white text-[#C22B2B] ring-1 ring-inset ring-[#F6CFCF] dark:bg-[#3F1518] dark:text-[#F87171] dark:ring-[#7F1D1D]"
+                        >
+                          <FileWarning className="size-6" strokeWidth={1.8} aria-hidden />
+                        </m.span>
+                        <h2 className="mt-5 text-[18px] font-semibold tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+                          {alert.title && alert.variant !== "success" ? alert.title : "No se pudo generar el documento"}
+                        </h2>
+                        <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-[#52525B] dark:text-[#B7C1D1]">
+                          {alert.message && alert.variant !== "success"
+                            ? alert.message
+                            : "Vuelve a intentarlo. Si el problema sigue, revisa el proyecto o vuelve al listado."}
+                        </p>
+                        <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
+                          <button type="button" className={btnPrimary} onClick={() => setReloadKey((k) => k + 1)}>
+                            <RotateCw aria-hidden />
+                            Reintentar
+                          </button>
+                          <button type="button" className={btnSecondary} onClick={() => navigate(returnPath)}>
+                            <ArrowLeft aria-hidden />
+                            Volver al listado
+                          </button>
+                        </div>
+                      </m.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </m.section>
+
+              {/* ============================ Panel de resumen ============================ */}
+              <AnimatePresence initial={false}>
+                {!focusMode ? (
+                  <m.aside
+                    key="resumen"
+                    variants={riseVariants}
+                    exit={{ opacity: 0, x: 12, transition: { duration: 0.15 } }}
+                    className="min-w-0 space-y-4 xl:sticky xl:top-24"
+                    aria-label="Resumen del proyecto"
+                  >
+                    {/* Avance */}
+                    <section className={`${card} p-5`}>
+                      <div className="flex items-center gap-5">
+                        <AvanceRing value={avance} toneText={tone.text} ready={Boolean(proyecto)} loaded={metaLoaded} />
+                        <div className="min-w-0 flex-1">
+                          <p className={eyebrow}>Jornadas</p>
+                          <p className="mt-1 text-[20px] font-semibold leading-none tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+                            {proyecto ? periodo?.dias ?? 0 : placeholder}
+                          </p>
+                          <p className={`${eyebrow} mt-3`}>Responsable</p>
+                          <p className="mt-1 truncate text-[13.5px] font-medium text-[#09090B] dark:text-[#F8FAFC]">
+                            {proyecto ? team?.responsable?.nombre || "Sin asignar" : placeholder}
+                          </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                  <div className="mt-8 grid grid-cols-3 gap-3">
-                    {[0, 1, 2].map((i) => (
-                      <span key={i} className={`${bone} aspect-4/3 rounded-md!`} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : estado === "listo" ? (
-              <div className="cot-fade">
-                {/*
-                  Solo iframe. El <object data="blob…#toolbar=…"> hace que Chrome pida
-                  recursos internos `invalid/` y llene la consola con net::ERR_FAILED.
-                */}
-                <iframe
-                  key={pdfObjectUrl}
-                  title={viewerTitle}
-                  aria-label={viewerTitle}
-                  src={pdfObjectUrl ?? undefined}
-                  className={viewerFrameClass}
-                />
-              </div>
-            ) : (
-              <div className="cot-fade flex flex-col items-center px-6 py-16 text-center sm:py-24">
-                <span className="cot-tick inline-flex size-14 items-center justify-center rounded-2xl bg-white text-[#C22B2B] ring-1 ring-inset ring-[#F6CFCF] dark:bg-[#3F1518] dark:text-[#F87171] dark:ring-[#7F1D1D]">
-                  <FileWarning className="size-6" strokeWidth={1.8} aria-hidden />
-                </span>
-                <h2 className="mt-5 text-[18px] font-semibold tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
-                  {alert.title && alert.variant !== "success" ? alert.title : "No se pudo generar el documento"}
-                </h2>
-                <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-[#52525B] dark:text-[#B7C1D1]">
-                  {alert.message && alert.variant !== "success"
-                    ? alert.message
-                    : "Vuelve a intentarlo. Si el problema sigue, revisa el proyecto o vuelve al listado."}
-                </p>
-                <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
-                  <button type="button" className={btnPrimary} onClick={() => setReloadKey((k) => k + 1)}>
-                    <RotateCw aria-hidden />
-                    Reintentar
-                  </button>
-                  <button type="button" className={btnSecondary} onClick={() => navigate(returnPath)}>
-                    <ArrowLeft aria-hidden />
-                    Volver al listado
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
 
-          {/* ============================ Resumen ============================ */}
-          <aside
-            className={`cot-rise ${panelClass} xl:sticky xl:top-24`}
-            style={riseStyle(2)}
-            aria-label="Resumen del proyecto"
-          >
-            <div className="p-5">
-              <p className="text-[12px] font-medium text-[#71717A] dark:text-[#8EA0B8]">Avance</p>
-              {proyecto ? (
-                <p
-                  key={avance}
-                  className={`cot-flash mt-1 text-[28px] font-semibold leading-none tracking-[-0.8px] tabular-nums ${tone.text}`}
-                >
-                  {avance}%
-                </p>
-              ) : (
-                <span className={`${bone} mt-2 h-7 w-20`} />
-              )}
-              <ProgressBar
-                value={proyecto ? avance : 0}
-                barClass={tone.bar}
-                className="mt-3"
-                label={folio ? `Avance de ${folio}` : "Avance del proyecto"}
-              />
-
-              {proyecto && proyecto.equiposTotal > 0 ? (
-                <div className="cot-fade mt-5 space-y-3">
-                  <EquiposMeter
-                    label="Equipos entregados"
-                    value={proyecto.equiposEntregados}
-                    total={proyecto.equiposTotal}
-                    barClass="bg-[#17235B] dark:bg-[#D6DEEA]"
-                  />
-                  <EquiposMeter
-                    label="Equipos instalados"
-                    value={proyecto.equiposInstalados}
-                    total={proyecto.equiposTotal}
-                    barClass="bg-[#0E8A5F] dark:bg-[#34D399]"
-                  />
-                </div>
-              ) : proyecto ? (
-                <p className="mt-4 text-[12px] text-[#A1A1AA] dark:text-[#64748B]">Sin equipos registrados.</p>
-              ) : null}
-            </div>
-
-            <dl className="border-t border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
-              {[
-                { label: "Cliente", value: clienteNombre },
-                { label: "Periodo", value: periodo ? formatPeriodoLabel(periodo) : "" },
-                { label: cotizaciones.length > 1 ? "Cotizaciones" : "Cotización", value: cotizaciones.map((c) => c.folio).join(", ") },
-              ].map((r) => (
-                <SummaryRow key={r.label} label={r.label}>
-                  {proyecto ? r.value || "—" : metaLoaded ? "—" : <span className={`${bone} inline-block! h-3.5 w-32 align-middle`} />}
-                </SummaryRow>
-              ))}
-            </dl>
-
-            <div className="border-t border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
-              <p className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">Equipo de campo</p>
-              {team && team.todos.length ? (
-                <ul className="mt-2 space-y-2">
-                  {team.todos.slice(0, 5).map((p, i) => (
-                    <li key={p.id ?? `p-${i}`} className="cot-rise flex min-w-0 items-center gap-2.5" style={riseStyle(i + 3)}>
-                      <Avatar person={p} size="sm" />
-                      <span className="min-w-0 truncate text-[13.5px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{p.nombre}</span>
-                      {p.responsable ? (
-                        <span className="ml-auto shrink-0 rounded-full bg-[rgba(230,162,60,0.14)] px-2 py-0.5 text-[10.5px] font-semibold text-[#8A5D0F] dark:text-[#E6A23C]">
-                          Responsable
-                        </span>
+                      {proyecto && proyecto.equiposTotal > 0 ? (
+                        <div className="mt-5 space-y-3 border-t border-[#F0F0F2] pt-4 dark:border-[#1F2A3C]">
+                          <Meter
+                            label="Equipos entregados"
+                            value={proyecto.equiposEntregados}
+                            total={proyecto.equiposTotal}
+                            barClass="bg-[#17235B] dark:bg-[#D6DEEA]"
+                          />
+                          <Meter
+                            label="Equipos instalados"
+                            value={proyecto.equiposInstalados}
+                            total={proyecto.equiposTotal}
+                            barClass="bg-[#0E8A5F] dark:bg-[#34D399]"
+                          />
+                        </div>
                       ) : null}
-                    </li>
-                  ))}
-                  {team.todos.length > 5 ? (
-                    <li className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">+{team.todos.length - 5} más</li>
-                  ) : null}
-                </ul>
-              ) : (
-                <p className="mt-1 text-[13px] text-[#A1A1AA] dark:text-[#64748B]">{proyecto || metaLoaded ? "Sin asignar" : "…"}</p>
-              )}
-            </div>
+                    </section>
 
-            <div className="border-t border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
-              <p className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">Contenido del documento</p>
-              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Secciones del documento">
-                {CONTENT_SECTIONS.map((s) => (
-                  <li
-                    key={s.id}
-                    className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[#F4F4F5] px-2.5 text-[12px] font-medium text-[#3F3F46] dark:bg-white/6 dark:text-[#D6DEEA] [&_svg]:size-3.5 [&_svg]:text-[#1B5CFF] dark:[&_svg]:text-[#7EA0FF]"
-                  >
-                    <span aria-hidden className="inline-flex">{s.icon}</span>
-                    {s.label}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 truncate font-mono text-[11.5px] text-[#A1A1AA] dark:text-[#64748B]" title={filename}>
-                {filename}
-              </p>
+                    {/* Equipo de campo */}
+                    <section className={`${card} p-5`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={eyebrow}>Equipo de campo</p>
+                        {team?.todos.length ? (
+                          <span className="text-[12px] tabular-nums text-[#A1A1AA] dark:text-[#64748B]">{team.todos.length}</span>
+                        ) : null}
+                      </div>
+                      {team && team.todos.length ? (
+                        <m.ul className="mt-3 space-y-2.5" variants={listVariants} initial="hidden" animate="show">
+                          {team.todos.slice(0, 6).map((p, i) => (
+                            <m.li key={p.id ?? `p-${i}`} variants={itemVariants} className="flex min-w-0 items-center gap-2.5">
+                              <Avatar person={p} size="sm" />
+                              <span className="min-w-0 truncate text-[13.5px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{p.nombre}</span>
+                              {p.responsable ? (
+                                <span className="ml-auto shrink-0 rounded-full bg-[rgba(230,162,60,0.14)] px-2 py-0.5 text-[10.5px] font-semibold text-[#8A5D0F] dark:text-[#E6A23C]">
+                                  Responsable
+                                </span>
+                              ) : null}
+                            </m.li>
+                          ))}
+                          {team.todos.length > 6 ? (
+                            <li className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">+{team.todos.length - 6} más</li>
+                          ) : null}
+                        </m.ul>
+                      ) : (
+                        <p className="mt-2 text-[13px] text-[#A1A1AA] dark:text-[#64748B]">
+                          {proyecto || metaLoaded ? "Sin asignar" : "…"}
+                        </p>
+                      )}
+                    </section>
+                  </m.aside>
+                ) : null}
+              </AnimatePresence>
             </div>
-          </aside>
+          </m.div>
         </div>
-
-        {estado === "listo" ? (
-          <p className="cot-fade flex items-center gap-2 px-1 text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
-            <Info className="size-3.5 shrink-0" aria-hidden />
-            {isHtmlFallback
-              ? "Respaldo HTML: el motor PDF del servidor no está disponible."
-              : "¿No se ve el documento o pesa mucho por las fotos? Usa «Abrir» o «Descargar»."}
-          </p>
-        ) : null}
-      </div>
-    </div>
+      </MotionConfig>
+    </LazyMotion>
   );
 }

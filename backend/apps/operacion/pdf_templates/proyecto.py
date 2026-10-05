@@ -285,20 +285,21 @@ _EMPRESA_NOMBRE = "GRUPO INTRAX SEGURIDAD Y RASTREO"
 _PDF_CSS = """
       :root {
         --navy: #17235B;
-        --navy-soft: #EEF0F7;
+        --navy-2: #22307A;
         --gold: #E6A23C;
         --gold-ink: #8A5D0F;
-        --blue: #1B5CFF;
         --ink: #0B1020;
         --body: #2E3446;
         --muted: #6B7183;
+        --faint: #A3A8B6;
         --hair: #E3E5EC;
+        --hair-2: #EFF0F4;
         --soft: #F7F8FB;
       }
       @page {
         size: A4;
-        margin-left: 14mm;
-        margin-right: 14mm;
+        margin-left: 13mm;
+        margin-right: 13mm;
         margin-top: 12mm;
         margin-bottom: 16mm;
       }
@@ -321,93 +322,116 @@ _PDF_CSS = """
       body {
         font-family: PdfSans, Arial, Helvetica, sans-serif;
         font-size: 10.5px;
-        line-height: 1.4;
+        line-height: 1.42;
         letter-spacing: 0;
         font-synthesis: none;
         color: var(--body); background: #fff; margin: 0;
         -webkit-print-color-adjust: exact; print-color-adjust: exact;
       }
       .doc { width: 100%; }
-      .pagebreak { page-break-before: always; break-before: page; }
+      /* El salto va en el propio bloque: un <div> vacío con salto podía dejar una hoja en blanco. */
+      .newpage { page-break-before: always; break-before: page; }
       .avoid { page-break-inside: avoid; break-inside: avoid; }
-
-      /* ---------- Encabezado ---------- */
-      .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-      .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-      .logo { width: 70px; height: 70px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
-      .logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
-      .brand .name { font-size: 12.5px; font-weight: 700; color: var(--navy); letter-spacing: .2px; }
-      .brand .meta { margin-top: 4px; font-size: 8.8px; line-height: 1.45; color: var(--muted); }
-      .brand .meta b { color: var(--body); font-weight: 700; }
-      .docbox { flex: 0 0 auto; min-width: 190px; text-align: right; }
-      .docbox .kind { font-size: 8.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--gold-ink); }
-      .docbox .folio { margin-top: 3px; font-size: 22px; font-weight: 700; color: var(--navy); letter-spacing: -.3px; line-height: 1.05; }
-      .docbox .emitido { margin-top: 5px; font-size: 9px; color: var(--muted); }
-      .pill {
-        display: inline-block; margin-top: 7px; padding: 3px 10px 3px 8px; border-radius: 999px;
-        border: 1px solid; font-size: 8.5px; font-weight: 700; letter-spacing: .8px;
-      }
-      .pill .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
-      .rule { margin: 12px 0 14px; height: 3px; background: linear-gradient(90deg, var(--gold) 0, var(--gold) 64px, var(--navy) 64px, var(--navy) 100%); border-radius: 2px; }
-
-      /* ---------- Título ---------- */
-      .title-eyebrow { font-size: 8.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
-      .title { margin-top: 3px; font-size: 19px; font-weight: 700; color: var(--ink); letter-spacing: -.4px; line-height: 1.15; }
-      .tags { margin-top: 7px; }
-      .tag {
-        display: inline-block; margin: 0 5px 4px 0; padding: 3px 9px; border-radius: 999px;
-        background: var(--navy-soft); color: var(--navy); font-size: 8.8px; font-weight: 700;
-      }
-
-      /* ---------- Indicadores ---------- */
-      .kpis { display: flex; margin-top: 12px; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
-      .kpi { flex: 1; padding: 9px 12px; border-left: 1px solid var(--hair); background: var(--soft); min-width: 0; }
-      .kpi:first-child { border-left: 0; }
-      .kpi .k { font-size: 8px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: var(--muted); }
-      .kpi .v { margin-top: 3px; font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; }
-      .kpi.avance { flex: 1.3; background: #fff; }
-      .bar { margin-top: 5px; height: 4px; border-radius: 99px; background: var(--hair); overflow: hidden; }
-      .bar > span { display: block; height: 100%; border-radius: 99px; background: var(--navy); }
-
-      /* ---------- Secciones ---------- */
-      .section { margin-top: 18px; }
-      .sec-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--hair); margin-bottom: 8px; }
-      .sec-num { font-size: 9px; font-weight: 700; color: var(--gold-ink); letter-spacing: .5px; }
-      .sec-title { font-size: 10.5px; font-weight: 700; color: var(--navy); letter-spacing: 1.1px; text-transform: uppercase; }
-      .cols { display: flex; gap: 22px; }
-      .cols > .col { flex: 1; min-width: 0; }
+      .na { color: var(--faint); }
       .muted { color: var(--muted); font-size: 10px; }
       .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 
+      /* ---------- Encabezado ---------- */
+      .head { display: flex; align-items: stretch; justify-content: space-between; gap: 18px; }
+      .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+      .logo { width: 66px; height: 66px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+      .logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+      .brand .name { font-size: 12.5px; font-weight: 700; color: var(--navy); letter-spacing: .3px; }
+      .brand .meta { margin-top: 4px; font-size: 8.6px; line-height: 1.5; color: var(--muted); }
+      .brand .meta b { color: var(--body); font-weight: 700; }
+      /* Recuadro del folio: banda marina (tipo + folio) y pie blanco (estado + emisión). */
+      .docbox {
+        flex: 0 0 auto; min-width: 196px; border: 1px solid var(--hair); border-radius: 10px;
+        overflow: hidden; background: #fff; text-align: left;
+      }
+      .docbox-top { padding: 9px 14px 10px; background: var(--navy); color: #fff; position: relative; }
+      .docbox-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--gold); }
+      .docbox .kind { font-size: 8.4px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--gold); }
+      .docbox .folio { margin-top: 3px; font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -.2px; line-height: 1.05; white-space: nowrap; }
+      .docbox-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 14px 8px; }
+      .docbox .emitido { font-size: 8.4px; color: var(--muted); text-align: right; line-height: 1.3; }
+      .docbox .emitido b { display: block; color: var(--ink); font-size: 9.6px; }
+      .pill {
+        display: inline-block; padding: 3px 9px 3px 7px; border-radius: 999px; white-space: nowrap;
+        border: 1px solid; font-size: 8.2px; font-weight: 700; letter-spacing: .4px;
+      }
+      .pill .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+      .rule { margin: 12px 0 0; height: 3px; background: linear-gradient(90deg, var(--gold) 0, var(--gold) 64px, var(--navy) 64px, var(--navy) 100%); border-radius: 2px; }
+
+      /* ---------- Resumen (cliente + indicadores) ---------- */
+      .hero { margin-top: 12px; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; page-break-inside: avoid; break-inside: avoid; }
+      .hero-top { padding: 11px 14px 10px; background: var(--navy); color: #fff; display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+      .hero-top .eyebrow { font-size: 8px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--gold); }
+      .hero-top .title { margin-top: 2px; font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.2; color: #fff; }
+      .hero-top .tags { flex: 0 1 auto; text-align: right; }
+      .tag {
+        display: inline-block; margin: 3px 0 0 4px; padding: 2px 8px; border-radius: 999px;
+        background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); color: #fff; font-size: 8.4px; font-weight: 700;
+      }
+      .kpis { display: flex; background: var(--soft); }
+      .kpi { flex: 1; padding: 8px 12px 9px; border-left: 1px solid var(--hair); min-width: 0; }
+      .kpi:first-child { border-left: 0; }
+      .kpi .k { font-size: 7.8px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: var(--muted); }
+      .kpi .v { margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+      .kpi.avance { flex: 1.35; background: #fff; }
+      .kpi.avance .v { color: var(--navy); }
+      .bar { margin-top: 5px; height: 5px; border-radius: 99px; background: var(--hair); overflow: hidden; }
+      .bar > span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--navy), var(--navy-2)); }
+
+      /* ---------- Tarjetas de sección ---------- */
+      .card { margin-top: 12px; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; background: #fff; }
+      .card-head { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--soft); border-bottom: 1px solid var(--hair); }
+      .card-num {
+        display: inline-block; min-width: 20px; height: 17px; padding: 0 5px; border-radius: 4px;
+        background: var(--navy); color: #fff; font-size: 8.5px; font-weight: 700; line-height: 17px; text-align: center;
+      }
+      .card-title { font-size: 9.6px; font-weight: 700; color: var(--navy); letter-spacing: .6px; text-transform: uppercase; }
+      .card-meta { margin-left: auto; font-size: 8.6px; color: var(--muted); }
+      .card-body { padding: 10px 12px 11px; }
+      .card-body.flush { padding: 0; }
+      .card-body.flush > .muted { padding: 10px 12px; }
+      .row2 { display: flex; gap: 12px; page-break-inside: avoid; break-inside: avoid; }
+      .row2 > .card { flex: 1; min-width: 0; }
+
       .kv { width: 100%; border-collapse: collapse; }
-      .kv th, .kv td { text-align: left; vertical-align: top; padding: 5px 0; border-bottom: 1px solid #EFF0F4; }
-      .kv tr:last-child th, .kv tr:last-child td { border-bottom: 0; }
-      .kv th { width: 40%; padding-right: 10px; font-size: 8.8px; font-weight: 700; color: var(--muted); letter-spacing: .4px; text-transform: uppercase; }
-      .kv td { font-size: 10.5px; color: var(--ink); }
+      .kv th, .kv td { text-align: left; vertical-align: top; padding: 4.5px 0; border-bottom: 1px solid var(--hair-2); }
+      .kv tr:first-child th, .kv tr:first-child td { padding-top: 0; }
+      .kv tr:last-child th, .kv tr:last-child td { border-bottom: 0; padding-bottom: 0; }
+      .kv th { width: 34%; padding-right: 10px; font-size: 8.2px; font-weight: 700; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
+      .kv td { font-size: 10.3px; color: var(--ink); }
       .kv .strong { font-weight: 700; }
-      .role { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #FFF4E0; color: var(--gold-ink); font-size: 8px; font-weight: 700; letter-spacing: .4px; vertical-align: 1px; }
+
+      /* Campos en rejilla (etiqueta arriba, valor abajo). */
+      .fields { display: flex; flex-wrap: wrap; margin: -4px -6px; }
+      .field { width: 25%; padding: 4px 6px; }
+      .field.wide { width: 100%; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--hair-2); }
+      .field .k { font-size: 8px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+      .field .v { margin-top: 2px; font-size: 10.5px; color: var(--ink); font-weight: 700; }
+      .field.wide .v { font-weight: 400; }
 
       /* ---------- Cotizaciones ---------- */
       .cot-table { width: 100%; border-collapse: collapse; font-size: 10px; }
       .cot-table th {
-        text-align: left; padding: 6px 10px; background: var(--navy); color: #fff;
-        font-size: 8.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+        text-align: left; padding: 6px 12px; background: #fff; color: var(--muted);
+        font-size: 8px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; border-bottom: 1px solid var(--hair);
       }
-      .cot-table th:first-child { border-top-left-radius: 6px; }
-      .cot-table th:last-child { border-top-right-radius: 6px; }
-      .cot-table td { padding: 6px 10px; border-bottom: 1px solid var(--hair); color: var(--ink); }
-      .cot-table tbody tr:nth-child(even) td { background: var(--soft); }
+      .cot-table td { padding: 6px 12px; border-bottom: 1px solid var(--hair-2); color: var(--ink); }
+      .cot-table tbody tr:last-child td { border-bottom: 0; }
       .cot-table .cot-num { width: 44px; text-align: center; color: var(--muted); }
       .cot-table .cot-folio { white-space: nowrap; color: var(--navy); }
       .cot-table .cot-date { width: 110px; white-space: nowrap; text-align: right; }
       .cot-table th.cot-date { text-align: right; }
 
       /* ---------- Bitácora (línea de tiempo) ---------- */
-      .timeline { position: relative; }
-      .bitacora-day { display: flex; gap: 14px; page-break-inside: avoid; break-inside: avoid; }
-      .bitacora-day .when { flex: 0 0 74px; text-align: right; padding-top: 1px; }
-      .bitacora-day .when .d { font-size: 10.5px; font-weight: 700; color: var(--navy); }
-      .bitacora-day .when .f { margin-top: 1px; font-size: 8.8px; color: var(--muted); }
+      .bitacora-day { display: flex; gap: 12px; page-break-inside: avoid; break-inside: avoid; }
+      .bitacora-day .when { flex: 0 0 64px; text-align: right; padding-top: 1px; }
+      .bitacora-day .when .d { font-size: 10.3px; font-weight: 700; color: var(--navy); }
+      .bitacora-day .when .f { margin-top: 1px; font-size: 8.4px; color: var(--muted); }
       .bitacora-day .rail { flex: 0 0 12px; position: relative; }
       .bitacora-day .rail::before { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 2px; background: var(--hair); }
       .bitacora-day:first-child .rail::before { top: 5px; }
@@ -416,42 +440,60 @@ _PDF_CSS = """
         content: ""; position: absolute; left: 1px; top: 3px; width: 10px; height: 10px; border-radius: 50%;
         background: #fff; border: 2px solid var(--gold); box-sizing: border-box;
       }
-      .bitacora-day .body { flex: 1; min-width: 0; padding-bottom: 14px; }
+      .bitacora-day .body { flex: 1; min-width: 0; padding-bottom: 12px; }
       .bitacora-day:last-child .body { padding-bottom: 0; }
-      .bitacora-day .nota { font-size: 10.5px; color: var(--ink); }
+      .bitacora-day .nota { font-size: 10.3px; color: var(--ink); }
+      /* object-fit: contain: fotos verticales y horizontales completas, sin recorte. */
       .bitacora-photos { display: flex; gap: 8px; margin-top: 7px; }
-      .bitacora-photo { flex: 1; max-width: 50%; height: 118px; border-radius: 6px; overflow: hidden; background: var(--soft); border: 1px solid var(--hair); }
-      .bitacora-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .bitacora-photo {
+        width: calc(50% - 4px); height: 150px; padding: 4px; border-radius: 6px; overflow: hidden;
+        background: var(--soft); border: 1px solid var(--hair);
+        display: flex; align-items: center; justify-content: center;
+      }
+      .bitacora-photo img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 3px; }
 
       /* ---------- Firmas ---------- */
       .signatures-section { page-break-inside: avoid; break-inside: avoid; }
-      .sigs { display: flex; gap: 22px; page-break-inside: avoid; break-inside: avoid; }
-      .sigbox { flex: 1; min-width: 0; page-break-inside: avoid; break-inside: avoid; }
-      .sigimgwrap {
-        height: 120px; padding: 8px; display: flex; align-items: flex-end; justify-content: center;
-        overflow: hidden; background: var(--soft); border-radius: 8px 8px 0 0;
+      /* Firmas: dos líneas limpias, estilo documento formal. */
+      .sigs { display: flex; gap: 40px; padding: 4px 14px 0; }
+      .sigbox { flex: 1; min-width: 0; text-align: center; }
+      .sigarea { height: 78px; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+      .sigarea img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+      .sigline { margin-top: 4px; border-top: 1px solid var(--ink); padding-top: 6px; }
+      .sigline .who { font-size: 10.4px; font-weight: 700; color: var(--ink); }
+      .sigline .as { margin-top: 2px; font-size: 8.4px; color: var(--muted); }
+      .legal { margin-top: 14px; font-size: 8.6px; color: var(--muted); text-align: center; }
+      .endnote {
+        margin-top: 10px; padding-top: 7px; border-top: 1px solid var(--hair);
+        font-size: 8.2px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px;
       }
-      .sigimgwrap img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
-      .sigimgwrap .muted { align-self: center; }
-      .sigline { border-top: 1.5px solid var(--navy); padding-top: 6px; text-align: center; }
-      .sigline .who { font-size: 10.5px; font-weight: 700; color: var(--ink); }
-      .sigline .as { margin-top: 1px; font-size: 8.5px; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; }
-      .legal { margin-top: 10px; font-size: 8.8px; color: var(--muted); text-align: center; }
 
       /* ---------- Evidencias ---------- */
-      .minihead { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 7px; border-bottom: 3px solid var(--navy); margin-bottom: 14px; }
-      .minihead .l { font-size: 10px; font-weight: 700; color: var(--navy); letter-spacing: 1px; text-transform: uppercase; }
-      .minihead .r { font-size: 9px; color: var(--muted); }
-      .minihead .r b { color: var(--navy); }
+      .minihead { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; border-bottom: 3px solid var(--navy); margin-bottom: 14px; }
+      .minihead .mlogo { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; }
+      .minihead .mlogo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+      .minihead .l { font-size: 11px; font-weight: 700; color: var(--navy); letter-spacing: 1px; text-transform: uppercase; }
+      .minihead .sub { margin-top: 1px; font-size: 8.6px; color: var(--muted); }
+      .minihead .r { margin-left: auto; text-align: right; font-size: 8.6px; color: var(--muted); }
+      .minihead .r b { display: block; font-size: 12px; color: var(--navy); }
       .photos { display: flex; flex-wrap: wrap; gap: 12px; }
-      .photo-card { width: calc(50% - 6px); page-break-inside: avoid; break-inside: avoid; }
-      .photo-box { height: 230px; border-radius: 8px; overflow: hidden; background: var(--soft); border: 1px solid var(--hair); }
-      .photo-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      .photo-cap { margin-top: 4px; font-size: 8.8px; color: var(--muted); }
+      .photo-card {
+        width: calc(50% - 6px); margin: 0; border: 1px solid var(--hair); border-radius: 8px; overflow: hidden;
+        page-break-inside: avoid; break-inside: avoid;
+      }
+      .photo-box { height: 250px; padding: 6px; background: var(--soft); display: flex; align-items: center; justify-content: center; }
+      .photo-box img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 4px; }
+      .photo-cap { display: flex; justify-content: space-between; padding: 5px 9px; border-top: 1px solid var(--hair); font-size: 8.4px; color: var(--muted); }
       .photo-cap b { color: var(--navy); }
-
-      .endnote { margin-top: 18px; padding-top: 8px; border-top: 1px solid var(--hair); font-size: 8.5px; color: var(--muted); display: flex; justify-content: space-between; }
 """
+
+
+def _na(text: Any) -> str:
+    """Valor escapado; los vacíos se muestran como guion largo atenuado."""
+    raw = str(text or "").strip()
+    if not raw or raw == "-":
+        return "<span class='na'>—</span>"
+    return esc(raw)
 
 
 def _kv_rows(rows: list[tuple[str, str]]) -> str:
@@ -460,14 +502,34 @@ def _kv_rows(rows: list[tuple[str, str]]) -> str:
     return f"<table class='kv'>{body}</table>"
 
 
-def _section(num: int, title: str, body: str, extra_class: str = "") -> str:
-    cls = f"section {extra_class}".strip()
+def _card(
+    num: int,
+    title: str,
+    body: str,
+    *,
+    extra_class: str = "",
+    meta: str = "",
+    flush: bool = False,
+) -> str:
+    """Sección en tarjeta: encabezado numerado + cuerpo (HTML ya escapado)."""
+    cls = f"card {extra_class}".strip()
+    meta_html = f"<span class='card-meta'>{meta}</span>" if meta else ""
+    body_cls = "card-body flush" if flush else "card-body"
     return (
         f"<section class='{cls}'>"
-        f"<div class='sec-head'><span class='sec-num'>{num:02d}</span>"
-        f"<span class='sec-title'>{esc(title)}</span></div>"
-        f"{body}</section>"
+        f"<div class='card-head'><span class='card-num'>{num:02d}</span>"
+        f"<span class='card-title'>{esc(title)}</span>{meta_html}</div>"
+        f"<div class='{body_cls}'>{body}</div></section>"
     )
+
+
+def _fields(items: list[tuple[str, str, bool]]) -> str:
+    """Rejilla de campos: (etiqueta, valor ya escapado, ancho completo)."""
+    cells = "".join(
+        f"<div class='field{' wide' if wide else ''}'><div class='k'>{esc(k)}</div><div class='v'>{v}</div></div>"
+        for k, v, wide in items
+    )
+    return f"<div class='fields'>{cells}</div>"
 
 
 def generate_proyecto_pdf_html(proyecto) -> str:
@@ -550,7 +612,8 @@ def generate_proyecto_pdf_html(proyecto) -> str:
     fecha_inicio_txt, fecha_fin_txt = _fecha_extremos(fechas_inicio)
     jornadas = len([f for f in fechas_inicio if f and str(f).strip()])
 
-    cotizaciones_html = _render_cotizaciones_adjuntas_html(_cotizaciones_adjuntas(proyecto))
+    cotizaciones = _cotizaciones_adjuntas(proyecto)
+    cotizaciones_html = _render_cotizaciones_adjuntas_html(cotizaciones)
 
     bitacora = _bitacora_entries(getattr(proyecto, "notas_por_dia", None), fechas_inicio)
     evidencias = getattr(proyecto, "evidencias_urls", None)
@@ -596,96 +659,104 @@ def generate_proyecto_pdf_html(proyecto) -> str:
     else:
         bitacora_html = "<div class='muted'>Sin bitácora registrada.</div>"
 
-    # ---------- Evidencias ----------
-    fotos_embedded = [embedded[u] for u in evidencias if u in embedded]
-    evidencias_page = ""
-    if fotos_embedded:
-        cards = "".join(
-            "<figure class='photo-card' style='margin:0'>"
-            f"<div class='photo-box'><img src='{esc(src)}' alt='Evidencia {i}' /></div>"
-            f"<figcaption class='photo-cap'><b>Evidencia {i:02d}</b> · {esc(folio_display)}</figcaption>"
-            "</figure>"
-            for i, src in enumerate(fotos_embedded, start=1)
-        )
-        evidencias_page = f"""
-    <div class='pagebreak'></div>
-    <div class='doc'>
-      <div class='minihead'>
-        <span class='l'>Evidencias fotográficas</span>
-        <span class='r'><b>{esc(folio_display)}</b> · {esc(cliente_nombre)} · {len(fotos_embedded)} {'foto' if len(fotos_embedded) == 1 else 'fotos'}</span>
-      </div>
-      <div class='photos'>{cards}</div>
-    </div>
-"""
-
     firma_tecnico = firma_url_to_data_uri(firma_tecnico_url) if firma_tecnico_url else ""
     firma_cliente = firma_url_to_data_uri(firma_cliente_url) if firma_cliente_url else ""
     logo_data_uri = logo_data_uri_for_pdf()
+    logo_img = f"<img src='{logo_data_uri}' alt='Intrax' />" if logo_data_uri else ""
 
-    vehiculo = str(getattr(proyecto, "vehiculo_asignado", "") or "").strip() or "-"
-    herramientas = str(getattr(proyecto, "herramientas_generales", "") or "").strip() or "-"
+    vehiculo = str(getattr(proyecto, "vehiculo_asignado", "") or "").strip()
+    herramientas = str(getattr(proyecto, "herramientas_generales", "") or "").strip()
     try:
         avance = max(0, min(100, int(round(float(getattr(proyecto, "porcentaje_avance", 0) or 0)))))
     except (TypeError, ValueError):
         avance = 0
     fecha_auth = _fmt_date(getattr(proyecto, "fecha_autorizacion", None))
-    hora_llegada = str(getattr(proyecto, "hora_llegada", "") or "").strip() or "-"
-    hora_salida = str(getattr(proyecto, "hora_salida", "") or "").strip() or "-"
+    hora_llegada = str(getattr(proyecto, "hora_llegada", "") or "").strip()
+    hora_salida = str(getattr(proyecto, "hora_salida", "") or "").strip()
     emitido = _fmt_date(timezone.localdate())
+
+    # ---------- Evidencias ----------
+    fotos_embedded = [embedded[u] for u in evidencias if u in embedded]
+    evidencias_page = ""
+    if fotos_embedded:
+        total_fotos = len(fotos_embedded)
+        cards = "".join(
+            "<figure class='photo-card'>"
+            f"<div class='photo-box'><img src='{esc(src)}' alt='Evidencia {i}' /></div>"
+            f"<figcaption class='photo-cap'><span><b>Evidencia {i:02d}</b> de {total_fotos:02d}</span>"
+            f"<span>{esc(folio_display)}</span></figcaption>"
+            "</figure>"
+            for i, src in enumerate(fotos_embedded, start=1)
+        )
+        evidencias_page = f"""
+    <div class='doc newpage'>
+      <div class='minihead'>
+        <div class='mlogo'>{logo_img}</div>
+        <div>
+          <div class='l'>Evidencias fotográficas</div>
+          <div class='sub'>{esc(cliente_nombre)} · {total_fotos} {'foto' if total_fotos == 1 else 'fotos'}</div>
+        </div>
+        <div class='r'><b>{esc(folio_display)}</b>Reporte de proyecto</div>
+      </div>
+      <div class='photos'>{cards}</div>
+    </div>
+"""
 
     # ---------- Bloques de datos ----------
     cliente_kv = _kv_rows(
         [
             ("Cliente", f"<span class='strong'>{esc(cliente_nombre)}</span>"),
-            ("Dirección", f"<span class='pre'>{esc(cliente_dir)}</span>"),
-            ("Teléfono", esc(cliente_tel)),
+            ("Dirección", f"<span class='pre'>{_na(cliente_dir)}</span>"),
+            ("Teléfono", _na(cliente_tel)),
         ]
     )
     equipo_rows = [
-        ("Responsable", f"<span class='strong'>{esc(responsable_nombre)}</span>"
-         if responsable_nombre != "-" else "-"),
+        (
+            "Responsable",
+            f"<span class='strong'>{esc(responsable_nombre)}</span>"
+            if responsable_nombre != "-"
+            else _na(""),
+        ),
     ]
     if otros_tecnicos:
-        equipo_rows.append(("Otros técnicos", ", ".join(esc(n) for n in otros_tecnicos)))
+        equipo_rows.append(("Técnicos", ", ".join(esc(n) for n in otros_tecnicos)))
     if auxiliares_nombres:
         equipo_rows.append(("Auxiliares", ", ".join(esc(n) for n in auxiliares_nombres)))
-    equipo_rows.append(("Vehículo", f"<span class='pre'>{esc(vehiculo)}</span>"))
+    equipo_rows.append(("Vehículo", f"<span class='pre'>{_na(vehiculo)}</span>"))
     equipo_kv = _kv_rows(equipo_rows)
 
-    operacion_left = _kv_rows(
+    operacion_html = _fields(
         [
-            ("Fecha de inicio", esc(fecha_inicio_txt)),
-            ("Fecha de finalización", esc(fecha_fin_txt)),
-            ("Hora llegada", esc(hora_llegada)),
-            ("Hora salida", esc(hora_salida)),
+            ("Fecha de inicio", _na(fecha_inicio_txt), False),
+            ("Fecha de finalización", _na(fecha_fin_txt), False),
+            ("Hora de llegada", _na(hora_llegada), False),
+            ("Hora de salida", _na(hora_salida), False),
+            ("Herramientas generales", f"<span class='pre'>{_na(herramientas)}</span>", True),
         ]
     )
-    operacion_right = _kv_rows(
-        [("Herramientas generales", f"<span class='pre'>{esc(herramientas)}</span>")]
-    )
+
+    n_cot = len(cotizaciones)
+    n_dias = len(bitacora)
+
+    def _sig_box(src: str, alt: str, nombre_html: str, rol: str) -> str:
+        img = f"<img src='{src}' alt='{alt}' />" if src else ""
+        return (
+            "<div class='sigbox'>"
+            f"<div class='sigarea'>{img}</div>"
+            f"<div class='sigline'><div class='who'>{nombre_html}</div><div class='as'>{rol}</div></div>"
+            "</div>"
+        )
 
     firmas_html = f"""
           <div class='sigs'>
-            <div class='sigbox'>
-              <div class='sigimgwrap'>
-                {f"<img src='{firma_tecnico}' alt='Firma técnico' />" if firma_tecnico else "<div class='muted'>Sin firma</div>"}
-              </div>
-              <div class='sigline'>
-                <div class='who'>{esc(responsable_nombre)}</div>
-                <div class='as'>Firma técnico responsable</div>
-              </div>
-            </div>
-            <div class='sigbox'>
-              <div class='sigimgwrap'>
-                {f"<img src='{firma_cliente}' alt='Firma cliente' />" if firma_cliente else "<div class='muted'>Sin firma</div>"}
-              </div>
-              <div class='sigline'>
-                <div class='who'>{esc(cliente_nombre)}</div>
-                <div class='as'>Firma cliente · conformidad</div>
-              </div>
-            </div>
+            {_sig_box(firma_tecnico, "Firma técnico", _na(responsable_nombre), "Técnico responsable")}
+            {_sig_box(firma_cliente, "Firma cliente", esc(cliente_nombre), "Cliente · recibe de conformidad")}
           </div>
           <div class='legal'>Con su firma, el cliente confirma la recepción de los trabajos descritos en este documento.</div>
+          <div class='endnote'>
+            <span>{_EMPRESA_NOMBRE} · Proyecto {esc(folio_display)}</span>
+            <span>Documento operativo sin precios · Emitido el {esc(emitido)}</span>
+          </div>
 """
 
     html = f"""<!doctype html>
@@ -700,9 +771,7 @@ def generate_proyecto_pdf_html(proyecto) -> str:
     <div class='doc'>
       <header class='head'>
         <div class='brand'>
-          <div class='logo'>
-            {f"<img src='{logo_data_uri}' alt='Intrax' />" if logo_data_uri else ""}
-          </div>
+          <div class='logo'>{logo_img}</div>
           <div>
             <div class='name'>{_EMPRESA_NOMBRE}</div>
             <div class='meta'>
@@ -714,49 +783,53 @@ def generate_proyecto_pdf_html(proyecto) -> str:
           </div>
         </div>
         <div class='docbox'>
-          <div class='kind'>Reporte de proyecto</div>
-          <div class='folio'>{esc(folio_display)}</div>
-          <div class='pill' style='background: {status_bg}; border-color: {status_border}; color: {status_fg};'>
-            <span class='dot' style='background: {status_dot};'></span>{esc(status_text)}
+          <div class='docbox-top'>
+            <div class='kind'>Reporte de proyecto</div>
+            <div class='folio'>{esc(folio_display)}</div>
           </div>
-          <div class='emitido'>Emitido el {esc(emitido)}</div>
+          <div class='docbox-bottom'>
+            <span class='pill' style='background: {status_bg}; border-color: {status_border}; color: {status_fg};'>
+              <span class='dot' style='background: {status_dot};'></span>{esc(status_text)}
+            </span>
+            <span class='emitido'>Emitido<b>{esc(emitido)}</b></span>
+          </div>
         </div>
       </header>
 
       <div class='rule'></div>
 
-      <div class='title-eyebrow'>Proyecto</div>
-      <div class='title'>{esc(cliente_nombre)}</div>
-      {f"<div class='tags'>{tags_html}</div>" if tags_html else ""}
-
-      <div class='kpis avoid'>
-        <div class='kpi'><div class='k'>Autorización</div><div class='v'>{esc(fecha_auth)}</div></div>
-        <div class='kpi'><div class='k'>Inicio</div><div class='v'>{esc(fecha_inicio_txt)}</div></div>
-        <div class='kpi'><div class='k'>Finalización</div><div class='v'>{esc(fecha_fin_txt)}</div></div>
-        <div class='kpi'><div class='k'>Jornadas</div><div class='v'>{jornadas}</div></div>
-        <div class='kpi avance'>
-          <div class='k'>Avance</div><div class='v'>{avance}%</div>
-          <div class='bar'><span style='width: {avance}%;'></span></div>
+      <div class='hero'>
+        <div class='hero-top'>
+          <div>
+            <div class='eyebrow'>Proyecto</div>
+            <div class='title'>{esc(cliente_nombre)}</div>
+          </div>
+          {f"<div class='tags'>{tags_html}</div>" if tags_html else ""}
+        </div>
+        <div class='kpis'>
+          <div class='kpi'><div class='k'>Autorización</div><div class='v'>{_na(fecha_auth)}</div></div>
+          <div class='kpi'><div class='k'>Inicio</div><div class='v'>{_na(fecha_inicio_txt)}</div></div>
+          <div class='kpi'><div class='k'>Finalización</div><div class='v'>{_na(fecha_fin_txt)}</div></div>
+          <div class='kpi'><div class='k'>Jornadas</div><div class='v'>{jornadas}</div></div>
+          <div class='kpi avance'>
+            <div class='k'>Avance</div><div class='v'>{avance}%</div>
+            <div class='bar'><span style='width: {avance}%;'></span></div>
+          </div>
         </div>
       </div>
 
-      <div class='cols avoid'>
-        <div class='col'>{_section(1, "Datos del cliente", cliente_kv)}</div>
-        <div class='col'>{_section(2, "Equipo de campo", equipo_kv)}</div>
+      <div class='row2'>
+        {_card(1, "Datos del cliente", cliente_kv)}
+        {_card(2, "Equipo de campo", equipo_kv)}
       </div>
 
-      {_section(3, "Operación", f"<div class='cols'><div class='col'>{operacion_left}</div><div class='col'>{operacion_right}</div></div>", "avoid")}
+      {_card(3, "Operación", operacion_html, extra_class="avoid")}
 
-      {_section(4, "Cotizaciones adjuntas", cotizaciones_html, "avoid")}
+      {_card(4, "Cotizaciones adjuntas", cotizaciones_html, extra_class="avoid", meta=f"{n_cot} vinculada{'s' if n_cot != 1 else ''}" if n_cot else "", flush=True)}
 
-      {_section(5, "Bitácora por jornada", bitacora_html)}
+      {_card(5, "Bitácora por jornada", bitacora_html, extra_class="bitacora-card", meta=f"{n_dias} jornada{'s' if n_dias != 1 else ''}" if n_dias else "")}
 
-      {_section(6, "Firmas", firmas_html, "signatures-section")}
-
-      <div class='endnote'>
-        <span>{_EMPRESA_NOMBRE} · Proyecto {esc(folio_display)}</span>
-        <span>Documento operativo sin precios · Emitido el {esc(emitido)}</span>
-      </div>
+      {_card(6, "Firmas de conformidad", firmas_html, extra_class="signatures-section")}
     </div>
     {evidencias_page}
   </body>
