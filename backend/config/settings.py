@@ -196,6 +196,8 @@ else:
     # Orígenes de producción conocidos. Cualquier dominio nuevo (o el custom
     # domain final) se añade por env `CORS_ALLOWED_ORIGINS` sin tocar código.
     _PROD_CORS_DEFAULTS = (
+        # Frontend de producción en uso: quitarlo bloquea todo el sistema por CORS.
+        'https://sistema-grupo-atr.onrender.com',
         'https://system-digitalflow.onrender.com',
         'https://system-digitalflow-frontend.onrender.com',
     )
@@ -205,10 +207,9 @@ else:
         _cors_origins.extend(o.strip() for o in _cors_env.split(',') if o.strip())
     CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_cors_origins))
     _csrf_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
-    if _csrf_env:
-        CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(',') if o.strip()]
-    else:
-        CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+    # Los orígenes CORS siempre son de confianza para CSRF (login/POST desde el frontend).
+    _csrf_origins = [o.strip() for o in _csrf_env.split(',') if o.strip()] if _csrf_env else []
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys([*CORS_ALLOWED_ORIGINS, *_csrf_origins]))
 
 # Cabeceras visibles en fetch() desde el frontend (p. ej. nombre de archivo en PDF).
 CORS_EXPOSE_HEADERS = ['Content-Disposition']

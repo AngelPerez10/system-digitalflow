@@ -16,13 +16,16 @@ _STATUS_LABELS = {
     "pausado": "PAUSADO",
     "saldo_pendiente": "SALDO PENDIENTE",
     "cerrado": "CERRADO",
+    "cancelado": "CANCELADO",
 }
 
+# (fondo, borde, texto, punto): mismos tonos que las píldoras de estado de la app.
 _STATUS_STYLES = {
-    "en_proceso": ("#dbeafe", "#93c5fd", "#1e40af"),
-    "pausado": ("#fef3c7", "#fcd34d", "#92400e"),
-    "saldo_pendiente": ("#fae8ff", "#f0abfc", "#86198f"),
-    "cerrado": ("#dcfce7", "#86efac", "#166534"),
+    "en_proceso": ("#EEF3FF", "#D7E3FF", "#1244D1", "#1B5CFF"),
+    "pausado": ("#FFF8EB", "#F0D7A3", "#8A5D0F", "#D08A1E"),
+    "saldo_pendiente": ("#FDF4FF", "#F5D0FE", "#86198F", "#A21CAF"),
+    "cerrado": ("#E9F8F0", "#BFE6D4", "#04724D", "#0E8A5F"),
+    "cancelado": ("#FEF2F2", "#F6CFCF", "#B42323", "#C22B2B"),
 }
 
 
@@ -275,12 +278,206 @@ def _bitacora_entries(notas: Any, fechas_inicio: list[Any]) -> list[dict[str, An
     return entries
 
 
+_EMPRESA_NOMBRE = "GRUPO INTRAX SEGURIDAD Y RASTREO"
+
+# CSS del documento (cadena normal: sin llaves dobles de f-string).
+# Paleta de la app: marino #17235B + dorado #E6A23C, líneas de 1 px.
+_PDF_CSS = """
+      :root {
+        --navy: #17235B;
+        --navy-soft: #EEF0F7;
+        --gold: #E6A23C;
+        --gold-ink: #8A5D0F;
+        --blue: #1B5CFF;
+        --ink: #0B1020;
+        --body: #2E3446;
+        --muted: #6B7183;
+        --hair: #E3E5EC;
+        --soft: #F7F8FB;
+      }
+      @page {
+        size: A4;
+        margin-left: 14mm;
+        margin-right: 14mm;
+        margin-top: 12mm;
+        margin-bottom: 16mm;
+      }
+      * { box-sizing: border-box; }
+      /* Arial en Windows y Liberation/Arimo en Linux (Playwright).
+         Evitar system-ui/Segoe: en producción se ve más alta y grande. */
+      @font-face {
+        font-family: 'PdfSans';
+        src: local('Arial'), local('Helvetica'), local('Liberation Sans'), local('Arimo'), local('Nimbus Sans');
+        font-style: normal;
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: 'PdfSans';
+        src: local('Arial Bold'), local('Helvetica Bold'), local('Liberation Sans Bold'), local('Arimo Bold'), local('Nimbus Sans Bold');
+        font-style: normal;
+        font-weight: 700;
+      }
+      html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+      body {
+        font-family: PdfSans, Arial, Helvetica, sans-serif;
+        font-size: 10.5px;
+        line-height: 1.4;
+        letter-spacing: 0;
+        font-synthesis: none;
+        color: var(--body); background: #fff; margin: 0;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      }
+      .doc { width: 100%; }
+      .pagebreak { page-break-before: always; break-before: page; }
+      .avoid { page-break-inside: avoid; break-inside: avoid; }
+
+      /* ---------- Encabezado ---------- */
+      .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+      .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+      .logo { width: 70px; height: 70px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+      .logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+      .brand .name { font-size: 12.5px; font-weight: 700; color: var(--navy); letter-spacing: .2px; }
+      .brand .meta { margin-top: 4px; font-size: 8.8px; line-height: 1.45; color: var(--muted); }
+      .brand .meta b { color: var(--body); font-weight: 700; }
+      .docbox { flex: 0 0 auto; min-width: 190px; text-align: right; }
+      .docbox .kind { font-size: 8.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--gold-ink); }
+      .docbox .folio { margin-top: 3px; font-size: 22px; font-weight: 700; color: var(--navy); letter-spacing: -.3px; line-height: 1.05; }
+      .docbox .emitido { margin-top: 5px; font-size: 9px; color: var(--muted); }
+      .pill {
+        display: inline-block; margin-top: 7px; padding: 3px 10px 3px 8px; border-radius: 999px;
+        border: 1px solid; font-size: 8.5px; font-weight: 700; letter-spacing: .8px;
+      }
+      .pill .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+      .rule { margin: 12px 0 14px; height: 3px; background: linear-gradient(90deg, var(--gold) 0, var(--gold) 64px, var(--navy) 64px, var(--navy) 100%); border-radius: 2px; }
+
+      /* ---------- Título ---------- */
+      .title-eyebrow { font-size: 8.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
+      .title { margin-top: 3px; font-size: 19px; font-weight: 700; color: var(--ink); letter-spacing: -.4px; line-height: 1.15; }
+      .tags { margin-top: 7px; }
+      .tag {
+        display: inline-block; margin: 0 5px 4px 0; padding: 3px 9px; border-radius: 999px;
+        background: var(--navy-soft); color: var(--navy); font-size: 8.8px; font-weight: 700;
+      }
+
+      /* ---------- Indicadores ---------- */
+      .kpis { display: flex; margin-top: 12px; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
+      .kpi { flex: 1; padding: 9px 12px; border-left: 1px solid var(--hair); background: var(--soft); min-width: 0; }
+      .kpi:first-child { border-left: 0; }
+      .kpi .k { font-size: 8px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: var(--muted); }
+      .kpi .v { margin-top: 3px; font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+      .kpi.avance { flex: 1.3; background: #fff; }
+      .bar { margin-top: 5px; height: 4px; border-radius: 99px; background: var(--hair); overflow: hidden; }
+      .bar > span { display: block; height: 100%; border-radius: 99px; background: var(--navy); }
+
+      /* ---------- Secciones ---------- */
+      .section { margin-top: 18px; }
+      .sec-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--hair); margin-bottom: 8px; }
+      .sec-num { font-size: 9px; font-weight: 700; color: var(--gold-ink); letter-spacing: .5px; }
+      .sec-title { font-size: 10.5px; font-weight: 700; color: var(--navy); letter-spacing: 1.1px; text-transform: uppercase; }
+      .cols { display: flex; gap: 22px; }
+      .cols > .col { flex: 1; min-width: 0; }
+      .muted { color: var(--muted); font-size: 10px; }
+      .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+      .kv { width: 100%; border-collapse: collapse; }
+      .kv th, .kv td { text-align: left; vertical-align: top; padding: 5px 0; border-bottom: 1px solid #EFF0F4; }
+      .kv tr:last-child th, .kv tr:last-child td { border-bottom: 0; }
+      .kv th { width: 40%; padding-right: 10px; font-size: 8.8px; font-weight: 700; color: var(--muted); letter-spacing: .4px; text-transform: uppercase; }
+      .kv td { font-size: 10.5px; color: var(--ink); }
+      .kv .strong { font-weight: 700; }
+      .role { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #FFF4E0; color: var(--gold-ink); font-size: 8px; font-weight: 700; letter-spacing: .4px; vertical-align: 1px; }
+
+      /* ---------- Cotizaciones ---------- */
+      .cot-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+      .cot-table th {
+        text-align: left; padding: 6px 10px; background: var(--navy); color: #fff;
+        font-size: 8.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+      }
+      .cot-table th:first-child { border-top-left-radius: 6px; }
+      .cot-table th:last-child { border-top-right-radius: 6px; }
+      .cot-table td { padding: 6px 10px; border-bottom: 1px solid var(--hair); color: var(--ink); }
+      .cot-table tbody tr:nth-child(even) td { background: var(--soft); }
+      .cot-table .cot-num { width: 44px; text-align: center; color: var(--muted); }
+      .cot-table .cot-folio { white-space: nowrap; color: var(--navy); }
+      .cot-table .cot-date { width: 110px; white-space: nowrap; text-align: right; }
+      .cot-table th.cot-date { text-align: right; }
+
+      /* ---------- Bitácora (línea de tiempo) ---------- */
+      .timeline { position: relative; }
+      .bitacora-day { display: flex; gap: 14px; page-break-inside: avoid; break-inside: avoid; }
+      .bitacora-day .when { flex: 0 0 74px; text-align: right; padding-top: 1px; }
+      .bitacora-day .when .d { font-size: 10.5px; font-weight: 700; color: var(--navy); }
+      .bitacora-day .when .f { margin-top: 1px; font-size: 8.8px; color: var(--muted); }
+      .bitacora-day .rail { flex: 0 0 12px; position: relative; }
+      .bitacora-day .rail::before { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 2px; background: var(--hair); }
+      .bitacora-day:first-child .rail::before { top: 5px; }
+      .bitacora-day:last-child .rail::before { bottom: auto; height: 6px; }
+      .bitacora-day .rail::after {
+        content: ""; position: absolute; left: 1px; top: 3px; width: 10px; height: 10px; border-radius: 50%;
+        background: #fff; border: 2px solid var(--gold); box-sizing: border-box;
+      }
+      .bitacora-day .body { flex: 1; min-width: 0; padding-bottom: 14px; }
+      .bitacora-day:last-child .body { padding-bottom: 0; }
+      .bitacora-day .nota { font-size: 10.5px; color: var(--ink); }
+      .bitacora-photos { display: flex; gap: 8px; margin-top: 7px; }
+      .bitacora-photo { flex: 1; max-width: 50%; height: 118px; border-radius: 6px; overflow: hidden; background: var(--soft); border: 1px solid var(--hair); }
+      .bitacora-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+      /* ---------- Firmas ---------- */
+      .signatures-section { page-break-inside: avoid; break-inside: avoid; }
+      .sigs { display: flex; gap: 22px; page-break-inside: avoid; break-inside: avoid; }
+      .sigbox { flex: 1; min-width: 0; page-break-inside: avoid; break-inside: avoid; }
+      .sigimgwrap {
+        height: 120px; padding: 8px; display: flex; align-items: flex-end; justify-content: center;
+        overflow: hidden; background: var(--soft); border-radius: 8px 8px 0 0;
+      }
+      .sigimgwrap img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+      .sigimgwrap .muted { align-self: center; }
+      .sigline { border-top: 1.5px solid var(--navy); padding-top: 6px; text-align: center; }
+      .sigline .who { font-size: 10.5px; font-weight: 700; color: var(--ink); }
+      .sigline .as { margin-top: 1px; font-size: 8.5px; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; }
+      .legal { margin-top: 10px; font-size: 8.8px; color: var(--muted); text-align: center; }
+
+      /* ---------- Evidencias ---------- */
+      .minihead { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 7px; border-bottom: 3px solid var(--navy); margin-bottom: 14px; }
+      .minihead .l { font-size: 10px; font-weight: 700; color: var(--navy); letter-spacing: 1px; text-transform: uppercase; }
+      .minihead .r { font-size: 9px; color: var(--muted); }
+      .minihead .r b { color: var(--navy); }
+      .photos { display: flex; flex-wrap: wrap; gap: 12px; }
+      .photo-card { width: calc(50% - 6px); page-break-inside: avoid; break-inside: avoid; }
+      .photo-box { height: 230px; border-radius: 8px; overflow: hidden; background: var(--soft); border: 1px solid var(--hair); }
+      .photo-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .photo-cap { margin-top: 4px; font-size: 8.8px; color: var(--muted); }
+      .photo-cap b { color: var(--navy); }
+
+      .endnote { margin-top: 18px; padding-top: 8px; border-top: 1px solid var(--hair); font-size: 8.5px; color: var(--muted); display: flex; justify-content: space-between; }
+"""
+
+
+def _kv_rows(rows: list[tuple[str, str]]) -> str:
+    """Tabla etiqueta/valor; los valores ya vienen escapados."""
+    body = "".join(f"<tr><th scope='row'>{esc(k)}</th><td>{v}</td></tr>" for k, v in rows)
+    return f"<table class='kv'>{body}</table>"
+
+
+def _section(num: int, title: str, body: str, extra_class: str = "") -> str:
+    cls = f"section {extra_class}".strip()
+    return (
+        f"<section class='{cls}'>"
+        f"<div class='sec-head'><span class='sec-num'>{num:02d}</span>"
+        f"<span class='sec-title'>{esc(title)}</span></div>"
+        f"{body}</section>"
+    )
+
+
 def generate_proyecto_pdf_html(proyecto) -> str:
     """Genera el HTML para el PDF del proyecto (sin precios)."""
+    from django.utils import timezone
+
     status = str(getattr(proyecto, "status", "") or "en_proceso").strip().lower()
-    status_text = _STATUS_LABELS.get(status, status.upper() or "EN PROCESO")
-    status_bg, status_border, status_fg = _STATUS_STYLES.get(
-        status, ("#e2e8f0", "#cbd5e1", "#334155")
+    status_text = _STATUS_LABELS.get(status, status.replace("_", " ").upper() or "EN PROCESO")
+    status_bg, status_border, status_fg, status_dot = _STATUS_STYLES.get(
+        status, ("#F4F4F5", "#E4E4E7", "#3F3F46", "#71717A")
     )
 
     folio_display = resolve_document_folio(
@@ -345,19 +542,15 @@ def generate_proyecto_pdf_html(proyecto) -> str:
         legacy_tipo = str(getattr(proyecto, "tipo_trabajo_nombre", "") or "").strip()
         if legacy_tipo:
             tipo_labels = [legacy_tipo]
-
-    tipos_pills = (
-        "".join(f"<span class='service-pill'>{esc(n)}</span>" for n in tipo_labels)
-        or "<span class='muted'>-</span>"
-    )
+    tags_html = "".join(f"<span class='tag'>{esc(n)}</span>" for n in tipo_labels)
 
     fechas_inicio = getattr(proyecto, "fechas_inicio", None)
     if not isinstance(fechas_inicio, list):
         fechas_inicio = []
     fecha_inicio_txt, fecha_fin_txt = _fecha_extremos(fechas_inicio)
+    jornadas = len([f for f in fechas_inicio if f and str(f).strip()])
 
-    cotizaciones_adjuntas = _cotizaciones_adjuntas(proyecto)
-    cotizaciones_html = _render_cotizaciones_adjuntas_html(cotizaciones_adjuntas)
+    cotizaciones_html = _render_cotizaciones_adjuntas_html(_cotizaciones_adjuntas(proyecto))
 
     bitacora = _bitacora_entries(getattr(proyecto, "notas_por_dia", None), fechas_inicio)
     evidencias = getattr(proyecto, "evidencias_urls", None)
@@ -366,18 +559,21 @@ def generate_proyecto_pdf_html(proyecto) -> str:
     evidencias = [u for u in evidencias if isinstance(u, str) and u.strip()][:12]
     firma_tecnico_url = str(getattr(proyecto, "firma_tecnico_url", "") or "").strip()
     firma_cliente_url = str(getattr(proyecto, "firma_cliente_url", "") or "").strip()
-    image_urls = [
-        *[u for entry in bitacora for u in entry["fotos"]],
-        *evidencias,
-    ]
-    embedded = embed_remote_images(image_urls)
+    embedded = embed_remote_images(
+        [*[u for entry in bitacora for u in entry["fotos"]], *evidencias]
+    )
 
+    # ---------- Bitácora ----------
     if bitacora:
-        bitacora_cards = []
+        days = []
         for entry in bitacora:
-            fecha_suffix = f" · {esc(entry['fecha'])}" if entry["fecha"] and entry["fecha"] != "-" else ""
+            fecha_html = (
+                f"<div class='f'>{esc(entry['fecha'])}</div>"
+                if entry["fecha"] and entry["fecha"] != "-"
+                else ""
+            )
             nota_html = (
-                f"<div class='value pre'>{esc(entry['nota'])}</div>"
+                f"<div class='nota pre'>{esc(entry['nota'])}</div>"
                 if entry["nota"]
                 else "<div class='muted'>Sin texto en esta jornada.</div>"
             )
@@ -389,26 +585,38 @@ def generate_proyecto_pdf_html(proyecto) -> str:
                     for src in fotos_src
                 )
                 fotos_html = f"<div class='bitacora-photos'>{thumbs}</div>"
-            bitacora_cards.append(
+            days.append(
                 "<article class='bitacora-day'>"
-                f"<h4>Día {entry['dia']}{fecha_suffix}</h4>"
-                f"{nota_html}{fotos_html}"
+                f"<div class='when'><div class='d'>Día {entry['dia']}</div>{fecha_html}</div>"
+                "<div class='rail'></div>"
+                f"<div class='body'>{nota_html}{fotos_html}</div>"
                 "</article>"
             )
-        bitacora_html = "".join(bitacora_cards)
+        bitacora_html = f"<div class='timeline'>{''.join(days)}</div>"
     else:
         bitacora_html = "<div class='muted'>Sin bitácora registrada.</div>"
 
+    # ---------- Evidencias ----------
     fotos_embedded = [embedded[u] for u in evidencias if u in embedded]
-    has_photos = bool(fotos_embedded)
-    fotos_grid = (
-        "".join(
+    evidencias_page = ""
+    if fotos_embedded:
+        cards = "".join(
+            "<figure class='photo-card' style='margin:0'>"
             f"<div class='photo-box'><img src='{esc(src)}' alt='Evidencia {i}' /></div>"
+            f"<figcaption class='photo-cap'><b>Evidencia {i:02d}</b> · {esc(folio_display)}</figcaption>"
+            "</figure>"
             for i, src in enumerate(fotos_embedded, start=1)
         )
-        if has_photos
-        else ""
-    )
+        evidencias_page = f"""
+    <div class='pagebreak'></div>
+    <div class='doc'>
+      <div class='minihead'>
+        <span class='l'>Evidencias fotográficas</span>
+        <span class='r'><b>{esc(folio_display)}</b> · {esc(cliente_nombre)} · {len(fotos_embedded)} {'foto' if len(fotos_embedded) == 1 else 'fotos'}</span>
+      </div>
+      <div class='photos'>{cards}</div>
+    </div>
+"""
 
     firma_tecnico = firma_url_to_data_uri(firma_tecnico_url) if firma_tecnico_url else ""
     firma_cliente = firma_url_to_data_uri(firma_cliente_url) if firma_cliente_url else ""
@@ -416,38 +624,68 @@ def generate_proyecto_pdf_html(proyecto) -> str:
 
     vehiculo = str(getattr(proyecto, "vehiculo_asignado", "") or "").strip() or "-"
     herramientas = str(getattr(proyecto, "herramientas_generales", "") or "").strip() or "-"
-    avance = getattr(proyecto, "porcentaje_avance", 0) or 0
+    try:
+        avance = max(0, min(100, int(round(float(getattr(proyecto, "porcentaje_avance", 0) or 0)))))
+    except (TypeError, ValueError):
+        avance = 0
     fecha_auth = _fmt_date(getattr(proyecto, "fecha_autorizacion", None))
     hora_llegada = str(getattr(proyecto, "hora_llegada", "") or "").strip() or "-"
     hora_salida = str(getattr(proyecto, "hora_salida", "") or "").strip() or "-"
+    emitido = _fmt_date(timezone.localdate())
 
-    otros_tecnicos_block = ""
+    # ---------- Bloques de datos ----------
+    cliente_kv = _kv_rows(
+        [
+            ("Cliente", f"<span class='strong'>{esc(cliente_nombre)}</span>"),
+            ("Dirección", f"<span class='pre'>{esc(cliente_dir)}</span>"),
+            ("Teléfono", esc(cliente_tel)),
+        ]
+    )
+    equipo_rows = [
+        ("Responsable", f"<span class='strong'>{esc(responsable_nombre)}</span>"
+         if responsable_nombre != "-" else "-"),
+    ]
     if otros_tecnicos:
-        otros_tecnicos_block = (
-            "<div class='label' style='margin-top: 10px;'>Otros técnicos</div>"
-            f"<div class='value'>{', '.join(esc(n) for n in otros_tecnicos)}</div>"
-        )
-    auxiliares_block = ""
+        equipo_rows.append(("Otros técnicos", ", ".join(esc(n) for n in otros_tecnicos)))
     if auxiliares_nombres:
-        auxiliares_block = (
-            "<div class='label' style='margin-top: 10px;'>Auxiliares</div>"
-            f"<div class='value'>{', '.join(esc(n) for n in auxiliares_nombres)}</div>"
-        )
+        equipo_rows.append(("Auxiliares", ", ".join(esc(n) for n in auxiliares_nombres)))
+    equipo_rows.append(("Vehículo", f"<span class='pre'>{esc(vehiculo)}</span>"))
+    equipo_kv = _kv_rows(equipo_rows)
 
-    evidencias_page = ""
-    if has_photos:
-        evidencias_page = f"""
-    <div class='pagebreak'></div>
-    <div class='page'>
-      <div class='content'>
-        <div class='section'>
-          <div class='section-title'>Evidencias</div>
-          <div class='box'>
-            <div class='photos'>{fotos_grid}</div>
+    operacion_left = _kv_rows(
+        [
+            ("Fecha de inicio", esc(fecha_inicio_txt)),
+            ("Fecha de finalización", esc(fecha_fin_txt)),
+            ("Hora llegada", esc(hora_llegada)),
+            ("Hora salida", esc(hora_salida)),
+        ]
+    )
+    operacion_right = _kv_rows(
+        [("Herramientas generales", f"<span class='pre'>{esc(herramientas)}</span>")]
+    )
+
+    firmas_html = f"""
+          <div class='sigs'>
+            <div class='sigbox'>
+              <div class='sigimgwrap'>
+                {f"<img src='{firma_tecnico}' alt='Firma técnico' />" if firma_tecnico else "<div class='muted'>Sin firma</div>"}
+              </div>
+              <div class='sigline'>
+                <div class='who'>{esc(responsable_nombre)}</div>
+                <div class='as'>Firma técnico responsable</div>
+              </div>
+            </div>
+            <div class='sigbox'>
+              <div class='sigimgwrap'>
+                {f"<img src='{firma_cliente}' alt='Firma cliente' />" if firma_cliente else "<div class='muted'>Sin firma</div>"}
+              </div>
+              <div class='sigline'>
+                <div class='who'>{esc(cliente_nombre)}</div>
+                <div class='as'>Firma cliente · conformidad</div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
+          <div class='legal'>Con su firma, el cliente confirma la recepción de los trabajos descritos en este documento.</div>
 """
 
     html = f"""<!doctype html>
@@ -456,279 +694,68 @@ def generate_proyecto_pdf_html(proyecto) -> str:
     <meta charset='utf-8' />
     <meta name='viewport' content='width=device-width, initial-scale=1' />
     <title>Proyecto {esc(folio_display)}</title>
-    <style>
-      :root {{
-        --blue-900: #1e3a8a;
-        --blue-700: #1d4ed8;
-        --blue-600: #2563eb;
-        --blue-50: #eff6ff;
-        --text: #0f172a;
-        --muted: #64748b;
-        --border: #dbeafe;
-        --bg: #ffffff;
-      }}
-      @page {{
-        size: A4;
-        margin-left: 12mm;
-        margin-right: 16mm;
-        margin-top: 12mm;
-        margin-bottom: 14mm;
-      }}
-      * {{ box-sizing: border-box; }}
-      /* Arial en Windows y Liberation/Arimo en Linux (Playwright).
-         Evitar system-ui/Segoe: en producción se ve más alta y grande. */
-      @font-face {{
-        font-family: 'PdfSans';
-        src: local('Arial'), local('Helvetica'), local('Liberation Sans'), local('Arimo'), local('Nimbus Sans');
-        font-style: normal;
-        font-weight: 400;
-      }}
-      @font-face {{
-        font-family: 'PdfSans';
-        src: local('Arial Bold'), local('Helvetica Bold'), local('Liberation Sans Bold'), local('Arimo Bold'), local('Nimbus Sans Bold');
-        font-style: normal;
-        font-weight: 700;
-      }}
-      html {{ -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }}
-      body {{
-        font-family: PdfSans, Arial, Helvetica, sans-serif;
-        font-size: 10.5px;
-        line-height: 1.3;
-        letter-spacing: 0;
-        font-synthesis: none;
-        color: var(--text); background: var(--bg); margin: 0;
-      }}
-      .page {{ width: 210mm; min-height: 297mm; padding: 0; margin: 0 auto; }}
-      @media print {{
-        .page {{ width: auto; min-height: 0; }}
-      }}
-      .content {{ padding: 0; }}
-      .topbar {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }}
-      .brandwrap {{ display: flex; align-items: flex-start; gap: 12px; min-width: 0; }}
-      .logo {{ width: 96px; height: 96px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; }}
-      .logo img {{ width: 100%; height: 100%; object-fit: contain; }}
-      .brand .name {{ font-size: 13px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.2px; }}
-      .brand .meta {{ margin-top: 6px; font-size: 9.5px; line-height: 1.25; color: var(--muted); max-width: 330px; }}
-      .brand .meta b {{ color: var(--text); font-weight: 600; }}
-      .status {{ text-align: right; max-width: 45%; margin-left: auto; }}
-      .status .pill {{
-        display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .7px;
-        padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border);
-      }}
-      .status .dates {{ margin-top: 8px; font-size: 10px; color: var(--muted); line-height: 1.35; }}
-      .status .folio {{ font-size: 14px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }}
-      .status .folio .num {{ color: #dc2626; font-weight: 700; }}
-      .hero {{
-        border: 1px solid var(--border); border-left: 6px solid var(--blue-700);
-        border-radius: 14px; padding: 14px 14px 12px; background: #eff6ff; margin-bottom: 14px;
-      }}
-      .hero .title {{ font-size: 16px; font-weight: 700; color: var(--blue-900); letter-spacing: -0.3px; }}
-      .hero .sub {{ margin-top: 5px; font-size: 10px; color: var(--muted); }}
-      .grid2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
-      .card {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
-      .card h3 {{
-        margin: 0 0 10px 0; font-size: 11px; font-weight: 700; color: var(--blue-900);
-        letter-spacing: .3px; text-transform: uppercase;
-      }}
-      .row {{ display: flex; gap: 12px; }}
-      .col {{ flex: 1; min-width: 0; }}
-      .label {{ font-size: 9.5px; font-weight: 600; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }}
-      .value {{ margin-top: 4px; font-size: 11px; color: var(--text); }}
-      .pre {{ white-space: pre-wrap; overflow-wrap: anywhere; }}
-      .muted {{ color: var(--muted); font-size: 11px; }}
-      .services {{ margin-top: 6px; }}
-      .service-pill {{
-        display: inline-block; font-size: 9.5px; font-weight: 600; color: #fff;
-        padding: 4px 10px; border-radius: 999px; background: #2563eb; margin: 4px 6px 0 0;
-      }}
-      .section {{ margin-top: 12px; }}
-      .section-title {{
-        margin: 0 0 10px 0; font-size: 11px; font-weight: 700; color: var(--blue-900);
-        letter-spacing: .3px; text-transform: uppercase;
-      }}
-      .box {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; }}
-      .bitacora-day {{
-        border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
-        margin-bottom: 10px; background: #fff; page-break-inside: avoid;
-      }}
-      .bitacora-day:last-child {{ margin-bottom: 0; }}
-      .bitacora-day h4 {{
-        margin: 0 0 6px 0; font-size: 11px; font-weight: 700; color: var(--blue-900);
-      }}
-      .bitacora-photos {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }}
-      .bitacora-photo {{
-        border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
-        background: var(--blue-50); height: 120px;
-      }}
-      .bitacora-photo img {{ width: 100%; height: 100%; object-fit: cover; }}
-      .photos {{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }}
-      .photo-box {{
-        border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
-        background: var(--blue-50); height: 260px; display: flex; align-items: center; justify-content: center;
-      }}
-      .photo-box img {{ width: 100%; height: 100%; object-fit: cover; }}
-      .pagebreak {{ page-break-before: always; break-before: page; }}
-      .signatures-section {{
-        page-break-inside: avoid;
-        break-inside: avoid;
-      }}
-      .sigs {{
-        display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-        page-break-inside: avoid;
-        break-inside: avoid;
-      }}
-      .sigbox {{
-        border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #fff;
-        page-break-inside: avoid;
-        break-inside: avoid;
-      }}
-      .sigimgwrap {{
-        height: 210px; box-sizing: border-box; padding: 12px;
-        border-radius: 12px; border: 1px dashed var(--border);
-        display: flex; align-items: center; justify-content: center; overflow: hidden;
-        background: var(--blue-50); margin-top: 8px;
-      }}
-      .sigimgwrap img {{
-        display: block; max-width: 100%; max-height: 100%; width: auto; height: auto;
-        object-fit: contain; background: transparent;
-      }}
-      .sigline {{ margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 10px; color: var(--muted); }}
-      .sigline b {{ font-weight: 700; color: var(--text); }}
-      .cot-table {{ width: 100%; border-collapse: collapse; font-size: 10px; }}
-      .cot-table th, .cot-table td {{
-        border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top;
-      }}
-      .cot-table th {{
-        background: var(--blue-50); color: var(--blue-900); font-size: 9px;
-        letter-spacing: .4px; text-transform: uppercase;
-      }}
-      .cot-table .cot-num {{ width: 52px; text-align: center; }}
-      .cot-table .cot-folio {{ white-space: nowrap; }}
-      .cot-table .cot-date {{ white-space: nowrap; }}
-    </style>
+    <style>{_PDF_CSS}</style>
   </head>
   <body>
-    <div class='page'>
-      <div class='content'>
-        <div class='topbar'>
-          <div class='brandwrap'>
-            <div class='logo'>
-              {f"<img src='{logo_data_uri}' alt='Intrax' />" if logo_data_uri else ""}
-            </div>
-            <div class='brand'>
-              <div class='name'>GRUPO INTRAX SEGURIDAD Y RASTREO</div>
-              <div class='meta'>
-                <b>RFC:</b> IMA200110CI4<br/>
-                Av. Elias Zamora Verduzco No. 149 Barrio 2, Valle de las garzas. #149<br/>
-                Col: Valle de las Garzas C.P.: 20219 Barrio 2, Manzanillo, Colima, México<br/>
-                <b>Tel:</b> 3141130469 &nbsp;|&nbsp; <b>Cel:</b> 3141245830 &nbsp;|&nbsp; <b>Mail:</b> hola@intrax.mx
-              </div>
-            </div>
+    <div class='doc'>
+      <header class='head'>
+        <div class='brand'>
+          <div class='logo'>
+            {f"<img src='{logo_data_uri}' alt='Intrax' />" if logo_data_uri else ""}
           </div>
-          <div class='status'>
-            <div class='folio'><b>FOLIO:</b> <span class='num'>{esc(folio_display)}</span></div>
-            <div class='pill' style='background: {status_bg}; border-color: {status_border}; color: {status_fg};'>
-              {esc(status_text)}
-            </div>
-            <div class='dates'>
-              <div><b>Autorización:</b> {esc(fecha_auth)}</div>
-              <div><b>Avance:</b> {esc(str(avance))}%</div>
+          <div>
+            <div class='name'>{_EMPRESA_NOMBRE}</div>
+            <div class='meta'>
+              <b>RFC:</b> IMA200110CI4<br/>
+              Av. Elias Zamora Verduzco No. 149 Barrio 2, Valle de las garzas. #149<br/>
+              Col: Valle de las Garzas C.P.: 20219 Barrio 2, Manzanillo, Colima, México<br/>
+              <b>Tel:</b> 3141130469 &nbsp;·&nbsp; <b>Cel:</b> 3141245830 &nbsp;·&nbsp; <b>Mail:</b> hola@intrax.mx
             </div>
           </div>
         </div>
-
-        <div class='hero'>
-          <div class='title'>Proyecto</div>
-          <div class='sub'>Cliente: {esc(cliente_nombre)}</div>
-        </div>
-
-        <div class='grid2'>
-          <div class='card'>
-            <h3>Datos del cliente</h3>
-            <div class='label'>Dirección</div>
-            <div class='value pre'>{esc(cliente_dir)}</div>
-            <div class='row' style='margin-top: 10px;'>
-              <div class='col'>
-                <div class='label'>Teléfono</div>
-                <div class='value'>{esc(cliente_tel)}</div>
-              </div>
-              <div class='col'>
-                <div class='label'>Cliente</div>
-                <div class='value'>{esc(cliente_nombre)}</div>
-              </div>
-            </div>
+        <div class='docbox'>
+          <div class='kind'>Reporte de proyecto</div>
+          <div class='folio'>{esc(folio_display)}</div>
+          <div class='pill' style='background: {status_bg}; border-color: {status_border}; color: {status_fg};'>
+            <span class='dot' style='background: {status_dot};'></span>{esc(status_text)}
           </div>
-
-          <div class='card'>
-            <h3>Equipo de campo</h3>
-            <div class='label'>Responsable</div>
-            <div class='value'>{esc(responsable_nombre)}</div>
-            {otros_tecnicos_block}
-            {auxiliares_block}
-          </div>
+          <div class='emitido'>Emitido el {esc(emitido)}</div>
         </div>
+      </header>
 
-        <div class='section'>
-          <div class='section-title'>Operación</div>
-          <div class='box'>
-            <div class='grid2'>
-              <div>
-                <div class='label'>Tipos de trabajo</div>
-                <div class='value services'>{tipos_pills}</div>
-                <div class='label' style='margin-top: 10px;'>Fecha de inicio</div>
-                <div class='value'>{esc(fecha_inicio_txt)}</div>
-                <div class='label' style='margin-top: 10px;'>Fecha de finalización</div>
-                <div class='value'>{esc(fecha_fin_txt)}</div>
-                <div class='row' style='margin-top: 10px;'>
-                  <div class='col'>
-                    <div class='label'>Hora llegada</div>
-                    <div class='value'>{esc(hora_llegada)}</div>
-                  </div>
-                  <div class='col'>
-                    <div class='label'>Hora salida</div>
-                    <div class='value'>{esc(hora_salida)}</div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div class='label'>Vehículo</div>
-                <div class='value pre'>{esc(vehiculo)}</div>
-                <div class='label' style='margin-top: 10px;'>Herramientas generales</div>
-                <div class='value pre'>{esc(herramientas)}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class='rule'></div>
 
-        <div class='section'>
-          <div class='section-title'>Cotizaciones adjuntas</div>
-          {cotizaciones_html}
-        </div>
+      <div class='title-eyebrow'>Proyecto</div>
+      <div class='title'>{esc(cliente_nombre)}</div>
+      {f"<div class='tags'>{tags_html}</div>" if tags_html else ""}
 
-        <div class='section'>
-          <div class='section-title'>Bitácora por jornada</div>
-          <div class='box'>{bitacora_html}</div>
+      <div class='kpis avoid'>
+        <div class='kpi'><div class='k'>Autorización</div><div class='v'>{esc(fecha_auth)}</div></div>
+        <div class='kpi'><div class='k'>Inicio</div><div class='v'>{esc(fecha_inicio_txt)}</div></div>
+        <div class='kpi'><div class='k'>Finalización</div><div class='v'>{esc(fecha_fin_txt)}</div></div>
+        <div class='kpi'><div class='k'>Jornadas</div><div class='v'>{jornadas}</div></div>
+        <div class='kpi avance'>
+          <div class='k'>Avance</div><div class='v'>{avance}%</div>
+          <div class='bar'><span style='width: {avance}%;'></span></div>
         </div>
+      </div>
 
-        <div class='section signatures-section'>
-          <div class='section-title'>Firmas</div>
-          <div class='sigs'>
-            <div class='sigbox'>
-              <div class='label'>Firma técnico</div>
-              <div class='sigimgwrap'>
-                {f"<img src='{firma_tecnico}' alt='Firma técnico' />" if firma_tecnico else "<div class='muted'>Sin firma</div>"}
-              </div>
-              <div class='sigline'><b>Nombre:</b> {esc(responsable_nombre)}</div>
-            </div>
-            <div class='sigbox'>
-              <div class='label'>Firma cliente</div>
-              <div class='sigimgwrap'>
-                {f"<img src='{firma_cliente}' alt='Firma cliente' />" if firma_cliente else "<div class='muted'>Sin firma</div>"}
-              </div>
-              <div class='sigline'><b>Nombre:</b> {esc(cliente_nombre)}</div>
-            </div>
-          </div>
-        </div>
+      <div class='cols avoid'>
+        <div class='col'>{_section(1, "Datos del cliente", cliente_kv)}</div>
+        <div class='col'>{_section(2, "Equipo de campo", equipo_kv)}</div>
+      </div>
+
+      {_section(3, "Operación", f"<div class='cols'><div class='col'>{operacion_left}</div><div class='col'>{operacion_right}</div></div>", "avoid")}
+
+      {_section(4, "Cotizaciones adjuntas", cotizaciones_html, "avoid")}
+
+      {_section(5, "Bitácora por jornada", bitacora_html)}
+
+      {_section(6, "Firmas", firmas_html, "signatures-section")}
+
+      <div class='endnote'>
+        <span>{_EMPRESA_NOMBRE} · Proyecto {esc(folio_display)}</span>
+        <span>Documento operativo sin precios · Emitido el {esc(emitido)}</span>
       </div>
     </div>
     {evidencias_page}

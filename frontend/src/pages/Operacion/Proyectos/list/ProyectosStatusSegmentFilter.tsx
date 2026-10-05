@@ -6,10 +6,19 @@ import {
   type KeyboardEvent,
   type SetStateAction,
 } from "react";
+import { ESTADO_TONE } from "../shared/proyectoTokens";
 import type { ProyectoEstado } from "../shared/proyectoTypes";
 import type { ProyectoListFilterStatus } from "./ProyectosListFiltersPopover";
 
-/** Segmentos del control de estado (mismo patrón visual que Cotizaciones / Órdenes). */
+const segmentFor = (value: ProyectoEstado, label: string) => ({
+  value,
+  label,
+  countKey: value,
+  activeClass: ESTADO_TONE[value].segment,
+  dotClass: ESTADO_TONE[value].dot,
+});
+
+/** Segmentos del control de estado: mismos tonos que las píldoras de estado (`ESTADO_TONE`). */
 const STATUS_SEGMENTS: {
   value: ProyectoListFilterStatus;
   label: string;
@@ -22,45 +31,14 @@ const STATUS_SEGMENTS: {
     label: "Todas",
     countKey: null,
     activeClass:
-      "bg-white text-[#09090B] shadow-[0_1px_2px_rgba(9,9,11,0.08)] dark:bg-[#243048] dark:text-white",
-    dotClass: "bg-[#A1A1AA] dark:bg-[#64748b]",
+      "bg-white text-[#09090B] shadow-[0_1px_2px_rgba(9,9,11,0.08)] ring-1 ring-[#E4E4E7] dark:bg-[#243048] dark:text-white dark:ring-[#3A4661]",
+    dotClass: "bg-[#17235B] dark:bg-[#D6DEEA]",
   },
-  {
-    value: "en_proceso",
-    label: "En proceso",
-    countKey: "en_proceso",
-    activeClass: "bg-sky-100 text-sky-900 dark:bg-sky-500/20 dark:text-sky-100",
-    dotClass: "bg-sky-500 dark:bg-sky-400",
-  },
-  {
-    value: "pausado",
-    label: "Pausados",
-    countKey: "pausado",
-    activeClass:
-      "bg-[rgba(230,162,60,0.16)] text-[#9A6B15] dark:bg-[rgba(230,162,60,0.2)] dark:text-[#E6A23C]",
-    dotClass: "bg-amber-500 dark:bg-amber-400",
-  },
-  {
-    value: "saldo_pendiente",
-    label: "Saldo pendiente",
-    countKey: "saldo_pendiente",
-    activeClass: "bg-fuchsia-100 text-fuchsia-900 dark:bg-fuchsia-500/20 dark:text-fuchsia-100",
-    dotClass: "bg-fuchsia-600 dark:bg-fuchsia-400",
-  },
-  {
-    value: "cancelado",
-    label: "Cancelados",
-    countKey: "cancelado",
-    activeClass: "bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-100",
-    dotClass: "bg-rose-500 dark:bg-rose-400",
-  },
-  {
-    value: "cerrado",
-    label: "Cerrados",
-    countKey: "cerrado",
-    activeClass: "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-100",
-    dotClass: "bg-emerald-500 dark:bg-emerald-400",
-  },
+  segmentFor("en_proceso", "En proceso"),
+  segmentFor("pausado", "Pausados"),
+  segmentFor("saldo_pendiente", "Saldo pendiente"),
+  segmentFor("cancelado", "Cancelados"),
+  segmentFor("cerrado", "Cerrados"),
 ];
 
 export type ProyectoStatusCounts = Record<ProyectoEstado, number>;
@@ -171,7 +149,7 @@ export default function ProyectosStatusSegmentFilter({
               tabIndex={active ? 0 : -1}
               onClick={() => setFilterStatus(seg.value)}
               onKeyDown={(e) => onTabKeyDown(e, index)}
-              className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-2.5 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.4)] sm:min-h-0 ${
+              className={`cot-press inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-2.5 py-1.5 text-[12px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.4)] sm:min-h-0 ${
                 active
                   ? seg.activeClass
                   : "text-[#52525B] hover:bg-white hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white"
@@ -180,7 +158,8 @@ export default function ProyectosStatusSegmentFilter({
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${seg.dotClass}`} aria-hidden />
               {seg.label}
               <span
-                className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] tabular-nums ${
+                key={count}
+                className={`cot-flash inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] tabular-nums ${
                   active
                     ? "bg-black/10 dark:bg-white/15"
                     : "bg-black/[0.05] text-[#6E6E77] dark:bg-white/10 dark:text-[#8EA0B8]"

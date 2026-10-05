@@ -55,7 +55,15 @@ export function MonthSwitcher({
 /** Banda marina (tablet y escritorio): título y mes del listado. */
 export function ProyectosHero({ tecnicoView, userFirstName, selectedMonth, onShiftMonth }: Props) {
   return (
-    <header className="cot-sheen relative hidden overflow-hidden rounded-[24px] bg-[#17235B] text-white dark:bg-[#1B2A63] sm:block">
+    <header className="cot-rise cot-sheen relative hidden overflow-hidden rounded-[24px] bg-[#17235B] text-white dark:bg-[#1B2A63] sm:block">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:18px_18px] [mask-image:linear-gradient(to_left,black,transparent_70%)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-32 left-1/3 size-72 rounded-full bg-[#1B5CFF]/20 blur-3xl"
+        aria-hidden
+      />
       <div
         className="pointer-events-none absolute -right-24 -top-28 size-80 rounded-full bg-[#E6A23C]/15 blur-3xl"
         aria-hidden

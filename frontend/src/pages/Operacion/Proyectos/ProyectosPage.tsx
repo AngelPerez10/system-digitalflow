@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { BadgeCheck, Plus, Rows3, Search, Trash2, Undo2, X } from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
@@ -493,6 +493,8 @@ export default function ProyectosPage() {
   const empty = !loading && filteredRows.length === 0;
   const userFirstName = String(user?.first_name || "").trim().split(/\s+/)[0] || "";
   const shiftMonth = (delta: number) => setSelectedMonth((prev) => shiftYearMonth(prev, delta));
+  /** Con búsqueda activa el mes no aplica, así que no re-monta al cambiarlo. */
+  const listViewKey = `${filterStatus || "todas"}-${searchTerm.trim() ? "q" : selectedMonth}`;
 
   return (
     <div className="min-h-[calc(100dvh-5rem)] overflow-x-hidden" style={sansStyle}>
@@ -502,9 +504,17 @@ export default function ProyectosPage() {
           description="Gestión de proyectos vinculados a cotizaciones y seguimiento de equipos"
         />
 
-        {alert.show ? <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} /> : null}
+        {alert.show ? (
+          <Alert
+            variant={alert.variant}
+            title={alert.title}
+            message={alert.message}
+            showLink={false}
+            onClose={() => setAlert((prev) => ({ ...prev, show: false }))}
+          />
+        ) : null}
 
-        <nav className="hidden items-center gap-1.5 text-[13px] sm:flex font-medium text-[#6E6E77] dark:text-[#8EA0B8]" aria-label="Migas de pan">
+        <nav className="cot-fade hidden items-center gap-1.5 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8] sm:flex" aria-label="Migas de pan">
           <Link
             to="/"
             className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
@@ -531,7 +541,10 @@ export default function ProyectosPage() {
         </div>
 
         {/* Búsqueda + «Nuevo proyecto» (misma disposición que antes). */}
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
+        <div
+          className="cot-rise flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between"
+          style={{ "--cot-i": 5 } as CSSProperties}
+        >
           <div className="relative w-full min-w-0 shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)]">
             <Search
               className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[#8EA0B8] sm:left-3 sm:size-4"
@@ -573,7 +586,12 @@ export default function ProyectosPage() {
           ) : null}
         </div>
 
-        <section className={`overflow-visible ${pageCardShellClass}`} aria-labelledby="proyectos-listado-heading" aria-busy={loading || undefined}>
+        <section
+          className={`cot-rise overflow-visible ${pageCardShellClass}`}
+          style={{ "--cot-i": 6 } as CSSProperties}
+          aria-labelledby="proyectos-listado-heading"
+          aria-busy={loading || undefined}
+        >
           <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
@@ -587,6 +605,14 @@ export default function ProyectosPage() {
                   >
                     Listado de proyectos
                   </h2>
+                  {!loading ? (
+                    <span
+                      key={filteredRows.length}
+                      className="cot-flash inline-flex h-5 items-center rounded-full bg-[#F4F4F5] px-2 text-[11px] font-semibold tabular-nums text-[#52525B] dark:bg-white/6 dark:text-[#B7C1D1]"
+                    >
+                      {filteredRows.length.toLocaleString("es-MX")}
+                    </span>
+                  ) : null}
                 </div>
                 <p className="mt-2 text-[13px] leading-4.5 text-[#52525B] dark:text-[#B7C1D1] sm:text-[14px] sm:leading-5">
                   <span className="sm:hidden">Usa la barra de estado y los filtros.</span>
@@ -625,7 +651,8 @@ export default function ProyectosPage() {
           </div>
 
           {/* Tabla en tablet/escritorio; en celular la tabla no cabe y se muestran tarjetas. */}
-          <div className="hidden md:block">
+          {/* `key`: al cambiar de estado o de mes el listado se vuelve a montar y las filas entran escalonadas. */}
+          <div key={`t-${listViewKey}`} className="cot-fade hidden md:block">
             {loading ? (
               <ProyectosTableSkeleton />
             ) : empty ? (
@@ -640,7 +667,7 @@ export default function ProyectosPage() {
               <ProyectosTable sections={statusSections} grouped={grouped} {...handlers} />
             )}
           </div>
-          <div className="p-3 md:hidden">
+          <div key={`c-${listViewKey}`} className="cot-fade p-3 md:hidden">
             {loading ? (
               <ProyectosCardsSkeleton />
             ) : empty ? (
@@ -658,7 +685,7 @@ export default function ProyectosPage() {
         </section>
 
         {!loading ? (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="cot-fade flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="px-1 text-[12px] text-[#71717A] dark:text-[#8EA0B8]" aria-live="polite">
               {filteredRows.length.toLocaleString("es-MX")} {filteredRows.length === 1 ? "proyecto" : "proyectos"}
               {searchTerm.trim() ? <> para «{searchTerm.trim()}» (todos los meses)</> : null}

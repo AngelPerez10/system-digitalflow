@@ -1,135 +1,98 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  BookOpen,
+  Camera,
+  Download,
+  ExternalLink,
+  FileText,
+  FileWarning,
+  Info,
+  Mail,
+  PenLine,
+  RotateCw,
+  Users,
+} from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
+import { AppProgressDialog } from "@/components/ui/modal-kit/ModalKit";
 import { fetchApi } from "@/config/api";
 import { objectUrlsForPdfViewer } from "@/utils/pdfViewerPreview";
+import { erpPageCanvasClass, erpPageInnerClass } from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import ProyectoEnviarPdfModal, { type ProyectoEnviarPdfTarget } from "./list/ProyectoEnviarPdfModal";
+import { proyectoRowFromApi, type ApiProyecto } from "./shared/proyectoApi";
 import {
-  claudeBodyClass,
-  erpCardShellClass as cardShellClass,
-  erpPageCanvasClass,
-  erpPageInnerClass,
-  erpPrimaryBtnClass,
-  erpSansStyle,
-  erpSecondaryBtnClass,
-  erpSubheadingClass,
-  outlineCoralBtnClass,
-  sectionLabelOrangeClass,
-} from "../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+  formatPeriodoLabel,
+  proyectoCotizacionesRefs,
+  proyectoPeriodo,
+  proyectoTeam,
+  proyectoTiposLabels,
+} from "./shared/proyectoListUtils";
+import { Avatar, EstadoPill, ProgressBar } from "./shared/ProyectoUi";
+import { focusRing, sansStyle, toneForEstado } from "./shared/proyectoTokens";
+import type { ProyectoRow } from "./shared/proyectoTypes";
 
-const erpCardShellMutedClass =
-  "overflow-hidden rounded-2xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#111827]/90";
-import { displayProyectoFolio } from "./shared/proyectoFormUtils";
-import { proyectoPdfPageHeroHeadingClass } from "./shared/proyectoPageStyles";
+/* Botones de la barra: misma altura (40 px), radio y tipografía; solo cambia el tono. */
+const btnBase = `cot-press inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[10px] px-3.5 text-[14px] font-medium disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 ${focusRing}`;
+const btnPrimary = `${btnBase} border border-[#1B5CFF] bg-[#1B5CFF] font-semibold text-white hover:border-[#1244D1] hover:bg-[#1244D1] dark:border-[#4B7CFF] dark:bg-[#4B7CFF] dark:hover:bg-[#3B6AF0]`;
+const btnSecondary = `${btnBase} border border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D4D4D8] hover:bg-[#FAFAFA] hover:text-[#09090B] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]`;
+const btnGhost = `${btnBase} border border-transparent text-[#52525B] hover:bg-[#F4F4F5] hover:text-[#09090B] dark:text-[#B7C1D1] dark:hover:bg-[#1B2539] dark:hover:text-[#F8FAFC]`;
 
+const panelClass =
+  "min-w-0 overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827]";
+
+/** Visor: ocupa el alto útil del viewport (menos layout y barra del documento). */
 const viewerFrameClass =
-  "pdf-browser-viewer h-[72vh] min-h-[480px] w-full flex-1 border-0 sm:h-[76vh] sm:min-h-140 lg:h-[calc(100vh-13.5rem)] lg:min-h-[calc(100vh-13.5rem)]";
+  "pdf-browser-viewer block h-[72vh] min-h-[480px] w-full border-0 bg-white sm:h-[calc(100dvh-13rem)] sm:min-h-[640px]";
 
-const iconClass = "h-4 w-4 shrink-0";
+const bone = "block animate-pulse rounded bg-[#F0F0F2] motion-reduce:animate-none dark:bg-[#1F2A3C]";
 
-const externalLinkIcon = (
-  <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M15 3h6v6" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M10 14L21 3" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
+/** Secciones que trae el PDF del proyecto. */
+const CONTENT_SECTIONS: { id: string; label: string; icon: ReactNode }[] = [
+  { id: "bitacora", label: "Bitácora", icon: <BookOpen /> },
+  { id: "equipo", label: "Equipo", icon: <Users /> },
+  { id: "firmas", label: "Firmas", icon: <PenLine /> },
+  { id: "evidencias", label: "Evidencias", icon: <Camera /> },
+];
 
-const downloadIcon = (
-  <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M7 10l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M12 15V3" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const backIcon = (
-  <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M10 19 3 12l7-7" />
-    <path d="M3 12h18" />
-  </svg>
-);
-
-const retryIcon = (
-  <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-    <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M21 3v5h-5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M3 21v-5h5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const fileIcon = (
-  <svg className="h-4.5 w-4.5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const emptyDocIcon = (
-  <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <path d="M14 2v6h6" />
-    <path d="M10 13h4" />
-    <path d="M10 17h7" />
-  </svg>
-);
-
-const chipIconClass = "h-3.5 w-3.5 shrink-0";
-
-const CONTENT_CHIPS = [
-  {
-    id: "bitacora",
-    label: "Bitácora",
-    icon: (
-      <svg className={chipIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    id: "equipo",
-    label: "Equipo",
-    icon: (
-      <svg className={chipIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    id: "firmas",
-    label: "Firmas",
-    icon: (
-      <svg className={chipIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-        <path d="M12 20h9" strokeLinecap="round" />
-        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    id: "evidencias",
-    label: "Evidencias",
-    icon: (
-      <svg className={chipIconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" strokeLinejoin="round" />
-        <circle cx="12" cy="13" r="4" />
-      </svg>
-    ),
-  },
-] as const;
-
-const STATUS_LABEL: Record<string, string> = {
-  en_proceso: "En proceso",
-  pausado: "Pausado",
-  saldo_pendiente: "Saldo pendiente",
-  cerrado: "Cerrado",
+type AlertState = {
+  show: boolean;
+  variant: "success" | "error" | "warning" | "info";
+  title: string;
+  message: string;
 };
+
+const riseStyle = (i: number) => ({ "--cot-i": i }) as CSSProperties;
+
+function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="py-1.5 first:pt-0 last:pb-0">
+      <dt className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{label}</dt>
+      <dd className="mt-0.5 break-words text-[14px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{children}</dd>
+    </div>
+  );
+}
+
+function EquiposMeter({ label, value, total, barClass }: { label: string; value: number; total: number; barClass: string }) {
+  const pct = total > 0 ? (value / total) * 100 : 0;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{label}</span>
+        <span className="text-[13px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
+          {value}
+          <span className="font-normal text-[#A1A1AA] dark:text-[#64748B]">/{total}</span>
+        </span>
+      </div>
+      <ProgressBar value={pct} barClass={barClass} size="sm" className="mt-1.5" label={`${label}: ${value} de ${total}`} />
+    </div>
+  );
+}
 
 /**
  * Vista previa / descarga del PDF de un proyecto.
+ * Mismo esquema que la vista PDF de Cotizaciones: barra del documento, visor y resumen lateral.
  */
 export default function ProyectoPdfPage() {
   const params = useParams();
@@ -143,63 +106,60 @@ export default function ProyectoPdfPage() {
   const [filename, setFilename] = useState("proyecto.pdf");
   const [isHtmlFallback, setIsHtmlFallback] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [folioLabel, setFolioLabel] = useState<string | null>(null);
-  const [clienteNombre, setClienteNombre] = useState<string | null>(null);
-  const [statusLabel, setStatusLabel] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(8);
+  const [proyecto, setProyecto] = useState<ProyectoRow | null>(null);
+  const [metaLoaded, setMetaLoaded] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [alert, setAlert] = useState<{
-    show: boolean;
-    variant: "success" | "error" | "warning" | "info";
-    title: string;
-    message: string;
-  }>({ show: false, variant: "error", title: "", message: "" });
+  const [enviarTarget, setEnviarTarget] = useState<ProyectoEnviarPdfTarget | null>(null);
+  const [alert, setAlert] = useState<AlertState>({ show: false, variant: "error", title: "", message: "" });
+
+  /** Object URLs vigentes: se revocan con retraso para que el iframe no pida un blob ya liberado. */
+  const urlsRef = useRef<string[]>([]);
+  const revokeLater = useCallback((urls: string[]) => {
+    if (!urls.length) return;
+    window.setTimeout(() => {
+      for (const u of urls) {
+        try {
+          URL.revokeObjectURL(u);
+        } catch {
+          /* ignore */
+        }
+      }
+    }, 1_500);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
 
     const run = async () => {
       if (!proyectoId) {
-        if (isMounted) {
-          setAlert({
-            show: true,
-            variant: "error",
-            title: "Error",
-            message: "No se encontró el ID del proyecto.",
-          });
-          setLoading(false);
-        }
+        setAlert({ show: true, variant: "error", title: "Error", message: "No se encontró el ID del proyecto." });
+        setLoading(false);
+        setMetaLoaded(true);
         return;
       }
 
-      try {
-        if (isMounted) {
-          setLoading(true);
-          setAlert((prev) => ({ ...prev, show: false }));
-        }
+      setLoading(true);
+      setAlert((prev) => ({ ...prev, show: false }));
 
-        const pdfPath = `/api/proyectos/${proyectoId}/pdf/`;
+      try {
         const [metaRes, resp] = await Promise.all([
-          fetchApi(`/api/proyectos/${proyectoId}/`, {
-            cache: "no-store" as RequestCache,
-          }),
-          fetchApi(pdfPath),
+          fetchApi(`/api/proyectos/${proyectoId}/`, { cache: "no-store" as RequestCache }),
+          fetchApi(`/api/proyectos/${proyectoId}/pdf/`),
         ]);
-        if (isMounted && metaRes.ok) {
-          const meta = (await metaRes.json().catch(() => null)) as {
-            folio?: string | null;
-            idx?: number | null;
-            cliente_nombre?: string | null;
-            status?: string | null;
-          } | null;
-          if (meta) {
-            setFolioLabel(displayProyectoFolio(meta.folio || meta.idx));
-            const cliente = String(meta.cliente_nombre || "").trim();
-            setClienteNombre(cliente || null);
-            const status = String(meta.status || "").trim().toLowerCase();
-            setStatusLabel(STATUS_LABEL[status] || (status ? status.replace(/_/g, " ") : null));
+        if (!isMounted) return;
+
+        if (metaRes.ok) {
+          const meta = (await metaRes.json().catch(() => null)) as ApiProyecto | null;
+          if (isMounted && meta) {
+            try {
+              setProyecto(proyectoRowFromApi(meta));
+            } catch {
+              setProyecto(null);
+            }
           }
         }
-        if (!isMounted) return;
+        if (isMounted) setMetaLoaded(true);
 
         if (!resp.ok) {
           let msg = `No se pudo generar el PDF (HTTP ${resp.status}).`;
@@ -214,8 +174,17 @@ export default function ProyectoPdfPage() {
           } catch {
             /* ignore parse errors */
           }
-          setAlert({ show: true, variant: "error", title: "Error", message: msg });
+          if (!isMounted) return;
+          setAlert({
+            show: true,
+            variant: resp.status >= 500 ? "error" : "warning",
+            title: "No se pudo generar el documento",
+            message: msg.length > 240 ? `${msg.slice(0, 240)}…` : msg,
+          });
+          revokeLater(urlsRef.current);
+          urlsRef.current = [];
           setPdfObjectUrl(null);
+          setPdfDownloadUrl(null);
           return;
         }
 
@@ -223,26 +192,30 @@ export default function ProyectoPdfPage() {
         const dispo = resp.headers.get("content-disposition") || "";
         const m = dispo.match(/filename="?([^";]+)"?/i);
         const isPdf = ct.includes("application/pdf");
-        setIsHtmlFallback(!isPdf);
-        setFilename(
-          m?.[1]
-            ? String(m[1])
-            : isPdf
-              ? `Proyecto_${proyectoId}.pdf`
-              : `Proyecto_${proyectoId}.html`
-        );
 
         const blob = await resp.blob();
-        const urls = isPdf ? objectUrlsForPdfViewer(blob) : { previewUrl: URL.createObjectURL(blob), downloadUrl: URL.createObjectURL(blob) };
+        if (!isMounted) return;
+        const urls = isPdf
+          ? objectUrlsForPdfViewer(blob)
+          : (() => {
+              const u = URL.createObjectURL(blob);
+              return { previewUrl: u, downloadUrl: u };
+            })();
+
+        setIsHtmlFallback(!isPdf);
+        setFilename(m?.[1] ? String(m[1]) : `Proyecto_${proyectoId}.${isPdf ? "pdf" : "html"}`);
+        revokeLater(urlsRef.current);
+        urlsRef.current = Array.from(new Set([urls.previewUrl, urls.downloadUrl]));
         setPdfObjectUrl(urls.previewUrl);
         setPdfDownloadUrl(urls.downloadUrl);
       } catch {
         if (isMounted) {
+          setMetaLoaded(true);
           setAlert({
             show: true,
             variant: "error",
-            title: "Error",
-            message: "No se pudo cargar el PDF del proyecto.",
+            title: "Error de red",
+            message: "No se pudo contactar al servidor. Revisa tu conexión y reintenta.",
           });
         }
       } finally {
@@ -254,258 +227,358 @@ export default function ProyectoPdfPage() {
     return () => {
       isMounted = false;
     };
-  }, [proyectoId, reloadKey]);
+  }, [proyectoId, reloadKey, revokeLater]);
 
+  // Progreso simulado del diálogo mientras el servidor arma el PDF.
   useEffect(() => {
-    return () => {
-      if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
-    };
-  }, [pdfObjectUrl]);
+    if (!loading) {
+      setLoadingProgress(100);
+      return;
+    }
+    setLoadingProgress(8);
+    const interval = window.setInterval(() => {
+      setLoadingProgress((p) => Math.min(95, p + (p < 55 ? 10 : p < 80 ? 6 : 3)));
+    }, 650);
+    return () => window.clearInterval(interval);
+  }, [loading]);
 
-  const viewerTitle = folioLabel
-    ? `Vista previa del documento del proyecto ${folioLabel}`
-    : "Vista previa del documento del proyecto";
+  useEffect(() => () => revokeLater(urlsRef.current), [revokeLater]);
+
+  const handleDownload = () => {
+    if (!pdfDownloadUrl) return;
+    const a = document.createElement("a");
+    a.href = pdfDownloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  /* ------------------------------------------------------------------------
+     Derivados de presentación
+     ------------------------------------------------------------------------ */
+  const estado: "cargando" | "listo" | "error" = loading ? "cargando" : pdfObjectUrl ? "listo" : "error";
+  const folio = proyecto?.folio ?? null;
+  const clienteNombre = proyecto?.cliente ?? "";
+  const tone = toneForEstado(proyecto?.estado);
+  const avance = Math.min(100, Math.max(0, Math.round(Number(proyecto?.draft?.porcentajeAvance) || 0)));
+  const team = proyecto ? proyectoTeam(proyecto) : null;
+  const periodo = proyecto ? proyectoPeriodo(proyecto) : null;
+  const tipos = proyecto ? proyectoTiposLabels(proyecto) : [];
+  const cotizaciones = proyecto ? proyectoCotizacionesRefs(proyecto) : [];
+  const liquidado = Boolean(proyecto?.draft?.liquidado);
+  const puedeEnviar = estado === "listo" && !!proyecto && proyecto.estado !== "cancelado";
+  const viewerTitle = folio ? `Vista previa del documento del proyecto ${folio}` : "Vista previa del documento del proyecto";
+
+  const abrirEnvio = () => {
+    if (!proyecto) return;
+    setEnviarTarget({ id: Number(proyecto.id), folio: proyecto.folio, cliente: proyecto.cliente, estado: proyecto.estado });
+  };
 
   return (
-    <div className={erpPageCanvasClass} style={erpSansStyle}>
-      <div className={erpPageInnerClass}>
-        <PageMeta
-          title="PDF Proyecto | Digitalflow"
-          description="Vista previa y descarga del PDF del proyecto"
+    <div className={erpPageCanvasClass} style={sansStyle}>
+      <div className={`${erpPageInnerClass} space-y-4! sm:space-y-5!`}>
+        <PageMeta title="PDF Proyecto | Digitalflow" description="Vista previa y descarga del PDF del proyecto" />
+
+        <AppProgressDialog
+          open={loading}
+          icon={<FileText />}
+          title="Generando PDF"
+          description="Estamos armando el documento con la bitácora, el equipo y las evidencias más recientes."
+          subject={folio ?? undefined}
+          progress={loadingProgress}
+          steps={["Reuniendo bitácora y equipo", "Insertando firmas y evidencias", "Preparando la vista previa"]}
         />
 
-        <nav
-          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[#6E6E77] dark:text-[#8ea0b8] sm:text-[13px]"
-          aria-label="Migas de pan"
-        >
-          <Link
-            to="/"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
-          >
-            Inicio
-          </Link>
-          <span className="text-[#D3D3D8] dark:text-[#334155]" aria-hidden>
-            /
-          </span>
-          <Link
-            to="/proyectos"
-            className="rounded-md px-1 py-0.5 text-[#52525B] transition-colors hover:bg-black/3 hover:text-[#09090B] dark:text-[#aeb8c8] dark:hover:bg-white/5 dark:hover:text-white"
-          >
-            Proyectos
-          </Link>
-          <span className="text-[#D3D3D8] dark:text-[#334155]" aria-hidden>
-            /
-          </span>
-          <span className="text-[#3F3F46] dark:text-[#cbd5e1]">Vista PDF</span>
-        </nav>
+        <ProyectoEnviarPdfModal
+          open={enviarTarget != null}
+          proyecto={enviarTarget}
+          onClose={() => setEnviarTarget(null)}
+          onSent={(correo) => {
+            setEnviarTarget(null);
+            setAlert({ show: true, variant: "success", title: "Correo enviado", message: `El PDF se envió a ${correo}.` });
+          }}
+          onError={(message) => setAlert({ show: true, variant: "error", title: "Correo", message })}
+        />
 
         {alert.show ? (
-          <div role="alert" aria-live="assertive">
-            <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} />
-          </div>
+          <Alert
+            variant={alert.variant}
+            title={alert.title}
+            message={alert.message}
+            showLink={false}
+            onClose={() => setAlert((a) => ({ ...a, show: false }))}
+          />
         ) : null}
 
+        {/* ============================ Barra del documento ============================ */}
         <header
-          className={`relative flex flex-col gap-4 ${cardShellClass} p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:p-6`}
+          className="cot-rise flex flex-col gap-4 rounded-2xl border border-[#E4E4E7] bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827] sm:px-5 lg:flex-row lg:items-center lg:justify-between"
+          style={riseStyle(0)}
         >
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(circle_at_80%_20%,rgba(27,92,255,0.14),transparent_58%)]" />
-          <div className="relative z-1 flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B5CFF] text-white shadow-[0_10px_24px_-12px_rgba(27,92,255,0.9)] sm:h-11 sm:w-11">
-              {fileIcon}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className={sectionLabelOrangeClass}>Proyecto</p>
-              <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:mt-1">
-                <h1 className={proyectoPdfPageHeroHeadingClass}>Vista PDF</h1>
-                {folioLabel ? (
-                  <span className="inline-flex items-center rounded-md border border-[#BBD0FF]/70 bg-[rgba(27,92,255,0.08)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-[#1B5CFF] dark:border-[#4B7CFF]/35 dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]">
-                    {folioLabel}
-                  </span>
-                ) : null}
-                {statusLabel ? (
-                  <span className="inline-flex items-center rounded-full border border-[#E7E7EA] bg-[#FAFAFA] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#52525B] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]">
-                    {statusLabel}
-                  </span>
-                ) : null}
-              </div>
-              <p className={`mt-1.5 max-w-2xl sm:mt-2 ${claudeBodyClass}`}>
-                {clienteNombre
-                  ? `Documento operativo de ${clienteNombre}: bitácora por jornada, equipo de campo, firmas y evidencias.`
-                  : "Revise el documento en el panel; el lateral abre otra pestaña o descarga el archivo."}
-              </p>
-              <div className="mt-3 h-px w-full max-w-xl bg-linear-to-r from-[#1B5CFF]/35 via-[#4B7CFF]/30 to-transparent dark:from-[#4B7CFF]/35 dark:via-[#64748b]/25 dark:to-transparent" />
-            </div>
-          </div>
-          <div className="relative z-1 flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-center sm:justify-end sm:pt-1">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={() => navigate(returnPath)}
-              className={erpSecondaryBtnClass}
-              aria-label="Regresar al listado de proyectos"
+              className={`${btnGhost} w-10! px-0!`}
+              aria-label="Volver al listado de proyectos"
+              title="Volver al listado"
             >
-              {backIcon}
-              <span className="hidden sm:inline">Volver al listado</span>
-              <span className="sm:hidden">Volver</span>
+              <ArrowLeft aria-hidden />
+            </button>
+            <span className="h-8 w-px shrink-0 bg-[#E4E4E7] dark:bg-[#273244]" aria-hidden />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-[17px] font-semibold tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+                  {folio ? `Proyecto ${folio}` : "Proyecto"}
+                </h1>
+                {proyecto ? <EstadoPill estado={proyecto.estado} size="sm" className="cot-fade" /> : null}
+                {liquidado ? (
+                  <span className="cot-fade inline-flex h-5 items-center rounded-full bg-[#E6F6F2] px-2 text-[11px] font-semibold text-[#0B6B5C] ring-1 ring-inset ring-[#BEE5DA] dark:bg-[rgba(45,212,191,0.12)] dark:text-[#5EEAD4] dark:ring-[rgba(45,212,191,0.3)]">
+                    Liquidado
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-0.5 truncate text-[13px] text-[#71717A] dark:text-[#8EA0B8]">
+                {proyecto ? (
+                  <>
+                    {clienteNombre || "Sin cliente"}
+                    {tipos.length ? <span className="text-[#A1A1AA] dark:text-[#64748B]"> · {tipos.join(" · ")}</span> : null}
+                  </>
+                ) : metaLoaded ? (
+                  "Documento operativo del proyecto"
+                ) : (
+                  <span className={`${bone} inline-block! h-3 w-48 align-middle`} />
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={!puedeEnviar}
+              onClick={abrirEnvio}
+              title={proyecto?.estado === "cancelado" ? "No se puede enviar un proyecto cancelado" : undefined}
+              className={btnSecondary}
+            >
+              <Mail aria-hidden />
+              <span className="hidden sm:inline">Enviar por correo</span>
+              <span className="sm:hidden">Enviar</span>
+            </button>
+            <a
+              href={pdfDownloadUrl || undefined}
+              target="_blank"
+              rel="noreferrer"
+              tabIndex={pdfDownloadUrl ? undefined : -1}
+              aria-disabled={!pdfDownloadUrl}
+              onClick={(e) => {
+                if (!pdfDownloadUrl) e.preventDefault();
+              }}
+              className={`${btnSecondary} ${!pdfDownloadUrl ? "pointer-events-none opacity-50" : ""}`}
+            >
+              <ExternalLink aria-hidden />
+              Abrir
+            </a>
+            <button type="button" disabled={!pdfDownloadUrl} onClick={handleDownload} className={btnPrimary}>
+              <Download aria-hidden />
+              {isHtmlFallback ? "Descargar HTML" : "Descargar"}
             </button>
           </div>
         </header>
 
-        <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
-          <div className="min-w-0 lg:col-span-8">
-            <div className={`flex min-h-0 flex-col ${cardShellClass} lg:min-h-[calc(100vh-13.5rem)]`}>
-              <div className="border-b border-[#E7E7EA] bg-[#FAFAFA] px-4 py-3 dark:border-[#273244] dark:bg-[#111a2b] sm:px-5 sm:py-3.5">
-                <div className="flex flex-wrap items-end justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#BFD3FF] bg-[#F1F5FF] text-[#1244D1] dark:border-[#4B7CFF]/30 dark:bg-[#4B7CFF]/10 dark:text-[#4B7CFF]">
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" strokeLinejoin="round" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    </span>
-                    <div>
-                      <p className={sectionLabelOrangeClass}>Vista previa</p>
-                      <p className="mt-0.5 text-sm font-medium text-[#09090B] dark:text-[#f8fafc]">
-                        {isHtmlFallback ? "Documento HTML" : "Proyecto"}
-                      </p>
-                    </div>
+        <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          {/* ============================ Documento ============================ */}
+          <section
+            aria-label="Documento"
+            className="cot-rise min-w-0 overflow-hidden rounded-2xl border border-[#E4E4E7] bg-[#EDEEF1] shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#0B1220]"
+            style={riseStyle(1)}
+          >
+            {estado === "cargando" ? (
+              <div className="flex justify-center px-3 py-6 sm:px-8 sm:py-10" aria-busy="true" aria-label="Cargando documento">
+                <div className="w-full max-w-[760px] rounded-md bg-white p-8 shadow-[0_18px_40px_-24px_rgba(9,9,11,0.45)] dark:bg-[#1B2539] sm:p-12">
+                  <div className="flex items-start justify-between gap-6">
+                    <span className={`${bone} h-10 w-36`} />
+                    <span className={`${bone} h-14 w-40`} />
                   </div>
-                  <p className="text-[11px] text-[#52525B] dark:text-[#8ea0b8]">
-                    {isHtmlFallback ? "Respaldo HTML: el motor PDF no está disponible." : "El visor usa el motor PDF del navegador."}
-                  </p>
+                  <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {[0, 1, 2, 3].map((i) => (
+                      <div key={i} className="space-y-2">
+                        <span className={`${bone} h-2 w-14`} />
+                        <span className={`${bone} h-3 w-full`} />
+                      </div>
+                    ))}
+                  </div>
+                  {/* Jornadas de la bitácora */}
+                  <div className="mt-8 space-y-5">
+                    {[0, 1, 2].map((d) => (
+                      <div key={d} className="flex gap-4">
+                        <span className="mt-0.5 size-3 shrink-0 rounded-full bg-[#1B5CFF]/25" />
+                        <div className="flex-1 space-y-2">
+                          <span className={`${bone} h-2.5 w-28`} />
+                          <span className={`${bone} h-2.5`} style={{ width: `${92 - d * 9}%` }} />
+                          <span className={`${bone} h-2.5`} style={{ width: `${70 - d * 6}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-8 grid grid-cols-3 gap-3">
+                    {[0, 1, 2].map((i) => (
+                      <span key={i} className={`${bone} aspect-4/3 rounded-md!`} />
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className="flex min-h-0 flex-1 flex-col bg-[#FAFAFA] p-2 dark:bg-[#0f172a] sm:p-3">
-                {loading ? (
-                  <div
-                    className="flex min-h-[min(100dvh,520px)] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 dark:border-[#273244] dark:bg-[#0f172a]/40 sm:min-h-140 lg:min-h-[calc(100vh-13.5rem)]"
-                    role="status"
-                    aria-busy="true"
-                    aria-live="polite"
-                    aria-label="Cargando documento"
-                  >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10">
-                      <span
-                        className="h-7 w-7 animate-spin rounded-full border-2 border-[#E7E7EA] border-t-[#1B5CFF] motion-reduce:animate-none dark:border-[#334155] dark:border-t-[#4B7CFF]"
-                        aria-hidden
-                      />
-                    </div>
-                    <p className="mt-4 text-sm text-[#6E6E77] dark:text-[#8ea0b8]">Preparando vista previa…</p>
-                  </div>
-                ) : pdfObjectUrl ? (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border border-[#E7E7EA] bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#0f172a]">
-                    <iframe
-                      title={viewerTitle}
-                      aria-label={viewerTitle}
-                      src={pdfObjectUrl}
-                      loading="lazy"
-                      className={viewerFrameClass}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex min-h-[min(100dvh,400px)] flex-col items-center justify-center rounded-xl border border-dashed border-[#E7E7EA] bg-[#FAFAFA]/60 px-6 py-12 text-center dark:border-[#273244] dark:bg-[#0f172a]/40 lg:min-h-[calc(100vh-13.5rem)]">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#1B5CFF]/10 text-[#1B5CFF] dark:text-[#4B7CFF]">
-                      {emptyDocIcon}
-                    </div>
-                    <p className="text-base font-semibold text-[#09090B] dark:text-[#f8fafc]">No hay documento disponible</p>
-                    <p className="mt-1.5 max-w-sm text-sm text-[#6E6E77] dark:text-[#8ea0b8]">
-                      No se pudo generar la vista previa. Compruebe el proyecto o vuelva al listado.
-                    </p>
-                    <div className="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
-                      <button
-                        type="button"
-                        className={erpPrimaryBtnClass}
-                        onClick={() => setReloadKey((k) => k + 1)}
-                      >
-                        {retryIcon}
-                        Reintentar
-                      </button>
-                      <Link
-                        to="/proyectos"
-                        className="text-sm font-medium text-[#1B5CFF] underline-offset-4 hover:underline dark:text-[#4B7CFF]"
-                      >
-                        Ir a proyectos
-                      </Link>
-                    </div>
-                  </div>
-                )}
+            ) : estado === "listo" ? (
+              <div className="cot-fade">
+                {/*
+                  Solo iframe. El <object data="blob…#toolbar=…"> hace que Chrome pida
+                  recursos internos `invalid/` y llene la consola con net::ERR_FAILED.
+                */}
+                <iframe
+                  key={pdfObjectUrl}
+                  title={viewerTitle}
+                  aria-label={viewerTitle}
+                  src={pdfObjectUrl ?? undefined}
+                  className={viewerFrameClass}
+                />
               </div>
-            </div>
-          </div>
-
-          <aside className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:top-6 lg:self-start xl:top-8">
-            <div className={cardShellClass}>
-              <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-5">
-                <p className={sectionLabelOrangeClass}>Documento</p>
-                <h2 className={`mt-1 ${erpSubheadingClass}`}>Archivo y acciones</h2>
-                <p className="mt-1 text-xs text-[#52525B] dark:text-[#8ea0b8] sm:text-sm">
-                  Nombre sugerido al descargar y accesos rápidos.
+            ) : (
+              <div className="cot-fade flex flex-col items-center px-6 py-16 text-center sm:py-24">
+                <span className="cot-tick inline-flex size-14 items-center justify-center rounded-2xl bg-white text-[#C22B2B] ring-1 ring-inset ring-[#F6CFCF] dark:bg-[#3F1518] dark:text-[#F87171] dark:ring-[#7F1D1D]">
+                  <FileWarning className="size-6" strokeWidth={1.8} aria-hidden />
+                </span>
+                <h2 className="mt-5 text-[18px] font-semibold tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">
+                  {alert.title && alert.variant !== "success" ? alert.title : "No se pudo generar el documento"}
+                </h2>
+                <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-[#52525B] dark:text-[#B7C1D1]">
+                  {alert.message && alert.variant !== "success"
+                    ? alert.message
+                    : "Vuelve a intentarlo. Si el problema sigue, revisa el proyecto o vuelve al listado."}
                 </p>
-              </div>
-              <div className="space-y-4 px-4 py-5 sm:px-5">
-                <ul className="flex flex-wrap gap-1.5" aria-label="Secciones del documento">
-                  {CONTENT_CHIPS.map((chip) => (
-                    <li
-                      key={chip.id}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#E7E7EA] bg-[#FAFAFA] px-2.5 py-1 text-[11px] font-medium text-[#52525B] dark:border-[#334155] dark:bg-[#111a2b] dark:text-[#cbd5e1]"
-                    >
-                      <span className="text-[#1B5CFF] dark:text-[#4B7CFF]">{chip.icon}</span>
-                      {chip.label}
-                    </li>
-                  ))}
-                </ul>
-
-                <div className={`${erpCardShellMutedClass} px-3 py-2.5`}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8ea0b8]">
-                    Nombre de archivo
-                  </p>
-                  <code className="mt-1 block break-all rounded-md border border-[#E7E7EA] bg-[#FFFFFF] px-2.5 py-1.5 text-xs font-medium text-[#09090B] dark:border-[#334155] dark:bg-[#0f172a] dark:text-[#e5e7eb]">
-                    {filename}
-                  </code>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  <a
-                    href={pdfDownloadUrl || undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    tabIndex={pdfDownloadUrl ? undefined : -1}
-                    className={`${outlineCoralBtnClass} ${!pdfDownloadUrl ? "pointer-events-none opacity-50" : ""}`}
-                    aria-disabled={!pdfDownloadUrl}
-                    onClick={(e) => {
-                      if (!pdfDownloadUrl) e.preventDefault();
-                    }}
-                  >
-                    {externalLinkIcon}
-                    <span className="hidden sm:inline">Abrir en nueva pestaña</span>
-                    <span className="sm:hidden">Abrir</span>
-                  </a>
-
-                  <button
-                    type="button"
-                    disabled={!pdfDownloadUrl}
-                    className={`${erpPrimaryBtnClass} min-h-12! sm:min-h-0!`}
-                    onClick={() => {
-                      if (!pdfDownloadUrl) return;
-                      const a = document.createElement("a");
-                      a.href = pdfDownloadUrl;
-                      a.download = filename;
-                      document.body.appendChild(a);
-                      a.click();
-                      a.remove();
-                    }}
-                  >
-                    {downloadIcon}
-                    {isHtmlFallback ? "Descargar HTML" : "Descargar PDF"}
+                <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
+                  <button type="button" className={btnPrimary} onClick={() => setReloadKey((k) => k + 1)}>
+                    <RotateCw aria-hidden />
+                    Reintentar
+                  </button>
+                  <button type="button" className={btnSecondary} onClick={() => navigate(returnPath)}>
+                    <ArrowLeft aria-hidden />
+                    Volver al listado
                   </button>
                 </div>
-
-                <p className="text-[11px] leading-relaxed text-[#52525B] dark:text-[#8ea0b8]">
-                  Si la vista previa se ve cortada o es pesada (fotos), abra el archivo en una pestaña nueva o descárguelo.
-                </p>
               </div>
+            )}
+          </section>
+
+          {/* ============================ Resumen ============================ */}
+          <aside
+            className={`cot-rise ${panelClass} xl:sticky xl:top-24`}
+            style={riseStyle(2)}
+            aria-label="Resumen del proyecto"
+          >
+            <div className="p-5">
+              <p className="text-[12px] font-medium text-[#71717A] dark:text-[#8EA0B8]">Avance</p>
+              {proyecto ? (
+                <p
+                  key={avance}
+                  className={`cot-flash mt-1 text-[28px] font-semibold leading-none tracking-[-0.8px] tabular-nums ${tone.text}`}
+                >
+                  {avance}%
+                </p>
+              ) : (
+                <span className={`${bone} mt-2 h-7 w-20`} />
+              )}
+              <ProgressBar
+                value={proyecto ? avance : 0}
+                barClass={tone.bar}
+                className="mt-3"
+                label={folio ? `Avance de ${folio}` : "Avance del proyecto"}
+              />
+
+              {proyecto && proyecto.equiposTotal > 0 ? (
+                <div className="cot-fade mt-5 space-y-3">
+                  <EquiposMeter
+                    label="Equipos entregados"
+                    value={proyecto.equiposEntregados}
+                    total={proyecto.equiposTotal}
+                    barClass="bg-[#17235B] dark:bg-[#D6DEEA]"
+                  />
+                  <EquiposMeter
+                    label="Equipos instalados"
+                    value={proyecto.equiposInstalados}
+                    total={proyecto.equiposTotal}
+                    barClass="bg-[#0E8A5F] dark:bg-[#34D399]"
+                  />
+                </div>
+              ) : proyecto ? (
+                <p className="mt-4 text-[12px] text-[#A1A1AA] dark:text-[#64748B]">Sin equipos registrados.</p>
+              ) : null}
+            </div>
+
+            <dl className="border-t border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
+              {[
+                { label: "Cliente", value: clienteNombre },
+                { label: "Periodo", value: periodo ? formatPeriodoLabel(periodo) : "" },
+                { label: cotizaciones.length > 1 ? "Cotizaciones" : "Cotización", value: cotizaciones.map((c) => c.folio).join(", ") },
+              ].map((r) => (
+                <SummaryRow key={r.label} label={r.label}>
+                  {proyecto ? r.value || "—" : metaLoaded ? "—" : <span className={`${bone} inline-block! h-3.5 w-32 align-middle`} />}
+                </SummaryRow>
+              ))}
+            </dl>
+
+            <div className="border-t border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
+              <p className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">Equipo de campo</p>
+              {team && team.todos.length ? (
+                <ul className="mt-2 space-y-2">
+                  {team.todos.slice(0, 5).map((p, i) => (
+                    <li key={p.id ?? `p-${i}`} className="cot-rise flex min-w-0 items-center gap-2.5" style={riseStyle(i + 3)}>
+                      <Avatar person={p} size="sm" />
+                      <span className="min-w-0 truncate text-[13.5px] font-medium text-[#09090B] dark:text-[#F8FAFC]">{p.nombre}</span>
+                      {p.responsable ? (
+                        <span className="ml-auto shrink-0 rounded-full bg-[rgba(230,162,60,0.14)] px-2 py-0.5 text-[10.5px] font-semibold text-[#8A5D0F] dark:text-[#E6A23C]">
+                          Responsable
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                  {team.todos.length > 5 ? (
+                    <li className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">+{team.todos.length - 5} más</li>
+                  ) : null}
+                </ul>
+              ) : (
+                <p className="mt-1 text-[13px] text-[#A1A1AA] dark:text-[#64748B]">{proyecto || metaLoaded ? "Sin asignar" : "…"}</p>
+              )}
+            </div>
+
+            <div className="border-t border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
+              <p className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]">Contenido del documento</p>
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Secciones del documento">
+                {CONTENT_SECTIONS.map((s) => (
+                  <li
+                    key={s.id}
+                    className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[#F4F4F5] px-2.5 text-[12px] font-medium text-[#3F3F46] dark:bg-white/6 dark:text-[#D6DEEA] [&_svg]:size-3.5 [&_svg]:text-[#1B5CFF] dark:[&_svg]:text-[#7EA0FF]"
+                  >
+                    <span aria-hidden className="inline-flex">{s.icon}</span>
+                    {s.label}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 truncate font-mono text-[11.5px] text-[#A1A1AA] dark:text-[#64748B]" title={filename}>
+                {filename}
+              </p>
             </div>
           </aside>
         </div>
+
+        {estado === "listo" ? (
+          <p className="cot-fade flex items-center gap-2 px-1 text-[12px] text-[#71717A] dark:text-[#8EA0B8]">
+            <Info className="size-3.5 shrink-0" aria-hidden />
+            {isHtmlFallback
+              ? "Respaldo HTML: el motor PDF del servidor no está disponible."
+              : "¿No se ve el documento o pesa mucho por las fotos? Usa «Abrir» o «Descargar»."}
+          </p>
+        ) : null}
       </div>
     </div>
   );
