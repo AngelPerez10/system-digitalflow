@@ -15,8 +15,8 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 User = get_user_model()
 
