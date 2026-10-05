@@ -11,7 +11,6 @@ from .wialon_client import (
     WialonError,
     fetch_user_units,
     fetch_users_and_index,
-    invalidate_wialon_cache,
     purge_blocked_accounts,
     update_wialon_user,
 )
@@ -48,12 +47,12 @@ class WialonUsuariosView(APIView):
 
     def get(self, request):
         refresh = str(request.query_params.get("refresh", "")).lower() in ("1", "true", "yes")
-        if refresh:
-            invalidate_wialon_cache()
 
         try:
-            # Con caché vencida responde al instante y refresca en segundo plano.
-            users, units_index, stale = fetch_users_and_index(use_cache=not refresh)
+            # Nunca espera la carga completa de Wialon si ya hay datos: responde
+            # con ellos y refresca en segundo plano (también con «Actualizar»).
+            # `stale=True` le indica al navegador que vuelva a pedir en unos segundos.
+            users, units_index, stale = fetch_users_and_index(force_refresh=refresh)
         except WialonError as exc:
             logger.warning("Wialon usuarios: %s", exc)
             return _wialon_error_response(exc, "No se pudieron cargar los usuarios de Wialon.")
@@ -121,12 +120,10 @@ class WialonUnitsSearchIndexView(APIView):
 
     def get(self, request):
         refresh = str(request.query_params.get("refresh", "")).lower() in ("1", "true", "yes")
-        if refresh:
-            invalidate_wialon_cache()
 
         try:
-            # Con caché vencida responde al instante y refresca en segundo plano.
-            _, units, _ = fetch_users_and_index(use_cache=not refresh)
+            # Igual que la lista de cuentas: responde con lo que hay y refresca aparte.
+            _, units, _ = fetch_users_and_index(force_refresh=refresh)
         except WialonError as exc:
             logger.warning("Wialon índice unidades: %s", exc)
             return Response({"detail": "No se pudo cargar el índice de unidades."}, status=502)

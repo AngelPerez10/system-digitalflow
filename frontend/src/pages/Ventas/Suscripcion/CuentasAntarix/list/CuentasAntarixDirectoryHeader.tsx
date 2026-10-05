@@ -63,25 +63,25 @@ export default function CuentasAntarixDirectoryHeader({
   };
 
   return (
-    <div className="mb-4 overflow-hidden rounded-[16px] border border-[#E7E7EA] bg-gradient-to-b from-[#FAFAFB] to-white dark:border-[#273244] dark:from-[#151E32] dark:to-[#111827]">
-      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <div className="flex min-w-0 items-center gap-3.5">
+    <div className="mb-3 overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-linear-to-b from-[#FAFAFB] to-white sm:mb-4 sm:rounded-3xl dark:border-[#273244] dark:from-[#151E32] dark:to-[#111827]">
+      <div className="flex flex-col gap-3 p-3 sm:gap-4 sm:p-5 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
           <span
             key={view}
-            className="cot-fade inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#17235B] text-[#E6A23C] shadow-[0_8px_18px_-10px_rgba(23,35,91,0.7)] dark:bg-[#1B2A63]"
+            className="cot-fade inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[#17235B] text-[#E6A23C] shadow-[0_8px_18px_-10px_rgba(23,35,91,0.7)] sm:size-11 sm:rounded-[14px] dark:bg-[#1B2A63]"
             aria-hidden
           >
             <v.Icon className="size-5" />
           </span>
           <div key={`t-${view}`} className="cot-fade min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] dark:text-[#7EA0FF]">Directorio</p>
-            <h2 className="mt-0.5 truncate text-[18px] font-semibold leading-tight tracking-[-0.3px] text-[#09090B] dark:text-[#F8FAFC]">{v.title}</h2>
-            <p className="mt-0.5 text-[12.5px] leading-snug text-[#71717A] dark:text-[#8EA0B8]">{v.desc}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] sm:text-[11px] dark:text-[#7EA0FF]">Directorio</p>
+            <h2 className="mt-0.5 truncate text-[16px] font-semibold leading-tight tracking-[-0.3px] text-[#09090B] sm:text-[18px] dark:text-[#F8FAFC]">{v.title}</h2>
+            <p className="mt-0.5 hidden text-[12.5px] leading-snug text-[#71717A] sm:block dark:text-[#8EA0B8]">{v.desc}</p>
           </div>
         </div>
 
         <div
-          className="relative grid w-full shrink-0 grid-cols-2 rounded-[12px] border border-[#E7E7EA] bg-white p-1 shadow-[0_1px_2px_rgba(9,9,11,0.04)] sm:w-[18rem] dark:border-[#273244] dark:bg-[#0F172A]"
+          className="relative grid w-full shrink-0 grid-cols-2 rounded-2xl border border-[#E7E7EA] bg-white p-1 shadow-[0_1px_2px_rgba(9,9,11,0.04)] md:w-[18rem] dark:border-[#273244] dark:bg-[#0F172A]"
           role="tablist"
           aria-label="Vista del directorio"
         >
@@ -101,16 +101,16 @@ export default function CuentasAntarixDirectoryHeader({
                 aria-selected={activo}
                 onClick={() => onViewChange(k)}
                 className={cn(
-                  "relative z-[1] inline-flex min-h-[40px] items-center justify-center gap-2 rounded-[9px] px-3 text-[13px] font-semibold transition-colors duration-150",
+                  "relative z-1 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[9px] px-2 text-[12.5px] font-semibold transition-colors duration-150 sm:min-h-10 sm:gap-2 sm:px-3 sm:text-[13px]",
                   activo ? "text-white" : "text-[#52525B] hover:text-[#09090B] dark:text-[#B7C1D1] dark:hover:text-white",
                   focusRing,
                 )}
               >
-                <Icon className="size-4 shrink-0" aria-hidden />
-                {label}
+                <Icon className="size-3.5 shrink-0 sm:size-4" aria-hidden />
+                <span className="truncate">{label}</span>
                 <span
                   className={cn(
-                    "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums transition-colors duration-150",
+                    "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10.5px] font-bold tabular-nums transition-colors duration-150 sm:text-[11px]",
                     activo ? "bg-white/20 text-white" : "bg-[#F4F4F5] text-[#71717A] dark:bg-white/[0.07] dark:text-[#8EA0B8]",
                   )}
                 >
@@ -122,42 +122,51 @@ export default function CuentasAntarixDirectoryHeader({
         </div>
       </div>
 
-      {/* Resumen por sección: cada entrada lleva a su sección del listado. */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1.5 border-t border-[#EDEDF0] bg-white/70 px-3 py-2.5 sm:px-4 dark:border-[#1F2A3C] dark:bg-white/[0.015]">
-        {cargando ? (
-          <span className="h-7 w-56 rounded-full bg-[#F4F4F5] motion-safe:animate-pulse dark:bg-white/[0.06]" aria-hidden />
-        ) : (
-          resumen.map((r, i) => (
-            <button
-              key={`${view}-${r.key}`}
-              type="button"
-              onClick={() => irASeccion(r.key)}
-              disabled={r.count === 0}
-              style={{ "--caa-i": i } as React.CSSProperties}
-              className={cn(
-                "caa-row-in cot-press inline-flex h-8 items-center gap-2 rounded-full px-2.5 text-[12.5px] font-medium text-[#3F3F46] hover:bg-[#F4F4F5] disabled:pointer-events-none disabled:opacity-45 dark:text-[#D6DEEA] dark:hover:bg-white/[0.05]",
-                focusRing,
-              )}
-              title={r.count > 0 ? `Ir a ${r.label}` : undefined}
-            >
-              <span className={cn("h-3.5 w-[3px] rounded-full", r.tone.bar)} aria-hidden />
-              {r.label}
-              <span className={cn("inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums ring-1 ring-inset", r.tone.count)}>
-                {r.count}
-              </span>
-            </button>
-          ))
-        )}
-        <span className="ml-auto inline-flex items-center gap-2 pl-2 text-[12px] text-[#71717A] dark:text-[#8EA0B8]" aria-live="polite">
+      {/* Resumen por sección: scroll horizontal en pantallas angostas. */}
+      <div className="flex items-center gap-x-1 border-t border-[#EDEDF0] bg-white/70 dark:border-[#1F2A3C] dark:bg-white/1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-x-1 gap-y-1.5 overflow-x-auto overscroll-x-contain px-2.5 py-2 [-ms-overflow-style:none] [scrollbar-width:none] touch-pan-x sm:flex-wrap sm:overflow-visible sm:px-4 sm:py-2.5 [&::-webkit-scrollbar]:hidden">
+          {cargando ? (
+            <span className="h-7 w-40 shrink-0 rounded-full bg-[#F4F4F5] motion-safe:animate-pulse sm:w-56 dark:bg-white/6" aria-hidden />
+          ) : (
+            resumen.map((r, i) => (
+              <button
+                key={`${view}-${r.key}`}
+                type="button"
+                onClick={() => irASeccion(r.key)}
+                disabled={r.count === 0}
+                style={{ "--caa-i": i } as React.CSSProperties}
+                className={cn(
+                  "caa-row-in cot-press inline-flex h-8 shrink-0 items-center gap-2 rounded-full px-2.5 text-[12px] font-medium text-[#3F3F46] hover:bg-[#F4F4F5] disabled:pointer-events-none disabled:opacity-45 sm:text-[12.5px] dark:text-[#D6DEEA] dark:hover:bg-white/5",
+                  focusRing,
+                )}
+                title={r.count > 0 ? `Ir a ${r.label}` : undefined}
+              >
+                <span className={cn("h-3.5 w-0.75 rounded-full", r.tone.bar)} aria-hidden />
+                {r.label}
+                <span className={cn("inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums ring-1 ring-inset", r.tone.count)}>
+                  {r.count}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+        <span
+          className="inline-flex shrink-0 items-center gap-2 border-l border-[#EDEDF0] px-2.5 py-2 text-[11.5px] text-[#71717A] sm:gap-2 sm:px-4 sm:text-[12px] dark:border-[#1F2A3C] dark:text-[#8EA0B8]"
+          aria-live="polite"
+        >
           {syncing ? (
-            <span className="inline-flex items-center gap-1.5 font-medium text-[#1244D1] dark:text-[#9BB6FF]">
+            <span className="hidden items-center gap-1.5 font-medium text-[#1244D1] sm:inline-flex dark:text-[#9BB6FF]">
               <span className="size-1.5 rounded-full bg-[#1B5CFF] motion-safe:animate-pulse dark:bg-[#6B93FF]" aria-hidden />
               Sincronizando…
             </span>
           ) : null}
+          {syncing ? (
+            <span className="inline-flex size-1.5 rounded-full bg-[#1B5CFF] motion-safe:animate-pulse sm:hidden dark:bg-[#6B93FF]" aria-label="Sincronizando" />
+          ) : null}
           {!cargando ? (
-            <span>
-              <span className="font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">{mostrando.toLocaleString("es-MX")}</span> de{" "}
+            <span className="whitespace-nowrap">
+              <span className="font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">{mostrando.toLocaleString("es-MX")}</span>
+              <span className="text-[#A1A1AA]">/</span>
               <span className="tabular-nums">{total.toLocaleString("es-MX")}</span>
             </span>
           ) : null}

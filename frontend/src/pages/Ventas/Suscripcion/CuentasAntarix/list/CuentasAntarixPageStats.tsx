@@ -1,6 +1,7 @@
 /**
  * Hero pills — métricas inline dentro de la banda navy,
  * igual que FacturasCfdiPage y CotizacionesPage.
+ * En móvil: rejilla de 3 columnas a ancho completo; en lg: pastillas sueltas.
  */
 type Props = {
   activeView: "cuentas" | "unidades";
@@ -42,19 +43,20 @@ export default function CuentasAntarixPageStats({
 
   return (
     <div
-      className="flex w-full shrink-0 flex-wrap items-center gap-2 lg:w-auto"
+      className="grid w-full shrink-0 grid-cols-3 gap-1.5 sm:gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center"
       role="group"
       aria-label="Resumen de cuentas"
     >
       {pills.map((item) => (
         <div
           key={item.label}
-          className="inline-flex h-[3.25rem] items-center gap-3 rounded-[16px] bg-white/10 px-4"
+          className="flex min-w-0 flex-col items-start gap-1.5 rounded-2xl bg-white/10 px-2.5 py-2.5 sm:inline-flex sm:h-13 sm:flex-row sm:items-center sm:gap-3 sm:rounded-3xl sm:px-4 sm:py-0"
         >
           <span
-            className={`inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-white/10 ${
+            className={`hidden size-8 shrink-0 items-center justify-center rounded-[9px] bg-white/10 sm:inline-flex ${
               item.gold ? "text-[#E6A23C]" : "text-white/80"
             }`}
+            aria-hidden
           >
             <svg
               viewBox="0 0 24 24"
@@ -83,10 +85,10 @@ export default function CuentasAntarixPageStats({
             </svg>
           </span>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/55">
+            <p className="truncate text-[9px] font-semibold uppercase tracking-[0.08em] text-white/55 sm:text-[10px] sm:tracking-widest">
               {item.label}
             </p>
-            <p className="text-[18px] font-semibold tabular-nums leading-none text-white">
+            <p className="mt-0.5 text-[16px] font-semibold tabular-nums leading-none text-white sm:mt-0 sm:text-[18px]">
               {typeof item.value === "number"
                 ? item.value.toLocaleString("es-MX")
                 : item.value}

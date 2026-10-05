@@ -30,7 +30,7 @@ function Seccion({ title, children }: { title: string; children: ReactNode }) {
   const id = useId();
   return (
     <div role="group" aria-labelledby={id} className="px-4 py-3">
-      <p id={id} className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8EA0B8]">
+      <p id={id} className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#6E6E77] dark:text-[#8EA0B8]">
         {title}
       </p>
       {children}
@@ -49,7 +49,7 @@ function Opcion({ selected, onSelect, label, dot, count }: { selected: boolean; 
         "cot-press flex h-10 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left text-[13px] font-medium",
         selected
           ? "bg-[#EEF3FF] text-[#1244D1] dark:bg-[#1B2A63]/60 dark:text-[#C9D7FF]"
-          : "text-[#3F3F46] hover:bg-[#F4F4F5] dark:text-[#D6DEEA] dark:hover:bg-white/[0.05]",
+          : "text-[#3F3F46] hover:bg-[#F4F4F5] dark:text-[#D6DEEA] dark:hover:bg-white/5",
         focusRing,
       )}
     >
@@ -107,7 +107,7 @@ export default function CuentasAntarixFiltersPopover({
         aria-haspopup="dialog"
         aria-label={activos > 0 ? `Filtros, ${activos} activos` : "Filtros"}
         className={cn(
-          "caa-filter-btn cot-press inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[10px] border px-4 text-sm font-semibold tracking-[-0.1px] sm:w-auto sm:min-h-0 sm:py-2.5 [&_svg]:size-4 [&_svg]:shrink-0",
+          "caa-filter-btn cot-press inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[10px] border px-4 text-sm font-semibold tracking-[-0.1px] sm:w-auto sm:min-h-0 sm:py-2.5 [&_svg]:size-4 [&_svg]:shrink-0",
           open || activos > 0
             ? "border-[#BFD3FF] bg-[#EEF3FF] text-[#1244D1] dark:border-[#2C3F7A] dark:bg-[#1B2A63]/60 dark:text-[#C9D7FF]"
             : "border-[#E7E7EA] bg-white text-[#09090B] hover:border-[#D3D3D8] hover:bg-[#FAFAFA] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#3A4661] dark:hover:bg-[#1B2539]",
@@ -119,7 +119,7 @@ export default function CuentasAntarixFiltersPopover({
         {activos > 0 ? (
           <span
             key={activos}
-            className="cot-flash inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#1B5CFF] px-1 text-[10.5px] font-bold tabular-nums text-white dark:bg-[#4B7CFF]"
+            className="cot-flash inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[#1B5CFF] px-1 text-[10.5px] font-bold tabular-nums text-white dark:bg-[#4B7CFF]"
             aria-hidden
           >
             {activos}
@@ -134,7 +134,7 @@ export default function CuentasAntarixFiltersPopover({
           id={panelId}
           role="dialog"
           aria-label="Filtros de cuentas"
-          className="cot-pop absolute right-0 top-[calc(100%+8px)] z-40 w-[min(20rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-[16px] border border-[#E4E4E7] bg-white shadow-[0_24px_48px_-20px_rgba(9,9,11,0.35)] dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_24px_48px_-16px_rgba(0,0,0,0.7)]"
+          className="cot-pop absolute left-0 top-[calc(100%+8px)] z-40 max-h-[min(70dvh,28rem)] w-[min(20rem,calc(100vw-1.5rem))] origin-top-left overflow-y-auto overscroll-contain rounded-3xl border border-[#E4E4E7] bg-white shadow-[0_24px_48px_-20px_rgba(9,9,11,0.35)] sm:left-auto sm:right-0 sm:origin-top-right dark:border-[#273244] dark:bg-[#111827] dark:shadow-[0_24px_48px_-16px_rgba(0,0,0,0.7)]"
         >
           <div className="divide-y divide-[#F0F0F2] dark:divide-[#1F2A3C]">
             <Seccion title="Estado">
@@ -170,7 +170,7 @@ export default function CuentasAntarixFiltersPopover({
               </div>
             </Seccion>
             <Seccion title="Permisos">
-              <label className="flex h-10 cursor-pointer select-none items-center justify-between gap-3 rounded-[10px] px-2.5 text-[13px] font-medium text-[#3F3F46] hover:bg-[#F4F4F5] dark:text-[#D6DEEA] dark:hover:bg-white/[0.05]">
+              <label className="flex h-10 cursor-pointer select-none items-center justify-between gap-3 rounded-[10px] px-2.5 text-[13px] font-medium text-[#3F3F46] hover:bg-[#F4F4F5] dark:text-[#D6DEEA] dark:hover:bg-white/5">
                 <span>
                   Solo distribuidores <span className="ml-1 text-[12px] tabular-nums text-[#A1A1AA] dark:text-[#64748B]">{conteos.distribuidores}</span>
                 </span>
@@ -193,7 +193,7 @@ export default function CuentasAntarixFiltersPopover({
               onClick={() => onChange(CAA_FILTROS_DEFAULT)}
               disabled={activos === 0}
               className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-[9px] px-2 text-[12.5px] font-semibold text-[#52525B] hover:bg-[#F4F4F5] disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent dark:text-[#B7C1D1] dark:hover:bg-white/[0.05]",
+                "inline-flex h-8 items-center gap-1.5 rounded-[9px] px-2 text-[12.5px] font-semibold text-[#52525B] hover:bg-[#F4F4F5] disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent dark:text-[#B7C1D1] dark:hover:bg-white/5",
                 focusRing,
               )}
             >

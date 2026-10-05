@@ -24,10 +24,10 @@ export const erpSansStyle = {
 export const caaPageCanvasClass = "min-h-[calc(100dvh-5rem)] overflow-x-hidden";
 
 export const caaPageInnerClass =
-  "mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-10 pt-6 text-sm text-[#52525B] sm:space-y-6 sm:px-5 sm:pb-12 sm:pt-7 md:px-6 lg:px-8 xl:px-10 dark:text-[#B7C1D1] 2xl:max-w-[min(100%,2200px)]";
+  "mx-auto w-full max-w-[min(100%,1920px)] space-y-4 pb-8 pt-4 text-sm text-[#52525B] pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] sm:space-y-6 sm:pb-12 sm:pt-7 sm:pl-[max(1.25rem,env(safe-area-inset-left,0px))] sm:pr-[max(1.25rem,env(safe-area-inset-right,0px))] md:pl-[max(1.5rem,env(safe-area-inset-left,0px))] md:pr-[max(1.5rem,env(safe-area-inset-right,0px))] lg:pl-[max(2rem,env(safe-area-inset-left,0px))] lg:pr-[max(2rem,env(safe-area-inset-right,0px))] xl:pl-[max(2.5rem,env(safe-area-inset-left,0px))] xl:pr-[max(2.5rem,env(safe-area-inset-right,0px))] dark:text-[#B7C1D1] 2xl:max-w-[min(100%,2200px)]";
 
 export const caaBreadcrumbNavClass =
-  "flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]";
+  "flex flex-wrap items-center gap-x-1 gap-y-1 text-[12px] font-medium text-[#6E6E77] sm:gap-x-1.5 sm:text-[13px] dark:text-[#8EA0B8]";
 
 export const caaBreadcrumbLinkClass =
   "rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]";
@@ -41,23 +41,23 @@ export const caaBreadcrumbCurrentClass = "px-1.5 text-[#09090B] dark:text-[#F8FA
    -------------------------------------------------------------------------- */
 
 export const caaHeroBandClass =
-  "relative overflow-hidden rounded-[24px] bg-[#17235B] px-5 py-6 dark:bg-[#1B2A63] sm:px-8 sm:py-8";
+  "relative overflow-hidden rounded-[20px] bg-[#17235B] px-4 py-5 dark:bg-[#1B2A63] sm:rounded-[24px] sm:px-8 sm:py-8";
 
 export const caaHeroBlurClass =
-  "pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-[#E6A23C]/15 blur-3xl";
+  "pointer-events-none absolute -right-20 -top-24 size-56 rounded-full bg-[#E6A23C]/15 blur-3xl sm:size-72";
 
 export const caaHeroIconWrapClass =
-  "inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]";
+  "inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C] sm:size-11 sm:rounded-[14px]";
 
 export const caaHeroEyebrowClass =
-  "text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55";
+  "text-[10px] font-semibold uppercase tracking-[0.12em] text-white/55 sm:text-[11px]";
 
 /** Titular del hero — mismo peso/escala que el resto de módulos. */
 export const erpHeroHeadingClass =
-  "text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]";
+  "text-[22px] font-bold leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] sm:tracking-[-1.1px]";
 
 export const caaHeroBodyClass =
-  "mt-1.5 max-w-[62ch] text-[15px] leading-[22px] tracking-[-0.1px] text-white/70";
+  "mt-1.5 max-w-[62ch] text-[13.5px] leading-[20px] tracking-[-0.1px] text-white/70 sm:text-[15px] sm:leading-[22px]";
 
 export const caaHeroLinkClass = "font-semibold text-[#E6A23C]";
 
@@ -234,7 +234,7 @@ export const erpRowActionBtnClass =
    -------------------------------------------------------------------------- */
 
 export const caaMobileCardClass =
-  "w-full min-w-0 overflow-hidden rounded-[16px] border border-[#E7E7EA] bg-white p-4 text-left shadow-[0_6px_20px_-14px_rgba(9,9,11,0.18)] transition-colors hover:border-[#1B5CFF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:border-[#273244] dark:bg-[#111827] dark:hover:border-[#4B7CFF]/40 sm:p-5";
+  "w-full min-w-0 overflow-hidden rounded-[14px] border border-[#E7E7EA] bg-white p-3.5 text-left shadow-[0_6px_20px_-14px_rgba(9,9,11,0.18)] transition-colors hover:border-[#1B5CFF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B5CFF] dark:border-[#273244] dark:bg-[#111827] dark:hover:border-[#4B7CFF]/40 sm:rounded-[16px] sm:p-5";
 
 /** Avatar de inicial — marino con letra dorada, igual que el icono del hero. */
 export const caaAvatarClass =

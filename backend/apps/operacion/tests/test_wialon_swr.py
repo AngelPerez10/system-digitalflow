@@ -64,6 +64,39 @@ class FetchUsersAndIndexSwrTests(SimpleTestCase):
         self.assertFalse(stale)
         fu.assert_called_once_with(use_cache=False)
 
+    def test_actualizar_con_datos_responde_al_instante_y_refresca_aparte(self):
+        """«Actualizar» no espera a Wialon: evita el timeout del worker en producción."""
+        self._sembrar(vencido=False)
+
+        def lanzar():
+            wc._swr_running = True
+            return True
+
+        with mock.patch.object(wc, "_refresh_in_background", side_effect=lanzar) as bg, mock.patch.object(wc, "fetch_users") as fu:
+            users, index, stale = wc.fetch_users_and_index(force_refresh=True)
+        self.assertEqual(len(users), 1)
+        self.assertEqual(len(index), 1)
+        self.assertTrue(stale)  # hay refresco en curso: el navegador vuelve a pedir
+        bg.assert_called_once()
+        fu.assert_not_called()
+
+    def test_actualizar_sin_datos_consulta_en_el_momento(self):
+        with (
+            mock.patch.object(wc, "fetch_users", return_value=[]) as fu,
+            mock.patch.object(wc, "fetch_units_search_index", return_value=[]) as fi,
+        ):
+            _, _, stale = wc.fetch_users_and_index(force_refresh=True)
+        self.assertFalse(stale)
+        fu.assert_called_once_with(use_cache=False)
+        fi.assert_called_once_with(use_cache=False)
+
+    def test_marca_stale_mientras_corre_un_refresco(self):
+        self._sembrar(vencido=False)
+        wc._swr_running = True
+        with mock.patch.object(wc, "_refresh_in_background"):
+            _, _, stale = wc.fetch_users_and_index()
+        self.assertTrue(stale)
+
     def test_un_solo_refresco_a_la_vez(self):
         with mock.patch.object(wc, "_refresh_users_and_index", side_effect=lambda: time.sleep(0.2)):
             self.assertTrue(wc._refresh_in_background())

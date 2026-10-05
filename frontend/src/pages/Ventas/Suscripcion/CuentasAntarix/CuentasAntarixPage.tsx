@@ -71,6 +71,9 @@ export default function CuentasAntarixPage() {
   /** Refresco silencioso en curso (se ve la lista anterior mientras llega la nueva). */
   const [syncing, setSyncing] = useState(false);
   const staleRetryRef = useRef(0);
+  const lastStaleRef = useRef(false);
+  /** El servidor está trayendo datos nuevos de Wialon en segundo plano. */
+  const [esperandoWialon, setEsperandoWialon] = useState(false);
   const [unitIndexLoading, setUnitIndexLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -157,11 +160,17 @@ export default function CuentasAntarixPage() {
       }
       // El servidor respondió con datos vencidos y los está refrescando: volver
       // a pedir en unos segundos, en silencio (máximo dos veces seguidas).
-      if (data?.stale === true && staleRetryRef.current < 2) {
+      // El servidor respondió con lo que tenía y está refrescando Wialon aparte
+      // (vencido o «Actualizar»): volver a pedir en silencio hasta que llegue
+      // lo nuevo (máximo 8 intentos, cada 6 s).
+      lastStaleRef.current = data?.stale === true;
+      if (data?.stale === true && staleRetryRef.current < 8) {
         staleRetryRef.current += 1;
-        window.setTimeout(() => void loadUsersRef.current(false, true), 12000);
-      } else if (data?.stale !== true) {
+        setEsperandoWialon(true);
+        window.setTimeout(() => void loadUsersRef.current(false, true), 6000);
+      } else {
         staleRetryRef.current = 0;
+        setEsperandoWialon(false);
       }
       return true;
     } catch {
@@ -326,9 +335,14 @@ export default function CuentasAntarixPage() {
 
   const handleRefresh = async () => {
     if (loading || refreshing) return;
+    staleRetryRef.current = 0;
     const ok = await loadUsers(true);
     if (!ok) return;
-    showAlert("info", "Actualizado", "Usuarios e índice de unidades sincronizados con Wialon.");
+    if (lastStaleRef.current) {
+      showAlert("info", "Actualizando", "Se están trayendo los datos de Wialon; la lista se actualizará sola en unos segundos.");
+    } else {
+      showAlert("info", "Actualizado", "Usuarios e índice de unidades sincronizados con Wialon.");
+    }
   };
 
   const closeModal = useCallback(() => {
@@ -429,17 +443,17 @@ export default function CuentasAntarixPage() {
             Inicio
           </Link>
           <span className={caaBreadcrumbSepClass} aria-hidden>/</span>
-          <span className={caaBreadcrumbCurrentClass}>Ventas</span>
-          <span className={caaBreadcrumbSepClass} aria-hidden>/</span>
-          <span className={caaBreadcrumbCurrentClass}>Suscripción</span>
-          <span className={caaBreadcrumbSepClass} aria-hidden>/</span>
+          <span className={cn(caaBreadcrumbCurrentClass, "hidden sm:inline")}>Ventas</span>
+          <span className={cn(caaBreadcrumbSepClass, "hidden sm:inline")} aria-hidden>/</span>
+          <span className={cn(caaBreadcrumbCurrentClass, "hidden md:inline")}>Suscripción</span>
+          <span className={cn(caaBreadcrumbSepClass, "hidden md:inline")} aria-hidden>/</span>
           <span className={caaBreadcrumbCurrentClass}>Cuentas Antarix GPS</span>
         </nav>
 
         <header className={caaHeroBandClass}>
           <div className={caaHeroBlurClass} aria-hidden />
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
-            <div className="flex min-w-0 items-start gap-4">
+          <div className="relative flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
               <span className={caaHeroIconWrapClass} aria-hidden>
                 <svg className="size-5" viewBox="0 0 24 24" fill="none" aria-hidden>
                   <path
@@ -459,10 +473,13 @@ export default function CuentasAntarixPage() {
               <div className="min-w-0">
                 <p className={caaHeroEyebrowClass}>Ventas · Suscripción</p>
                 <h1 className={`mt-1 ${erpHeroHeadingClass}`}>Cuentas de Antarix GPS</h1>
-                <p className={caaHeroBodyClass}>
+                <p className={cn(caaHeroBodyClass, "hidden sm:block")}>
                   Usuarios disponibles en tu cuenta{" "}
                   <span className={caaHeroLinkClass}>Wialon Hosting</span>. Los datos se obtienen en
                   tiempo real con el token configurado en el servidor.
+                </p>
+                <p className={cn(caaHeroBodyClass, "sm:hidden")}>
+                  Usuarios y unidades de <span className={caaHeroLinkClass}>Wialon Hosting</span>.
                 </p>
               </div>
             </div>
@@ -481,9 +498,9 @@ export default function CuentasAntarixPage() {
           </div>
         </header>
 
-        {/* Search + refresh row */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:justify-between">
-          <div className="relative w-full min-w-0 shrink-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)] lg:max-w-none">
+        {/* Search + filtros + actualizar */}
+        <div className="flex flex-col gap-2.5 sm:gap-3">
+          <div className="relative w-full min-w-0">
             <svg
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E6E77] dark:text-[#64748b]"
               viewBox="0 0 20 20"
@@ -504,8 +521,8 @@ export default function CuentasAntarixPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder={
                 activeView === "unidades"
-                  ? "Buscar unidad, UID/IMEI, teléfono, cuenta…"
-                  : "Buscar cuenta, nombre de unidad, UID/IMEI, campo personalizado…"
+                  ? "Buscar unidad, IMEI, teléfono…"
+                  : "Buscar cuenta, unidad, IMEI…"
               }
               className={erpSearchInputClass}
               aria-label={
@@ -515,36 +532,43 @@ export default function CuentasAntarixPage() {
               }
             />
           </div>
-          {activeView === "cuentas" ? (
-            <CuentasAntarixFiltersPopover filtros={filtros} onChange={setFiltros} conteos={conteosFiltro} />
-          ) : null}
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={loading || refreshing}
-            aria-busy={loading || refreshing}
-            aria-label="Actualizar datos desde Wialon"
-            className={cn(erpPrimaryBtnClass, "w-full shrink-0 sm:w-auto")}
+          <div
+            className={cn(
+              "grid gap-2.5 sm:flex sm:flex-wrap sm:items-center sm:gap-3",
+              activeView === "cuentas" ? "grid-cols-2" : "grid-cols-1",
+            )}
           >
-            <svg
-              className={cn(
-                "h-4 w-4 shrink-0",
-                (loading || refreshing) && "animate-spin motion-reduce:animate-none",
-              )}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
+            {activeView === "cuentas" ? (
+              <CuentasAntarixFiltersPopover filtros={filtros} onChange={setFiltros} conteos={conteosFiltro} />
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void handleRefresh()}
+              disabled={loading || refreshing}
+              aria-busy={loading || refreshing}
+              aria-label="Actualizar datos desde Wialon"
+              className={cn(erpPrimaryBtnClass, "w-full shrink-0 sm:ml-auto sm:w-auto")}
             >
-              <path
-                d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0 0 14-2M19 5a9 9 0 0 0-14 2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {loading || refreshing ? "Actualizando…" : "Actualizar"}
-          </button>
+              <svg
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  (loading || refreshing) && "animate-spin motion-reduce:animate-none",
+                )}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden
+              >
+                <path
+                  d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0 0 14-2M19 5a9 9 0 0 0-14 2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="truncate">{loading || refreshing ? "Actualizando…" : "Actualizar"}</span>
+            </button>
+          </div>
         </div>
 
         {activeView === "cuentas" && search.trim() && unitIndexLoading ? (
@@ -571,7 +595,7 @@ export default function CuentasAntarixPage() {
             total={activeView === "unidades" ? unitSearchIndex.length : rows.length}
             resumen={resumen}
             cargando={activeView === "unidades" ? unitIndexLoading && unitSearchIndex.length === 0 : loading}
-            syncing={syncing}
+            syncing={syncing || esperandoWialon}
           />
 
           {/* Cuentas panel */}
@@ -579,7 +603,7 @@ export default function CuentasAntarixPage() {
             loading ? (
               <p className={cn("py-12 text-center", uiValueMuted)}>Cargando usuarios…</p>
             ) : error ? (
-              <div className="rounded-[20px] border border-[#F6CFCF] bg-[#FEF2F2] px-6 py-10 text-center dark:border-[#7F1D1D] dark:bg-[#3F1518]">
+              <div className="rounded-4xl border border-[#F6CFCF] bg-[#FEF2F2] px-6 py-10 text-center dark:border-[#7F1D1D] dark:bg-[#3F1518]">
                 <p className={cn("text-sm font-medium text-[#C22B2B] dark:text-[#F87171]")}>
                   {error}
                 </p>
@@ -611,8 +635,8 @@ export default function CuentasAntarixPage() {
               </div>
             ) : (
               <>
-                {/* Mobile cards — visible below lg */}
-                <div className="lg:hidden">
+                {/* Tarjetas — celular / tablet / laptops angostas */}
+                <div className="xl:hidden">
                   <CuentasAntarixUsersMobileList
                     secciones={secciones}
                     canEdit={canEdit}
@@ -621,8 +645,8 @@ export default function CuentasAntarixPage() {
                     onEdit={openEditUser}
                   />
                 </div>
-                {/* Desktop table — visible from lg */}
-                <div className="hidden min-w-0 overflow-x-auto touch-pan-x lg:block">
+                {/* Tabla — pantallas anchas */}
+                <div className="hidden min-w-0 overflow-x-auto touch-pan-x xl:block">
                   <CuentasAntarixUsersTable
                     secciones={secciones}
                     canEdit={canEdit}
@@ -651,16 +675,16 @@ export default function CuentasAntarixPage() {
             </div>
           ) : (
             <>
-              {/* Mobile cards — visible below lg */}
-              <div className="space-y-3 lg:hidden">
+              {/* Tarjetas — celular / tablet / laptops angostas */}
+              <div className="space-y-3 xl:hidden">
                 <CuentasAntarixUnitsMobileList
                   secciones={seccionesUnidades}
                   canEdit={canEdit}
                   onOpen={openUnitEntry}
                 />
               </div>
-              {/* Desktop table — visible from lg */}
-              <div className="hidden min-w-0 overflow-x-auto touch-pan-x lg:block">
+              {/* Tabla — pantallas anchas */}
+              <div className="hidden min-w-0 overflow-x-auto touch-pan-x xl:block">
                 <CuentasAntarixUnitsTable
                   secciones={seccionesUnidades}
                   canEdit={canEdit}

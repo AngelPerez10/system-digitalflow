@@ -1766,15 +1766,25 @@ def _refresh_in_background() -> bool:
     return True
 
 
-def fetch_users_and_index(*, use_cache: bool = True) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+def fetch_users_and_index(
+    *, use_cache: bool = True, force_refresh: bool = False
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
     """Usuarios + índice de unidades para la vista de cuentas.
 
-    Devuelve ``(users, units_index, stale)``. Con ``use_cache`` y datos
-    vencidos (pero no invalidados) responde al instante con ellos
-    (``stale=True``) y refresca en segundo plano. Sin datos previos, o con
-    ``use_cache=False``, consulta Wialon en el momento.
+    Devuelve ``(users, units_index, stale)``; ``stale=True`` indica que hay un
+    refresco en curso y conviene volver a pedir en unos segundos.
+
+    - Datos vencidos (pero no invalidados): responde al instante con ellos y
+      refresca en segundo plano.
+    - ``force_refresh`` («Actualizar»): si hay datos, responde con ellos y
+      fuerza el refresco en segundo plano. Así la petición nunca espera la
+      carga completa de Wialon (~10-30 s), que en producción podía rebasar el
+      timeout del worker y llegar al navegador como error de CORS.
+    - Sin datos previos (o ``use_cache=False``): consulta Wialon en el momento.
+
+    Solo corre un refresco a la vez (`_refresh_in_background`).
     """
-    if use_cache:
+    if use_cache or force_refresh:
         now = time.monotonic()
         with _cache_lock:
             users = _users_list_cache[0] if _users_list_cache else None
@@ -1786,9 +1796,13 @@ def fetch_users_and_index(*, use_cache: bool = True) -> tuple[list[dict[str, Any
                 and _units_search_index_cache[1] > now
             )
         if users is not None and index is not None:
-            if not fresh:
+            if force_refresh or not fresh:
                 _refresh_in_background()
-            return list(users), list(index), not fresh
+            with _swr_lock:
+                refrescando = _swr_running
+            return list(users), list(index), refrescando or not fresh
+        if force_refresh:
+            use_cache = False
 
     users = fetch_users(use_cache=use_cache)
     index = fetch_units_search_index(use_cache=use_cache)
