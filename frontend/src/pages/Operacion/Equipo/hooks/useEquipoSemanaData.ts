@@ -31,7 +31,7 @@ export type EquipoSemanaData = {
 
 /**
  * `mesExtra` (`YYYY-MM`): mes que se carga siempre además de los de la semana
- * (el mes actual, para la bandeja «Sin asignar» de todo el mes).
+ * (el mes actual, con las órdenes abiertas arrastradas de meses previos, para «Sin asignar»).
  */
 export function useEquipoSemanaData(lunes: string, onError: (title: string, message: string) => void, mesExtra?: string): EquipoSemanaData {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -86,7 +86,7 @@ export function useEquipoSemanaData(lunes: string, onError: (title: string, mess
     let cancelled = false;
     const controller = new AbortController();
     setLoadingOrdenes(true);
-    Promise.all(faltan.map((mes) => fetchOrdenesMes(mes, { signal: controller.signal })))
+    Promise.all(faltan.map((mes) => fetchOrdenesMes(mes, { signal: controller.signal, arrastreAbiertas: mes === mesExtra })))
       .then((porMes) => {
         if (cancelled) return;
         faltan.forEach((m) => cargadosRef.current.add(m));
@@ -106,7 +106,7 @@ export function useEquipoSemanaData(lunes: string, onError: (title: string, mess
       cancelled = true;
       controller.abort();
     };
-  }, [mesesKey, onError]);
+  }, [mesesKey, mesExtra, onError]);
 
   const ordenesSemana = useMemo(() => ordenes.filter((o) => enSemana(ordenFecha(o), lunes)), [ordenes, lunes]);
   const proyectosSemana = useMemo(() => proyectos.filter((r) => proyectoEnSemana(r, lunes)), [proyectos, lunes]);

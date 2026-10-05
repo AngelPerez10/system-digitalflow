@@ -1725,6 +1725,76 @@ def fetch_units_search_index(*, use_cache: bool = True) -> list[dict[str, Any]]:
     return entries
 
 
+# --------------------------------------------------------------------------
+# Stale-while-revalidate para el listado de cuentas
+#
+# Una carga en frío encadena ~20 llamadas a Wialon (~10-13 s). Si la caché solo
+# venció (no fue invalidada por una edición), se responde al instante con lo
+# último que se tenía y se refresca en un hilo aparte; la siguiente carga ya
+# trae lo nuevo. Tras una edición las cachés quedan en None, así que nunca se
+# sirve un dato que se sabe desactualizado.
+# --------------------------------------------------------------------------
+
+_swr_lock = threading.Lock()
+_swr_running = False
+
+
+def _refresh_users_and_index() -> None:
+    fetch_users(use_cache=False)
+    fetch_units_search_index(use_cache=False)
+
+
+def _refresh_in_background() -> bool:
+    """Lanza un refresco en segundo plano; no hace nada si ya hay uno en curso."""
+    global _swr_running
+    with _swr_lock:
+        if _swr_running:
+            return False
+        _swr_running = True
+
+    def run() -> None:
+        global _swr_running
+        try:
+            _refresh_users_and_index()
+        except Exception:  # noqa: BLE001 — un fallo en segundo plano no debe tumbar nada
+            logger.warning("Wialon: falló el refresco en segundo plano", exc_info=True)
+        finally:
+            with _swr_lock:
+                _swr_running = False
+
+    threading.Thread(target=run, name="wialon-swr", daemon=True).start()
+    return True
+
+
+def fetch_users_and_index(*, use_cache: bool = True) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+    """Usuarios + índice de unidades para la vista de cuentas.
+
+    Devuelve ``(users, units_index, stale)``. Con ``use_cache`` y datos
+    vencidos (pero no invalidados) responde al instante con ellos
+    (``stale=True``) y refresca en segundo plano. Sin datos previos, o con
+    ``use_cache=False``, consulta Wialon en el momento.
+    """
+    if use_cache:
+        now = time.monotonic()
+        with _cache_lock:
+            users = _users_list_cache[0] if _users_list_cache else None
+            index = _units_search_index_cache[0] if _units_search_index_cache else None
+            fresh = bool(
+                _users_list_cache
+                and _users_list_cache[1] > now
+                and _units_search_index_cache
+                and _units_search_index_cache[1] > now
+            )
+        if users is not None and index is not None:
+            if not fresh:
+                _refresh_in_background()
+            return list(users), list(index), not fresh
+
+    users = fetch_users(use_cache=use_cache)
+    index = fetch_units_search_index(use_cache=use_cache)
+    return users, index, False
+
+
 def fetch_user_units(wialon_user_id: int) -> dict[str, Any]:
     """Unidades asignadas a un usuario Wialon (monitoring units en prp.monu)."""
     user_id = int(wialon_user_id)

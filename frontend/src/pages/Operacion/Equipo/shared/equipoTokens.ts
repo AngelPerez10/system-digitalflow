@@ -82,20 +82,22 @@ export const TIPO_TONE = {
 
 /*
  * Barra de herramientas (Filtros · Sin asignar · Reporte · Historial): botones
- * independientes de 44 px (igual que la búsqueda). En celular se reparten el
- * ancho y solo muestran el ícono; desde `sm` llevan etiqueta y ancho propio.
+ * «fantasma» de 40 px dentro de la barra de mando (`EquipoFilterBar`). En
+ * celular se reparten el ancho y solo muestran el ícono; desde `sm` llevan
+ * etiqueta. `eq-tool` da el micro-movimiento del ícono (ver equipo.css).
  */
-export const toolbarGroup = "flex w-full items-center gap-2 sm:w-auto";
+export const toolbarGroup =
+  "flex w-full items-center gap-1 border-t border-[#F0F0F2] pt-1.5 sm:w-auto sm:border-t-0 sm:pt-0 dark:border-[#1F2A3C]";
 
 export function toolbarBtn(active: boolean, tone: "blue" | "amber" = "blue") {
   const on =
     tone === "amber"
-      ? "border-[#F0D7A3] bg-[#FFF8EB] text-[#8A5D0F] dark:border-[rgba(230,162,60,0.35)] dark:bg-[rgba(230,162,60,0.12)] dark:text-[#F2C27A]"
-      : "border-[#BFD3FF] bg-[#EEF3FF] text-[#1244D1] dark:border-[#2C3F7A] dark:bg-[#1B2A63]/60 dark:text-[#C9D7FF]";
-  return `cot-press relative inline-flex h-11 w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-[12px] border px-3.5 text-[13px] font-semibold shadow-[0_1px_2px_rgba(9,9,11,0.04)] sm:w-auto [&_svg]:size-4 [&_svg]:shrink-0 ${
+      ? "bg-[#FFF5E1] text-[#8A5D0F] dark:bg-[rgba(230,162,60,0.14)] dark:text-[#F2C27A]"
+      : "bg-[#EEF3FF] text-[#1244D1] dark:bg-[#1B2A63]/70 dark:text-[#C9D7FF]";
+  return `eq-tool cot-press relative inline-flex h-10 w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] px-3 text-[13px] font-semibold sm:w-auto [&_svg]:size-4 [&_svg]:shrink-0 ${
     active
       ? on
-      : "border-[#E4E4E7] bg-white text-[#3F3F46] hover:border-[#D4D4DB] hover:bg-[#FAFAFA] hover:text-[#09090B] dark:border-[#273244] dark:bg-[#111827] dark:text-[#D6DEEA] dark:hover:border-[#3A4661] dark:hover:text-white"
+      : "text-[#52525B] hover:bg-[#F4F4F5] hover:text-[#09090B] dark:text-[#B7C1D1] dark:hover:bg-white/[0.06] dark:hover:text-white"
   } ${focusRing}`;
 }
 

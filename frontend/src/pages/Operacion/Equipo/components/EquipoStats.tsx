@@ -13,7 +13,7 @@ export type EquipoStatsData = {
   proyectos: number;
   abiertos: number;
   cerrados: number;
-  /** Sin técnico en todo el mes actual. */
+  /** Sin técnico (todos los meses cargados). */
   sinAsignar: number;
 };
 
@@ -80,7 +80,7 @@ export function EquipoStats({ stats }: { stats: EquipoStatsData }) {
       />
       <AvanceCard cerrados={stats.cerrados} total={stats.abiertos + stats.cerrados} />
       <StatCard
-        label="Sin asignar · mes"
+        label="Sin asignar"
         value={stats.sinAsignar}
         tone="border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200"
         icon={

@@ -1,84 +1,82 @@
+/**
+ * Unidades en tarjetas (celular / tablet), en las mismas secciones que la
+ * tabla: Inactivas → Sin cuenta → Activas. Entrada escalonada
+ * (`caa-row-in`); cada sección usa `content-visibility` para no pintar lo que
+ * está fuera de pantalla.
+ */
+import type { CSSProperties } from "react";
+import { Car, ChevronRight, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  caaAvatarClass,
-  caaMobileCardClass,
-  erpSansStyle,
-} from "../shared/cuentasAntarixStyles";
+import { erpSansStyle } from "../shared/cuentasAntarixStyles";
+import { unidadActiva, type CaaUnidadSeccion } from "../shared/cuentasAntarixFiltros";
+import { UNIDAD_SECCION_TONE } from "../shared/cuentasAntarixTonos";
 import type { WialonUnitSearchEntry } from "../shared/wialonTypes";
-import { accountInitial } from "../shared/wialonAccountUtils";
-import { MetaItem, StatusBadge } from "./CuentasAntarixBadges";
-
-function unitStatusLabel(entry: WialonUnitSearchEntry): string {
-  if (entry.status === "Activo" || entry.status === "Inactivo") return entry.status;
-  if (entry.is_active === true) return "Activo";
-  if (entry.is_active === false) return "Inactivo";
-  return entry.status?.trim() || "—";
-}
+import { CaaSeccionHeader, CaaUnidadEstado } from "./CuentasAntarixBadges";
+import { CaaUnitOwners } from "./CuentasAntarixUnitOwners";
 
 type Props = {
-  rows: WialonUnitSearchEntry[];
+  secciones: CaaUnidadSeccion[];
   canEdit?: boolean;
   onOpen: (entry: WialonUnitSearchEntry) => void;
 };
 
-export default function CuentasAntarixUnitsMobileList({
-  rows,
-  canEdit = true,
-  onOpen,
-}: Props) {
+export default function CuentasAntarixUnitsMobileList({ secciones, canEdit = true, onOpen }: Props) {
+  let i = 0;
   return (
-    <div className="space-y-3" style={erpSansStyle}>
-      {rows.map((entry) => {
-        const owners =
-          entry.users?.length > 0
-            ? entry.users
-                .map((u) => u.name || u.user_id || `ID ${u.wialon_id}`)
-                .filter(Boolean)
-                .join(" · ")
-            : "Sin cuenta";
-        const unitStatus = unitStatusLabel(entry);
+    <div className="space-y-5" style={erpSansStyle}>
+      {secciones.map((s) => {
+        const tone = UNIDAD_SECCION_TONE[s.key];
         return (
-          <article key={entry.unit_id} className={caaMobileCardClass}>
-            <div className="flex items-start gap-3">
-              <span className={cn(caaAvatarClass, "size-10 shrink-0 text-base")} aria-hidden>
-                {accountInitial(entry.name || "")}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
-                  {entry.name || "Sin nombre"}
-                </p>
-                <p className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-[#1B5CFF] dark:text-[#4B7CFF]">
-                  {entry.uid?.trim() ? entry.uid : "Sin IMEI"}
-                </p>
-                <div className="mt-2">
-                  <StatusBadge status={unitStatus} />
-                </div>
-              </div>
+          <section key={s.key} className="caa-section space-y-2" aria-label={`${s.label}: ${s.rows.length}`}>
+            <div id={`caa-sec-${s.key}-m`} className={cn("scroll-mt-24 rounded-[12px] px-3 py-2", tone.band)}>
+              <CaaSeccionHeader seccion={s} tone={tone} />
             </div>
-
-            <dl className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[#E7E7EA] pt-3.5 dark:border-[#273244]">
-              <MetaItem label="Teléfono" value={entry.phone?.trim() || "—"} />
-              <MetaItem label="Cuentas" value={owners} className="col-span-2" />
-              <MetaItem label="Campos" value={entry.custom_fields?.trim() || "—"} className="col-span-2" />
-            </dl>
-
-            {canEdit ? (
-              <div className="mt-3.5 flex sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => onOpen(entry)}
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[10px] border border-[#E7E7EA] bg-white px-4 text-[13px] font-semibold text-[#09090B] transition-colors hover:border-[#1B5CFF] hover:text-[#1B5CFF] active:scale-[0.99] motion-reduce:transition-none dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#4B7CFF] dark:hover:text-[#4B7CFF] sm:w-auto"
-                  aria-label={`Abrir unidad ${entry.name || entry.uid || entry.unit_id}`}
+            {s.rows.map((entry) => {
+              const Wrapper = canEdit ? "button" : "div";
+              return (
+                <Wrapper
+                  key={entry.unit_id}
+                  {...(canEdit
+                    ? { type: "button" as const, onClick: () => onOpen(entry), "aria-label": `Abrir unidad ${entry.name || entry.uid || entry.unit_id}` }
+                    : {})}
+                  style={{ "--caa-i": i++ } as CSSProperties}
+                  className={cn(
+                    "caa-row-in group flex w-full min-w-0 items-center gap-3 rounded-[16px] border border-[#E7E7EA] bg-white p-3.5 text-left transition-[border-color,box-shadow] duration-150 dark:border-[#273244] dark:bg-[#111827]",
+                    canEdit &&
+                      "cot-press hover:border-[#BFD3FF] hover:shadow-[0_6px_18px_-12px_rgba(27,92,255,0.45)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:hover:border-[#2C3F7A]",
+                  )}
                 >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                  </svg>
-                  Abrir unidad
-                </button>
-              </div>
-            ) : null}
-          </article>
+                  <span className={cn("inline-flex size-10 shrink-0 items-center justify-center rounded-[12px]", tone.tile)} aria-hidden>
+                    <Car className="size-[18px]" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{entry.name || "Sin nombre"}</span>
+                    <span className="mt-0.5 flex min-w-0 items-center gap-2 font-mono text-[11.5px] tabular-nums text-[#71717A] dark:text-[#8EA0B8]">
+                      <span className="truncate">{entry.uid?.trim() ? entry.uid : "Sin IMEI"}</span>
+                      {entry.phone?.trim() ? (
+                        <span className="inline-flex shrink-0 items-center gap-1">
+                          <Phone className="size-3" aria-hidden />
+                          {entry.phone}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                      <CaaUnidadEstado activa={unidadActiva(entry)} />
+                      <span className="min-w-0 max-w-full">
+                        <CaaUnitOwners users={entry.users} />
+                      </span>
+                    </span>
+                  </span>
+                  {canEdit ? (
+                    <ChevronRight
+                      className="size-4 shrink-0 text-[#D4D4D8] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-[#1B5CFF] dark:text-[#3A4661]"
+                      aria-hidden
+                    />
+                  ) : null}
+                </Wrapper>
+              );
+            })}
+          </section>
         );
       })}
     </div>

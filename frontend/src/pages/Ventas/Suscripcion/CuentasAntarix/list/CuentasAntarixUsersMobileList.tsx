@@ -1,90 +1,76 @@
+/**
+ * Cuentas en tarjetas (celular / tablet), en las mismas secciones que la
+ * tabla: Bloqueadas → Sin unidades → Con unidades. Entrada escalonada
+ * (`caa-row-in`); cada sección usa `content-visibility` para no pintar lo que
+ * está fuera de pantalla.
+ */
+import type { CSSProperties } from "react";
+import { Car, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  caaAvatarClass,
-  caaMobileCardClass,
-  erpSansStyle,
-} from "../shared/cuentasAntarixStyles";
+import { erpSansStyle } from "../shared/cuentasAntarixStyles";
+import { unidadesDe, type CaaSeccion } from "../shared/cuentasAntarixFiltros";
 import type { WialonUserRow } from "../shared/wialonTypes";
-import { accountInitial } from "../shared/wialonAccountUtils";
-import { DealerBadge, MetaItem, StatusBadge } from "./CuentasAntarixBadges";
-
-const uiLabel = "text-[11px] font-medium uppercase tracking-wide text-[#6E6E77] dark:text-[#8EA0B8]";
-const uiCaption = "text-xs font-normal leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]";
+import { CaaAvatar, CaaDistribuidor, CaaEstado, CaaSeccionHeader, CaaUnidades } from "./CuentasAntarixBadges";
+import { SECCION_TONE } from "../shared/cuentasAntarixTonos";
 
 type Props = {
-  rows: WialonUserRow[];
+  secciones: CaaSeccion[];
   canEdit?: boolean;
   search?: string;
   matchedUnitsByUser?: Map<number, string[]>;
   onEdit: (row: WialonUserRow) => void;
 };
 
-export default function CuentasAntarixUsersMobileList({
-  rows,
-  canEdit = true,
-  search = "",
-  matchedUnitsByUser,
-  onEdit,
-}: Props) {
+export default function CuentasAntarixUsersMobileList({ secciones, canEdit = true, search = "", matchedUnitsByUser, onEdit }: Props) {
+  let i = 0;
   return (
-    <div className="space-y-3" style={erpSansStyle}>
-      {rows.map((row) => {
-        const matched = matchedUnitsByUser?.get(Number(row.wialon_id));
-        const blockedLabel =
-          row.status === "Bloqueado" && row.blocked !== "No" ? row.blocked : "";
-        return (
-          <article key={row.wialon_id} className={caaMobileCardClass}>
-            <div className="flex items-start gap-3">
-              <span className={cn(caaAvatarClass, "size-10 shrink-0 text-base")} aria-hidden>
-                {accountInitial(row.name || "")}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
-                  {row.name || "Sin nombre"}
-                </p>
-                <p className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-[#1B5CFF] dark:text-[#4B7CFF]">
-                  {row.user_id || "—"}
-                  {row.creator ? ` · ${row.creator}` : ""}
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <StatusBadge status={row.status} />
-                  <DealerBadge value={row.dealer_rights} />
-                </div>
-              </div>
-            </div>
-
-            {search.trim() && matched?.length ? (
-              <div className="mt-3 rounded-[10px] border border-[rgba(27,92,255,0.2)] bg-[rgba(27,92,255,0.06)] px-3 py-2 dark:border-[#4B7CFF]/25 dark:bg-[rgba(75,124,255,0.1)]">
-                <p className={uiLabel}>Unidades coincidentes</p>
-                <p className={cn("mt-1 break-words", uiCaption)}>{matched.join(" · ")}</p>
-              </div>
-            ) : null}
-
-            <dl className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[#E7E7EA] pt-3.5 dark:border-[#273244]">
-              <MetaItem label="Cuenta padre" value={row.parent_account} className="col-span-2" />
-              <MetaItem label="Unidades" value={String(row.assigned_units)} />
-              <MetaItem label="Bloqueada" value={blockedLabel || "No"} />
-            </dl>
-
-            {canEdit ? (
-              <div className="mt-3.5 flex sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => onEdit(row)}
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[10px] border border-[#E7E7EA] bg-white px-4 text-[13px] font-semibold text-[#09090B] transition-colors hover:border-[#1B5CFF] hover:text-[#1B5CFF] active:scale-[0.99] motion-reduce:transition-none dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC] dark:hover:border-[#4B7CFF] dark:hover:text-[#4B7CFF] sm:w-auto"
-                  aria-label={`Editar ${row.name || row.user_id}`}
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                  </svg>
-                  Editar cuenta
-                </button>
-              </div>
-            ) : null}
-          </article>
-        );
-      })}
+    <div className="space-y-5" style={erpSansStyle}>
+      {secciones.map((s) => (
+        <section key={s.key} className="caa-section space-y-2" aria-label={`${s.label}: ${s.rows.length}`}>
+          <div id={`caa-sec-${s.key}-m`} className={cn("scroll-mt-24 rounded-[12px] px-3 py-2", SECCION_TONE[s.key].band)}>
+            <CaaSeccionHeader seccion={s} />
+          </div>
+          {s.rows.map((row) => {
+            const matched = matchedUnitsByUser?.get(Number(row.wialon_id));
+            const Wrapper = canEdit ? "button" : "div";
+            return (
+              <Wrapper
+                key={row.wialon_id}
+                {...(canEdit ? { type: "button" as const, onClick: () => onEdit(row), "aria-label": `Editar ${row.name || row.user_id}` } : {})}
+                style={{ "--caa-i": i++ } as CSSProperties}
+                className={cn(
+                  "caa-row-in group flex w-full min-w-0 items-center gap-3 rounded-[16px] border border-[#E7E7EA] bg-white p-3.5 text-left transition-[border-color,box-shadow] duration-150 dark:border-[#273244] dark:bg-[#111827]",
+                  canEdit &&
+                    "cot-press hover:border-[#BFD3FF] hover:shadow-[0_6px_18px_-12px_rgba(27,92,255,0.45)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:hover:border-[#2C3F7A]",
+                )}
+              >
+                <CaaAvatar row={row} className="size-10 text-[15px]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{row.name || "Sin nombre"}</span>
+                  <span className="mt-0.5 block truncate font-mono text-[11.5px] tabular-nums text-[#71717A] dark:text-[#8EA0B8]">{row.user_id || "—"}</span>
+                  <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                    <CaaEstado row={row} conFecha={false} />
+                    <CaaUnidades n={unidadesDe(row)} />
+                    {row.dealer_rights === "Sí" ? <CaaDistribuidor /> : null}
+                  </span>
+                  {search.trim() && matched?.length ? (
+                    <span className="mt-2 block line-clamp-2 text-[12px] leading-snug text-[#1244D1] dark:text-[#9BB6FF]">
+                      <Car className="mr-1 inline size-3 -translate-y-px" aria-hidden />
+                      {matched.join(" · ")}
+                    </span>
+                  ) : null}
+                </span>
+                {canEdit ? (
+                  <ChevronRight
+                    className="size-4 shrink-0 text-[#D4D4D8] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-[#1B5CFF] dark:text-[#3A4661]"
+                    aria-hidden
+                  />
+                ) : null}
+              </Wrapper>
+            );
+          })}
+        </section>
+      ))}
     </div>
   );
 }

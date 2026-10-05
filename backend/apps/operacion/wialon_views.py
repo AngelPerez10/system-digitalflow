@@ -9,9 +9,8 @@ from apps.users.permissions import CuentasAntarixPermission
 from .wialon_client import (
     WIALON_BLOCKED_PURGE_DAYS_DEFAULT,
     WialonError,
-    fetch_units_search_index,
     fetch_user_units,
-    fetch_users,
+    fetch_users_and_index,
     invalidate_wialon_cache,
     purge_blocked_accounts,
     update_wialon_user,
@@ -53,8 +52,8 @@ class WialonUsuariosView(APIView):
             invalidate_wialon_cache()
 
         try:
-            users = fetch_users(use_cache=not refresh)
-            units_index = fetch_units_search_index(use_cache=not refresh)
+            # Con caché vencida responde al instante y refresca en segundo plano.
+            users, units_index, stale = fetch_users_and_index(use_cache=not refresh)
         except WialonError as exc:
             logger.warning("Wialon usuarios: %s", exc)
             return _wialon_error_response(exc, "No se pudieron cargar los usuarios de Wialon.")
@@ -70,6 +69,7 @@ class WialonUsuariosView(APIView):
                 "users": users,
                 "units_index": units_index,
                 "units_index_count": len(units_index),
+                "stale": stale,
             }
         )
 
@@ -125,7 +125,8 @@ class WialonUnitsSearchIndexView(APIView):
             invalidate_wialon_cache()
 
         try:
-            units = fetch_units_search_index(use_cache=not refresh)
+            # Con caché vencida responde al instante y refresca en segundo plano.
+            _, units, _ = fetch_users_and_index(use_cache=not refresh)
         except WialonError as exc:
             logger.warning("Wialon índice unidades: %s", exc)
             return Response({"detail": "No se pudo cargar el índice de unidades."}, status=502)

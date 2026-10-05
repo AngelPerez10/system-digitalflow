@@ -1,6 +1,6 @@
 /**
- * «Sin asignar» de todo un mes: órdenes abiertas sin técnico y proyectos
- * activos sin equipo cuyo día (orden) o alguna jornada (proyecto) cae en el mes.
+ * «Sin asignar»: órdenes abiertas sin técnico y proyectos activos sin equipo,
+ * de cualquier mes cargado (el día de la orden o la primera jornada del proyecto).
  */
 import type { Orden } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
 import { proyectoTeam } from "../../Proyectos/shared/proyectoListUtils";
@@ -12,25 +12,23 @@ export type EquipoPendiente =
   | { kind: "orden"; id: string; key: string; fecha: string; cliente: string; orden: Orden }
   | { kind: "proyecto"; id: string; key: string; fecha: string; fechas: string[]; cliente: string; row: ProyectoRow };
 
-const enMes = (ymd: string, mes: string) => ymd.startsWith(`${mes}-`);
-
 function proyectoSinEquipo(row: ProyectoRow): boolean {
   return !proyectoTeam(row).todos.some((m) => m.id != null && m.id > 0);
 }
 
-/** Pendientes del mes (`YYYY-MM`), ordenados por día y cliente. */
-export function pendientesDelMes(ordenes: Orden[], proyectos: ProyectoRow[], mes: string): EquipoPendiente[] {
+/** Pendientes sin técnico de todos los meses, ordenados por día y cliente. */
+export function pendientesSinAsignar(ordenes: Orden[], proyectos: ProyectoRow[]): EquipoPendiente[] {
   const out: EquipoPendiente[] = [];
   for (const orden of ordenes) {
     if (ordenTecnicoId(orden) != null || !ordenAbierta(orden)) continue;
     const fecha = ordenFecha(orden);
-    if (!fecha || !enMes(fecha, mes)) continue;
+    if (!fecha) continue;
     out.push({ kind: "orden", id: String(orden.id), key: `orden:${orden.id}`, fecha, cliente: orden.cliente || "", orden });
   }
   for (const row of proyectos) {
     if (!proyectoActivo(row) || !proyectoSinEquipo(row)) continue;
     const fechas = proyectoFechas(row);
-    const fecha = fechas.find((f) => enMes(f, mes));
+    const fecha = [...fechas].sort()[0];
     if (!fecha) continue;
     out.push({ kind: "proyecto", id: String(row.id), key: `proyecto:${row.id}`, fecha, fechas, cliente: row.cliente || "", row });
   }

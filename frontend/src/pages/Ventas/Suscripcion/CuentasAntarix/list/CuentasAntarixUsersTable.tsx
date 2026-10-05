@@ -1,177 +1,169 @@
+/**
+ * Tabla de cuentas (escritorio), agrupada en secciones: Bloqueadas →
+ * Sin unidades → Con unidades. Cada sección lleva un encabezado con su
+ * conteo; las filas entran escalonadas (`caa-row-in`, solo transform/opacity).
+ *
+ * Lenguaje visual: sin pastillas en mayúsculas; estado con punto + texto,
+ * unidades como cifra con ícono (ámbar cuando no tiene ninguna).
+ */
+import type { CSSProperties } from "react";
+import { Car, Pencil } from "lucide-react";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import {
   caaEmptyCellClass,
-  caaStatusBadgeClass,
-  caaTableBodyClass,
   caaTdCellClass,
   caaThCellClass,
-  erpRowActionBarClass,
-  erpRowActionBtnClass,
   erpSansStyle,
   erpTableHeaderClass,
-  erpTableRowHoverClass,
   erpTableWrapClass,
 } from "../shared/cuentasAntarixStyles";
-import { cn } from "@/lib/utils";
+import { unidadesDe, type CaaSeccion } from "../shared/cuentasAntarixFiltros";
 import type { WialonUserRow } from "../shared/wialonTypes";
-
-function blockedLabel(row: WialonUserRow): string {
-  return row.status === "Bloqueado" && row.blocked !== "No" ? row.blocked : "No";
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const s = String(status || "").trim();
-  const kind = s === "Activo" ? "ok" : s === "Bloqueado" || s === "Inactivo" ? "bad" : "neutral";
-  return <span className={caaStatusBadgeClass(kind)}>{s || "—"}</span>;
-}
+import { CaaAvatar, CaaDistribuidor, CaaEstado, CaaSeccionHeader, CaaUnidades } from "./CuentasAntarixBadges";
+import { SECCION_TONE } from "../shared/cuentasAntarixTonos";
 
 type Props = {
-  rows: WialonUserRow[];
+  secciones: CaaSeccion[];
   canEdit?: boolean;
   matchedUnitsByUser?: Map<number, string[]>;
   onEdit: (row: WialonUserRow) => void;
 };
 
-export default function CuentasAntarixUsersTable({
-  rows,
-  canEdit = true,
-  matchedUnitsByUser,
-  onEdit,
-}: Props) {
+const COLS = 6;
+
+export default function CuentasAntarixUsersTable({ secciones, canEdit = true, matchedUnitsByUser, onEdit }: Props) {
+  let i = 0;
   return (
     <div className="min-w-0" style={erpSansStyle}>
       <div className={erpTableWrapClass}>
         <Table className="w-full min-w-[900px] lg:min-w-full">
           <TableHeader className={erpTableHeaderClass}>
             <TableRow>
-              <TableCell isHeader className={cn(caaThCellClass, "min-w-[220px]")}>
+              <TableCell isHeader className={cn(caaThCellClass, "min-w-[260px] py-2.5 pl-4")}>
                 Cuenta
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[160px]")}>
+              <TableCell isHeader className={cn(caaThCellClass, "w-[180px] py-2.5")}>
                 Cuenta padre
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[120px] text-center")}>
-                Distribuidor
-              </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[96px] text-center")}>
+              <TableCell isHeader className={cn(caaThCellClass, "w-[130px] py-2.5")}>
                 Unidades
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[110px] text-center")}>
+              <TableCell isHeader className={cn(caaThCellClass, "w-[170px] py-2.5")}>
                 Estado
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[150px]")}>
-                Bloqueada
+              <TableCell isHeader className={cn(caaThCellClass, "w-[120px] py-2.5")}>
+                Distribuidor
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[90px] text-center")}>
-                Acción
+              <TableCell isHeader className={cn(caaThCellClass, "w-[72px] py-2.5 pr-4 text-right")}>
+                <span className="sr-only">Acciones</span>
               </TableCell>
             </TableRow>
           </TableHeader>
 
-          <TableBody className={caaTableBodyClass}>
-            {rows.length === 0 ? (
+          {secciones.map((s) => (
+            <TableBody key={s.key} className="bg-white text-[12.5px] text-[#3F3F46] dark:bg-[#111827] dark:text-[#D6DEEA]">
               <TableRow>
-                <TableCell colSpan={7} className="px-3 py-8 text-center text-[#6E6E77] dark:text-[#8EA0B8]">
-                  Sin usuarios
+                <TableCell colSpan={COLS} className={cn("border-y border-[#EDEDF0] px-4 py-2.5 dark:border-[#1F2A3C]", SECCION_TONE[s.key].band)}>
+                  <span id={`caa-sec-${s.key}`} className="block scroll-mt-24">
+                    <CaaSeccionHeader seccion={s} />
+                  </span>
                 </TableCell>
               </TableRow>
-            ) : (
-              rows.map((row) => {
+              {s.rows.map((row) => {
                 const matchedUnits = matchedUnitsByUser?.get(Number(row.wialon_id));
-                const blocked = blockedLabel(row);
-                const isBlocked = blocked !== "No";
                 const displayName = row.name || "Sin nombre";
                 return (
-                  <TableRow key={row.wialon_id} className={erpTableRowHoverClass}>
-                    <TableCell className={cn(caaTdCellClass, "min-w-[220px] max-w-[320px]")}>
+                  <TableRow
+                    key={row.wialon_id}
+                    style={{ "--caa-i": i++ } as CSSProperties}
+                    className={cn(
+                      "caa-row-in group/row border-b border-[#F1F1F3] transition-colors duration-150 last:border-b-0 hover:bg-[#FAFAFB] dark:border-[#1A2335] dark:hover:bg-white/[0.025]",
+                      canEdit && "cursor-pointer",
+                    )}
+                    onClick={canEdit ? () => onEdit(row) : undefined}
+                  >
+                    <TableCell className={cn(caaTdCellClass, "py-3 pl-4")}>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <CaaAvatar row={row} className="size-9 text-[13px]" />
+                        <div className="min-w-0">
+                          {canEdit ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(row);
+                              }}
+                              className="block max-w-full truncate text-left text-[13.5px] font-semibold text-[#09090B] transition-colors duration-150 hover:text-[#1B5CFF] focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:text-[#F8FAFC] dark:hover:text-[#7EA0FF]"
+                              title={displayName}
+                            >
+                              {displayName}
+                            </button>
+                          ) : (
+                            <span className="block truncate text-[13.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]" title={displayName}>
+                              {displayName}
+                            </span>
+                          )}
+                          <span className="mt-0.5 block truncate font-mono text-[11.5px] tabular-nums text-[#71717A] dark:text-[#8EA0B8]" title={row.user_id || undefined}>
+                            {row.user_id || "—"}
+                            {row.creator && row.creator !== "—" ? <span className="font-sans"> · {row.creator}</span> : null}
+                          </span>
+                          {matchedUnits?.length ? (
+                            <span
+                              className="mt-1 block line-clamp-2 text-[11.5px] leading-snug text-[#1244D1] dark:text-[#9BB6FF]"
+                              title={matchedUnits.join(" · ")}
+                            >
+                              <Car className="mr-1 inline size-3 -translate-y-px" aria-hidden />
+                              {matchedUnits.join(" · ")}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className={cn(caaTdCellClass, "max-w-[220px] py-3")}>
+                      <span className="block truncate" title={row.parent_account || undefined}>
+                        {row.parent_account && row.parent_account !== "—" ? row.parent_account : <span className={caaEmptyCellClass}>—</span>}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className={cn(caaTdCellClass, "py-3")}>
+                      <CaaUnidades n={unidadesDe(row)} />
+                    </TableCell>
+
+                    <TableCell className={cn(caaTdCellClass, "py-3")}>
+                      <CaaEstado row={row} />
+                    </TableCell>
+
+                    <TableCell className={cn(caaTdCellClass, "py-3")}>
+                      {row.dealer_rights === "Sí" ? (
+                        <CaaDistribuidor />
+                      ) : (
+                        <span className={caaEmptyCellClass}>—</span>
+                      )}
+                    </TableCell>
+
+                    <TableCell className={cn(caaTdCellClass, "py-3 pr-4 text-right")}>
                       {canEdit ? (
                         <button
                           type="button"
-                          onClick={() => onEdit(row)}
-                          className="block max-w-full truncate text-left font-medium text-[#09090B] transition-colors hover:text-[#1B5CFF] focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:text-[#F8FAFC] dark:hover:text-[#4B7CFF]"
-                          title={displayName}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(row);
+                          }}
+                          className="cot-press inline-flex size-8 items-center justify-center rounded-[9px] text-[#A1A1AA] opacity-70 hover:bg-[#EEF3FF] hover:text-[#1B5CFF] group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] dark:hover:bg-[#1B2A63]/60 dark:hover:text-[#9BB6FF]"
+                          title="Editar cuenta"
+                          aria-label={`Editar ${row.name || row.user_id}`}
                         >
-                          {displayName}
+                          <Pencil className="size-4" aria-hidden />
                         </button>
-                      ) : (
-                        <span className="block truncate font-medium text-[#09090B] dark:text-[#F8FAFC]" title={displayName}>
-                          {displayName}
-                        </span>
-                      )}
-                      <span
-                        className="mt-0.5 block truncate font-mono text-[11px] tabular-nums text-[#1B5CFF] dark:text-[#4B7CFF]"
-                        title={row.user_id || undefined}
-                      >
-                        {row.user_id || "—"}
-                        {row.creator ? ` · ${row.creator}` : ""}
-                      </span>
-                      {matchedUnits?.length ? (
-                        <span
-                          className="mt-1 block line-clamp-2 rounded-[6px] bg-[rgba(27,92,255,0.08)] px-1.5 py-0.5 text-[11px] leading-snug text-[#1244D1] dark:bg-[rgba(75,124,255,0.14)] dark:text-[#4B7CFF]"
-                          title={matchedUnits.join(" · ")}
-                        >
-                          Unidad: {matchedUnits.join(" · ")}
-                        </span>
                       ) : null}
-                    </TableCell>
-
-                    <TableCell className={cn(caaTdCellClass, "w-[160px] max-w-[200px]")}>
-                      <span className="block truncate" title={row.parent_account || undefined}>
-                        {row.parent_account || <span className={caaEmptyCellClass}>—</span>}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className={cn(caaTdCellClass, "w-[120px] text-center")}>
-                      {row.dealer_rights === "Sí" ? (
-                        <span className={caaStatusBadgeClass("neutral")}>Distribuidor</span>
-                      ) : (
-                        <span className={caaEmptyCellClass}>—</span>
-                      )}
-                    </TableCell>
-
-                    <TableCell className={cn(caaTdCellClass, "w-[96px] text-center font-medium tabular-nums text-[#09090B] dark:text-[#F8FAFC]")}>
-                      {row.assigned_units}
-                    </TableCell>
-
-                    <TableCell className={cn(caaTdCellClass, "w-[110px] text-center")}>
-                      <StatusBadge status={row.status} />
-                    </TableCell>
-
-                    <TableCell className={cn(caaTdCellClass, "w-[150px] whitespace-nowrap tabular-nums")}>
-                      {isBlocked ? (
-                        <span className="text-[#C22B2B] dark:text-[#F87171]" title={blocked}>
-                          {blocked}
-                        </span>
-                      ) : (
-                        <span className={caaEmptyCellClass}>—</span>
-                      )}
-                    </TableCell>
-
-                    <TableCell className={cn(caaTdCellClass, "w-[90px] text-center")}>
-                      {canEdit ? (
-                        <div className={cn(erpRowActionBarClass, "mx-auto w-fit")}>
-                          <button
-                            type="button"
-                            onClick={() => onEdit(row)}
-                            className={erpRowActionBtnClass}
-                            title="Editar cuenta"
-                            aria-label={`Editar ${row.name || row.user_id}`}
-                          >
-                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                              <path d="M12 20h9" />
-                              <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <span className={caaEmptyCellClass}>—</span>
-                      )}
                     </TableCell>
                   </TableRow>
                 );
-              })
-            )}
-          </TableBody>
+              })}
+            </TableBody>
+          ))}
         </Table>
       </div>
     </div>

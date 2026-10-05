@@ -51,7 +51,7 @@ import { useEquipoReasignar } from "./hooks/useEquipoReasignar";
 import { useEquipoSemanaData } from "./hooks/useEquipoSemanaData";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { EQUIPO_FILTROS_DEFAULT, filtrarSeccionesEquipo, type EquipoFiltros } from "./shared/equipoFiltros";
-import { pendientesDelMes } from "./shared/equipoPendientes";
+import { pendientesSinAsignar } from "./shared/equipoPendientes";
 import { addDays, lunesDe, parseYmd, resumenSemana, toYmd, type EquipoTarjeta } from "./shared/equipoSemana";
 import { TIPO_TONE } from "./shared/equipoTokens";
 
@@ -102,7 +102,7 @@ export default function EquipoPage() {
 
   /* ---------------- Estado del tablero ---------------- */
 
-  // «Sin asignar» abarca todo el mes actual: se carga siempre, sin importar la semana vista.
+  // «Sin asignar» abarca todos los meses cargados; el actual se pide siempre (con las abiertas arrastradas de meses previos).
   const mesActual = hoy.slice(0, 7);
   const data = useEquipoSemanaData(lunes, showError, mesActual);
   const { secciones, destinos, loading } = data;
@@ -132,7 +132,7 @@ export default function EquipoPage() {
     const soloTecnicos = visibles.filter((s) => s.tecnico.id != null);
     return ocultar ? soloTecnicos.filter((s) => s.ordenes.length + s.proyectos.length > 0) : soloTecnicos;
   }, [visibles, ocultarSinTrabajo, filtros.q, drag.dragging]);
-  const pendientes = useMemo(() => pendientesDelMes(data.ordenes, data.proyectos, mesActual), [data.ordenes, data.proyectos, mesActual]);
+  const pendientes = useMemo(() => pendientesSinAsignar(data.ordenes, data.proyectos), [data.ordenes, data.proyectos]);
 
   /* ---------------- Acciones ---------------- */
 
@@ -238,7 +238,7 @@ export default function EquipoPage() {
             onOpenHistorial={historial.abrir}
             reporte={
               <>
-                <EquipoSinAsignar pendientes={pendientes} mes={mesActual} destinos={destinos} onAssign={handlers.onMove} />
+                <EquipoSinAsignar pendientes={pendientes} destinos={destinos} onAssign={handlers.onMove} />
                 <EquipoReporteMenu lunes={lunes} />
               </>
             }
@@ -274,7 +274,7 @@ export default function EquipoPage() {
               ))}
             </div>
             <p className="text-[#A1A1AA] dark:text-[#64748B]">
-              Arrastra una tarjeta a otra celda para cambiarla de técnico o de día · los pendientes de todo el mes están en el ícono de bandeja
+              Arrastra una tarjeta a otra celda para cambiarla de técnico o de día · los trabajos sin técnico están en el ícono de bandeja
             </p>
           </div>
 

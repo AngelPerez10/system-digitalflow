@@ -92,7 +92,7 @@ export function EquipoReporteMenu({ lunes }: { lunes: string }) {
         title="Reporte mensual"
         className={toolbarBtn(open)}
       >
-        <FileDown aria-hidden />
+        <FileDown data-eq-icon="reporte" aria-hidden />
         <span className="hidden sm:inline">Reporte</span>
       </button>
 

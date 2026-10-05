@@ -1,0 +1,50 @@
+/*
+ * Movimiento del listado de Cuentas Antarix.
+ *
+ * Rendimiento: solo `transform` y `opacity` (compositor, sin reflujo);
+ * animaciones cortas y de una sola vez, con el escalonado acotado (máx. 12
+ * filas) para que listas largas no tarden en aparecer. Con
+ * `prefers-reduced-motion: reduce` no hay animación.
+ */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Fila o tarjeta que aparece (carga, filtro, búsqueda): `--caa-i` = orden. */
+  .caa-row-in {
+    animation: caa-row-in 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(min(var(--caa-i, 0), 12) * 18ms);
+  }
+
+  /* Indicador de la pestaña Cuentas / Unidades: se desliza con `transform`. */
+  .caa-seg-pill {
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Ícono del botón Filtros: gesto mínimo al pasar el cursor. */
+  .caa-filter-btn svg:first-child {
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .caa-filter-btn:hover svg:first-child {
+    transform: translateX(1px);
+  }
+
+  html.theme-changing .caa-row-in {
+    animation-name: caa-row-in !important;
+  }
+}
+
+/* Listas largas: no se pinta lo que está fuera de pantalla. */
+.caa-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
+}
+
+@keyframes caa-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import PageMeta from "@/components/common/PageMeta";
 import ComponentCard from "@/components/common/ComponentCard";
 import Alert from "@/components/ui/alert/Alert";
 import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import "@/components/ui/modal-kit/motion.css";
+import "./cuentasAntarix.css";
 import { useCuentasAntarixPermissions } from "./useCuentasAntarixPermissions";
 import {
-  caaCountPillClass,
   caaEmptyPanelClass,
-  caaEyebrowClass,
   caaBreadcrumbCurrentClass,
   caaBreadcrumbLinkClass,
   caaBreadcrumbNavClass,
@@ -22,17 +23,28 @@ import {
   caaHeroLinkClass,
   caaPageCanvasClass,
   caaPageInnerClass,
-  caaViewTabClass,
-  caaViewTabTrackClass,
   erpCardShellClass,
   erpHeroHeadingClass,
   erpPrimaryBtnClass,
   erpSansStyle,
   erpSearchInputClass,
-  erpSectionHeadingClass,
 } from "./shared/cuentasAntarixStyles";
 import type { UserModalTab, WialonUnitSearchEntry, WialonUserRow } from "./shared/wialonTypes";
 import { unitEntryMatchesQuery } from "./shared/cuentasAntarixSearch";
+import { guardarSnapshot, leerSnapshot } from "./shared/cuentasAntarixSnapshot";
+import {
+  CAA_FILTROS_DEFAULT,
+  agruparCuentas,
+  agruparUnidades,
+  esBloqueada,
+  filtrosActivos,
+  pasaFiltros,
+  unidadesDe,
+  type CaaFiltros,
+} from "./shared/cuentasAntarixFiltros";
+import CuentasAntarixFiltersPopover, { type CaaFiltroConteos } from "./list/CuentasAntarixFiltersPopover";
+import CuentasAntarixDirectoryHeader, { type CaaResumenItem } from "./list/CuentasAntarixDirectoryHeader";
+import { SECCION_TONE, UNIDAD_SECCION_TONE } from "./shared/cuentasAntarixTonos";
 import CuentasAntarixUsersTable from "./list/CuentasAntarixUsersTable";
 import CuentasAntarixUnitsTable from "./list/CuentasAntarixUnitsTable";
 import CuentasAntarixUsersMobileList from "./list/CuentasAntarixUsersMobileList";
@@ -44,21 +56,26 @@ const uiValueMuted = "text-sm font-normal leading-snug text-[#52525B] dark:text-
 const uiCaption = "text-xs font-normal leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]";
 const uiCardTitle = "text-base font-semibold leading-snug tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]";
 const pageInnerClass = caaPageInnerClass;
-const viewTabClass = caaViewTabClass;
 
 type DirectoryView = "cuentas" | "unidades";
 
 export default function CuentasAntarixPage() {
   const { canView, canEdit, isAuthenticated, authLoading } = useCuentasAntarixPermissions();
+  const { user } = useAuth();
+  const snapshotKey = user?.id ?? user?.username ?? null;
 
   const [rows, setRows] = useState<WialonUserRow[]>([]);
   const [unitSearchIndex, setUnitSearchIndex] = useState<WialonUnitSearchEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  /** Refresco silencioso en curso (se ve la lista anterior mientras llega la nueva). */
+  const [syncing, setSyncing] = useState(false);
+  const staleRetryRef = useRef(0);
   const [unitIndexLoading, setUnitIndexLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [activeView, setActiveView] = useState<DirectoryView>("cuentas");
+  const [filtros, setFiltros] = useState<CaaFiltros>(CAA_FILTROS_DEFAULT);
   const [alert, setAlert] = useState<{
     show: boolean;
     variant: "success" | "error" | "warning" | "info";
@@ -92,17 +109,24 @@ export default function CuentasAntarixPage() {
     }
   };
 
-  const loadUsers = async (forceRefresh = false): Promise<boolean> => {
-    const showFullPageLoader = rows.length === 0;
+  /**
+   * `silent`: ya hay datos en pantalla (caché de sesión o carga previa); se
+   * refresca sin esqueletos ni bloquear la lista.
+   */
+  const loadUsers = async (forceRefresh = false, silent = false): Promise<boolean> => {
+    const showFullPageLoader = !silent && rows.length === 0;
     if (showFullPageLoader) setLoading(true);
     if (forceRefresh && !showFullPageLoader) setRefreshing(true);
-    setUnitIndexLoading(true);
+    if (silent) setSyncing(true);
+    else setUnitIndexLoading(true);
     setError("");
     try {
       const url = forceRefresh ? "/api/wialon/usuarios/?refresh=1" : "/api/wialon/usuarios/";
       const res = await fetchApi(url, { method: "GET", cache: "no-store" as RequestCache });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
+        // En un refresco silencioso se conserva lo que ya se ve.
+        if (silent) return false;
         setRows([]);
         if (res.status === 401) {
           setError("Sesión expirada o no válida. Vuelve a iniciar sesión.");
@@ -131,8 +155,17 @@ export default function CuentasAntarixPage() {
       } else {
         await loadUnitSearchIndex(forceRefresh);
       }
+      // El servidor respondió con datos vencidos y los está refrescando: volver
+      // a pedir en unos segundos, en silencio (máximo dos veces seguidas).
+      if (data?.stale === true && staleRetryRef.current < 2) {
+        staleRetryRef.current += 1;
+        window.setTimeout(() => void loadUsersRef.current(false, true), 12000);
+      } else if (data?.stale !== true) {
+        staleRetryRef.current = 0;
+      }
       return true;
     } catch {
+      if (silent) return false;
       setRows([]);
       setUnitSearchIndex([]);
       setError("No se pudo conectar con el servidor.");
@@ -140,23 +173,43 @@ export default function CuentasAntarixPage() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setSyncing(false);
       setUnitIndexLoading(false);
     }
   };
+  const loadUsersRef = useRef(loadUsers);
+  loadUsersRef.current = loadUsers;
 
+  // Al entrar: pinta al instante la última lista de esta sesión (si hay) y
+  // refresca en segundo plano; sin caché, carga normal con esqueleto.
   useEffect(() => {
     if (authLoading || !isAuthenticated || !canView) return;
-    void loadUsers();
-    // loadUsers reads `rows` for a show-full-loader heuristic; including it
-    // in deps would cause an infinite loop — this is intentional.
+    const snap = leerSnapshot(snapshotKey);
+    if (snap && snap.users.length > 0) {
+      setRows(snap.users);
+      setUnitSearchIndex(snap.units);
+      setLoading(false);
+      setUnitIndexLoading(false);
+      void loadUsersRef.current(false, true);
+      return;
+    }
+    void loadUsersRef.current();
+  }, [authLoading, isAuthenticated, canView, snapshotKey]);
+
+  // La lista de cuentas ya trae el índice de unidades; solo se pide aparte si
+  // faltara (sin forzar a Wialon: eso invalidaba todas las cachés, ~13 s).
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !canView) return;
+    if (activeView !== "unidades" || unitSearchIndex.length > 0 || loading) return;
+    void loadUnitSearchIndex(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, isAuthenticated, canView]);
+  }, [activeView, authLoading, isAuthenticated, canView, loading]);
 
+  // Guarda lo último que se ve (incluye ediciones hechas desde el modal).
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !canView) return;
-    if (activeView !== "unidades") return;
-    void loadUnitSearchIndex(true);
-  }, [activeView, authLoading, isAuthenticated, canView]);
+    if (loading || rows.length === 0) return;
+    guardarSnapshot(snapshotKey, rows, unitSearchIndex);
+  }, [rows, unitSearchIndex, loading, snapshotKey]);
 
   const activosCount = useMemo(() => rows.filter((r) => r.status === "Activo").length, [rows]);
   const activeUnitsCount = useMemo(
@@ -178,24 +231,10 @@ export default function CuentasAntarixPage() {
     );
   }, [search, unitSearchIndex]);
 
-  const { filteredRows, matchedUnitsByUser } = useMemo(() => {
+  // Cuentas que coinciden con la búsqueda (por datos de la cuenta o por sus unidades).
+  const { buscadas, matchedUnitsByUser } = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const byBlockedFirst = (list: WialonUserRow[]) =>
-      [...list].sort((a, b) => {
-        const aBlocked = a.status === "Bloqueado" ? 0 : 1;
-        const bBlocked = b.status === "Bloqueado" ? 0 : 1;
-        if (aBlocked !== bBlocked) return aBlocked - bBlocked;
-        return (a.name || a.user_id || "").localeCompare(b.name || b.user_id || "", "es", {
-          sensitivity: "base",
-        });
-      });
-
-    if (!q) {
-      return {
-        filteredRows: byBlockedFirst(rows),
-        matchedUnitsByUser: new Map<number, string[]>(),
-      };
-    }
+    if (!q) return { buscadas: rows, matchedUnitsByUser: new Map<number, string[]>() };
 
     const matchedUnitsByUser = new Map<number, string[]>();
     const userIdsFromUnits = new Set<number>();
@@ -214,27 +253,67 @@ export default function CuentasAntarixPage() {
       }
     }
 
-    const filteredRows = byBlockedFirst(
-      rows.filter((r) => {
-        const accountHaystack = [
-          r.user_id,
-          r.name,
-          r.creator,
-          r.parent_account,
-          r.dealer_rights,
-          r.status,
-          r.blocked,
-          String(r.assigned_units),
-        ]
-          .join(" ")
-          .toLowerCase();
-        if (accountHaystack.includes(q)) return true;
-        return userIdsFromUnits.has(Number(r.wialon_id));
-      }),
-    );
+    const buscadas = rows.filter((r) => {
+      const accountHaystack = [
+        r.user_id,
+        r.name,
+        r.creator,
+        r.parent_account,
+        r.dealer_rights,
+        r.status,
+        r.blocked,
+        String(r.assigned_units),
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (accountHaystack.includes(q)) return true;
+      return userIdsFromUnits.has(Number(r.wialon_id));
+    });
 
-    return { filteredRows, matchedUnitsByUser };
+    return { buscadas, matchedUnitsByUser };
   }, [rows, search, unitSearchIndex]);
+
+  // Filtros del botón y secciones: Bloqueadas → Sin unidades → Con unidades.
+  const filteredRows = useMemo(() => buscadas.filter((r) => pasaFiltros(r, filtros)), [buscadas, filtros]);
+  const secciones = useMemo(() => agruparCuentas(filteredRows), [filteredRows]);
+  const seccionesUnidades = useMemo(() => agruparUnidades(filteredUnits), [filteredUnits]);
+
+  // Franja de resumen del encabezado (todas las secciones, aunque estén en cero).
+  const resumen = useMemo<CaaResumenItem[]>(() => {
+    if (activeView === "unidades") {
+      const n = (k: string) => seccionesUnidades.find((x) => x.key === k)?.rows.length ?? 0;
+      return [
+        { key: "inactivas", label: "Inactivas", count: n("inactivas"), tone: UNIDAD_SECCION_TONE.inactivas },
+        { key: "sin_cuenta", label: "Sin cuenta", count: n("sin_cuenta"), tone: UNIDAD_SECCION_TONE.sin_cuenta },
+        { key: "activas", label: "Activas", count: n("activas"), tone: UNIDAD_SECCION_TONE.activas },
+      ];
+    }
+    const n = (k: string) => secciones.find((x) => x.key === k)?.rows.length ?? 0;
+    return [
+      { key: "bloqueadas", label: "Bloqueadas", count: n("bloqueadas"), tone: SECCION_TONE.bloqueadas },
+      { key: "sin_unidades", label: "Sin unidades", count: n("sin_unidades"), tone: SECCION_TONE.sin_unidades },
+      { key: "con_unidades", label: "Con unidades", count: n("con_unidades"), tone: SECCION_TONE.con_unidades },
+    ];
+  }, [activeView, secciones, seccionesUnidades]);
+  const nFiltros = filtrosActivos(filtros);
+
+  // Conteos del panel de filtros (sobre lo que coincide con la búsqueda).
+  const conteosFiltro = useMemo<CaaFiltroConteos>(() => {
+    let bloqueadas = 0;
+    let sin = 0;
+    let distribuidores = 0;
+    for (const r of buscadas) {
+      if (esBloqueada(r)) bloqueadas += 1;
+      if (unidadesDe(r) === 0) sin += 1;
+      if (r.dealer_rights === "Sí") distribuidores += 1;
+    }
+    const total = buscadas.length;
+    return {
+      estado: { todas: total, activas: total - bloqueadas, bloqueadas },
+      unidades: { todas: total, con: total - sin, sin },
+      distribuidores,
+    };
+  }, [buscadas]);
 
   const showAlert = (
     variant: "success" | "error" | "warning" | "info",
@@ -436,6 +515,9 @@ export default function CuentasAntarixPage() {
               }
             />
           </div>
+          {activeView === "cuentas" ? (
+            <CuentasAntarixFiltersPopover filtros={filtros} onChange={setFiltros} conteos={conteosFiltro} />
+          ) : null}
           <button
             type="button"
             onClick={() => void handleRefresh()}
@@ -481,57 +563,16 @@ export default function CuentasAntarixPage() {
           className={cn("min-w-0 [&>div:first-child]:hidden", erpCardShellClass)}
           compact
         >
-          {/* Directory header + view tabs */}
-          <div className="mb-4 flex flex-col gap-3 border-b border-[#E7E7EA] pb-4 dark:border-[#273244] sm:flex-row sm:items-end sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <p className={caaEyebrowClass}>Directorio</p>
-              <h2 className={cn("mt-1", erpSectionHeadingClass)}>
-                {activeView === "unidades" ? "Unidades Wialon" : "Usuarios Wialon"}
-              </h2>
-              <p className={cn("mt-1", uiCaption)}>
-                {activeView === "unidades"
-                  ? "Todas las unidades de la flota. Abre una para editar ficha, SIM y accesos desde su cuenta."
-                  : "Cada fila es una cuenta. Abre la ficha para editar datos, flota y accesos."}
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-              {/* Tabs — full-width grid on mobile, auto on sm+ */}
-              <div
-                className={cn(caaViewTabTrackClass, "grid w-full grid-cols-2 sm:w-auto sm:flex")}
-                role="tablist"
-                aria-label="Vista del directorio"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeView === "cuentas"}
-                  onClick={() => setActiveView("cuentas")}
-                  className={cn(viewTabClass(activeView === "cuentas"), "min-h-[44px]")}
-                >
-                  Cuentas
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeView === "unidades"}
-                  onClick={() => setActiveView("unidades")}
-                  className={cn(viewTabClass(activeView === "unidades"), "min-h-[44px]")}
-                >
-                  Unidades
-                </button>
-              </div>
-              {activeView === "cuentas" && !loading && !error ? (
-                <p className={caaCountPillClass}>
-                  {filteredRows.length} de {rows.length}
-                </p>
-              ) : null}
-              {activeView === "unidades" && !unitIndexLoading ? (
-                <p className={caaCountPillClass}>
-                  {filteredUnits.length} de {unitSearchIndex.length}
-                </p>
-              ) : null}
-            </div>
-          </div>
+          <CuentasAntarixDirectoryHeader
+            view={activeView}
+            onViewChange={setActiveView}
+            totales={{ cuentas: rows.length, unidades: unitSearchIndex.length }}
+            mostrando={activeView === "unidades" ? filteredUnits.length : filteredRows.length}
+            total={activeView === "unidades" ? unitSearchIndex.length : rows.length}
+            resumen={resumen}
+            cargando={activeView === "unidades" ? unitIndexLoading && unitSearchIndex.length === 0 : loading}
+            syncing={syncing}
+          />
 
           {/* Cuentas panel */}
           {activeView === "cuentas" ? (
@@ -551,18 +592,29 @@ export default function CuentasAntarixPage() {
                 </p>
               </div>
             ) : filteredRows.length === 0 ? (
-              <div className={caaEmptyPanelClass}>
+              <div className={cn(caaEmptyPanelClass, "cot-fade")}>
                 <p className={uiCardTitle}>Sin resultados</p>
                 <p className={cn("mt-1", uiCaption)}>
-                  No hay cuentas ni unidades que coincidan con la búsqueda.
+                  {nFiltros > 0
+                    ? "Ninguna cuenta coincide con los filtros elegidos."
+                    : "No hay cuentas ni unidades que coincidan con la búsqueda."}
                 </p>
+                {nFiltros > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setFiltros(CAA_FILTROS_DEFAULT)}
+                    className="cot-press mt-4 inline-flex h-9 items-center rounded-[10px] border border-[#E7E7EA] bg-white px-4 text-[13px] font-semibold text-[#09090B] hover:border-[#D3D3D8] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#F8FAFC]"
+                  >
+                    Restablecer filtros
+                  </button>
+                ) : null}
               </div>
             ) : (
               <>
                 {/* Mobile cards — visible below lg */}
-                <div className="space-y-3 lg:hidden">
+                <div className="lg:hidden">
                   <CuentasAntarixUsersMobileList
-                    rows={filteredRows}
+                    secciones={secciones}
                     canEdit={canEdit}
                     search={search}
                     matchedUnitsByUser={search.trim() ? matchedUnitsByUser : undefined}
@@ -572,7 +624,7 @@ export default function CuentasAntarixPage() {
                 {/* Desktop table — visible from lg */}
                 <div className="hidden min-w-0 overflow-x-auto touch-pan-x lg:block">
                   <CuentasAntarixUsersTable
-                    rows={filteredRows}
+                    secciones={secciones}
                     canEdit={canEdit}
                     matchedUnitsByUser={search.trim() ? matchedUnitsByUser : undefined}
                     onEdit={openEditUser}
@@ -602,7 +654,7 @@ export default function CuentasAntarixPage() {
               {/* Mobile cards — visible below lg */}
               <div className="space-y-3 lg:hidden">
                 <CuentasAntarixUnitsMobileList
-                  rows={filteredUnits}
+                  secciones={seccionesUnidades}
                   canEdit={canEdit}
                   onOpen={openUnitEntry}
                 />
@@ -610,7 +662,7 @@ export default function CuentasAntarixPage() {
               {/* Desktop table — visible from lg */}
               <div className="hidden min-w-0 overflow-x-auto touch-pan-x lg:block">
                 <CuentasAntarixUnitsTable
-                  rows={filteredUnits}
+                  secciones={seccionesUnidades}
                   canEdit={canEdit}
                   onOpen={openUnitEntry}
                 />

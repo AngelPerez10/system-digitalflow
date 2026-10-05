@@ -116,6 +116,74 @@
     animation-name: eq-today-bar !important;
   }
 
+  /*
+   * Barra de mando (búsqueda + acciones). El halo de foco es solo borde y
+   * sombra de un elemento; los íconos se mueven con `transform` al pasar el
+   * cursor (cada uno con un gesto propio, 2 px o unos grados como máximo).
+   */
+  .eq-cmdbar {
+    transition:
+      border-color 180ms ease-out,
+      box-shadow 220ms ease-out;
+  }
+  .eq-search .eq-kbd {
+    transition: opacity 150ms ease-out, transform 150ms ease-out;
+  }
+  .eq-search:focus-within .eq-kbd {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  .eq-tool [data-eq-icon] {
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .eq-tool:hover [data-eq-icon="filtros"] {
+    transform: translateX(1px);
+  }
+  .eq-tool:hover [data-eq-icon="bandeja"] {
+    transform: translateY(-1.5px);
+  }
+  .eq-tool:hover [data-eq-icon="reporte"] {
+    transform: translateY(1.5px);
+  }
+  .eq-tool:hover [data-eq-icon="historial"] {
+    transform: rotate(-28deg);
+  }
+  html.theme-changing .eq-cmdbar {
+    animation-name: eq-row-in !important;
+  }
+
+  /*
+   * Modal «Sin asignar»: el indicador del filtro se mueve con `transform`
+   * (sin medir ni reflujo).
+   */
+  .eq-seg-pill {
+    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .eq-toast-in {
+    animation: eq-toast-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* Fila recién asignada: sale hacia la derecha antes de quitarse de la cola. */
+  .eq-row-out {
+    animation: eq-row-out 200ms cubic-bezier(0.4, 0, 1, 1) both;
+    pointer-events: none;
+  }
+  /* Casilla de selección: la palomita entra con un pequeño rebote (solo transform). */
+  .eq-tick {
+    transition:
+      transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 120ms ease-out;
+  }
+  .eq-check-draw {
+    stroke-dasharray: 24;
+    animation: eq-check-draw 360ms 80ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  html.theme-changing .eq-toast-in {
+    animation-name: eq-toast-in !important;
+  }
+  html.theme-changing .eq-check-draw {
+    animation-name: eq-check-draw !important;
+  }
+
   /* Marca de «hoy» en el encabezado: se dibuja de izquierda a derecha. */
   .eq-today-bar {
     transform-origin: left center;
@@ -261,6 +329,33 @@
   }
   100% {
     transform: none;
+  }
+}
+
+@keyframes eq-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes eq-row-out {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+@keyframes eq-check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
   }
 }
 

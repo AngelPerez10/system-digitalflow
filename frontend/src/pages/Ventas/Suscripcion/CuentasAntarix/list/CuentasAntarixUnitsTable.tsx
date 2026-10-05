@@ -1,163 +1,154 @@
+/**
+ * Tabla de unidades (escritorio), agrupada en secciones: Inactivas →
+ * Sin cuenta → Activas. Mismo lenguaje que la tabla de cuentas: mosaico de
+ * color por sección, etiquetas suaves y entrada escalonada (`caa-row-in`,
+ * solo transform/opacity).
+ */
+import type { CSSProperties } from "react";
+import { Car, Pencil, Phone } from "lucide-react";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  caaEmptyCellClass,
-  caaStatusBadgeClass,
-  caaTableBodyClass,
-  caaTdCellClass,
-  caaThCellClass,
-  erpRowActionBarClass,
-  erpRowActionBtnClass,
-  erpSansStyle,
-  erpTableHeaderClass,
-  erpTableRowHoverClass,
-  erpTableWrapClass,
-} from "../shared/cuentasAntarixStyles";
 import { cn } from "@/lib/utils";
+import { caaEmptyCellClass, caaTdCellClass, caaThCellClass, erpSansStyle, erpTableHeaderClass, erpTableWrapClass } from "../shared/cuentasAntarixStyles";
+import { unidadActiva, type CaaUnidadSeccion } from "../shared/cuentasAntarixFiltros";
+import { UNIDAD_SECCION_TONE } from "../shared/cuentasAntarixTonos";
 import type { WialonUnitSearchEntry } from "../shared/wialonTypes";
-
-function ownersLabel(entry: WialonUnitSearchEntry): string {
-  if (!entry.users?.length) return "Sin cuenta";
-  return entry.users
-    .map((u) => u.name || u.user_id || `ID ${u.wialon_id}`)
-    .filter(Boolean)
-    .join(" · ");
-}
-
-function unitStatusLabel(entry: WialonUnitSearchEntry): string {
-  if (entry.status === "Activo" || entry.status === "Inactivo") return entry.status;
-  if (entry.is_active === true) return "Activo";
-  if (entry.is_active === false) return "Inactivo";
-  return entry.status?.trim() || "—";
-}
-
-function UnitStatusBadge({ entry }: { entry: WialonUnitSearchEntry }) {
-  const status = unitStatusLabel(entry);
-  const kind = status === "Activo" ? "ok" : status === "Inactivo" ? "bad" : "neutral";
-  return <span className={caaStatusBadgeClass(kind)}>{status}</span>;
-}
+import { CaaSeccionHeader, CaaUnidadEstado } from "./CuentasAntarixBadges";
+import { CaaUnitOwners } from "./CuentasAntarixUnitOwners";
 
 type Props = {
-  rows: WialonUnitSearchEntry[];
+  secciones: CaaUnidadSeccion[];
   canEdit?: boolean;
   onOpen: (entry: WialonUnitSearchEntry) => void;
 };
 
-export default function CuentasAntarixUnitsTable({ rows, canEdit = true, onOpen }: Props) {
+const COLS = 6;
+
+export default function CuentasAntarixUnitsTable({ secciones, canEdit = true, onOpen }: Props) {
+  let i = 0;
   return (
     <div className="min-w-0" style={erpSansStyle}>
       <div className={erpTableWrapClass}>
         <Table className="w-full min-w-[960px] lg:min-w-full">
           <TableHeader className={erpTableHeaderClass}>
             <TableRow>
-              <TableCell isHeader className={cn(caaThCellClass, "min-w-[220px]")}>
+              <TableCell isHeader className={cn(caaThCellClass, "min-w-[240px] py-2.5 pl-4")}>
                 Unidad
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[104px] text-center")}>
+              <TableCell isHeader className={cn(caaThCellClass, "w-[130px] py-2.5")}>
                 Estado
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[170px]")}>
-                UID / IMEI
+              <TableCell isHeader className={cn(caaThCellClass, "w-[210px] py-2.5")}>
+                Equipo
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[130px]")}>
-                Teléfono
-              </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "min-w-[200px]")}>
+              <TableCell isHeader className={cn(caaThCellClass, "min-w-[220px] py-2.5")}>
                 Cuentas
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "min-w-[160px]")}>
+              <TableCell isHeader className={cn(caaThCellClass, "min-w-[160px] py-2.5")}>
                 Campos
               </TableCell>
-              <TableCell isHeader className={cn(caaThCellClass, "w-[90px] text-center")}>
-                Acción
+              <TableCell isHeader className={cn(caaThCellClass, "w-[72px] py-2.5 pr-4 text-right")}>
+                <span className="sr-only">Acciones</span>
               </TableCell>
             </TableRow>
           </TableHeader>
-          <TableBody className={caaTableBodyClass}>
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-3 py-8 text-center text-[#6E6E77] dark:text-[#8EA0B8]">
-                  Sin unidades
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((entry) => {
-                const owners = ownersLabel(entry);
-                return (
-                  <TableRow key={entry.unit_id} className={erpTableRowHoverClass}>
-                    <TableCell className={cn(caaTdCellClass, "min-w-[220px] max-w-[320px]")}>
-                      {canEdit ? (
-                        <button
-                          type="button"
-                          onClick={() => onOpen(entry)}
-                          className="block max-w-full truncate text-left font-medium text-[#09090B] transition-colors hover:text-[#1B5CFF] focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:text-[#F8FAFC] dark:hover:text-[#4B7CFF]"
-                          title={entry.name || "Sin nombre"}
-                        >
-                          {entry.name || "Sin nombre"}
-                        </button>
-                      ) : (
-                        <span className="block truncate font-medium text-[#09090B] dark:text-[#F8FAFC]" title={entry.name || "Sin nombre"}>
-                          {entry.name || "Sin nombre"}
-                        </span>
+
+          {secciones.map((s) => {
+            const tone = UNIDAD_SECCION_TONE[s.key];
+            return (
+              <TableBody key={s.key} className="bg-white text-[12.5px] text-[#3F3F46] dark:bg-[#111827] dark:text-[#D6DEEA]">
+                <TableRow>
+                  <TableCell colSpan={COLS} className={cn("border-y border-[#EDEDF0] px-4 py-2.5 dark:border-[#1F2A3C]", tone.band)}>
+                    <span id={`caa-sec-${s.key}`} className="block scroll-mt-24">
+                      <CaaSeccionHeader seccion={s} tone={tone} />
+                    </span>
+                  </TableCell>
+                </TableRow>
+                {s.rows.map((entry) => {
+                  const nombre = entry.name || "Sin nombre";
+                  return (
+                    <TableRow
+                      key={entry.unit_id}
+                      style={{ "--caa-i": i++ } as CSSProperties}
+                      className={cn(
+                        "caa-row-in group/row border-b border-[#F1F1F3] transition-colors duration-150 last:border-b-0 hover:bg-[#FAFAFB] dark:border-[#1A2335] dark:hover:bg-white/[0.025]",
+                        canEdit && "cursor-pointer",
                       )}
-                      <span className="mt-0.5 block truncate font-mono text-[11px] tabular-nums text-[#1B5CFF] dark:text-[#4B7CFF]">
-                        ID {entry.unit_id}
-                      </span>
-                    </TableCell>
+                      onClick={canEdit ? () => onOpen(entry) : undefined}
+                    >
+                      <TableCell className={cn(caaTdCellClass, "py-3 pl-4")}>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={cn("inline-flex size-9 shrink-0 items-center justify-center rounded-[12px]", tone.tile)} aria-hidden>
+                            <Car className="size-4" />
+                          </span>
+                          <div className="min-w-0">
+                            {canEdit ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpen(entry);
+                                }}
+                                className="block max-w-full truncate text-left text-[13.5px] font-semibold text-[#09090B] transition-colors duration-150 hover:text-[#1B5CFF] focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:text-[#F8FAFC] dark:hover:text-[#7EA0FF]"
+                                title={nombre}
+                              >
+                                {nombre}
+                              </button>
+                            ) : (
+                              <span className="block truncate text-[13.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]" title={nombre}>
+                                {nombre}
+                              </span>
+                            )}
+                            <span className="mt-0.5 block font-mono text-[11.5px] tabular-nums text-[#8A8A93] dark:text-[#7F8DAB]">ID {entry.unit_id}</span>
+                          </div>
+                        </div>
+                      </TableCell>
 
-                    <TableCell className={cn(caaTdCellClass, "w-[104px] text-center")}>
-                      <UnitStatusBadge entry={entry} />
-                    </TableCell>
+                      <TableCell className={cn(caaTdCellClass, "py-3")}>
+                        <CaaUnidadEstado activa={unidadActiva(entry)} />
+                      </TableCell>
 
-                    <TableCell className={cn(caaTdCellClass, "w-[170px]")}>
-                      <span className="block max-w-[170px] truncate font-mono text-[12px] tabular-nums text-[#52525B] dark:text-[#B7C1D1]">
-                        {entry.uid?.trim() ? entry.uid : <span className={caaEmptyCellClass}>—</span>}
-                      </span>
-                    </TableCell>
+                      <TableCell className={cn(caaTdCellClass, "py-3")}>
+                        <span className="block max-w-[200px] truncate font-mono text-[12px] tabular-nums text-[#27272A] dark:text-[#E2E8F0]" title={entry.uid || undefined}>
+                          {entry.uid?.trim() ? entry.uid : <span className={cn(caaEmptyCellClass, "font-sans")}>Sin IMEI</span>}
+                        </span>
+                        <span className="mt-0.5 inline-flex items-center gap-1 font-mono text-[11.5px] tabular-nums text-[#8A8A93] dark:text-[#7F8DAB]">
+                          <Phone className="size-3 shrink-0" aria-hidden />
+                          {entry.phone?.trim() ? entry.phone : <span className="font-sans">Sin SIM</span>}
+                        </span>
+                      </TableCell>
 
-                    <TableCell className={cn(caaTdCellClass, "w-[130px] font-mono text-[12px] tabular-nums")}>
-                      {entry.phone?.trim() ? entry.phone : <span className={caaEmptyCellClass}>—</span>}
-                    </TableCell>
+                      <TableCell className={cn(caaTdCellClass, "max-w-[280px] py-3")}>
+                        <CaaUnitOwners users={entry.users} />
+                      </TableCell>
 
-                    <TableCell className={cn(caaTdCellClass, "min-w-[200px] max-w-[280px]")}>
-                      <span className="block line-clamp-2 leading-snug" title={owners}>
-                        {owners}
-                      </span>
-                    </TableCell>
+                      <TableCell className={cn(caaTdCellClass, "max-w-[240px] py-3")}>
+                        <span className="block line-clamp-2 leading-snug text-[#71717A] dark:text-[#8EA0B8]" title={entry.custom_fields || undefined}>
+                          {entry.custom_fields?.trim() ? entry.custom_fields : <span className={caaEmptyCellClass}>—</span>}
+                        </span>
+                      </TableCell>
 
-                    <TableCell className={cn(caaTdCellClass, "min-w-[160px] max-w-[240px]")}>
-                      <span
-                        className="block line-clamp-2 leading-snug text-[#6E6E77] dark:text-[#8EA0B8]"
-                        title={entry.custom_fields || undefined}
-                      >
-                        {entry.custom_fields?.trim() ? entry.custom_fields : <span className={caaEmptyCellClass}>—</span>}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className={cn(caaTdCellClass, "w-[90px] text-center")}>
-                      {canEdit ? (
-                        <div className={cn(erpRowActionBarClass, "mx-auto w-fit")}>
+                      <TableCell className={cn(caaTdCellClass, "py-3 pr-4 text-right")}>
+                        {canEdit ? (
                           <button
                             type="button"
-                            onClick={() => onOpen(entry)}
-                            className={erpRowActionBtnClass}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpen(entry);
+                            }}
+                            className="cot-press inline-flex size-8 items-center justify-center rounded-[9px] text-[#A1A1AA] opacity-70 hover:bg-[#EEF3FF] hover:text-[#1B5CFF] group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.3)] dark:hover:bg-[#1B2A63]/60 dark:hover:text-[#9BB6FF]"
                             title="Abrir unidad"
                             aria-label={`Abrir unidad ${entry.name || entry.uid || entry.unit_id}`}
                           >
-                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                              <path d="M12 20h9" />
-                              <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                            </svg>
+                            <Pencil className="size-4" aria-hidden />
                           </button>
-                        </div>
-                      ) : (
-                        <span className={caaEmptyCellClass}>—</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            );
+          })}
         </Table>
       </div>
     </div>
