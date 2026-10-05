@@ -498,9 +498,13 @@ export default function CuentasAntarixPage() {
           </div>
         </header>
 
-        {/* Search + filtros + actualizar */}
-        <div className="flex flex-col gap-2.5 sm:gap-3">
-          <div className="relative w-full min-w-0">
+        {/* Search + filtros + actualizar (acciones agrupadas, no estiradas) */}
+        <div
+          className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
+          role="toolbar"
+          aria-label="Buscar y actualizar cuentas"
+        >
+          <div className="relative w-full min-w-0 sm:min-w-[min(100%,18rem)] sm:flex-1 md:min-w-[min(100%,22rem)]">
             <svg
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E6E77] dark:text-[#64748b]"
               viewBox="0 0 20 20"
@@ -534,8 +538,10 @@ export default function CuentasAntarixPage() {
           </div>
           <div
             className={cn(
-              "grid gap-2.5 sm:flex sm:flex-wrap sm:items-center sm:gap-3",
-              activeView === "cuentas" ? "grid-cols-2" : "grid-cols-1",
+              "shrink-0 gap-2.5",
+              activeView === "cuentas"
+                ? "grid w-full grid-cols-2 sm:flex sm:w-auto"
+                : "flex w-full sm:w-auto",
             )}
           >
             {activeView === "cuentas" ? (
@@ -547,7 +553,7 @@ export default function CuentasAntarixPage() {
               disabled={loading || refreshing}
               aria-busy={loading || refreshing}
               aria-label="Actualizar datos desde Wialon"
-              className={cn(erpPrimaryBtnClass, "w-full shrink-0 sm:ml-auto sm:w-auto")}
+              className={cn(erpPrimaryBtnClass, "min-w-0")}
             >
               <svg
                 className={cn(
