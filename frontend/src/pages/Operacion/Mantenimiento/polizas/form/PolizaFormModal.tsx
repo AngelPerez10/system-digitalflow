@@ -1,39 +1,57 @@
 /**
- * Alta / edición de póliza.
- *
- * Formato de hoja de ajustes: cada sección lleva su título y explicación a la
- * izquierda y los campos a la derecha (apilado en móvil). Cabecera blanca con
- * una barra fina de avance; pie fijo con el estado y las acciones.
- *
- * Movimiento: secciones con entrada escalonada (`cot-rise`), barra de avance con
- * `scaleX` (`cot-bar`) y palomita al completar una sección (`cot-tick`). Solo
- * transform/opacity; nada con prefers-reduced-motion.
+ * Alta / edición de póliza: asistente de 3 pasos con el diseño del modal de
+ * Órdenes (ver `MantenimientoFormShell`). Al guardar con datos faltantes se
+ * salta al primer paso con error y se enfoca el campo.
  */
-import { useEffect, useId, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
-import { Check, Loader2, X } from "lucide-react";
-import { Modal } from "@/components/ui/modal";
-import SearchableSelect from "@/components/form/SearchableSelect";
-import {
-  polErrorClass,
-  polInputClass,
-  polLabelClass,
-  polPrimaryBtnClass,
-  polSansStyle,
-  polSecondaryBtnClass,
-} from "../shared/polizaStyles";
+import { useEffect, useId, useState } from "react";
+import { Building2, CalendarRange, FilePlus2, FileSignature, FileText, RefreshCw, ShieldCheck, Wrench, X } from "lucide-react";
+import { OrdenFormSection } from "../../../OrdenesTrabajo/OrdenServicio/form/tabs/ordenTabHelpers";
+import MantenimientoFormShell, { type MantenimientoFormStep } from "../../form/MantenimientoFormShell";
+import { Field, SectionCard } from "../../../Proyectos/shared/ProyectoUi";
+import { formatFechaCorta } from "../../../Proyectos/shared/proyectoListUtils";
+import { btn, btnSm, emptyPanel, fieldError, focusRing, iconBtnDanger, input, metaChip, origenChip } from "../../../Proyectos/shared/proyectoTokens";
 import { normalizarVisitas, validarVisitas } from "../shared/polizaVisitas";
 import { listCotizacionesDeCliente, type CotizacionOption } from "../list/polizaApi";
 import { clienteNombreFromOptionLabel } from "../list/polizaClienteOptions";
 import { TIPO_CCTV, TIPO_LABEL } from "../list/polizaEstado";
 import type { PolizaAltaValues } from "../list/polizaListTypes";
 import ClienteComboBox from "./ClienteComboBox";
+import { PolizaCotizacionPickerModal } from "./PolizaCotizacionPickerModal";
 import PolizaPlanificacion from "./PolizaPlanificacion";
+
+type PasoId = "cliente" | "servicio" | "planificacion";
+
+const PASOS: MantenimientoFormStep<PasoId>[] = [
+  {
+    id: "cliente",
+    label: "Cliente",
+    hint: "Cliente y cotización",
+    description: "Elige quién contrata la póliza y la cotización DigitalFlow que la respalda.",
+    icon: Building2,
+  },
+  {
+    id: "servicio",
+    label: "Servicio",
+    hint: "Tipo y equipos",
+    description: "Qué incluye el mantenimiento y qué equipos cubre.",
+    icon: Wrench,
+  },
+  {
+    id: "planificacion",
+    label: "Planificación",
+    hint: "Visitas del año",
+    description: "Cuántas visitas al año y en qué fechas (de 1 a 4).",
+    icon: CalendarRange,
+  },
+];
 
 type SelectOption = { value: string; label: string };
 
 type Props = {
   open: boolean;
   editing: boolean;
+  /** Id de la póliza en edición: su propia cotización no cuenta como «en uso». */
+  polizaId?: number | null;
   folio: string;
   folioIsPreview: boolean;
   initialValues: PolizaAltaValues;
@@ -47,46 +65,18 @@ type Props = {
 type Campo = "cliente" | "cotizacion" | "servicio" | "equipos" | "visitas";
 type Errores = Partial<Record<Campo, string>>;
 
-function Seccion({
-  index,
-  title,
-  description,
-  done,
-  children,
-}: {
-  index: number;
-  title: string;
-  description: string;
-  done: boolean;
-  children: ReactNode;
-}) {
-  const headingId = useId();
-  return (
-    <section
-      aria-labelledby={headingId}
-      className="cot-rise grid gap-4 border-b border-[#EFEFF1] py-7 last:border-b-0 dark:border-[#1F2A3C] lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-10"
-      style={{ "--cot-i": index } as CSSProperties}
-    >
-      <div>
-        <h3 id={headingId} className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">
-          {title}
-          {done ? (
-            <span className="cot-tick inline-flex size-[18px] items-center justify-center rounded-full bg-[#0E9F6E] text-white dark:bg-[#34D399] dark:text-[#052E1C]">
-              <Check className="size-3" strokeWidth={3.5} aria-hidden />
-              <span className="sr-only">(completo)</span>
-            </span>
-          ) : null}
-        </h3>
-        <p className="mt-1 text-[13px] leading-[19px] text-[#6E6E77] dark:text-[#8EA0B8]">{description}</p>
-      </div>
-      <div className="min-w-0">{children}</div>
-    </section>
-  );
-}
+const PASO_DE: Record<Campo, PasoId> = {
+  cliente: "cliente",
+  cotizacion: "cliente",
+  servicio: "servicio",
+  equipos: "servicio",
+  visitas: "planificacion",
+};
 
 export default function PolizaFormModal({
   open,
   editing,
+  polizaId = null,
   folio,
   folioIsPreview,
   initialValues,
@@ -96,7 +86,6 @@ export default function PolizaFormModal({
   onClose,
   onSave,
 }: Props) {
-  const titleId = useId();
   const formId = useId();
   const ids: Record<Campo, string> = {
     cliente: "poliza-elegir-cliente",
@@ -106,6 +95,7 @@ export default function PolizaFormModal({
     visitas: `${formId}-visitas`,
   };
 
+  const [paso, setPaso] = useState<PasoId>("cliente");
   const [clienteId, setClienteId] = useState(initialValues.clienteId);
   const [clienteNombre, setClienteNombre] = useState(
     extraClienteOption?.label ? clienteNombreFromOptionLabel(extraClienteOption.label) : "",
@@ -118,6 +108,7 @@ export default function PolizaFormModal({
 
   const [cotizaciones, setCotizaciones] = useState<CotizacionOption[]>([]);
   const [loadingCot, setLoadingCot] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const extraCotValue = extraCotizacionOption?.value || "";
   const extraCotLabel = extraCotizacionOption?.label || "";
 
@@ -128,12 +119,12 @@ export default function PolizaFormModal({
     }
     let cancelled = false;
     setLoadingCot(true);
-    listCotizacionesDeCliente(clienteId)
+    listCotizacionesDeCliente(clienteId, polizaId)
       .then((rows) => {
         if (cancelled) return;
-        const extra =
+        const extra: CotizacionOption[] =
           extraCotValue && !rows.some((r) => r.value === extraCotValue)
-            ? [{ value: extraCotValue, label: extraCotLabel || extraCotValue }]
+            ? [{ value: extraCotValue, label: extraCotLabel || extraCotValue, folio: extraCotLabel || extraCotValue, fecha: "", status: "", ocupadaPor: "" }]
             : [];
         setCotizaciones([...extra, ...rows]);
       })
@@ -146,24 +137,22 @@ export default function PolizaFormModal({
     return () => {
       cancelled = true;
     };
-  }, [clienteId, extraCotValue, extraCotLabel]);
+  }, [clienteId, polizaId, extraCotValue, extraCotLabel]);
 
-  const listo = {
+  const listo: Record<PasoId, boolean> = {
     cliente: Boolean(clienteId && cotizacionId),
     servicio: Boolean(servicioTipo.trim() && equiposAtendidos.trim()),
-    visitas: validarVisitas(visitas) === null,
+    planificacion: validarVisitas(visitas) === null,
   };
-  const completas = Object.values(listo).filter(Boolean).length;
-  const faltan = [
-    !listo.cliente && "cliente y cotización",
-    !listo.servicio && "servicio",
-    !listo.visitas && "planificación",
-  ].filter(Boolean) as string[];
+  const nVisitas = normalizarVisitas(visitas).length;
+  const cotSel: CotizacionOption | null =
+    cotizaciones.find((c) => c.value === cotizacionId) ||
+    (cotizacionId ? { value: cotizacionId, label: extraCotLabel, folio: extraCotLabel || "Cotización", fecha: "", status: "", ocupadaPor: "" } : null);
+  const cotizacionLabel = cotSel?.folio || "";
 
   const limpiar = (k: Campo) => setErrores((prev) => (prev[k] ? { ...prev, [k]: undefined } : prev));
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const guardar = () => {
     const next: Errores = {
       cliente: clienteId ? undefined : "Elige el cliente de la póliza.",
       cotizacion: cotizacionId ? undefined : "Liga una cotización DigitalFlow.",
@@ -174,9 +163,13 @@ export default function PolizaFormModal({
     setErrores(next);
     const primero = (Object.keys(ids) as Campo[]).find((k) => next[k]);
     if (primero) {
-      const el = document.getElementById(ids[primero]);
-      el?.scrollIntoView({ block: "center", behavior: "smooth" });
-      if (el instanceof HTMLInputElement) el.focus({ preventScroll: true });
+      // Salta al paso del primer error y enfoca el campo cuando ya se muestra.
+      setPaso(PASO_DE[primero]);
+      window.setTimeout(() => {
+        const el = document.getElementById(ids[primero]);
+        el?.scrollIntoView({ block: "center", behavior: "smooth" });
+        if (el instanceof HTMLInputElement) el.focus({ preventScroll: true });
+      }, 80);
       return;
     }
     onSave({
@@ -190,216 +183,196 @@ export default function PolizaFormModal({
     });
   };
 
-  return (
-    <Modal
-      mobileBottomSheet
-      isOpen={open}
-      onClose={() => !saving && onClose()}
-      closeOnBackdropClick={false}
-      closeOnEscape={!saving}
-      showCloseButton={false}
-      ariaLabelledBy={titleId}
-      className="flex max-h-[min(94dvh,960px)] w-full flex-col overflow-hidden rounded-t-[20px] border border-[#E7E7EA] bg-white! p-0 shadow-[0_32px_80px_-24px_rgba(9,9,11,0.4)] dark:border-[#273244] dark:bg-[#111827]! sm:w-[min(96vw,58rem)] sm:max-w-5xl sm:rounded-[20px]"
-    >
-      <div className="flex min-h-0 flex-1 flex-col" style={polSansStyle}>
-        {/* Cabecera */}
-        <header className="relative shrink-0 border-b border-[#E7E7EA] px-5 pb-4 pt-5 dark:border-[#273244] sm:px-8">
-          <div className="flex items-start justify-between gap-4 pr-10">
-            <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]">
-                <span className="font-medium">Póliza de mantenimiento</span>
-                <span className="text-[#D4D4D8] dark:text-[#3A4661]" aria-hidden>
-                  ·
-                </span>
-                <span className="rounded-md bg-[#F4F4F5] px-1.5 py-0.5 font-mono text-[12px] font-semibold text-[#3F3F46] dark:bg-white/[0.06] dark:text-[#CBD5E1]">
-                  {folio}
-                </span>
-                {folioIsPreview ? <span>se asigna al guardar</span> : null}
-              </p>
-              <h2
-                id={titleId}
-                className="mt-1.5 text-[22px] font-semibold leading-tight tracking-[-0.6px] text-[#09090B] dark:text-[#F8FAFC]"
-              >
-                {editing ? "Editar póliza" : "Nueva póliza"}
-              </h2>
+  const panelCliente = (
+    <>
+      <SectionCard id={`${formId}-sec-cliente`} index={0} title="Cliente" icon={<Building2 />} hint="Empresa, persona o proveedor que contrata la póliza.">
+        <ClienteComboBox
+          clienteId={clienteId}
+          extraOption={extraClienteOption?.value ? extraClienteOption : null}
+          error={errores.cliente || ""}
+          onClienteChange={(id, label) => {
+            setClienteId(id);
+            setClienteNombre(clienteNombreFromOptionLabel(label));
+            setCotizacionId("");
+            if (id) limpiar("cliente");
+          }}
+        />
+      </SectionCard>
+
+      <SectionCard
+        id={`${formId}-sec-cotizacion`}
+        index={1}
+        title="Cotización"
+        icon={<FileText />}
+        hint="Respalda la póliza. Cada cotización se usa en una sola póliza."
+        flush
+        actions={
+          cotSel ? (
+            <button type="button" className={`${btn.ghost} ${btnSm}`} onClick={() => setPickerOpen(true)} aria-haspopup="dialog">
+              <RefreshCw aria-hidden />
+              Cambiar
+            </button>
+          ) : null
+        }
+      >
+        {cotSel ? (
+          <div key={cotSel.value} className="cot-fade flex items-start gap-3 px-4 py-3.5 sm:items-center sm:px-5">
+            <span
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF] [&_svg]:size-4"
+              aria-hidden
+            >
+              <FileText />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-mono text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{cotSel.folio}</p>
+                <span className={origenChip.digitalflow}>DigitalFlow</span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {cotSel.fecha ? <span className={metaChip}>{formatFechaCorta(cotSel.fecha)}</span> : null}
+                {cotSel.status ? <span className={metaChip}>{cotSel.status}</span> : null}
+                {clienteNombre ? (
+                  <span className={`${metaChip} max-w-[16rem] truncate`} title={clienteNombre}>
+                    {clienteNombre}
+                  </span>
+                ) : null}
+              </div>
             </div>
+            <button type="button" className={iconBtnDanger} onClick={() => setCotizacionId("")} aria-label={`Quitar cotización ${cotSel.folio}`} title="Quitar">
+              <X aria-hidden />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            aria-label="Cerrar"
-            className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-[10px] text-[#6E6E77] transition-colors hover:bg-[#F4F4F5] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 disabled:opacity-40 dark:text-[#8EA0B8] dark:hover:bg-white/[0.06] dark:hover:text-white sm:right-6"
-          >
-            <X className="size-5" aria-hidden />
-          </button>
-          {/* Avance: 3 tramos */}
-          <div className="absolute inset-x-0 bottom-[-1px] grid grid-cols-3 gap-px" aria-hidden>
-            {[listo.cliente, listo.servicio, listo.visitas].map((ok, i) => (
-              <span key={i} className="h-0.5 overflow-hidden bg-transparent">
-                <span
-                  className="cot-bar block h-full w-full bg-[#1B5CFF] dark:bg-[#4B7CFF]"
-                  style={{ transform: `scaleX(${ok ? 1 : 0})` }}
-                />
+        ) : (
+          <div className="p-4 sm:p-5">
+            <div className={`${emptyPanel} ${errores.cotizacion ? "border-[#F6CFCF]! dark:border-[#7F1D1D]!" : ""}`}>
+              <span className="cot-tick mx-auto mb-3 inline-flex size-12 items-center justify-center rounded-2xl bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]">
+                <FileText className="size-5" aria-hidden />
               </span>
-            ))}
-          </div>
-        </header>
-
-        {/* Cuerpo */}
-        <form
-          id={formId}
-          onSubmit={handleSubmit}
-          noValidate
-          className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 sm:px-8"
-        >
-          <Seccion
-            index={0}
-            title="Cliente"
-            description="Empresa o persona que contrata la póliza y la cotización que la respalda."
-            done={listo.cliente}
-          >
-            <div className="space-y-5">
-              <ClienteComboBox
-                clienteId={clienteId}
-                extraOption={extraClienteOption?.value ? extraClienteOption : null}
-                error={errores.cliente || ""}
-                onClienteChange={(id, label) => {
-                  setClienteId(id);
-                  setClienteNombre(clienteNombreFromOptionLabel(label));
-                  setCotizacionId("");
-                  if (id) limpiar("cliente");
-                }}
-              />
-              <div>
-                <SearchableSelect
-                  id={ids.cotizacion}
-                  label="Cotización"
-                  required
-                  value={cotizacionId}
-                  onChange={(v) => {
-                    setCotizacionId(v);
-                    if (v) limpiar("cotizacion");
-                  }}
-                  options={cotizaciones}
-                  placeholder={
-                    !clienteId
-                      ? "Elige un cliente primero"
-                      : loadingCot
-                        ? "Cargando cotizaciones…"
-                        : cotizaciones.length
-                          ? "Buscar folio"
-                          : "Sin cotizaciones de este cliente"
-                  }
-                  disabled={!clienteId}
-                  loading={loadingCot}
-                  filterLocally
-                  invalid={Boolean(errores.cotizacion)}
-                />
-                {errores.cotizacion ? (
-                  <p className={polErrorClass} role="alert">
-                    {errores.cotizacion}
-                  </p>
-                ) : clienteId && !loadingCot && cotizaciones.length === 0 ? (
-                  <p className="mt-1.5 text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">
-                    Este cliente no tiene cotizaciones DigitalFlow. Créala en Ventas → Cotización.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </Seccion>
-
-          <Seccion
-            index={1}
-            title="Servicio"
-            description={`${TIPO_LABEL.cctv}. Qué incluye el mantenimiento y qué equipos cubre.`}
-            done={listo.servicio}
-          >
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label htmlFor={ids.servicio} className={polLabelClass}>
-                  Tipo de servicio <span className="text-[#C22B2B]" aria-hidden>*</span>
-                </label>
-                <input
-                  id={ids.servicio}
-                  value={servicioTipo}
-                  onChange={(e) => {
-                    setServicioTipo(e.target.value);
-                    if (e.target.value.trim()) limpiar("servicio");
-                  }}
-                  aria-invalid={Boolean(errores.servicio) || undefined}
-                  aria-required
-                  className={polInputClass}
-                  placeholder="Mantenimiento preventivo CCTV"
-                />
-                {errores.servicio ? (
-                  <p className={polErrorClass} role="alert">
-                    {errores.servicio}
-                  </p>
-                ) : null}
-              </div>
-              <div>
-                <label htmlFor={ids.equipos} className={polLabelClass}>
-                  Equipos atendidos <span className="text-[#C22B2B]" aria-hidden>*</span>
-                </label>
-                <input
-                  id={ids.equipos}
-                  value={equiposAtendidos}
-                  onChange={(e) => {
-                    setEquiposAtendidos(e.target.value);
-                    if (e.target.value.trim()) limpiar("equipos");
-                  }}
-                  aria-invalid={Boolean(errores.equipos) || undefined}
-                  aria-required
-                  className={polInputClass}
-                  placeholder="1 DVR y 10 cámaras"
-                />
-                {errores.equipos ? (
-                  <p className={polErrorClass} role="alert">
-                    {errores.equipos}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </Seccion>
-
-          <Seccion
-            index={2}
-            title="Planificación"
-            description="Fechas de los mantenimientos del año."
-            done={listo.visitas}
-          >
-            <PolizaPlanificacion
-              id={ids.visitas}
-              initial={initialValues.visitas}
-              error={errores.visitas}
-              onChange={(next) => {
-                setVisitas(next);
-                if (validarVisitas(next) === null) limpiar("visitas");
-              }}
-            />
-          </Seccion>
-        </form>
-
-        {/* Pie */}
-        <footer className="shrink-0 border-t border-[#E7E7EA] bg-[#FAFAFA] px-5 py-3.5 dark:border-[#273244] dark:bg-[#0F172A]/60 sm:px-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]" aria-live="polite">
-              <span className="font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">{completas}/3</span>{" "}
-              {faltan.length ? `· Falta ${faltan.join(", ")}` : "· Lista para guardar"}
-            </p>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
-              <button type="button" onClick={onClose} disabled={saving} className={polSecondaryBtnClass}>
-                Cancelar
+              <p className="text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">Aún no hay cotización</p>
+              <p className="mx-auto mt-1 max-w-sm text-[13px] text-[#6E6E77] dark:text-[#8EA0B8]">
+                {!clienteId
+                  ? "Elige primero el cliente para ver sus cotizaciones DigitalFlow."
+                  : loadingCot
+                    ? "Buscando las cotizaciones del cliente…"
+                    : cotizaciones.length === 0
+                      ? "Este cliente no tiene cotizaciones DigitalFlow. Créala en Ventas → Cotización."
+                      : `${cotizaciones.filter((c) => !c.ocupadaPor).length} de ${cotizaciones.length} cotizaciones disponibles para este cliente.`}
+              </p>
+              <button
+                id={ids.cotizacion}
+                type="button"
+                className={`${btn.primary} mt-4 ${focusRing}`}
+                onClick={() => setPickerOpen(true)}
+                disabled={!clienteId}
+                aria-haspopup="dialog"
+              >
+                <FilePlus2 aria-hidden />
+                Vincular cotización
               </button>
-              <button type="submit" form={formId} disabled={saving} aria-busy={saving || undefined} className={polPrimaryBtnClass}>
-                {saving ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-                {saving ? "Guardando…" : editing ? "Guardar cambios" : "Crear póliza"}
-              </button>
+              {errores.cotizacion ? (
+                <p className={fieldError} role="alert">
+                  {errores.cotizacion}
+                </p>
+              ) : null}
             </div>
           </div>
-        </footer>
+        )}
+      </SectionCard>
+
+      <PolizaCotizacionPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        clienteNombre={clienteNombre}
+        cotizaciones={cotizaciones}
+        loading={loadingCot}
+        selectedId={cotizacionId}
+        onSelect={(c) => {
+          setCotizacionId(c.value);
+          limpiar("cotizacion");
+          setPickerOpen(false);
+        }}
+      />
+    </>
+  );
+
+  const panelServicio = (
+    <OrdenFormSection title="Alcance del servicio" description={`${TIPO_LABEL.cctv}.`} icon={<FileSignature />}>
+      <div className="grid gap-5 md:grid-cols-2">
+        <Field label="Tipo de servicio" htmlFor={ids.servicio} required error={errores.servicio}>
+          <input
+            id={ids.servicio}
+            value={servicioTipo}
+            onChange={(e) => {
+              setServicioTipo(e.target.value);
+              if (e.target.value.trim()) limpiar("servicio");
+            }}
+            aria-invalid={Boolean(errores.servicio) || undefined}
+            aria-required
+            className={input}
+            placeholder="Mantenimiento preventivo CCTV"
+          />
+        </Field>
+        <Field label="Equipos atendidos" htmlFor={ids.equipos} required error={errores.equipos}>
+          <input
+            id={ids.equipos}
+            value={equiposAtendidos}
+            onChange={(e) => {
+              setEquiposAtendidos(e.target.value);
+              if (e.target.value.trim()) limpiar("equipos");
+            }}
+            aria-invalid={Boolean(errores.equipos) || undefined}
+            aria-required
+            className={input}
+            placeholder="1 DVR y 10 cámaras"
+          />
+        </Field>
       </div>
-    </Modal>
+    </OrdenFormSection>
+  );
+
+  const panelPlanificacion = (
+    <OrdenFormSection
+      title="Calendario de visitas"
+      description="Las fechas se generan solas a partir de la primera; también puedes elegirlas libres."
+      icon={<CalendarRange />}
+    >
+      <PolizaPlanificacion
+        id={ids.visitas}
+        initial={initialValues.visitas}
+        error={errores.visitas}
+        onChange={(next) => {
+          setVisitas(next);
+          if (validarVisitas(next) === null) limpiar("visitas");
+        }}
+      />
+    </OrdenFormSection>
+  );
+
+  return (
+    <MantenimientoFormShell
+      open={open}
+      onClose={onClose}
+      busy={saving}
+      escapeBlocked={pickerOpen}
+      ariaLabel={editing ? `Editar póliza ${folio}` : "Nueva póliza de mantenimiento"}
+      icon={ShieldCheck}
+      kicker="Póliza de mantenimiento"
+      title={editing ? "Editar póliza" : "Nueva póliza"}
+      editing={editing}
+      folio={folio}
+      folioNote={folioIsPreview ? "se asigna al guardar" : undefined}
+      steps={PASOS}
+      active={paso}
+      onActiveChange={setPaso}
+      done={listo}
+      summary={[
+        { label: "Cliente", value: clienteNombre },
+        { label: "Cotización", value: cotizacionLabel },
+        { label: "Visitas", value: listo.planificacion ? `${nVisitas} ${nVisitas === 1 ? "visita" : "visitas"} al año` : "" },
+      ]}
+      panels={{ cliente: panelCliente, servicio: panelServicio, planificacion: panelPlanificacion }}
+      onSubmit={guardar}
+      saveLabel={{ idle: editing ? "Guardar cambios" : "Crear póliza", busy: "Guardando…" }}
+    />
   );
 }

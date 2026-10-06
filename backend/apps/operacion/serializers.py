@@ -885,6 +885,16 @@ class PolizaMantenimientoSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"cotizacion_id": "La cotización no pertenece a este cliente."}
                 )
+        if cotizacion is not None:
+            # Una cotización respalda una sola póliza.
+            otra = PolizaMantenimiento.objects.filter(cotizacion=cotizacion)
+            if instance is not None:
+                otra = otra.exclude(pk=instance.pk)
+            otra = otra.only("folio").first()
+            if otra is not None:
+                raise serializers.ValidationError(
+                    {"cotizacion_id": f"Esta cotización ya está en la póliza {otra.folio or 'existente'}."}
+                )
 
         fechas = [
             attrs[name] if name in attrs else (getattr(instance, name, None) if instance else None)

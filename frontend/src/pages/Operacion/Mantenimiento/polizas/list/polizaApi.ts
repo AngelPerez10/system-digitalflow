@@ -132,7 +132,17 @@ export async function deletePoliza(id: number): Promise<void> {
   }
 }
 
-export type CotizacionOption = { value: string; label: string };
+export type CotizacionOption = {
+  value: string;
+  /** «COT-10012 · 13/08/2026 · AUTORIZADA» (texto corto para resúmenes). */
+  label: string;
+  folio: string;
+  /** ISO `YYYY-MM-DD` o vacío. */
+  fecha: string;
+  status: string;
+  /** Folio de la póliza que ya usa esta cotización (no se puede volver a usar). */
+  ocupadaPor: string;
+};
 
 function formatCotizacionFecha(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split("-");
@@ -140,9 +150,11 @@ function formatCotizacionFecha(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export async function listCotizacionesDeCliente(clienteId: string): Promise<CotizacionOption[]> {
+/** Cotizaciones DigitalFlow del cliente; al editar, `excludePolizaId` deja libre la de esa póliza. */
+export async function listCotizacionesDeCliente(clienteId: string, excludePolizaId?: number | null): Promise<CotizacionOption[]> {
   if (!clienteId) return [];
   const params = new URLSearchParams({ cliente_id: clienteId });
+  if (excludePolizaId != null && excludePolizaId > 0) params.set("exclude_poliza_id", String(excludePolizaId));
   const res = await fetchApi(`/api/polizas-mantenimiento/cotizaciones/?${params.toString()}`, {
     cache: "no-store" as RequestCache,
   });
@@ -150,19 +162,23 @@ export async function listCotizacionesDeCliente(clienteId: string): Promise<Coti
   if (!res.ok) return [];
   const rows = Array.isArray(data) ? data : [];
   return rows
-    .map((item) => {
+    .map((item): CotizacionOption | null => {
       const x = asRecord(item);
       const id = Number(x.id || 0);
       if (!id) return null;
       const folio =
         (typeof x.folio === "string" && x.folio.trim()) ||
         (Number(x.idx) > 0 ? `COT-${Number(x.idx)}` : `COT-${id}`);
-      const fecha = typeof x.fecha === "string" ? formatCotizacionFecha(x.fecha) : "";
+      const fechaIso = typeof x.fecha === "string" ? x.fecha.slice(0, 10) : "";
       const status = typeof x.status === "string" && x.status.trim() ? x.status.trim() : "";
-      const suffix = [fecha, status].filter(Boolean).join(" · ");
+      const suffix = [formatCotizacionFecha(fechaIso), status].filter(Boolean).join(" · ");
       return {
         value: String(id),
         label: suffix ? `${folio} · ${suffix}` : folio,
+        folio,
+        fecha: fechaIso,
+        status,
+        ocupadaPor: typeof x.ocupada_por === "string" ? x.ocupada_por : "",
       };
     })
     .filter((row): row is CotizacionOption => row != null);

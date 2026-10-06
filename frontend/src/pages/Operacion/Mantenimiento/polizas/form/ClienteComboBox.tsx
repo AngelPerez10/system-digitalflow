@@ -10,6 +10,7 @@ import {
 } from "@heroui/react";
 import { fetchClientesCatalog } from "@/components/clientes";
 import { useComboBoxScrollLock } from "@/hooks/useComboBoxScrollLock";
+import { fieldError, fieldHint, fieldLabel } from "../../../Proyectos/shared/proyectoTokens";
 import { clienteToSelectOption, mergeClienteOptions } from "../list/polizaClienteOptions";
 
 type SelectOption = { value: string; label: string };
@@ -102,8 +103,8 @@ export default function ClienteComboBox({
         isInvalid={isInvalid}
         className="w-full"
       >
-        <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-          Elegir cliente
+        <Label className={fieldLabel}>
+          Cliente
         </Label>
         <ComboBox.InputGroup className="w-full">
           <Input
@@ -137,11 +138,11 @@ export default function ClienteComboBox({
           </ListBox>
         </ComboBox.Popover>
         {error ? (
-          <FieldError className="text-sm text-[#c64545]">{error}</FieldError>
+          <FieldError className={fieldError}>{error}</FieldError>
         ) : loadError ? (
-          <FieldError className="text-sm text-[#c64545]">{loadError}</FieldError>
+          <FieldError className={fieldError}>{loadError}</FieldError>
         ) : (
-          <Description className="text-sm text-[#6E6E77] dark:text-[#8EA0B8]">
+          <Description className={fieldHint}>
             {loading
               ? "Buscando contactos…"
               : "Incluye empresas, personas y proveedores. Escribe el nombre para buscar más allá de la primera página."}

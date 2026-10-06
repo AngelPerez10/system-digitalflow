@@ -25,9 +25,10 @@ import type { ProyectoRow } from "../../../Proyectos/shared/proyectoTypes";
 import { useEquipoDraggable } from "../../hooks/useEquipoDraggable";
 import { columnKey, type EquipoDestino, type EquipoMoveRequest } from "../../shared/equipoDnd";
 import { infoOrden, infoProyecto } from "../../shared/equipoInfo";
-import { DIAS_CORTOS, parseYmd, type EquipoTarjeta } from "../../shared/equipoSemana";
+import type { EquipoTarjeta } from "../../shared/equipoSemana";
 import { TIPO_TONE } from "../../shared/equipoTokens";
-import { MoverA, MoverDia } from "../EquipoUi";
+import { MoverDia } from "../EquipoCambiarDia";
+import { MoverA } from "../EquipoUi";
 
 export type EquipoJobHandlers = {
   onMove: (req: EquipoMoveRequest) => void;
@@ -95,7 +96,7 @@ export const EquipoJobCard = memo(function EquipoJobCard({ tarjeta: t, variant, 
         <MoverDia
           label={`Cambiar ${d.folio} de día`}
           actual={t.fecha}
-          dias={semana.map((ymd, i) => ({ ymd, label: `${DIAS_CORTOS[i]} ${parseYmd(ymd)?.getDate() ?? ""}` }))}
+          semana={semana}
           onPick={(toFecha) => handlers.onMove({ kind: t.kind, id, fromId: t.tecnico.id, toId: t.tecnico.id, fromFecha: t.fecha, toFecha })}
         />
       ) : null}

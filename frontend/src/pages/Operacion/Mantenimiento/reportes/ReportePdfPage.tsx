@@ -132,7 +132,7 @@ export default function ReportePdfPage() {
   const reporteId = params.id;
   const navigate = useNavigate();
   const location = useLocation();
-  const returnPath = (location.state as { from?: string } | null)?.from || "/reportes-mantenimiento";
+  const returnPath = (location.state as { from?: string } | null)?.from || "/mantenimiento";
 
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
   const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
@@ -280,8 +280,8 @@ export default function ReportePdfPage() {
           <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
             /
           </span>
-          <Link to="/reportes-mantenimiento" className={erpBreadcrumbLinkClass}>
-            Reporte de mantenimiento
+          <Link to="/mantenimiento" className={erpBreadcrumbLinkClass}>
+            Mantenimiento
           </Link>
           <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
             /
@@ -403,10 +403,10 @@ export default function ReportePdfPage() {
                         Reintentar
                       </button>
                       <Link
-                        to="/reportes-mantenimiento"
+                        to="/mantenimiento"
                         className="text-sm font-medium text-[#1B5CFF] underline-offset-4 hover:underline dark:text-[#4B7CFF]"
                       >
-                        Ir a reportes
+                        Ir a mantenimiento
                       </Link>
                     </div>
                   </div>
@@ -484,7 +484,7 @@ export default function ReportePdfPage() {
                   </button>
 
                   {reporteId ? (
-                    <Link to={`/reportes-mantenimiento/${reporteId}`} className={cn(erpSecondaryBtnClass, "h-10")}>
+                    <Link to={`/mantenimiento/reportes/${reporteId}`} className={cn(erpSecondaryBtnClass, "h-10")}>
                       Editar reporte
                     </Link>
                   ) : null}

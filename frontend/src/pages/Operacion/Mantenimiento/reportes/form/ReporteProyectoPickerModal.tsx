@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ChevronRight, FolderKanban, Lock, Search } from "lucide-react";
-import { displayProyectoFolio } from "../../Proyectos/shared/proyectoFormUtils";
-import { formatFechaCorta } from "../../Proyectos/shared/proyectoListUtils";
-import { ProyectoPickerShell } from "../../Proyectos/form/fields/ProyectoPickerShell";
-import { AvatarStack, EstadoPill } from "../../Proyectos/shared/ProyectoUi";
-import { btn, focusRing, input } from "../../Proyectos/shared/proyectoTokens";
-import type { ProyectoRow } from "../../Proyectos/shared/proyectoTypes";
+import { displayProyectoFolio } from "../../../Proyectos/shared/proyectoFormUtils";
+import { formatFechaCorta } from "../../../Proyectos/shared/proyectoListUtils";
+import { PickerTabs, ProyectoPickerShell } from "../../../Proyectos/form/fields/ProyectoPickerShell";
+import { AvatarStack, EstadoPill } from "../../../Proyectos/shared/ProyectoUi";
+import { btn, focusRing, input } from "../../../Proyectos/shared/proyectoTokens";
+import type { ProyectoRow } from "../../../Proyectos/shared/proyectoTypes";
 
 export type ProyectoOcupadoInfo = { id: number; folio: string };
 
@@ -23,6 +23,8 @@ type Props = {
   onSelect: (row: ProyectoRow) => void;
 };
 
+type Vista = "disponibles" | "ocupados" | "todos";
+
 function haystack(p: ProyectoRow): string {
   return `${displayProyectoFolio(p.folio)} ${p.folio} ${p.cliente}`.toLowerCase();
 }
@@ -34,17 +36,27 @@ function haystack(p: ProyectoRow): string {
  */
 export function ReporteProyectoPickerModal({ open, onClose, proyectos, loading, ocupados, ocupadosError, selectedId, onSelect }: Props) {
   const [search, setSearch] = useState("");
+  // Por defecto solo los que se pueden usar; los que ya tienen reporte quedan a un clic.
+  const [vista, setVista] = useState<Vista>("disponibles");
 
   useEffect(() => {
-    if (!open) setSearch("");
+    if (!open) {
+      setSearch("");
+      setVista("disponibles");
+    }
   }, [open]);
+
+  const esLibre = (p: ProyectoRow) => !ocupados[String(p.id)] || String(p.id) === selectedId;
+  const libres = useMemo(() => proyectos.filter(esLibre).length, [proyectos, ocupados, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const conReporte = proyectos.length - libres;
 
   const filtrados = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q ? proyectos.filter((p) => haystack(p).includes(q)) : proyectos;
-  }, [proyectos, search]);
-
-  const libres = useMemo(() => proyectos.filter((p) => !ocupados[String(p.id)]).length, [proyectos, ocupados]);
+    const porVista = vista === "todos" ? proyectos : proyectos.filter((p) => (vista === "disponibles" ? esLibre(p) : !esLibre(p)));
+    const lista = q ? porVista.filter((p) => haystack(p).includes(q)) : porVista;
+    // El proyecto ya vinculado a este reporte va primero.
+    return [...lista].sort((a, b) => Number(String(b.id) === selectedId) - Number(String(a.id) === selectedId));
+  }, [proyectos, search, vista, ocupados, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <ProyectoPickerShell
@@ -64,6 +76,17 @@ export function ReporteProyectoPickerModal({ open, onClose, proyectos, loading, 
         </>
       }
       toolbar={
+        <>
+        <PickerTabs<Vista>
+          label="Mostrar proyectos"
+          value={vista}
+          options={[
+            { id: "disponibles", label: `Disponibles · ${libres}` },
+            { id: "ocupados", label: `Con reporte · ${conReporte}` },
+            { id: "todos", label: "Todos" },
+          ]}
+          onChange={setVista}
+        />
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#A1A1AA]" aria-hidden />
           <label htmlFor="reporte-proyecto-buscar" className="sr-only">
@@ -80,6 +103,7 @@ export function ReporteProyectoPickerModal({ open, onClose, proyectos, loading, 
             autoFocus
           />
         </div>
+        </>
       }
       footer={
         <button type="button" className={btn.secondary} onClick={onClose}>
@@ -97,7 +121,13 @@ export function ReporteProyectoPickerModal({ open, onClose, proyectos, loading, 
           ))
         ) : filtrados.length === 0 ? (
           <li className="px-3 py-10 text-center text-[14px] text-[#71717A] dark:text-[#8EA0B8]" role="status">
-            {search.trim() ? "Sin resultados para la búsqueda." : "No hay proyectos disponibles."}
+            {search.trim()
+              ? "Sin resultados para la búsqueda."
+              : vista === "disponibles"
+                ? "Todos los proyectos ya tienen su reporte. Revisa la pestaña «Con reporte»."
+                : vista === "ocupados"
+                  ? "Ningún proyecto tiene reporte todavía."
+                  : "No hay proyectos."}
           </li>
         ) : (
           <>

@@ -1,4 +1,4 @@
-import { AvatarStack } from "../../Proyectos/shared/ProyectoUi";
+import { AvatarStack } from "../../../Proyectos/shared/ProyectoUi";
 import { splitTecnicos } from "../reporteTecnicos";
 
 type Props = {

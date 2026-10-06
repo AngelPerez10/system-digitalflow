@@ -3,20 +3,27 @@
  * izquierda y las acciones a la derecha (en celular, debajo).
  * - Búsqueda: folio, cliente o técnico; atajo «/». Al enfocarla se ilumina
  *   toda la barra (borde + halo, solo color y sombra).
- * - Acciones: «Filtros» (tipo, estado y técnicos sin trabajo), «Sin asignar»,
+ * - Acciones: «Filtros» (tipo, estado y técnicos), «Sin asignar»,
  *   «Reporte» e «Historial»; botones fantasma con micro-movimiento del ícono.
  * - Filtros activos: segunda línea con un chip por filtro y «Limpiar».
  *
  * Panel: se abre debajo del botón, alineado a la derecha; Esc o clic afuera
  * lo cierran y el foco vuelve al botón. Entrada con `cot-pop`.
  */
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, ClipboardList, FolderKanban, History, Layers, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { focusRing } from "../../Proyectos/shared/proyectoTokens";
 import type { EquipoEstadoFiltro, EquipoFiltros, EquipoTipoFiltro } from "../shared/equipoFiltros";
 import { TIPO_TONE, toolbarBadge, toolbarBtn, toolbarGroup } from "../shared/equipoTokens";
+import { EquipoAvatar } from "./EquipoUi";
 
 type Counts = { todo: number; ordenes: number; proyectos: number };
+
+/** Técnico elegible en el filtro, con sus trabajos de la semana (según tipo y estado). */
+export type EquipoTecnicoOpcion = { id: number; nombre: string; avatarUrl: string; trabajos: number };
+
+/** A partir de cuántos técnicos aparece el buscador dentro de la lista. */
+const TECNICOS_CON_BUSCADOR = 7;
 
 const TIPO_LABEL: Record<EquipoTipoFiltro, string> = { todo: "Todo", ordenes: "Órdenes", proyectos: "Proyectos" };
 
@@ -75,6 +82,37 @@ function Option({
   );
 }
 
+/** Opción tipo casilla para un técnico (selección múltiple). */
+function TecnicoOption({ tecnico, selected, onToggle }: { tecnico: EquipoTecnicoOpcion; selected: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={selected}
+      onClick={onToggle}
+      className={`cot-press flex h-10 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left text-[13px] font-medium ${
+        selected
+          ? "bg-[#EEF3FF] text-[#1244D1] dark:bg-[#1B2A63]/60 dark:text-[#C9D7FF]"
+          : "text-[#3F3F46] hover:bg-[#F4F4F5] dark:text-[#D6DEEA] dark:hover:bg-white/[0.05]"
+      } ${focusRing}`}
+    >
+      <span
+        className={`inline-flex size-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-150 ${
+          selected
+            ? "border-[#1B5CFF] bg-[#1B5CFF] text-white dark:border-[#4B7CFF] dark:bg-[#4B7CFF]"
+            : "border-[#D4D4D8] bg-white dark:border-[#3A4661] dark:bg-transparent"
+        }`}
+        aria-hidden
+      >
+        <Check className={`size-3 ${selected ? "opacity-100" : "opacity-0"}`} strokeWidth={3} />
+      </span>
+      <EquipoAvatar id={tecnico.id} nombre={tecnico.nombre} avatarUrl={tecnico.avatarUrl} size="xs" />
+      <span className="min-w-0 flex-1 truncate">{tecnico.nombre}</span>
+      <span className="text-[12px] tabular-nums text-[#A1A1AA] dark:text-[#64748B]">{tecnico.trabajos}</span>
+    </button>
+  );
+}
+
 function Chip({ children, onRemove, label }: { children: ReactNode; onRemove: () => void; label: string }) {
   return (
     <span className="cot-pop inline-flex h-7 items-center gap-0.5 rounded-full border border-[#D6E2FF] bg-[#F3F6FF] pl-2.5 pr-0.5 text-[12px] font-semibold text-[#1244D1] dark:border-[#2C3F7A] dark:bg-[#1B2A63]/50 dark:text-[#C9D7FF]">
@@ -99,6 +137,7 @@ export function EquipoFilterBar({
   filtros,
   onChange,
   counts,
+  tecnicos,
   ocultarSinTrabajo,
   onOcultarSinTrabajo,
   defaults,
@@ -109,6 +148,8 @@ export function EquipoFilterBar({
   filtros: EquipoFiltros;
   onChange: (f: EquipoFiltros) => void;
   counts: Counts;
+  /** Técnicos que se pueden elegir en «Técnicos». */
+  tecnicos: EquipoTecnicoOpcion[];
   ocultarSinTrabajo: boolean;
   onOcultarSinTrabajo: (v: boolean) => void;
   /** Valores de «Restablecer». */
@@ -123,8 +164,27 @@ export function EquipoFilterBar({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const panelId = useId();
+  const [qTecnico, setQTecnico] = useState("");
 
-  const activos = Number(filtros.tipo !== defaults.tipo) + Number(filtros.estado !== defaults.estado) + Number(ocultarSinTrabajo);
+  const activos =
+    Number(filtros.tipo !== defaults.tipo) +
+    Number(filtros.estado !== defaults.estado) +
+    Number(filtros.tecnicos.length > 0) +
+    Number(ocultarSinTrabajo);
+
+  const tecnicosVisibles = useMemo(() => {
+    const q = qTecnico.trim().toLowerCase();
+    return q ? tecnicos.filter((t) => t.nombre.toLowerCase().includes(q)) : tecnicos;
+  }, [tecnicos, qTecnico]);
+  const toggleTecnico = (id: number) =>
+    onChange({
+      ...filtros,
+      tecnicos: filtros.tecnicos.includes(id) ? filtros.tecnicos.filter((x) => x !== id) : [...filtros.tecnicos, id],
+    });
+  const tecnicosLabel =
+    filtros.tecnicos.length === 1
+      ? (tecnicos.find((t) => t.id === filtros.tecnicos[0])?.nombre ?? "1 técnico")
+      : `${filtros.tecnicos.length} técnicos`;
 
   // «/» enfoca la búsqueda (salvo si ya se escribe en otro campo).
   useEffect(() => {
@@ -162,8 +222,9 @@ export function EquipoFilterBar({
   }, [open]);
 
   const restablecer = () => {
-    onChange({ ...filtros, tipo: defaults.tipo, estado: defaults.estado });
+    onChange({ ...filtros, tipo: defaults.tipo, estado: defaults.estado, tecnicos: defaults.tecnicos });
     onOcultarSinTrabajo(false);
+    setQTecnico("");
   };
 
   const hayChips = activos > 0;
@@ -260,6 +321,45 @@ export function EquipoFilterBar({
                     </div>
                   </Section>
                   <Section title="Técnicos">
+                    <div className="mb-1 flex items-center justify-between gap-2 px-1">
+                      <span className="text-[12px] text-[#71717A] dark:text-[#8EA0B8]" aria-live="polite">
+                        {filtros.tecnicos.length > 0 ? `${filtros.tecnicos.length} de ${tecnicos.length} elegidos` : "Todos los técnicos"}
+                      </span>
+                      {filtros.tecnicos.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => onChange({ ...filtros, tecnicos: [] })}
+                          className={`rounded-[6px] px-1 text-[12px] font-semibold text-[#1B5CFF] hover:underline dark:text-[#6B93FF] ${focusRing}`}
+                        >
+                          Ver todos
+                        </button>
+                      ) : null}
+                    </div>
+                    {tecnicos.length >= TECNICOS_CON_BUSCADOR ? (
+                      <label className="relative mb-1.5 block">
+                        <span className="sr-only">Buscar técnico</span>
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[#A1A1AA]" aria-hidden />
+                        <input
+                          type="search"
+                          value={qTecnico}
+                          onChange={(e) => setQTecnico(e.target.value)}
+                          placeholder="Buscar técnico…"
+                          className="h-9 w-full rounded-[9px] border border-[#E4E4E7] bg-white pl-8 pr-2.5 text-[13px] text-[#09090B] outline-none transition-colors duration-150 placeholder:text-[#A1A1AA] focus:border-[#BFD3FF] focus:ring-4 focus:ring-[rgba(27,92,255,0.08)] dark:border-[#273244] dark:bg-[#0F172A] dark:text-[#F8FAFC] dark:placeholder:text-[#64748B] dark:focus:border-[#2C3F7A]"
+                        />
+                      </label>
+                    ) : null}
+                    <div role="group" aria-label="Elegir técnicos" className="-mx-1 max-h-[13.5rem] space-y-0.5 overflow-y-auto overscroll-contain px-1">
+                      {tecnicosVisibles.length > 0 ? (
+                        tecnicosVisibles.map((t) => (
+                          <TecnicoOption key={t.id} tecnico={t} selected={filtros.tecnicos.includes(t.id)} onToggle={() => toggleTecnico(t.id)} />
+                        ))
+                      ) : (
+                        <p className="px-2.5 py-3 text-center text-[12.5px] text-[#A1A1AA] dark:text-[#64748B]">
+                          {tecnicos.length === 0 ? "No hay técnicos" : "Ningún técnico coincide"}
+                        </p>
+                      )}
+                    </div>
+                    <div className="my-2 h-px bg-[#F0F0F2] dark:bg-[#1F2A3C]" aria-hidden />
                     <label className="flex h-10 cursor-pointer select-none items-center justify-between gap-3 rounded-[10px] px-2.5 text-[13px] font-medium text-[#3F3F46] hover:bg-[#F4F4F5] dark:text-[#D6DEEA] dark:hover:bg-white/[0.05]">
                       Ocultar técnicos sin trabajo
                       <input type="checkbox" className="peer sr-only" checked={ocultarSinTrabajo} onChange={(e) => onOcultarSinTrabajo(e.target.checked)} />
@@ -321,6 +421,11 @@ export function EquipoFilterBar({
           {filtros.estado !== defaults.estado ? (
             <Chip label="Solo abiertos" onRemove={() => onChange({ ...filtros, estado: defaults.estado })}>
               {filtros.estado === "abiertos" ? "Solo abiertos" : "Todos"}
+            </Chip>
+          ) : null}
+          {filtros.tecnicos.length > 0 ? (
+            <Chip label={tecnicosLabel} onRemove={() => onChange({ ...filtros, tecnicos: [] })}>
+              <span className="max-w-[12rem] truncate">{tecnicosLabel}</span>
             </Chip>
           ) : null}
           {ocultarSinTrabajo ? (

@@ -1,8 +1,8 @@
 import { useId } from "react";
 import { Modal } from "@/components/ui/modal";
 import { TrashBinIcon } from "@/icons";
-import { erpDeleteModalClass, erpDeleteModalPanelClass } from "../../OrdenesTrabajo/ordenTrabajoStyles";
-import { erpDangerBtnClass, erpSecondaryBtnClass } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import { erpDeleteModalClass, erpDeleteModalPanelClass } from "../../../OrdenesTrabajo/ordenTrabajoStyles";
+import { erpDangerBtnClass, erpSecondaryBtnClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import type { ReporteMantenimiento } from "../reporteTypes";
 import { folioDe } from "./reporteListUtils";
 

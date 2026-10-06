@@ -37,7 +37,7 @@ import { EquipoBoard } from "./components/board/EquipoBoard";
 import { EquipoBoardSkeleton } from "./components/board/EquipoBoardSkeleton";
 import { EquipoBoardStack } from "./components/board/EquipoBoardStack";
 import type { EquipoJobHandlers } from "./components/board/EquipoJobCard";
-import { EquipoFilterBar } from "./components/EquipoFilterBar";
+import { EquipoFilterBar, type EquipoTecnicoOpcion } from "./components/EquipoFilterBar";
 import { EquipoHero } from "./components/EquipoHero";
 import { EquipoHistorialDrawer } from "./components/EquipoHistorialDrawer";
 import { EquipoNotasModal } from "./components/EquipoNotasModal";
@@ -123,6 +123,16 @@ export default function EquipoPage() {
     const r = resumenSemana(filtrarSeccionesEquipo(secciones, { ...filtros, tipo: "todo" }), lunes);
     return { todo: r.trabajos, ordenes: r.ordenes, proyectos: r.proyectos };
   }, [secciones, filtros, lunes]);
+  // Opciones del filtro «Técnicos»: todos, con sus trabajos según tipo y estado (sin la búsqueda).
+  const tecnicosOpciones = useMemo<EquipoTecnicoOpcion[]>(
+    () =>
+      filtrarSeccionesEquipo(secciones, { ...filtros, q: "", tecnicos: [] }).flatMap((s) =>
+        s.tecnico.id == null
+          ? []
+          : [{ id: s.tecnico.id, nombre: s.tecnico.nombre, avatarUrl: s.tecnico.avatarUrl, trabajos: s.ordenes.length + s.proyectos.length }]
+      ),
+    [secciones, filtros]
+  );
 
   // Filas: con búsqueda u «ocultar sin trabajo» se esconden las vacías, salvo
   // mientras se arrastra (todas son destino posible).
@@ -188,7 +198,7 @@ export default function EquipoPage() {
   // Esqueleto en la primera carga y cuando la semana nueva aún no tiene datos
   // (evita un «Semana sin trabajos» momentáneo al cambiar de mes).
   const primeraCarga = loading && ((data.ordenes.length === 0 && data.proyectos.length === 0) || resumen.trabajos === 0);
-  const filtrando = filtros.q.trim() !== "" || filtros.tipo !== "todo" || filtros.estado !== "todos";
+  const filtrando = filtros.q.trim() !== "" || filtros.tipo !== "todo" || filtros.estado !== "todos" || filtros.tecnicos.length > 0;
 
   let contenido;
   if (primeraCarga) contenido = <EquipoBoardSkeleton desktop={isDesktop} />;
@@ -245,6 +255,7 @@ export default function EquipoPage() {
             filtros={filtros}
             onChange={setFiltros}
             counts={counts}
+            tecnicos={tecnicosOpciones}
             ocultarSinTrabajo={ocultarSinTrabajo}
             onOcultarSinTrabajo={setOcultarSinTrabajo}
           />

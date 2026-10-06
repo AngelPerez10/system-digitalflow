@@ -155,7 +155,7 @@ export default function PolizaPdfPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const returnPath = (location.state as { from?: string } | null)?.from || "/polizas-mantenimiento";
+  const returnPath = (location.state as { from?: string } | null)?.from || "/mantenimiento";
 
   const tipo = (searchParams.get("tipo") || "cctv").trim().toLowerCase() || "cctv";
   const folioLabel = (searchParams.get("folio") || "").trim();
@@ -385,8 +385,8 @@ export default function PolizaPdfPage() {
           <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
             /
           </span>
-          <Link to="/polizas-mantenimiento" className={erpBreadcrumbLinkClass}>
-            Póliza de mantenimiento
+          <Link to="/mantenimiento" className={erpBreadcrumbLinkClass}>
+            Mantenimiento
           </Link>
           <span className="text-[#D3D3D8] dark:text-[#273244]" aria-hidden>
             /
@@ -516,10 +516,10 @@ export default function PolizaPdfPage() {
                         Reintentar
                       </button>
                       <Link
-                        to="/polizas-mantenimiento"
+                        to="/mantenimiento"
                         className="text-sm font-medium text-[#1B5CFF] underline-offset-4 hover:underline dark:text-[#4B7CFF]"
                       >
-                        Ir a pólizas
+                        Ir a mantenimiento
                       </Link>
                     </div>
                   </div>

@@ -1,5 +1,5 @@
 /** Utilidades del campo «Técnicos» del reporte (guardado como nombres separados por coma). */
-import type { Usuario } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import type { Usuario } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
 
 export function splitTecnicos(value: string): string[] {
   const seen = new Set<string>();

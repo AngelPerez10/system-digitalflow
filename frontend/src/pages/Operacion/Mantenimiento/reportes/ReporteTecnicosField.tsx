@@ -13,9 +13,9 @@
  */
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search, SearchX, UserPlus, X } from "lucide-react";
-import type { Usuario } from "../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
-import { Avatar } from "../Proyectos/shared/ProyectoUi";
-import { focusRing, input } from "../Proyectos/shared/proyectoTokens";
+import type { Usuario } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import { Avatar } from "../../Proyectos/shared/ProyectoUi";
+import { focusRing, input } from "../../Proyectos/shared/proyectoTokens";
 import { joinTecnicos, splitTecnicos, usuarioDisplayName } from "./reporteTecnicos";
 
 type Opcion = { id: number; nombre: string; avatarUrl: string };

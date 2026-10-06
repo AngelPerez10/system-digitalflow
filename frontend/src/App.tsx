@@ -26,15 +26,11 @@ const LevantamientoPage = lazy(() => import("@/pages/Operacion/OrdenesTrabajo/Or
 const ProyectosPage = lazy(() => import("@/pages/Operacion/Proyectos/ProyectosPage"));
 const ProyectoPdfPage = lazy(() => import("@/pages/Operacion/Proyectos/ProyectoPdfPage"));
 const EquipoPage = lazy(() => import("@/pages/Operacion/Equipo/EquipoPage"));
-const PolizasMantenimientoPage = lazy(
-  () => import("@/pages/Operacion/PolizasMantenimiento/PolizasMantenimientoPage"),
-);
-const PolizaPdfPage = lazy(() => import("@/pages/Operacion/PolizasMantenimiento/PolizaPdfPage"));
-const ReportesMantenimientoPage = lazy(
-  () => import("@/pages/Operacion/ReportesMantenimiento/ReportesMantenimientoPage"),
-);
+const MantenimientoPage = lazy(() => import("@/pages/Operacion/Mantenimiento/MantenimientoPage"));
+const RedirectReporteMantenimiento = lazy(() => import("@/pages/Operacion/Mantenimiento/RedirectReporteMantenimiento"));
+const PolizaPdfPage = lazy(() => import("@/pages/Operacion/Mantenimiento/polizas/PolizaPdfPage"));
 const ReportePdfPage = lazy(
-  () => import("@/pages/Operacion/ReportesMantenimiento/ReportePdfPage"),
+  () => import("@/pages/Operacion/Mantenimiento/reportes/ReportePdfPage"),
 );
 const Clientes = lazy(() => import("@/pages/ContactosNegocio/Clientes/ClientesPage"));
 const Productos = lazy(() => import("@/pages/ProductosYServicios/ProductosPage"));
@@ -105,13 +101,30 @@ export default function App() {
               }
             />
             <Route
-              path="/polizas-mantenimiento"
+              path="/mantenimiento"
               element={
-                <RequirePermission module="polizas" required="view">
-                  <PolizasMantenimientoPage />
+                <RequirePermission module={["polizas", "reportes_mantenimiento"]} required="view">
+                  <MantenimientoPage />
                 </RequirePermission>
               }
             />
+            <Route
+              path="/mantenimiento/reportes/nuevo"
+              element={
+                <RequirePermission module="reportes_mantenimiento" required="create">
+                  <MantenimientoPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/mantenimiento/reportes/:id"
+              element={
+                <RequirePermission module="reportes_mantenimiento" required="edit">
+                  <MantenimientoPage />
+                </RequirePermission>
+              }
+            />
+            <Route path="/polizas-mantenimiento" element={<Navigate to="/mantenimiento" replace />} />
             <Route
               path="/polizas-mantenimiento/pdf"
               element={
@@ -120,22 +133,8 @@ export default function App() {
                 </RequirePermission>
               }
             />
-            <Route
-              path="/reportes-mantenimiento"
-              element={
-                <RequirePermission module="reportes_mantenimiento" required="view">
-                  <ReportesMantenimientoPage />
-                </RequirePermission>
-              }
-            />
-            <Route
-              path="/reportes-mantenimiento/nuevo"
-              element={
-                <RequirePermission module="reportes_mantenimiento" required="create">
-                  <ReportesMantenimientoPage />
-                </RequirePermission>
-              }
-            />
+            <Route path="/reportes-mantenimiento" element={<Navigate to="/mantenimiento" replace />} />
+            <Route path="/reportes-mantenimiento/nuevo" element={<Navigate to="/mantenimiento/reportes/nuevo" replace />} />
             <Route
               path="/reportes-mantenimiento/:id/pdf"
               element={
@@ -144,14 +143,7 @@ export default function App() {
                 </RequirePermission>
               }
             />
-            <Route
-              path="/reportes-mantenimiento/:id"
-              element={
-                <RequirePermission module="reportes_mantenimiento" required="edit">
-                  <ReportesMantenimientoPage />
-                </RequirePermission>
-              }
-            />
+            <Route path="/reportes-mantenimiento/:id" element={<RedirectReporteMantenimiento />} />
             <Route path="/inventario" element={<RequirePermission module="inventario" required="view"><InventarioPage /></RequirePermission>} />
             <Route path="/clientes" element={<RequirePermission module="clientes" required="view"><Clientes /></RequirePermission>} />
             <Route path="/empresas" element={<RequirePermission module="clientes" required="view"><Navigate to="/clientes?tipo=EMPRESA" replace /></RequirePermission>} />

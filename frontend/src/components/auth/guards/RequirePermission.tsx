@@ -17,8 +17,11 @@ import { AccessDenied, ModuleAccessLoading } from "./AuthGateStates";
 export type PermissionFlag = "view" | "create" | "edit" | "delete";
 
 interface RequirePermissionProps {
-  /** Key en `permissions` (p. ej. "ordenes", "clientes", "usuarios"). */
-  module: string;
+  /**
+   * Key en `permissions` (p. ej. "ordenes", "clientes", "usuarios"). Con varios
+   * módulos basta con que uno tenga el permiso (vistas que juntan módulos).
+   */
+  module: string | string[];
   required: PermissionFlag;
   children: React.ReactNode;
 }
@@ -34,10 +37,11 @@ export default function RequirePermission({ module, required, children }: Requir
     return <>{children}</>;
   }
 
-  const flags = ((permissions as Record<string, unknown>)?.[module] ?? {}) as Partial<
-    Record<PermissionFlag, boolean>
-  >;
-  const allowed = flags[required] === true;
+  const modules = Array.isArray(module) ? module : [module];
+  const allowed = modules.some((m) => {
+    const flags = ((permissions as Record<string, unknown>)?.[m] ?? {}) as Partial<Record<PermissionFlag, boolean>>;
+    return flags[required] === true;
+  });
 
   if (!allowed) {
     return <AccessDenied />;

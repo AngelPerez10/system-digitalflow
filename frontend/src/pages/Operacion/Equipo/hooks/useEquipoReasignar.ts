@@ -61,7 +61,7 @@ function cambiosDe(req: EquipoMoveRequest) {
 /** «mié 30». */
 function diaCorto(ymd: string): string {
   const d = parseYmd(ymd);
-  return d ? `${DIAS_CORTOS[diaSemana(ymd)].toLowerCase()} ${d.getDate()}` : ymd;
+  return d ? `${DIAS_CORTOS[diaSemana(ymd)].toLowerCase()} ${d.getDate()} ${d.toLocaleDateString("es-MX", { month: "short" }).replace(".", "")}` : ymd;
 }
 
 export function useEquipoReasignar({

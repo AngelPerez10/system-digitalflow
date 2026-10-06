@@ -1,5 +1,5 @@
 import { AlertTriangle, FilePlus2, RotateCw, SearchX } from "lucide-react";
-import { btn } from "../../Proyectos/shared/proyectoTokens";
+import { btn } from "../../../Proyectos/shared/proyectoTokens";
 
 const bone = "block rounded-full bg-[#F0F0F2] motion-safe:animate-pulse dark:bg-[#1B2539]";
 

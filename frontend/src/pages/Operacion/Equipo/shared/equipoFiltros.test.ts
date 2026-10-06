@@ -23,8 +23,8 @@ const proyecto = (id: string, cliente: string, estado: ProyectoRow["estado"] = "
   draft: createEmptyProyectoDraft(),
 });
 
-const seccion = (nombre: string, ordenes: Orden[], proyectos: ProyectoRow[]): EquipoSeccion => ({
-  tecnico: { id: 1, nombre, avatarUrl: "" },
+const seccion = (nombre: string, ordenes: Orden[], proyectos: ProyectoRow[], id: number | null = 1): EquipoSeccion => ({
+  tecnico: { id, nombre, avatarUrl: "" },
   ordenes,
   proyectos,
   pendientes: 0,
@@ -68,5 +68,13 @@ describe("filtrarSeccionesEquipo", () => {
   it("ordenar por cliente A–Z", () => {
     const [s] = filtrarSeccionesEquipo(base, { ...EQUIPO_FILTROS_DEFAULT, estado: "todos", orden: "cliente" });
     expect(s.ordenes.map((o) => o.cliente)).toEqual(["Alfa SA", "Zeta SA"]);
+  });
+
+  it("filtrar por técnicos deja solo las secciones elegidas", () => {
+    const varias = [...base, seccion("Luis Gómez", [orden(3, "Delta")], [], 2), seccion("Sin asignar", [orden(4, "Omega")], [], null)];
+    const ids = (t: number[]) => filtrarSeccionesEquipo(varias, { ...EQUIPO_FILTROS_DEFAULT, tecnicos: t }).map((s) => s.tecnico.id);
+    expect(ids([])).toEqual([1, 2, null]);
+    expect(ids([2])).toEqual([2]);
+    expect(ids([1, 2])).toEqual([1, 2]);
   });
 });

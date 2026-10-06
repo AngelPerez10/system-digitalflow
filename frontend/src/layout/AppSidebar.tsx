@@ -42,8 +42,6 @@ const SIDEBAR_FUTURE = {
   operacionExtended: false,
   /** Submenú Operación: ítem "Levantamiento" (/levantamiento) — vista oculta, sin borrar */
   operacionLevantamiento: false,
-  /** Submenú Operación: ítem "Reporte de mantenimiento" (/reportes-mantenimiento) */
-  mantenimientoReporte: true,
 } as const;
 
 type NavItem = {
@@ -201,12 +199,8 @@ export default function AppSidebar() {
             ? [{ name: "Proyectos", path: "/proyectos", pro: false } as const]
             : []),
           ...(isAdmin ? [{ name: "Equipo", path: "/equipo", pro: false } as const] : []),
-          ...(permissions?.polizas?.view === true || isAdmin
-            ? [{ name: "Póliza de mantenimiento", path: "/polizas-mantenimiento", pro: false } as const]
-            : []),
-          ...(SIDEBAR_FUTURE.mantenimientoReporte &&
-          (permissions?.reportes_mantenimiento?.view === true || isAdmin)
-            ? [{ name: "Reporte de mantenimiento", path: "/reportes-mantenimiento", pro: false } as const]
+          ...(permissions?.polizas?.view === true || permissions?.reportes_mantenimiento?.view === true || isAdmin
+            ? [{ name: "Mantenimiento", path: "/mantenimiento", pro: false } as const]
             : []),
           ...(SIDEBAR_FUTURE.operacionExtended && permissions?.ordenes?.view === true
             ? ([{ name: "Órdenes del Tecnico", path: "/ordenes-tecnico", pro: false }] as const)
@@ -241,15 +235,9 @@ export default function AppSidebar() {
         subItems.push({ name: "Proyectos", path: "/proyectos", pro: false });
       }
 
-      if (permissions?.polizas?.view === true) {
-        subItems.push({ name: "Póliza de mantenimiento", path: "/polizas-mantenimiento", pro: false });
-      }
-
-      if (
-        SIDEBAR_FUTURE.mantenimientoReporte &&
-        permissions?.reportes_mantenimiento?.view === true
-      ) {
-        subItems.push({ name: "Reporte de mantenimiento", path: "/reportes-mantenimiento", pro: false });
+      // Pólizas y reportes de mantenimiento viven en una sola vista.
+      if (permissions?.polizas?.view === true || permissions?.reportes_mantenimiento?.view === true) {
+        subItems.push({ name: "Mantenimiento", path: "/mantenimiento", pro: false });
       }
 
       if (

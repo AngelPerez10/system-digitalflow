@@ -4,7 +4,7 @@
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRightLeft, CalendarClock, Inbox } from "lucide-react";
+import { ArrowRightLeft, Inbox } from "lucide-react";
 import { resolveMediaUrl } from "@/config/api";
 import { erpSansStyle } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
 import type { EquipoDestino } from "../shared/equipoDnd";
@@ -264,32 +264,6 @@ export function MoverA({
         if (dest) onPick(dest);
       }}
       className={`${rowActionBtn} ${size}`}
-    />
-  );
-}
-
-/** «Cambiar día»: menú con los días de la semana (teclado y táctil). */
-export function MoverDia({
-  label,
-  dias,
-  actual,
-  onPick,
-}: {
-  label: string;
-  /** Opciones: `YYYY-MM-DD` + etiqueta visible («Mié 30»). */
-  dias: { ymd: string; label: string }[];
-  actual: string;
-  onPick: (ymd: string) => void;
-}) {
-  return (
-    <ActionMenu
-      label={label}
-      title="Cambiar de día"
-      heading="Cambiar a…"
-      icon={<CalendarClock aria-hidden />}
-      items={dias.filter((d) => d.ymd !== actual).map((d) => ({ key: d.ymd, label: d.label }))}
-      onSelect={onPick}
-      className={`${rowActionBtn} size-7! rounded-xl! [&_svg]:size-3.5!`}
     />
   );
 }

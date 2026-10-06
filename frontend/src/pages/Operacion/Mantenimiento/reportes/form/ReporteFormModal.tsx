@@ -1,36 +1,35 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { CSSProperties } from "react";
-import { ArrowLeft, ArrowRight, CalendarClock, CalendarDays, Camera, Check, ChevronDown, ChevronRight, ChevronUp, FileText, FilePlus2, FolderKanban, Image as ImageIcon, Plus, Search, Trash2, Users, Wrench, X } from "lucide-react";
+import { CalendarClock, Camera, ChevronDown, ChevronUp, FileText, FolderKanban, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import Alert from "@/components/ui/alert/Alert";
 import DatePicker from "@/components/form/date-picker";
 import { Modal } from "@/components/ui/modal";
-import { AppSpinner } from "@/components/ui/modal-kit/ModalKit";
 import { useAuth } from "@/context/AuthContext";
 import { TrashBinIcon } from "@/icons";
 import { cn } from "@/lib/utils";
 import { FOLIO_SERIE, formatDocumentFolio } from "@/utils/documentFolio";
-import { erpDeleteModalClass, erpDeleteModalPanelClass } from "../../OrdenesTrabajo/ordenTrabajoStyles";
-import { OrdenPhotoPreviewModal } from "../../OrdenesTrabajo/OrdenTrabajoModals";
-import { erpDangerBtnClass, erpSecondaryBtnClass } from "../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
-import { fetchTodosLosUsuariosApi } from "../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
-import type { Usuario } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
-import { listProyectos } from "../../Proyectos/shared/proyectoApi";
-import type { ProyectoRow } from "../../Proyectos/shared/proyectoTypes";
-import { displayProyectoFolio } from "../../Proyectos/shared/proyectoFormUtils";
-import { formatFechaCorta, proyectoTiposLabels } from "../../Proyectos/shared/proyectoListUtils";
-import { AvatarStack, EstadoPill, Field, SectionCard } from "../../Proyectos/shared/ProyectoUi";
-import { btn, btnSm, emptyPanel, fontSans, iconBtn, iconBtnDanger, input, metaChip } from "../../Proyectos/shared/proyectoTokens";
+import { erpDeleteModalClass, erpDeleteModalPanelClass } from "../../../OrdenesTrabajo/ordenTrabajoStyles";
+import { OrdenPhotoPreviewModal } from "../../../OrdenesTrabajo/OrdenTrabajoModals";
+import { erpDangerBtnClass, erpSecondaryBtnClass } from "../../../OrdenesTrabajo/OrdenServicio/ordenServicioStyles";
+import { fetchTodosLosUsuariosApi } from "../../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
+import type { Usuario } from "../../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
+import { listProyectos } from "../../../Proyectos/shared/proyectoApi";
+import type { ProyectoRow } from "../../../Proyectos/shared/proyectoTypes";
+import { displayProyectoFolio } from "../../../Proyectos/shared/proyectoFormUtils";
+import { Field } from "../../../Proyectos/shared/ProyectoUi";
+import { OrdenFormSection } from "../../../OrdenesTrabajo/OrdenServicio/form/tabs/ordenTabHelpers";
+import MantenimientoFormShell, { type MantenimientoFormStep } from "../../form/MantenimientoFormShell";
+import { btn, btnSm, emptyPanel, iconBtn, iconBtnDanger, input, metaChip } from "../../../Proyectos/shared/proyectoTokens";
 import { createReporte, deleteReporteImage, fetchProyectosOcupados, getReporte, isReporteApiError, updateReporte } from "../reporteApi";
 import { uploadReporteFile } from "../reporteImageUpload";
 import { ReporteTecnicosField } from "../ReporteTecnicosField";
 import { usuarioDisplayName } from "../reporteTecnicos";
 import { countReporteFotos, countSeccionFotos, emptyReporteDraft, newSeccion, REPORTE_MAX_FOTOS_POR_LADO, type ReporteDraft, type ReporteSeccion } from "../reporteTypes";
 import { ReporteProyectoPickerModal, type ProyectoOcupadoInfo } from "./ReporteProyectoPickerModal";
-import { ReporteStepChips, ReporteStepRail } from "./ReporteFormSteps";
+import { ProyectoVacio, ProyectoVinculadoCard, ProyectoVinculadoResumen } from "./ReporteProyectoVinculado";
 import { REPORTE_STEPS, type ReporteStepId, type ReporteStepState } from "./reporteSteps";
 
-const modalShell = `${fontSans} flex h-[min(94dvh,58rem)] w-full flex-col overflow-hidden rounded-t-[22px] border border-[#E7E7EA] bg-white! p-0 shadow-[0_32px_80px_-24px_rgba(9,9,11,0.45)] dark:border-[#273244] dark:bg-[#111827]! sm:h-[min(92dvh,58rem)] sm:w-[min(96vw,74rem)] sm:max-w-none sm:rounded-[22px]`;
 
 /* -------------------------------------------------------------------------- */
 /*  Tokens locales — lenguaje marino/azul, sobrio (igual que Órdenes)         */
@@ -93,19 +92,24 @@ type Props = {
   onSaved: (flash: { variant: "success"; title: string; message: string }) => void;
 };
 
-/** Botones de navegación del pie: más grandes que el estándar para que se vean cómodos en pantallas amplias. */
-const big = " min-h-12! text-[15px]! sm:min-h-10! sm:text-[14px]! sm:[&_svg]:size-4! [&_svg]:size-5!";
-/** Los botones del pie comparten el mismo ancho: se reparten la fila en móvil y miden igual en escritorio. */
-const eq = " flex-1 sm:w-32 sm:flex-none";
+
+/** Pasos del asistente con su descripción (encabezado del paso). */
+const PASOS: MantenimientoFormStep<ReporteStepId>[] = REPORTE_STEPS.map((st) => ({
+  ...st,
+  description:
+    st.id === 1
+      ? "Liga el proyecto al que pertenece el reporte y, si quieres, una imagen para el PDF."
+      : st.id === 2
+        ? "Cuándo se hizo el mantenimiento y qué técnicos lo realizaron."
+        : "Una zona por área revisada, con sus fotos de Antes y Después.",
+}));
 
 export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: Props) {
   const isNew = reporteId == null;
   const { user, isAdmin } = useAuth();
-  const titleId = useId();
   const tecnicosHintId = useId();
   const ordenErrorId = useId();
   const deleteSeccionTitleId = useId();
-  const panelId = useId();
 
   const [draft, setDraft] = useState<ReporteDraft>(emptyReporteDraft);
   const [folio, setFolio] = useState("");
@@ -257,12 +261,20 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
   /** Reporte anterior vinculado a una orden de trabajo (ya no se crean así): se muestra de solo lectura. */
   const esLegacyOrden = !esProyecto && Boolean(draft.orden_id);
   /** Proyectos libres más recientes: atajo para vincular sin abrir el buscador. */
-  const sugeridos = useMemo(() => proyectos.filter((p) => !ocupados[String(p.id)]).slice(0, 3), [proyectos, ocupados]);
+  const disponibles = useMemo(() => proyectos.filter((p) => !ocupados[String(p.id)]), [proyectos, ocupados]);
+  const sugeridos = useMemo(() => disponibles.slice(0, 3), [disponibles]);
   const proyectoSel = useMemo(() => proyectos.find((p) => String(p.id) === draft.proyecto_id) || null, [proyectos, draft.proyecto_id]);
 
   const totalFotos = useMemo(() => countReporteFotos(draft.secciones), [draft.secciones]);
 
   const applyProyecto = (p: ProyectoRow) => {
+    // Un proyecto, un reporte: si ya tiene otro (y no es el de este reporte), no se vincula.
+    const uso = ocupados[String(p.id)];
+    if (uso && String(p.id) !== draft.proyecto_id) {
+      setOrdenError(`El proyecto ${displayProyectoFolio(p.folio)} ya tiene el reporte ${uso.folio}.`);
+      setPickerOpen(false);
+      return;
+    }
     setOrdenError("");
     setPickerOpen(false);
     setOrdenFolio(displayProyectoFolio(p.folio));
@@ -478,18 +490,22 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
       });
       onClose();
     } catch (err) {
-      showAlert(
-        "error",
-        "No se pudo guardar",
-        isReporteApiError(err) ? err.message : "Revisa los datos e inténtalo de nuevo.",
-        5000
-      );
+      const message = isReporteApiError(err) ? err.message : "Revisa los datos e inténtalo de nuevo.";
+      if (/proyecto/i.test(message)) {
+        // P. ej. otro usuario hizo el reporte de ese proyecto mientras se capturaba éste.
+        setOrdenError(message);
+        setActiveStep(1);
+        void fetchProyectosOcupados(reporteId).then((res) => {
+          setOcupados(res.byId);
+          setOcupadosError(res.error);
+        });
+      }
+      showAlert("error", "No se pudo guardar", message, 5000);
     } finally {
       setSaving(false);
     }
   };
 
-  const formBusy = loading || saving;
 
   const stepState: Record<ReporteStepId, ReporteStepState> = {
     1: origenId ? "done" : "pending",
@@ -501,38 +517,24 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
     2: draft.tecnico_nombre.trim() ? draft.tecnico_nombre : "Fecha y técnicos",
     3: draft.secciones.length > 0 ? `${draft.secciones.length} ${draft.secciones.length === 1 ? "zona" : "zonas"} · ${totalFotos} fotos` : "Antes / Después",
   };
-  const requiredDone = [Boolean(origenId), Boolean(draft.fecha_servicio), Boolean(draft.tecnico_nombre.trim())].filter(Boolean).length;
-  const pct = Math.round((requiredDone / 3) * 100);
 
-  const stepIndex = REPORTE_STEPS.findIndex((s) => s.id === activeStep);
-  const step = REPORTE_STEPS[stepIndex];
-  const isFirst = stepIndex === 0;
-  const isLast = stepIndex === REPORTE_STEPS.length - 1;
-  const goStep = (delta: 1 | -1) => setActiveStep(REPORTE_STEPS[Math.min(REPORTE_STEPS.length - 1, Math.max(0, stepIndex + delta))].id);
   const titulo = ordenCliente.trim();
-  const stepProps = { active: activeStep, state: stepState, disabled: formBusy, onSelect: setActiveStep, idPrefix: panelId };
-  const saveLabel = saving ? "Guardando…" : isNew ? "Crear reporte" : "Guardar cambios";
   const blockedEscape = saving || Boolean(seccionToDelete) || Boolean(photoPreview);
 
   const ordenResumen = origenId ? (
-    <div className="rounded-[14px] border border-[rgba(27,92,255,0.22)] bg-[rgba(27,92,255,0.05)] p-4 dark:border-[#4B7CFF]/25 dark:bg-[rgba(75,124,255,0.08)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1244D1] dark:text-[#4B7CFF]">{esProyecto ? "Proyecto vinculado" : "Orden vinculada"}</p>
-          <p className="mt-1 font-mono text-[13px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{ordenFolio || "—"}</p>
-          <p className="mt-0.5 truncate text-[14px] font-medium text-[#27272A] dark:text-[#E2E8F0]">{ordenCliente || "—"}</p>
-        </div>
-        <Link to={esProyecto ? `/proyectos/${draft.proyecto_id}/pdf` : `/ordenes/${draft.orden_id}/pdf`} target="_blank" rel="noreferrer" className={`${btn.secondary} ${btnSm} shrink-0`}>
-          <FileText aria-hidden />
-          {esProyecto ? "Ver proyecto PDF" : "Ver orden PDF"}
-        </Link>
-      </div>
-    </div>
+    <ProyectoVinculadoResumen
+      esProyecto={esProyecto}
+      proyecto={esProyecto ? proyectoSel : null}
+      folio={ordenFolio}
+      cliente={ordenCliente}
+      pdfHref={esProyecto ? `/proyectos/${draft.proyecto_id}/pdf` : `/ordenes/${draft.orden_id}/pdf`}
+      onChange={activeStep !== 1 ? () => setActiveStep(1) : undefined}
+    />
   ) : null;
 
   const renderStep1 = () => (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
-      <SectionCard id={`${panelId}-s-orden`} index={0} title="Proyecto" icon={<FolderKanban />} hint="El reporte pertenece a un proyecto. Cada proyecto tiene un solo reporte.">
+    <div className="space-y-5">
+      <OrdenFormSection title="Proyecto" icon={<FolderKanban />} description="El reporte pertenece a un proyecto. Cada proyecto tiene un solo reporte.">
         {esLegacyOrden ? (
           <div className="space-y-3">
             {ordenResumen}
@@ -545,149 +547,32 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
             </button>
           </div>
         ) : esProyecto && draft.proyecto_id ? (
-          <article className="cot-pop overflow-hidden rounded-[18px] border border-[#E7E7EA] bg-white shadow-[0_8px_24px_-16px_rgba(23,35,91,0.35)] dark:border-[#273244] dark:bg-[#0F172A] dark:shadow-none" aria-label="Proyecto vinculado">
-            {/* Banda marina: misma identidad que el encabezado del modal */}
-            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#17235B_0%,#1B2A63_100%)] px-5 pb-5 pt-4 text-white">
-              <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 size-44 rounded-full bg-[rgba(230,162,60,0.14)] blur-2xl" />
-              <div className="relative flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[rgba(230,162,60,0.18)] px-2.5 font-mono text-[12.5px] font-semibold text-[#F5C26B] ring-1 ring-inset ring-[rgba(230,162,60,0.35)]">
-                    <FolderKanban className="size-3.5" aria-hidden />
-                    {ordenFolio || "—"}
-                  </span>
-                  {proyectoSel ? <EstadoPill estado={proyectoSel.estado} size="sm" /> : null}
-                </div>
-                <p className="shrink-0 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-white/55">Proyecto vinculado</p>
-              </div>
-              <p className="relative mt-4 truncate text-[24px] font-semibold leading-tight tracking-[-0.5px]" title={ordenCliente}>
-                {ordenCliente || "Sin cliente"}
-              </p>
-            </div>
-
-            <dl className="grid grid-cols-2 gap-px bg-[#F0F0F2] dark:bg-[#1F2A3C]">
-              <div className="flex items-start gap-3 bg-white px-4 py-3.5 dark:bg-[#0F172A] sm:px-5 sm:py-4">
-                <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]" aria-hidden>
-                  <CalendarDays className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#71717A] dark:text-[#8EA0B8]">Inicio</dt>
-                  <dd className="mt-0.5 text-[14.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
-                    {proyectoSel?.draft?.fechasInicio?.[0] ? formatFechaCorta(proyectoSel.draft.fechasInicio[0]) : "Sin fecha"}
-                  </dd>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 bg-white px-4 py-3.5 dark:bg-[#0F172A] sm:px-5 sm:py-4">
-                <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]" aria-hidden>
-                  <Users className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#71717A] dark:text-[#8EA0B8]">Equipo</dt>
-                  <dd className="mt-0.5 flex items-center gap-2">
-                    {proyectoSel && proyectoSel.draft.tecnicos.length > 0 ? (
-                      <>
-                        <AvatarStack people={proyectoSel.draft.tecnicos.map((t) => ({ id: t.id, nombre: t.nombre, avatar_url: t.avatar_url }))} max={4} />
-                        <span className="text-[14.5px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">{proyectoSel.draft.tecnicos.length}</span>
-                      </>
-                    ) : (
-                      <span className="text-[14.5px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">Sin asignar</span>
-                    )}
-                  </dd>
-                </div>
-              </div>
-              <div className="col-span-2 flex items-start gap-3 bg-white px-4 py-3.5 dark:bg-[#0F172A] sm:px-5 sm:py-4">
-                <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]" aria-hidden>
-                  <Wrench className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#71717A] dark:text-[#8EA0B8]">Servicio</dt>
-                  <dd className="mt-0.5 text-[14.5px] font-semibold leading-snug text-[#09090B] dark:text-[#F8FAFC]">
-                    {proyectoSel && proyectoTiposLabels(proyectoSel).length > 0 ? proyectoTiposLabels(proyectoSel).join(", ") : "Sin definir"}
-                  </dd>
-                </div>
-              </div>
-            </dl>
-
-            <div className="flex flex-wrap items-center gap-2 border-t border-[#F0F0F2] bg-[#FAFAFB] px-4 py-3 dark:border-[#1F2A3C] dark:bg-[#111827]/70 sm:px-5">
-              <button type="button" className={`${btn.secondary} ${btnSm}`} onClick={() => setPickerOpen(true)} aria-haspopup="dialog">
-                <FilePlus2 aria-hidden />
-                Cambiar proyecto
-              </button>
-              <Link to={`/proyectos/${draft.proyecto_id}/pdf`} target="_blank" rel="noreferrer" className={`${btn.secondary} ${btnSm}`}>
-                <FileText aria-hidden />
-                Ver PDF
-              </Link>
-              <button
-                type="button"
-                className={`${btn.ghost} ${btnSm} ml-auto text-[#B42323]! hover:bg-[#FEF2F2]! dark:text-[#F87171]! dark:hover:bg-[#3F1518]!`}
-                onClick={quitarProyecto}
-              >
-                <X aria-hidden />
-                Quitar
-              </button>
-            </div>
-          </article>
+          <ProyectoVinculadoCard
+            key={draft.proyecto_id}
+            proyecto={proyectoSel}
+            folio={ordenFolio}
+            cliente={ordenCliente}
+            proyectoId={draft.proyecto_id}
+            onChange={() => setPickerOpen(true)}
+            onRemove={quitarProyecto}
+            onEditServicio={() => setActiveStep(2)}
+          />
         ) : (
-          <div className="space-y-4">
-            {/* Disparador con forma de buscador: abre el selector */}
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              aria-haspopup="dialog"
-              aria-describedby={ordenError ? ordenErrorId : undefined}
-              className={`cot-press group flex min-h-14 w-full items-center gap-3 rounded-[14px] border bg-white px-4 text-left shadow-[0_1px_2px_rgba(9,9,11,0.04)] transition-[border-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:bg-[#0F172A] dark:shadow-none ${
-                ordenError
-                  ? "border-[#E8A5A5] dark:border-[#7F1D1D]"
-                  : "border-[#E4E4E7] hover:border-[#BFD3FF] hover:shadow-[0_6px_18px_-12px_rgba(27,92,255,0.45)] dark:border-[#273244] dark:hover:border-[#4B7CFF]/60"
-              }`}
-            >
-              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#1B5CFF] transition-transform duration-200 group-hover:scale-105 dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF] motion-reduce:transition-none" aria-hidden>
-                <Search className="size-4.5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium text-[#52525B] dark:text-[#B7C1D1]">Buscar proyecto por folio o cliente…</span>
-                <span className="block text-[12px] text-[#A1A1AA] dark:text-[#6B7A90]">{loadingProyectos ? "Cargando proyectos…" : `${proyectos.length} ${proyectos.length === 1 ? "proyecto" : "proyectos"} · uno por reporte`}</span>
-              </span>
-              <span className="hidden shrink-0 rounded-full bg-[#1B5CFF] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-colors group-hover:bg-[#1244D1] dark:bg-[#4B7CFF] dark:group-hover:bg-[#3B6AF0] sm:inline-flex">
-                Elegir
-              </span>
-            </button>
-            {ordenError ? (
-              <p id={ordenErrorId} className="text-[12.5px] font-medium text-[#C22B2B]" role="alert">
-                {ordenError}
-              </p>
-            ) : null}
-
-            {sugeridos.length > 0 ? (
-              <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]">Recientes disponibles</p>
-                <ul className="space-y-1.5">
-                  {sugeridos.map((p, i) => (
-                    <li key={p.id} className="cot-rise" style={{ "--cot-i": i } as CSSProperties}>
-                      <button
-                        type="button"
-                        onClick={() => applyProyecto(p)}
-                        className="cot-press group flex min-h-14 w-full items-center gap-3 rounded-[14px] border border-[#E7E7EA] bg-[#FAFAFB] px-3.5 py-2.5 text-left transition-colors duration-150 hover:border-[#BFD3FF] hover:bg-[#F5F8FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF]/40 dark:border-[#273244] dark:bg-[#0F172A]/60 dark:hover:border-[#4B7CFF]/50 dark:hover:bg-[#1B2A63]/25"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-baseline gap-2">
-                            <span className="shrink-0 whitespace-nowrap font-mono text-[12.5px] font-semibold text-[#1244D1] dark:text-[#9BB6FF]">{displayProyectoFolio(p.folio)}</span>
-                            <span className="truncate text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">{p.cliente || "Sin cliente"}</span>
-                          </span>
-                          <span className="mt-0.5 block text-[12px] text-[#71717A] dark:text-[#8EA0B8]">{formatFechaCorta(p.draft?.fechasInicio?.[0] || p.fecha)}</span>
-                        </span>
-                        <EstadoPill estado={p.estado} size="sm" className="shrink-0 whitespace-nowrap" />
-                        <ChevronRight className="size-4 shrink-0 text-[#A1A1AA] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[#1B5CFF] motion-reduce:transition-none" aria-hidden />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
+          <ProyectoVacio
+            loading={loadingProyectos}
+            total={proyectos.length}
+            disponibles={disponibles.length}
+            sugeridos={sugeridos}
+            error={ordenError}
+            errorId={ordenErrorId}
+            onOpenPicker={() => setPickerOpen(true)}
+            onPick={applyProyecto}
+          />
         )}
-      </SectionCard>
+      </OrdenFormSection>
 
-      <SectionCard id={`${panelId}-s-foto`} index={1} title="Imagen del proyecto" icon={<ImageIcon />} hint="Opcional. Aparece en el PDF junto a los datos del proyecto.">
+      <OrdenFormSection title="Imagen del proyecto" icon={<ImageIcon />} description="Opcional. Aparece en el PDF junto a los datos del proyecto.">
+        <div className="max-w-md">
         <SinglePhoto
           accent="orden"
           title="Proyecto"
@@ -697,13 +582,14 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
           onClear={() => setDraft((prev) => ({ ...prev, foto_orden_url: "" }))}
           onPreview={draft.foto_orden_url ? () => setPhotoPreview({ urls: [draft.foto_orden_url], index: 0 }) : undefined}
         />
-      </SectionCard>
+        </div>
+      </OrdenFormSection>
     </div>
   );
 
   const renderStep2 = () => (
     <>
-      <SectionCard id={`${panelId}-s-servicio`} index={0} title="Datos del servicio" icon={<CalendarClock />} hint="Cuándo se hizo el mantenimiento y quién lo realizó.">
+      <OrdenFormSection title="Datos del servicio" icon={<CalendarClock />} description="Cuándo se hizo el mantenimiento y quién lo realizó.">
         <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)]">
           <div>
             <DatePicker
@@ -727,18 +613,16 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
             <ReporteTecnicosField id="rm-tecnico" value={draft.tecnico_nombre} onChange={(next) => setDraft((p) => ({ ...p, tecnico_nombre: next }))} usuarios={usuarios} loading={loadingUsuarios} disabled={!isAdmin} describedBy={tecnicosHintId} />
           </Field>
         </div>
-      </SectionCard>
+      </OrdenFormSection>
       {ordenResumen}
     </>
   );
 
   const renderStep3 = () => (
-    <SectionCard
-      id={`${panelId}-s-evidencia`}
-      index={0}
+    <OrdenFormSection
       title="Zonas de evidencia"
       icon={<Camera />}
-      hint={`Una zona por área (Cámara entrada, DVR, Patio…) con hasta ${REPORTE_MAX_FOTOS_POR_LADO} fotos de Antes y de Después.`}
+      description={`Una zona por área (Cámara entrada, DVR, Patio…) con hasta ${REPORTE_MAX_FOTOS_POR_LADO} fotos de Antes y de Después.`}
       actions={
         <>
           {draft.secciones.length > 0 ? (
@@ -810,120 +694,53 @@ export default function ReporteFormModal({ open, reporteId, onClose, onSaved }: 
           Agregar otra zona
         </button>
       ) : null}
-    </SectionCard>
+    </OrdenFormSection>
   );
 
   return (
     <>
-      <Modal mobileBottomSheet isOpen={open} onClose={onClose} closeOnBackdropClick={false} closeOnEscape={!blockedEscape} showCloseButton={false} ariaLabelledBy={titleId} className={modalShell}>
-        {/* Encabezado vivo: refleja la orden vinculada y el avance de los datos requeridos. */}
-        <header className="cot-sheen relative shrink-0 overflow-hidden bg-[#17235B] text-white dark:bg-[#1B2A63]">
-          <div className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-[#E6A23C]/15 blur-3xl" aria-hidden />
-          <div className="relative flex items-start gap-3.5 px-5 pb-4 pr-16 pt-5 sm:px-6">
-            <span className="hidden size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C] sm:inline-flex" aria-hidden>
-              <FileText className="size-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">{isNew ? "Nuevo reporte" : `Reporte ${folio || ""}`.trim()}</p>
-              <h2 id={titleId} className="mt-1 truncate text-[20px] font-semibold leading-tight tracking-[-0.5px] sm:text-[22px]" title={titulo}>
-                {titulo || (isNew ? "Nuevo reporte de mantenimiento" : "Reporte sin cliente")}
-              </h2>
+      <MantenimientoFormShell
+        open={open}
+        onClose={onClose}
+        busy={saving}
+        escapeBlocked={blockedEscape}
+        ariaLabel={isNew ? "Nuevo reporte de mantenimiento" : `Editar reporte ${folio}`}
+        icon={FileText}
+        kicker="Reporte de mantenimiento"
+        title={isNew ? "Nuevo reporte" : "Editar reporte"}
+        editing={!isNew}
+        newBadge="Nuevo"
+        folio={folio || undefined}
+        steps={PASOS}
+        active={activeStep}
+        onActiveChange={setActiveStep}
+        done={{ 1: stepState[1] === "done", 2: stepState[2] === "done", 3: stepState[3] === "done" }}
+        summary={[
+          { label: esProyecto ? "Proyecto" : "Origen", value: ordenFolio ? `${ordenFolio}${titulo ? ` · ${titulo}` : ""}` : "" },
+          { label: "Técnicos", value: draft.tecnico_nombre.trim() },
+          { label: "Evidencia", value: draft.secciones.length > 0 ? stepHints[3] : "" },
+        ]}
+        asideFooter={
+          !isNew && reporteId != null ? (
+            <Link to={`/reportes-mantenimiento/${reporteId}/pdf`} state={{ from: `/mantenimiento/reportes/${reporteId}` }} className={`${btn.secondary} w-full`}>
+              <FileText aria-hidden />
+              Ver PDF
+            </Link>
+          ) : null
+        }
+        alert={
+          alert.show ? (
+            <div role="alert">
+              <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} placement="inline" />
             </div>
-            <button type="button" onClick={onClose} disabled={saving} aria-label="Cerrar ventana" className="cot-press absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-[10px] text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-40">
-              <X className="size-5" aria-hidden />
-            </button>
-          </div>
-          <div className="relative flex items-center gap-3 px-5 pb-4 sm:px-6">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Datos requeridos completos">
-              <div className="cot-bar h-full w-full origin-left rounded-full bg-[#E6A23C]" style={{ transform: `scaleX(${pct / 100})` }} />
-            </div>
-            <span key={pct} className="cot-flash w-24 text-right text-[12.5px] font-semibold tabular-nums text-white/85">
-              {requiredDone}/3 requeridos
-            </span>
-          </div>
-        </header>
-
-        <div className="flex min-h-0 flex-1">
-          <aside className="hidden w-64 shrink-0 2xl:w-72 flex-col border-r border-[#F0F0F2] bg-[#FAFAFA] p-3 dark:border-[#1F2A3C] dark:bg-[#0F172A]/60 md:flex">
-            <ReporteStepRail {...stepProps} hints={stepHints} />
-            {!isNew && reporteId != null ? (
-              <Link
-                to={`/reportes-mantenimiento/${reporteId}/pdf`}
-                state={{ from: `/reportes-mantenimiento/${reporteId}` }}
-                className={`${btn.secondary} mt-auto w-full`}
-              >
-                <FileText aria-hidden />
-                Ver PDF
-              </Link>
-            ) : null}
-          </aside>
-
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="shrink-0 border-b border-[#F0F0F2] px-3 py-2.5 dark:border-[#1F2A3C] md:hidden">
-              <ReporteStepChips {...stepProps} />
-            </div>
-
-            <div className="custom-scrollbar erp-modal-form-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[#F7F7F8] dark:bg-[#0B1220]">
-              <div className="mx-auto w-full max-w-4xl space-y-4 p-3 sm:p-5 lg:p-6 xl:max-w-5xl">
-                {alert.show ? (
-                  <div role="alert">
-                    <Alert variant={alert.variant} title={alert.title} message={alert.message} showLink={false} placement="inline" />
-                  </div>
-                ) : null}
-
-                {loading ? (
-                  <div className="space-y-3" aria-hidden>
-                    <div className="h-14 animate-pulse rounded-2xl bg-white dark:bg-[#111827]" />
-                    <div className="h-64 animate-pulse rounded-[20px] bg-white dark:bg-[#111827]" />
-                  </div>
-                ) : (
-                  <div key={activeStep} id={`${panelId}-panel`} role="tabpanel" aria-labelledby={`${panelId}-tab-${activeStep}`} className="space-y-4">
-                    <div className="cot-fade hidden items-center gap-3 px-1 pt-1 sm:flex">
-                      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1B5CFF] ring-1 ring-[#E4E4E7] dark:bg-[#111827] dark:text-[#7EA0FF] dark:ring-[#273244]" aria-hidden>
-                        <step.icon className="size-5" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1B5CFF] dark:text-[#7EA0FF]">
-                          Paso {stepIndex + 1} de {REPORTE_STEPS.length}
-                        </p>
-                        <p className="text-[20px] font-semibold leading-tight tracking-[-0.4px] text-[#09090B] dark:text-[#F8FAFC]">{step.label}</p>
-                      </div>
-                    </div>
-                    {activeStep === 1 && renderStep1()}
-                    {activeStep === 2 && renderStep2()}
-                    {activeStep === 3 && renderStep3()}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <footer className="flex shrink-0 items-center gap-2 border-t border-[#F0F0F2] bg-white px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#1F2A3C] dark:bg-[#111827] sm:px-5 sm:py-3 sm:pb-3">
-              <button type="button" disabled={saving} onClick={isFirst ? onClose : () => goStep(-1)} className={`${btn.secondary}${big}${eq} px-3!`} aria-label={isFirst ? "Cancelar" : "Paso anterior"} title={isFirst ? "Cancelar" : "Paso anterior"}>
-                {isFirst ? <X aria-hidden /> : <ArrowLeft aria-hidden />}
-                <span>{isFirst ? "Cancelar" : "Anterior"}</span>
-              </button>
-
-              <span className="hidden min-w-0 flex-1 text-center text-[13px] text-[#71717A] dark:text-[#8EA0B8] lg:block" aria-hidden>
-                Paso {stepIndex + 1} de {REPORTE_STEPS.length} · {step.label}
-              </span>
-
-              {!isLast ? (
-                <button type="button" disabled={saving} onClick={() => goStep(1)} className={`${isNew ? btn.primary : btn.secondary}${big} px-3!${eq} sm:ml-auto lg:ml-0`}>
-                  Siguiente
-                  <ArrowRight aria-hidden />
-                </button>
-              ) : null}
-              {!isNew || isLast ? (
-                <button type="button" disabled={formBusy} aria-busy={saving || undefined} onClick={() => void handleSave()} className={`${btn.primary}${big} px-3!${eq} ${isLast ? "sm:ml-auto lg:ml-0" : ""}`}>
-                  {saving ? <AppSpinner /> : <Check aria-hidden />}
-                  <span className="sm:hidden">{saving ? "Guardando…" : isNew ? "Crear" : "Guardar"}</span>
-                  <span className="hidden sm:inline">{saveLabel}</span>
-                </button>
-              ) : null}
-            </footer>
-          </div>
-        </div>
-      </Modal>
+          ) : null
+        }
+        loading={loading}
+        loadingText="Cargando el reporte…"
+        panels={{ 1: renderStep1(), 2: renderStep2(), 3: renderStep3() }}
+        onSubmit={() => void handleSave()}
+        saveLabel={{ idle: isNew ? "Crear reporte" : "Guardar cambios", busy: "Guardando…" }}
+      />
 
       {/* Modal eliminar zona */}
       <Modal

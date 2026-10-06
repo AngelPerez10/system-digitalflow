@@ -1,5 +1,5 @@
 /**
- * Filtros del listado Equipo (tipo, estado, búsqueda, orden) — lógica pura.
+ * Filtros del listado Equipo (tipo, estado, técnicos, búsqueda, orden) — lógica pura.
  */
 import type { Orden } from "../../OrdenesTrabajo/OrdenServicio/shared/ordenesPageTypes";
 import { displayOrdenFolio } from "../../OrdenesTrabajo/OrdenServicio/shared/useOrdenesShared";
@@ -16,9 +16,11 @@ export type EquipoFiltros = {
   tipo: EquipoTipoFiltro;
   estado: EquipoEstadoFiltro;
   orden: EquipoOrden;
+  /** Ids de técnicos a mostrar; vacío = todos. */
+  tecnicos: number[];
 };
 
-export const EQUIPO_FILTROS_DEFAULT: EquipoFiltros = { q: "", tipo: "todo", estado: "abiertos", orden: "recientes" };
+export const EQUIPO_FILTROS_DEFAULT: EquipoFiltros = { q: "", tipo: "todo", estado: "abiertos", orden: "recientes", tecnicos: [] };
 
 function ordenCoincide(o: Orden, q: string): boolean {
   return displayOrdenFolio(o).toLowerCase().includes(q) || String(o.cliente || "").toLowerCase().includes(q);
@@ -29,12 +31,15 @@ const porCliente = (a: string, b: string) => a.localeCompare(b, "es", { sensitiv
 /**
  * Aplica los filtros a cada sección. Con búsqueda, si el nombre del técnico
  * coincide se ven todas sus filas; si no, solo las que coinciden por folio o
- * cliente. Las secciones quedan aunque se vacíen (el riel sigue mostrándolas).
+ * cliente. Las secciones quedan aunque se vacíen (el riel sigue mostrándolas),
+ * salvo con filtro de técnicos: entonces solo quedan los elegidos.
  */
 export function filtrarSeccionesEquipo(secciones: EquipoSeccion[], f: EquipoFiltros): EquipoSeccion[] {
   const q = f.q.trim().toLowerCase();
   const soloAbiertos = f.estado === "abiertos";
-  return secciones.map((s) => {
+  const elegidos = f.tecnicos.length > 0 ? new Set(f.tecnicos) : null;
+  const base = elegidos ? secciones.filter((s) => s.tecnico.id != null && elegidos.has(s.tecnico.id)) : secciones;
+  return base.map((s) => {
     const nombreCoincide = !q || s.tecnico.nombre.toLowerCase().includes(q);
     let ordenes =
       f.tipo === "proyectos"

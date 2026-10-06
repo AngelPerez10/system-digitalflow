@@ -1,0 +1,153 @@
+/*
+ * Movimiento del asistente de Mantenimiento (pólizas y reportes).
+ * Mismas reglas que modal-kit/motion.css: solo transform/opacity, una sola vez,
+ * y nada con prefers-reduced-motion.
+ */
+
+@media (prefers-reduced-motion: no-preference) {
+  /*
+   * Panel del paso: entra desde el lado hacia donde se avanza. Los paneles
+   * ocultos usan `hidden` (display: none); al mostrarse, la animación arranca
+   * sola, así que los pasos pueden quedar montados sin perder lo capturado.
+   */
+  .mf-panel {
+    animation: mf-in-next 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .mf-panels[data-dir="prev"] .mf-panel {
+    animation-name: mf-in-prev;
+  }
+
+  /* Encabezado del paso (ícono, título y descripción). */
+  .mf-head {
+    animation: mf-head 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Marcador del paso: cambio de color suave al activarse o completarse. */
+  .mf-marker {
+    transition:
+      background-color 220ms ease-out,
+      color 220ms ease-out,
+      box-shadow 220ms ease-out,
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .mf-step[aria-selected="true"] .mf-marker {
+    transform: scale(1.06);
+  }
+
+  /* Pastilla del paso activo. */
+  .mf-step {
+    transition:
+      background-color 180ms ease-out,
+      box-shadow 180ms ease-out,
+      color 180ms ease-out;
+  }
+
+  /* Cambio de tema: conservar el nombre evita que la entrada se repita (ver motion.css). */
+  html.theme-changing .mf-panel {
+    animation-name: mf-in-next !important;
+  }
+  html.theme-changing .mf-panels[data-dir="prev"] .mf-panel {
+    animation-name: mf-in-prev !important;
+  }
+  html.theme-changing .mf-head {
+    animation-name: mf-head !important;
+  }
+}
+
+@keyframes mf-in-next {
+  from {
+    opacity: 0;
+    transform: translate3d(14px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mf-in-prev {
+  from {
+    opacity: 0;
+    transform: translate3d(-14px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mf-head {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------------
+ * Proyecto vinculado (reporte): tarjeta que «aterriza», datos escalonados y
+ * aro que se expande una vez en el estado vacío. Solo transform/opacity.
+ * ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: no-preference) {
+  .mf-land {
+    animation: mf-land 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .mf-stagger > * {
+    animation: mf-head 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(120ms + var(--mf-i, 0) * 60ms);
+  }
+  .mf-ring {
+    position: relative;
+  }
+  .mf-ring::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: inherit;
+    border: 2px solid currentColor;
+    opacity: 0;
+    pointer-events: none;
+    animation: mf-ring 1600ms 300ms cubic-bezier(0.22, 1, 0.36, 1) 2 both;
+  }
+  .mf-lift {
+    transition:
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 180ms ease-out,
+      border-color 180ms ease-out,
+      background-color 180ms ease-out;
+  }
+  .mf-lift:hover:not(:disabled) {
+    transform: translate3d(0, -2px, 0);
+  }
+  .mf-lift:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+  html.theme-changing .mf-land {
+    animation-name: mf-land !important;
+  }
+}
+
+@keyframes mf-land {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mf-ring {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}

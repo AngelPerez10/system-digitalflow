@@ -13,15 +13,18 @@ export function OrdenFormSection({
   description,
   children,
   icon,
+  actions,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   icon?: ReactNode;
+  /** Acciones a la derecha del encabezado (p. ej. «Agregar zona»). */
+  actions?: ReactNode;
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-[#E4E4E7] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)] dark:border-[#273244] dark:bg-[#111827]">
-      <header className="flex items-center gap-3 border-b border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
+      <header className="flex flex-wrap items-center gap-3 border-b border-[#F0F0F2] px-5 py-4 dark:border-[#1F2A3C]">
         {icon ? (
           <span
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF] [&_svg]:size-[18px]"
@@ -30,12 +33,13 @@ export function OrdenFormSection({
             {icon}
           </span>
         ) : null}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="text-[15px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">{title}</h3>
           {description ? (
             <p className="mt-0.5 text-[13px] leading-snug text-[#71717A] dark:text-[#8EA0B8]">{description}</p>
           ) : null}
         </div>
+        {actions ? <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div> : null}
       </header>
       <div className="space-y-5 px-5 py-5 [&_label.block]:mb-1.5! [&_label.block]:text-[13px]! [&_label.block]:font-medium! [&_label.block]:text-[#3F3F46]! dark:[&_label.block]:text-[#B7C1D1]!">
         {children}

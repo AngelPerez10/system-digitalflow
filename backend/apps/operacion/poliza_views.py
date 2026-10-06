@@ -277,6 +277,16 @@ class PolizaMantenimientoViewSet(viewsets.ModelViewSet):
             .order_by("-idx")
             .values("id", "idx", "fecha", "status")[:200]
         )
+        # Cotizaciones que ya respaldan otra póliza (al editar se excluye la propia).
+        ocupadas_qs = PolizaMantenimiento.objects.filter(
+            cotizacion_id__in=[row["id"] for row in rows]
+        )
+        raw_excluir = (request.query_params.get("exclude_poliza_id") or "").strip()
+        if raw_excluir.isdigit():
+            ocupadas_qs = ocupadas_qs.exclude(pk=int(raw_excluir))
+        ocupadas = {
+            cot_id: folio for cot_id, folio in ocupadas_qs.values_list("cotizacion_id", "folio")
+        }
         payload = []
         for row in rows:
             idx = row.get("idx")
@@ -287,6 +297,7 @@ class PolizaMantenimientoViewSet(viewsets.ModelViewSet):
                     "folio": format_document_folio(FOLIO_SERIE_COT, idx, empty=""),
                     "fecha": row["fecha"].isoformat() if row.get("fecha") else None,
                     "status": row.get("status") or "",
+                    "ocupada_por": ocupadas.get(row["id"]) or None,
                 }
             )
         return Response(payload)

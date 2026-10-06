@@ -1,5 +1,5 @@
 import { Camera, FileText, ImageOff, Pencil, Trash2 } from "lucide-react";
-import { iconBtn, iconBtnDanger, metaChip } from "../../Proyectos/shared/proyectoTokens";
+import { iconBtn, iconBtnDanger, metaChip } from "../../../Proyectos/shared/proyectoTokens";
 import type { ReporteMantenimiento } from "../reporteTypes";
 import { folioDe } from "./reporteListUtils";
 

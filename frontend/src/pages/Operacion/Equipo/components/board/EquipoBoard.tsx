@@ -363,7 +363,7 @@ export function EquipoBoard({ secciones, porDia, ...c }: EquipoBoardProps) {
       </div>
 
       {/* Cuerpo: todos los técnicos, sin scroll vertical propio; la barra horizontal va abajo. */}
-      <div ref={bodyRef} className="overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div ref={bodyRef} data-eq-hscroll className="overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="min-w-[131rem]">
           {secciones.map((s, i) => (
             <BoardRow key={columnKey(s.tecnico.id)} seccion={s} index={i} maxAbiertos={maxAbiertos} {...c} />

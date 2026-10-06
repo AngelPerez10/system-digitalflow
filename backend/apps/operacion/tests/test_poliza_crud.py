@@ -97,7 +97,10 @@ class PolizaMantenimientoCrudTests(APITestCase):
         self._auth_admin()
         first = self.client.post(LIST_URL, self.payload, format="json")
         self.assertEqual(first.status_code, status.HTTP_201_CREATED, first.data)
-        second = self.client.post(LIST_URL, self.payload, format="json")
+        segunda_cot = Cotizacion.objects.create(
+            cliente_id=self.cliente, cliente=self.cliente.nombre, status="AUTORIZADA", fecha="2026-08-20"
+        )
+        second = self.client.post(LIST_URL, {**self.payload, "cotizacion_id": segunda_cot.id}, format="json")
         self.assertEqual(second.status_code, status.HTTP_201_CREATED, second.data)
         self.assertEqual(first.data["folio"], "POL-10001")
         self.assertEqual(second.data["folio"], "POL-10002")
@@ -166,6 +169,38 @@ class PolizaMantenimientoCrudTests(APITestCase):
         payload["fecha3"] = "2027-04-20"
         res = self.client.post(LIST_URL, payload, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+
+    def test_cotizacion_solo_en_una_poliza(self):
+        self._auth_admin()
+        first = self.client.post(LIST_URL, self.payload, format="json")
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED, first.data)
+        dup = self.client.post(LIST_URL, self.payload, format="json")
+        self.assertEqual(dup.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("POL-10001", str(dup.data["cotizacion_id"]))
+        # Editar la misma póliza conservando su cotización sí se permite.
+        patch = self.client.patch(
+            f"{LIST_URL}{first.data['id']}/",
+            {"cotizacion_id": self.cotizacion.id, "servicio_tipo": "Correctivo"},
+            format="json",
+        )
+        self.assertEqual(patch.status_code, status.HTTP_200_OK, patch.data)
+
+    def test_picker_marca_cotizaciones_ocupadas(self):
+        self._auth_admin()
+        libre = Cotizacion.objects.create(
+            cliente_id=self.cliente, cliente=self.cliente.nombre, status="AUTORIZADA", fecha="2026-08-21"
+        )
+        first = self.client.post(LIST_URL, self.payload, format="json")
+        res = self.client.get(f"{LIST_URL}cotizaciones/", {"cliente_id": self.cliente.id})
+        por_id = {row["id"]: row for row in res.data}
+        self.assertEqual(por_id[self.cotizacion.id]["ocupada_por"], "POL-10001")
+        self.assertIsNone(por_id[libre.id]["ocupada_por"])
+        # Al editar esa póliza, su propia cotización aparece libre.
+        res = self.client.get(
+            f"{LIST_URL}cotizaciones/",
+            {"cliente_id": self.cliente.id, "exclude_poliza_id": first.data["id"]},
+        )
+        self.assertIsNone({row["id"]: row for row in res.data}[self.cotizacion.id]["ocupada_por"])
 
     def test_search_filtra_por_cliente(self):
         self._auth_admin()
