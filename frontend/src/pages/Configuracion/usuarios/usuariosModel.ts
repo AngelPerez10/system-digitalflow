@@ -198,12 +198,28 @@ export type PermissionSectionKey =
   | 'operaciones'
   | 'configuracion';
 
+/** Submenú dentro de un menú (p. ej. Operación › Mantenimiento). */
+export type PermissionGroup = {
+  key: string;
+  label: string;
+  hint: string;
+  modules: { key: ModuleKey; label: string }[];
+};
+
 export type PermissionSection = {
   key: PermissionSectionKey;
   /** Nombre del menú del panel donde vive cada vista. */
   menu: string;
   modules: { key: ModuleKey; label: string }[];
+  /** Submenús con varias vistas agrupadas (se muestran después de los módulos). */
+  groups?: PermissionGroup[];
 };
+
+/** Todos los módulos de una sección, incluidos los de sus submenús. */
+export const sectionModuleKeys = (s: PermissionSection): ModuleKey[] => [
+  ...s.modules.map((m) => m.key),
+  ...(s.groups ?? []).flatMap((g) => g.modules.map((m) => m.key)),
+];
 
 const BASE_SECTIONS: PermissionSection[] = [
   { key: 'escritorio', menu: 'Mi escritorio', modules: [{ key: 'tareas', label: 'Tareas' }] },
@@ -226,8 +242,19 @@ const BASE_SECTIONS: PermissionSection[] = [
       { key: 'inventario', label: 'Inventario' },
       { key: 'reportes', label: 'Reportes semanales' },
       { key: 'cuentas_antarix', label: 'Cuentas Antarix GPS' },
-      { key: 'polizas', label: 'Póliza de mantenimiento' },
-      { key: 'reportes_mantenimiento', label: 'Reporte de mantenimiento' },
+    ],
+    groups: [
+      {
+        // Una sola vista con dos tipos de registro; cada uno con sus permisos
+        // (el servidor los valida por separado).
+        key: 'mantenimiento',
+        label: 'Mantenimiento',
+        hint: 'Una sola vista; cada tipo con sus permisos',
+        modules: [
+          { key: 'polizas', label: 'Pólizas' },
+          { key: 'reportes_mantenimiento', label: 'Reportes' },
+        ],
+      },
     ],
   },
 ];

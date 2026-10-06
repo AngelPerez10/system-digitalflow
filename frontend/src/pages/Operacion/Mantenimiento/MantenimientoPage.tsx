@@ -51,7 +51,7 @@ import ReporteFormModal from "./reportes/form/ReporteFormModal";
 import { ReporteDeleteModal } from "./reportes/list/ReporteDeleteModal";
 import type { ReporteHandlers } from "./reportes/list/ReporteEvidencia";
 import { ReportesCardsSkeleton, ReportesErrorState, ReportesTableSkeleton } from "./reportes/list/ReportesListStates";
-import { folioDe, mesActual, tecnicosDeReportes } from "./reportes/list/reporteListUtils";
+import { folioDe, mesActual, tecnicosDeReportes, tieneEvidencia } from "./reportes/list/reporteListUtils";
 import { deleteReporte, isReporteApiError, listReportes } from "./reportes/reporteApi";
 import { usuarioDisplayName } from "./reportes/reporteTecnicos";
 import type { ReporteMantenimiento } from "./reportes/reporteTypes";
@@ -305,6 +305,10 @@ export default function MantenimientoPage() {
   };
 
   /* ---------------- Contenido del listado ---------------- */
+  // Textos según lo que el usuario puede ver.
+  const soloReportes = verReportes && !verPolizas;
+  const soloPolizas = verPolizas && !verReportes;
+  const queVe = soloReportes ? "reportes" : soloPolizas ? "pólizas" : "pólizas y reportes";
   let contenido;
   if (loading)
     contenido = esEscritorio ? (
@@ -316,7 +320,7 @@ export default function MantenimientoPage() {
     );
   else if (loadError) contenido = <ReportesErrorState message={loadError} onRetry={() => void load()} />;
   else if (lista.length === 0)
-    contenido = <MantenimientoEmpty filtered={hayFiltros} canCreate={crearOpciones.length > 0} onClear={limpiar} onNew={onNuevo} />;
+    contenido = <MantenimientoEmpty filtered={hayFiltros} canCreate={crearOpciones.length > 0} queVe={queVe} onClear={limpiar} onNew={onNuevo} />;
   else contenido = <MantenimientoList items={visibles} poliza={polizaHandlers} reporte={reporteHandlers} avatars={avatars} />;
 
   const stats = [
@@ -329,6 +333,13 @@ export default function MantenimientoPage() {
       : []),
     ...(verReportes
       ? [{ label: "Reportes del mes", value: delMes, icon: FileText, chip: "border-[#E7E7EA] bg-white/90 text-[#1B5CFF] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#4B7CFF]" }]
+      : []),
+    // Solo reportes (técnico de campo): el resumen se completa con la evidencia.
+    ...(verReportes && !verPolizas
+      ? [
+          { label: "Con evidencia", value: reportes.filter(tieneEvidencia).length, icon: CalendarCheck2, chip: "border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300" },
+          { label: "Sin evidencia", value: reportes.filter((r) => !tieneEvidencia(r)).length, icon: CircleAlert, chip: "border-amber-200/70 bg-amber-50/90 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200" },
+        ]
       : []),
   ];
 
@@ -361,14 +372,18 @@ export default function MantenimientoPage() {
               <p className={polHeroEyebrowClass}>Operación</p>
               <h1 className={polHeroTitleClass}>Mantenimiento</h1>
               <p className={polHeroBodyClass}>
-                Pólizas y reportes de mantenimiento en un solo lugar. Arriba aparece lo que necesita atención: pólizas vencidas y con visita cercana.
+                {soloReportes
+                  ? "Tus reportes de mantenimiento: evidencia de cada servicio con fotos de Antes y Después."
+                  : soloPolizas
+                    ? "Pólizas de mantenimiento con sus visitas. Arriba aparece lo que necesita atención: vencidas y con visita cercana."
+                    : "Pólizas y reportes de mantenimiento en un solo lugar. Arriba aparece lo que necesita atención: pólizas vencidas y con visita cercana."}
               </p>
             </div>
           </div>
         </header>
 
         {stats.length > 0 ? (
-          <div className={`grid grid-cols-2 gap-2 sm:gap-3 ${stats.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`} role="group" aria-label="Resumen de mantenimiento">
+          <div className={`grid grid-cols-2 gap-2 sm:gap-3 ${stats.length >= 4 ? "lg:grid-cols-4" : stats.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`} role="group" aria-label="Resumen de mantenimiento">
             {stats.map(({ label, value, icon: Icono, chip }, i) => (
               <div key={label} className={`${erpStatCardClass} cot-rise`} style={{ "--cot-i": i } as CSSProperties}>
                 <div className="flex items-center gap-2.5 sm:gap-3">
@@ -403,7 +418,7 @@ export default function MantenimientoPage() {
                   setSearch("");
                 }
               }}
-              placeholder="Buscar por folio, cliente, cotización o técnico…"
+              placeholder={soloReportes ? "Buscar por folio, cliente, proyecto o técnico…" : "Buscar por folio, cliente, cotización o técnico…"}
               className={pageSearchInputClass}
               aria-label="Buscar pólizas y reportes"
               aria-busy={search !== q || undefined}
@@ -457,7 +472,7 @@ export default function MantenimientoPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 id="mant-listado" className="text-[15px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
-                    Pólizas y reportes
+                    {queVe.charAt(0).toUpperCase() + queVe.slice(1)}
                   </h2>
                   <p className="text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]">Lo urgente primero, luego lo más reciente.</p>
                 </div>

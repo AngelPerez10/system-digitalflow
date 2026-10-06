@@ -5,11 +5,14 @@ import { btn } from "../../Proyectos/shared/proyectoTokens";
 export function MantenimientoEmpty({
   filtered,
   canCreate,
+  queVe = "pólizas y reportes",
   onClear,
   onNew,
 }: {
   filtered: boolean;
   canCreate: boolean;
+  /** «pólizas», «reportes» o «pólizas y reportes», según los permisos. */
+  queVe?: string;
   onClear: () => void;
   onNew: () => void;
 }) {
@@ -20,14 +23,14 @@ export function MantenimientoEmpty({
         <Icon className="size-6" aria-hidden />
       </span>
       <p className="text-[16px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">
-        {filtered ? "Nada coincide" : "Aún no hay pólizas ni reportes"}
+        {filtered ? "Nada coincide" : `Aún no hay ${queVe.replace(" y ", " ni ")}`}
       </p>
       <p className="mt-1.5 max-w-sm text-[14px] leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]">
         {filtered
           ? "Prueba con otro término o quita algunos filtros."
           : canCreate
-            ? "Crea una póliza de mantenimiento o un reporte de servicio con el botón «Nuevo»."
-            : "Cuando se registre una póliza o un reporte aparecerá aquí."}
+            ? `Crea ${queVe === "reportes" ? "un reporte de servicio" : queVe === "pólizas" ? "una póliza de mantenimiento" : "una póliza o un reporte"} con el botón «Nuevo».`
+            : "Cuando se registre aparecerá aquí."}
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         {filtered ? (

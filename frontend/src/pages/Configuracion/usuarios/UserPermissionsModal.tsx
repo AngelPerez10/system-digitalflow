@@ -60,6 +60,8 @@ import {
   lockedForTecnico,
   normalizePerms,
   permissionSectionsFor,
+  sectionModuleKeys,
+  type PermissionGroup,
   type CrudPerms,
   type ModuleKey,
   type PermAction,
@@ -203,7 +205,7 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
 
   const sections = useMemo(() => permissionSectionsFor(staffAdmin), [staffAdmin]);
   const current = useMemo(() => normalizePerms(perms, { isAdmin: staffAdmin }), [perms, staffAdmin]);
-  const allKeys = useMemo(() => sections.flatMap((s) => s.modules.map((m) => m.key)), [sections]);
+  const allKeys = useMemo(() => sections.flatMap(sectionModuleKeys), [sections]);
   const visibleCount = allKeys.filter((k) => (current[k] as CrudPerms).view).length;
   const dirty = !loading && !!initial && JSON.stringify(current) !== initial;
   const readOnly = !canDelegatePerms;
@@ -454,6 +456,23 @@ export default function UserPermissionsModal({ open, user, canDelegatePerms, aut
                       />
                     ))}
                   </ul>
+                  {sec.groups?.map((g) => (
+                    <ModuleGroup key={g.key} group={g} current={current}>
+                      {g.modules.map((m, mi) => (
+                        <ModuleRow
+                          key={m.key}
+                          moduleKey={m.key}
+                          label={m.label}
+                          perms={current[m.key] as CrudPerms}
+                          readOnly={readOnly}
+                          isLocked={(a) => isLocked(m.key, a)}
+                          onToggle={(action, value) => change([{ key: m.key, action, value }])}
+                          onScope={(ownOnly) => setScope(m.key, ownOnly)}
+                          nested={mi === g.modules.length - 1 ? 'last' : 'middle'}
+                        />
+                      ))}
+                    </ModuleGroup>
+                  ))}
                 </section>
               ))}
             </div>
@@ -516,6 +535,7 @@ function ModuleRow({
   isLocked,
   onToggle,
   onScope,
+  nested,
 }: {
   moduleKey: ModuleKey;
   label: string;
@@ -524,6 +544,8 @@ function ModuleRow({
   isLocked: (a: PermAction) => boolean;
   onToggle: (action: PermAction, value: boolean) => void;
   onScope: (ownOnly: boolean) => void;
+  /** Hijo de un submenú: sangría y línea de árbol (igual que el menú lateral). */
+  nested?: 'middle' | 'last';
 }) {
   const scoped = SCOPED_MODULES.has(moduleKey);
   const summary = !perms.view
@@ -538,8 +560,15 @@ function ModuleRow({
         ROW_GRID,
         'items-center gap-y-3 px-5 py-3.5 transition-colors duration-200 sm:gap-y-0 sm:px-6 sm:py-2.5',
         !perms.view && 'bg-[#FCFCFD] dark:bg-transparent',
+        nested && 'relative pl-12 sm:pl-14',
       )}
     >
+      {nested ? (
+        <span aria-hidden className="pointer-events-none absolute left-[1.9rem] top-0 sm:left-[2.15rem]" style={{ height: nested === 'last' ? '50%' : '100%' }}>
+          <span className="absolute inset-y-0 left-0 w-px bg-[#E4E4E7] dark:bg-[#273244]" />
+          <span className="absolute bottom-0 left-0 h-px w-3 bg-[#E4E4E7] dark:bg-[#273244]" style={{ bottom: nested === 'last' ? 0 : '50%' }} />
+        </span>
+      ) : null}
       {/* Módulo */}
       <div className="col-span-4 flex min-w-0 items-center gap-3 sm:col-span-1">
         <span
@@ -843,3 +872,54 @@ function Checkbox({
     </span>
   );
 }
+
+/* --------------------------------------------------------------------------
+   Submenú (p. ej. Operación › Mantenimiento): encabezado con el ícono del
+   menú y una ayuda corta; las vistas cuelgan como hijos con línea de árbol,
+   igual que en el menú lateral.
+   -------------------------------------------------------------------------- */
+
+function ModuleGroup({
+  group,
+  current,
+  children,
+}: {
+  group: PermissionGroup;
+  current: Record<string, unknown>;
+  children: ReactNode;
+}) {
+  const keys = group.modules.map((m) => m.key);
+  const visibles = keys.filter((k) => Boolean((current[k] as CrudPerms | undefined)?.view)).length;
+
+  return (
+    <div className="border-b border-[#F0F0F2] dark:border-[#1F2A3C]">
+      <div className="flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={cn(
+              'inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] transition-colors duration-200 [&_svg]:size-4',
+              visibles > 0 ? 'bg-[#17235B] text-[#E6A23C] dark:bg-[#1B2A63]' : 'bg-[#F4F4F5] text-[#A1A1AA] dark:bg-[#151E32] dark:text-[#64748B]',
+            )}
+            aria-hidden
+          >
+            <Wrench />
+          </span>
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-[14px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
+              {group.label}
+              <span className="inline-flex h-5 items-center rounded-full bg-[#F4F4F5] px-2 text-[11px] font-medium text-[#6E6E77] dark:bg-white/6 dark:text-[#8EA0B8]">
+                Submenú
+              </span>
+            </p>
+            <p className="truncate text-[12px] text-[#6E6E77] dark:text-[#8EA0B8]">
+              {visibles === 0 ? 'Oculto en su menú' : `${visibles} de ${keys.length} visibles`} · {group.hint}
+            </p>
+          </div>
+        </div>
+      </div>
+      <ul className="divide-y divide-[#F0F0F2] dark:divide-[#1F2A3C]">{children}</ul>
+    </div>
+  );
+}
+
+
