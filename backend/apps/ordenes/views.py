@@ -50,6 +50,7 @@ from apps.ordenes.email_pdf import (
     smtp_host_configured,
 )
 from apps.ordenes.equipos_inventario import sync_orden_equipos_inventario
+from apps.ordenes.telefono import TELEFONO_MAX, normalizar_telefono
 from apps.ordenes.image_services import (
     ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES,
     ALLOWED_IMAGE_MIME_TYPES,
@@ -252,7 +253,7 @@ def _portal_contacto_para_cliente(cliente_pk):
     telefono = (getattr(cliente, 'celular', '') or '').strip() or (
         getattr(cliente, 'telefono', '') or ''
     ).strip()
-    return (nombre or None), (telefono[:15] or None)
+    return (nombre or None), (normalizar_telefono(telefono)[-TELEFONO_MAX:] or None)
 
 
 def _fill_contacto_desde_portal(data: dict, instance=None) -> dict:

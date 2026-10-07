@@ -7,6 +7,7 @@ from apps.users.permissions import user_can_change_module_status
 from .equipos_inventario import normalize_equipos_payload
 from .models import Orden, OrdenInstalacion, OrdenLevantamiento, ReporteSemanal
 from .prioridad import prioridad_pool_efectiva
+from .telefono import TELEFONO_MAX, normalizar_telefono
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +65,23 @@ class OrdenSerializer(serializers.ModelSerializer):
     calificacion_cliente = serializers.SerializerMethodField()
     # Prioridad de bolsa escalada por antigüedad (derivada, no se persiste).
     prioridad_pool_efectiva = serializers.SerializerMethodField()
+    # Sin el `max_length` del modelo: un número con lada o separadores
+    # (+52 314 123 4567) debe llegar a `validate_telefono_cliente`, que lo
+    # normaliza y aplica el tope real de 10 dígitos.
+    telefono_cliente = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def get_prioridad_pool_efectiva(self, obj):
         return prioridad_pool_efectiva(
             obj.prioridad_pool, obj.fecha_creacion, obj.status
         )
+
+    def validate_telefono_cliente(self, value):
+        if value is None:
+            return None
+        telefono = normalizar_telefono(value)
+        if len(telefono) > TELEFONO_MAX:
+            raise serializers.ValidationError(f'Máximo {TELEFONO_MAX} dígitos.')
+        return telefono
 
     def validate_folio(self, value):
         if isinstance(value, str) and value.strip() == '':
