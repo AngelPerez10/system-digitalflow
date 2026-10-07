@@ -43,7 +43,10 @@ export default function AppLayout() {
   const mostrarNavbar = MENU_APP.some((e) => e.seccion !== undefined && e.seccion === seccionListado);
 
   const nombre = user ? nombreUsuarioDisplay(user) : undefined;
-  const puedeAlgo = MENU_APP.some((e) => canViewModule(permissions, user, e.modulo));
+  const puedeAlgo = MENU_APP.some((e) => {
+    const mods = typeof e.modulo === 'string' ? [e.modulo] : e.modulo;
+    return mods.some((m) => canViewModule(permissions, user, m));
+  });
 
   if (status === 'loading') return <LoadingState label="Restaurando sesión…" />;
   if (status === 'signedOut') return <Redirect href="/bienvenida" />;
@@ -100,6 +103,7 @@ export default function AppLayout() {
             animationDuration: animationDurationMs('push', reduced),
           }}
         >
+          <Stack.Screen name="agenda/index" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="ordenes/index" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen
             name="ordenes/pool"
@@ -107,6 +111,14 @@ export default function AppLayout() {
               headerShown: false,
               animation: push,
               animationDuration: animationDurationMs('push', reduced),
+            }}
+          />
+          <Stack.Screen
+            name="ordenes/nueva"
+            options={{
+              headerShown: false,
+              animation: sheet,
+              animationDuration: animationDurationMs('sheet', reduced),
             }}
           />
           <Stack.Screen
@@ -126,6 +138,14 @@ export default function AppLayout() {
             }}
           />
           <Stack.Screen name="proyectos/index" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen
+            name="proyectos/nuevo"
+            options={{
+              headerShown: false,
+              animation: sheet,
+              animationDuration: animationDurationMs('sheet', reduced),
+            }}
+          />
           <Stack.Screen
             name="proyectos/[id]/index"
             options={{

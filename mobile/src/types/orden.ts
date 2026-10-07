@@ -105,3 +105,32 @@ export interface OrdenFieldPatch {
   /** Fuera de `LIMITED_ORDEN_EDIT_FIELDS` — mismo caso que `direccion`. */
   nombre_cliente?: string;
 }
+
+export type PrioridadPool = 'alta' | 'media' | 'baja';
+
+/**
+ * Cuerpo del `POST /ordenes/` desde la app. Mismos campos que el alta de la
+ * web (`buildOrdenWritePayload`); `prioridad_pool` solo lo manda un admin.
+ */
+export interface OrdenCreatePayload {
+  cliente_id: number;
+  cliente: string;
+  nombre_cliente: string;
+  telefono_cliente: string;
+  direccion: string;
+  problematica: string;
+  /** Nombres de servicio, igual que la web. */
+  servicios_realizados: string[];
+  tecnico_asignado: number | null;
+  status: 'pendiente';
+  fecha_inicio: string;
+  hora_inicio: string | null;
+  prioridad_pool?: PrioridadPool;
+}
+
+/** Fila de `GET /ordenes/tecnico-opciones/`, ya normalizada. */
+export interface TecnicoOpcion {
+  id: number;
+  nombre: string;
+  avatarUrl: string | null;
+}

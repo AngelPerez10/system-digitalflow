@@ -1,6 +1,13 @@
 import React from 'react';
 import type { Href } from 'expo-router';
-import { IconCotizaciones, IconOrdenes, IconProyectos, IconReportes, type NavItem } from '@/components/AppNavbar';
+import {
+  IconAgenda,
+  IconCotizaciones,
+  IconOrdenes,
+  IconProyectos,
+  IconReportes,
+  type NavItem,
+} from '@/components/AppNavbar';
 
 /**
  * Catálogo de vistas del menú de la app del técnico. Agregar una vista nueva
@@ -13,8 +20,11 @@ export interface MenuEntrada {
   hint: string;
   /** Encabezado del panel. Mismo texto = mismo grupo. */
   grupo: string;
-  /** Módulo de permisos que debe poder ver (`canViewModule`). */
-  modulo: string;
+  /**
+   * Módulo(s) de permisos. Con varios, basta poder ver **cualquiera**
+   * (p. ej. Agenda une órdenes y proyectos).
+   */
+  modulo: string | readonly string[];
   ruta: Href;
   /**
    * Segmento de listado que la marca como activa (`segments[1]`). Las vistas
@@ -26,6 +36,14 @@ export interface MenuEntrada {
   icon: (color: string) => React.ReactNode;
   /** Clave del contador dinámico que la pantalla raíz le inyecta. */
   contador?: 'disponibles';
+}
+
+function puedeVerEntrada(
+  entrada: MenuEntrada,
+  puedeVer: (modulo: string) => boolean,
+): boolean {
+  const mods = typeof entrada.modulo === 'string' ? [entrada.modulo] : entrada.modulo;
+  return mods.some((m) => puedeVer(m));
 }
 
 export const MENU_APP: readonly MenuEntrada[] = [
@@ -50,6 +68,18 @@ export const MENU_APP: readonly MenuEntrada[] = [
     seccion: 'proyectos',
     navegacion: 'replace',
     icon: (color) => <IconProyectos color={color} />,
+  },
+  {
+    key: 'agenda',
+    label: 'Agenda',
+    hint: 'Órdenes y proyectos del día',
+    grupo: 'Trabajo de campo',
+    modulo: ['ordenes', 'proyectos'],
+    // Cast: tipos de expo-router se regeneran al arrancar Metro.
+    ruta: '/agenda' as Href,
+    seccion: 'agenda',
+    navegacion: 'replace',
+    icon: (color) => <IconAgenda color={color} />,
   },
   {
     key: 'reportes',
@@ -83,7 +113,7 @@ export const MENU_APP: readonly MenuEntrada[] = [
  * que el servidor le negaría.
  */
 export function rutaInicial(puedeVer: (modulo: string) => boolean): Href {
-  return MENU_APP.find((e) => puedeVer(e.modulo))?.ruta ?? '/ordenes';
+  return MENU_APP.find((e) => puedeVerEntrada(e, puedeVer))?.ruta ?? '/ordenes';
 }
 
 /** Traduce el catálogo a `NavItem` para las entradas que el usuario puede ver. */
@@ -93,7 +123,7 @@ export function construirMenu(opciones: {
   contadores: Partial<Record<NonNullable<MenuEntrada['contador']>, number>>;
   navegar: (ruta: Href, modo: MenuEntrada['navegacion']) => void;
 }): NavItem[] {
-  return MENU_APP.filter((e) => opciones.puedeVer(e.modulo)).map((e) => ({
+  return MENU_APP.filter((e) => puedeVerEntrada(e, opciones.puedeVer)).map((e) => ({
     key: e.key,
     label: e.label,
     hint: e.hint,

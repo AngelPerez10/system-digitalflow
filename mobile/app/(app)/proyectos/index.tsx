@@ -1,9 +1,11 @@
 import React, { useCallback } from 'react';
 import { RefreshControl, ScrollView, SectionList, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
+import { canCreateModule } from '@/auth/permissions';
 import { useSession } from '@/auth/SessionProvider';
+import { BotonFlotante } from '@/components/BotonFlotante';
 import { BarraCarga } from '@/components/BarraCarga';
 import {
   FiltroChips,
@@ -25,6 +27,7 @@ import { ProyectoStatusIcon } from '@/features/proyectos/components/ProyectoStat
 import { statusLabel, statusTone } from '@/features/proyectos/proyectoFormat';
 import { useProyectos } from '@/features/proyectos/useProyectos';
 import { useTheme } from '@/theme/ThemeProvider';
+import { spacing } from '@/theme/tokens';
 import type { ProyectoListItem, ProyectoStatus } from '@/types/proyecto';
 
 function iconoStatus(status: ProyectoStatus) {
@@ -40,8 +43,10 @@ function iconoStatus(status: ProyectoStatus) {
  */
 export default function ProyectosScreen() {
   const router = useRouter();
-  const { user } = useSession();
+  const { user, permissions } = useSession();
   const { colors, scheme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const puedeCrear = canCreateModule(permissions, user, 'proyectos');
   const {
     global, mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, total, conteos,
     cargando, refrescando, error, recargar,
@@ -119,7 +124,7 @@ export default function ProyectosScreen() {
             keyExtractor={(item) => String(item.id)}
             ListHeaderComponent={encabezado}
             stickySectionHeadersEnabled={false}
-            contentContainerStyle={styles.lista}
+            contentContainerStyle={[styles.lista, puedeCrear ? { paddingBottom: 120 + insets.bottom } : null]}
             keyboardShouldPersistTaps="handled"
             renderSectionHeader={({ section }) => (
               <SeccionEncabezado
@@ -157,6 +162,14 @@ export default function ProyectosScreen() {
           />
         )}
       </View>
+
+      {puedeCrear ? (
+        <BotonFlotante
+          label="Nuevo proyecto"
+          bottom={insets.bottom + spacing.lg}
+          onPress={() => router.push('/proyectos/nuevo' as Href)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

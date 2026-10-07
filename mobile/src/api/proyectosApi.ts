@@ -1,3 +1,4 @@
+import type { ProyectoCreatePayload } from '@/features/proyectos/crearProyectoForm';
 import type { Proyecto, ProyectoFieldPatch, ProyectoListItem } from '@/types/proyecto';
 import { apiClient } from './client';
 import { parseProyecto, parseProyectoList } from './parsers';
@@ -13,6 +14,11 @@ export async function listProyectos(signal?: AbortSignal): Promise<ProyectoListI
  */
 export async function getProyecto(id: number, signal?: AbortSignal): Promise<Proyecto> {
   return parseProyecto(await apiClient.request<unknown>(`/proyectos/${id}/`, { signal }));
+}
+
+/** Alta de proyecto (nace «En proceso»); devuelve el proyecto creado. */
+export async function createProyecto(payload: ProyectoCreatePayload): Promise<Proyecto> {
+  return parseProyecto(await apiClient.request<unknown>('/proyectos/', { method: 'POST', body: payload }));
 }
 
 /**

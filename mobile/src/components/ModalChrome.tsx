@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeProvider';
 import { font, radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
@@ -29,18 +29,11 @@ export function ModalHeader({ eyebrow, titulo, onCerrar, cerrarLabel = 'Cerrar',
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  return (
-    <View style={[styles.banda, { backgroundColor: colors.navy, paddingTop: insets.top + spacing.xs }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={cerrarLabel}
-        onPress={onCerrar}
-        hitSlop={4}
-        style={({ pressed }) => [styles.cerrar, { backgroundColor: pressed ? GLASS_PRESSED : GLASS }]}
-      >
-        <IconClose color={colors.onNavy} size={16} />
-      </Pressable>
+  // Dentro de un Modal de Android el área segura puede llegar en 0: se usa la barra de estado.
+  const arriba = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0);
 
+  return (
+    <View style={[styles.banda, { backgroundColor: colors.navy, paddingTop: arriba + spacing.xs }]}>
       <View style={styles.titulos}>
         <Text style={[styles.eyebrow, { color: colors.onNavyMuted }]} numberOfLines={1}>
           {eyebrow}
@@ -67,6 +60,17 @@ export function ModalHeader({ eyebrow, titulo, onCerrar, cerrarLabel = 'Cerrar',
           <Text style={[styles.accionTexto, { color: colors.onNavy }]}>{accion.label}</Text>
         </Pressable>
       ) : null}
+
+      {/* Cerrar a la derecha, igual que en Nueva orden y los selectores. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={cerrarLabel}
+        onPress={onCerrar}
+        hitSlop={6}
+        style={({ pressed }) => [styles.cerrar, { backgroundColor: pressed ? GLASS_PRESSED : GLASS }]}
+      >
+        <IconClose color={colors.onNavy} size={16} />
+      </Pressable>
     </View>
   );
 }

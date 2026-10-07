@@ -1,6 +1,6 @@
-import type { Orden, OrdenFieldPatch, OrdenListItem } from '@/types/orden';
+import type { Orden, OrdenCreatePayload, OrdenFieldPatch, OrdenListItem, TecnicoOpcion } from '@/types/orden';
 import { apiClient } from './client';
-import { parseOrden, parseOrdenList } from './parsers';
+import { parseOrden, parseOrdenList, parseTecnicoOpciones } from './parsers';
 
 export interface ListOrdenesParams {
   /** `YYYY-MM`; el backend filtra por fecha_inicio (o fecha_creacion si falta). */
@@ -24,6 +24,16 @@ export async function getOrden(id: number, signal?: AbortSignal): Promise<Orden>
 /** Campos de campo permitidos en `PATCH`; el servidor vuelve a validar. */
 export async function updateOrden(id: number, patch: OrdenFieldPatch): Promise<Orden> {
   return parseOrden(await apiClient.request<unknown>(`/ordenes/${id}/`, { method: 'PATCH', body: patch }));
+}
+
+/** Alta de orden; exige permiso `create` en órdenes (lo valida el servidor). */
+export async function crearOrden(payload: OrdenCreatePayload): Promise<Orden> {
+  return parseOrden(await apiClient.request<unknown>('/ordenes/', { method: 'POST', body: payload }));
+}
+
+/** Usuarios a los que se les puede asignar una orden (staff o con acceso a órdenes). */
+export async function listTecnicosOpciones(signal?: AbortSignal): Promise<TecnicoOpcion[]> {
+  return parseTecnicoOpciones(await apiClient.request<unknown>('/ordenes/tecnico-opciones/', { signal }));
 }
 
 /**

@@ -9,9 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing, TOUCH_TARGET, type } from '@/theme/tokens';
@@ -96,16 +94,10 @@ export function DateTimeField({
     setAbierto(false);
   };
 
-  const alCambiarAndroid = (event: DateTimePickerEvent, selected?: Date) => {
+  const alElegirAndroid = (selected: Date) => {
     // En Android el diálogo se cierra solo; hay que bajar el flag antes de leer.
     setAbierto(false);
-    if (event.type === 'dismissed') return;
-    if (!selected) return;
     onChange(mode === 'date' ? dateToFechaISO(selected) : dateToHoraISO(selected));
-  };
-
-  const alCambiarIos = (_event: DateTimePickerEvent, selected?: Date) => {
-    if (selected) setBorrador(selected);
   };
 
   return (
@@ -165,7 +157,8 @@ export function DateTimeField({
           mode={mode}
           display="default"
           is24Hour
-          onChange={alCambiarAndroid}
+          onValueChange={(_e, selected) => alElegirAndroid(selected)}
+          onDismiss={cerrar}
           positiveButton={{ label: 'Aceptar' }}
           negativeButton={{ label: 'Cancelar' }}
         />
@@ -177,12 +170,75 @@ export function DateTimeField({
           titulo={`Elegir ${nombre}`}
           mode={mode}
           borrador={borrador}
-          onCambiar={alCambiarIos}
+          onCambiar={setBorrador}
           onCancelar={cerrar}
           onListo={confirmarIos}
         />
       ) : null}
     </View>
+  );
+}
+
+/**
+ * Solo el selector del sistema, sin celda: para quien dibuja su propio
+ * disparador (p. ej. la tira de días de «Nueva orden»). Android abre el
+ * diálogo nativo; iOS, la misma hoja con rueda que `DateTimeField`.
+ */
+export function PickerFechaHora({
+  visible,
+  mode,
+  value,
+  titulo,
+  onChange,
+  onClose,
+}: {
+  visible: boolean;
+  mode: Modo;
+  value: string;
+  titulo: string;
+  onChange: (valor: string) => void;
+  onClose: () => void;
+}) {
+  const [borrador, setBorrador] = useState(() => valorComoDate(mode, value));
+
+  useEffect(() => {
+    if (visible) setBorrador(valorComoDate(mode, value));
+  }, [visible, mode, value]);
+
+  const convertir = (d: Date) => (mode === 'date' ? dateToFechaISO(d) : dateToHoraISO(d));
+
+  if (Platform.OS === 'android') {
+    if (!visible) return null;
+    return (
+      <DateTimePicker
+        value={valorComoDate(mode, value)}
+        mode={mode}
+        display="default"
+        is24Hour
+        onValueChange={(_e, selected) => {
+          onClose();
+          onChange(convertir(selected));
+        }}
+        onDismiss={onClose}
+        positiveButton={{ label: 'Aceptar' }}
+        negativeButton={{ label: 'Cancelar' }}
+      />
+    );
+  }
+
+  return (
+    <IosPickerSheet
+      visible={visible}
+      titulo={titulo}
+      mode={mode}
+      borrador={borrador}
+      onCambiar={setBorrador}
+      onCancelar={onClose}
+      onListo={() => {
+        onChange(convertir(borrador));
+        onClose();
+      }}
+    />
   );
 }
 
@@ -203,7 +259,7 @@ function IosPickerSheet({
   titulo: string;
   mode: Modo;
   borrador: Date;
-  onCambiar: (event: DateTimePickerEvent, selected?: Date) => void;
+  onCambiar: (selected: Date) => void;
   onCancelar: () => void;
   onListo: () => void;
 }) {
@@ -347,7 +403,7 @@ function IosPickerSheet({
             mode={mode}
             display="spinner"
             is24Hour
-            onChange={onCambiar}
+            onValueChange={(_e, selected) => onCambiar(selected)}
             themeVariant={scheme}
             textColor={colors.ink}
             style={styles.iosPicker}

@@ -337,7 +337,7 @@ export function CotizacionFormulario({
             ref={scrollRef}
             contentContainerStyle={styles.contenido}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
             showsVerticalScrollIndicator={false}
           >
             {pendientes.length > 0

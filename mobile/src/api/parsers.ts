@@ -5,6 +5,7 @@ import {
   type OrdenCalificacion,
   type OrdenListItem,
   type OrdenStatus,
+  type TecnicoOpcion,
   type TipoOrden,
 } from '@/types/orden';
 import type { LoginResponse, ModulePermissions, PermissionFlags, SessionUser } from '@/types/api';
@@ -443,4 +444,22 @@ export function parseProyecto(raw: unknown): Proyecto {
     firma_cliente_url: asString(data.firma_cliente_url),
     firma_tecnico_url: asString(data.firma_tecnico_url),
   };
+}
+
+/** `GET /ordenes/tecnico-opciones/` → técnicos elegibles, sin filas inválidas. */
+export function parseTecnicoOpciones(raw: unknown): TecnicoOpcion[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TecnicoOpcion[] = [];
+  for (const item of raw) {
+    const r = asRecord(item);
+    const id = asNumber(r.id);
+    if (id === null) continue;
+    const nombre = [asString(r.first_name), asString(r.last_name)].filter(Boolean).join(' ');
+    out.push({
+      id,
+      nombre: nombre || asString(r.username) || `Usuario ${id}`,
+      avatarUrl: asString(r.avatar_url),
+    });
+  }
+  return out;
 }

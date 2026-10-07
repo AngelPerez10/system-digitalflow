@@ -221,7 +221,7 @@ export function ReporteFormulario({ reporte, inicial, onGuardado }: Props) {
             ref={scrollRef}
             contentContainerStyle={styles.contenido}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
             showsVerticalScrollIndicator={false}
             accessibilityLabel={esNuevo ? 'Formulario de reporte nuevo' : `Formulario para editar ${folioReporte(reporte)}`}
           >

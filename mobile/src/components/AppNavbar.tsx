@@ -163,6 +163,22 @@ export function IconProyectos({ color, size = 20 }: { color: string; size?: numb
   );
 }
 
+/** Calendario con punto del día: Agenda. */
+export function IconAgenda({ color, size = 20 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 4.5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinejoin="round"
+      />
+      <Path d="M8 3v3M16 3v3M4 9.5h16" stroke={color} strokeWidth={1.9} strokeLinecap="round" />
+      <Circle cx={12} cy={15} r={1.6} fill={color} />
+    </Svg>
+  );
+}
+
 function IconLupa({ color, size = 16 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

@@ -3,6 +3,7 @@ import {
   parseOrden,
   parseOrdenList,
   parsePermissions,
+  parseTecnicoOpciones,
   parseSessionUser,
 } from '../parsers';
 
@@ -194,5 +195,21 @@ describe('parseSessionUser', () => {
     expect(user.account_type).toBe('cliente');
     expect(user.cliente_id).toBe(7);
     expect(user.must_change_password).toBe(false);
+  });
+});
+
+describe('parseTecnicoOpciones', () => {
+  it('arma el nombre y descarta filas sin id', () => {
+    expect(
+      parseTecnicoOpciones([
+        { id: 4, first_name: 'Ana', last_name: 'Ruiz', username: 'aruiz', avatar_url: '' },
+        { id: 5, first_name: '', last_name: '', username: 'jperez', avatar_url: 'https://x/y.png' },
+        { username: 'sin-id' },
+      ]),
+    ).toEqual([
+      { id: 4, nombre: 'Ana Ruiz', avatarUrl: null },
+      { id: 5, nombre: 'jperez', avatarUrl: 'https://x/y.png' },
+    ]);
+    expect(parseTecnicoOpciones(null)).toEqual([]);
   });
 });

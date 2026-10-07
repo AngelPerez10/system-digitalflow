@@ -9,7 +9,7 @@ import { useReducedMotion } from './useReducedMotion';
  *
  * No usar por fila en listas largas.
  */
-export function useEntrance(steps: number) {
+export function useEntrance(steps: number, distance: number = MOTION.entranceY) {
   const reduced = useReducedMotion();
   const progress = useRef(Array.from({ length: steps }, () => new Animated.Value(0))).current;
 
@@ -31,7 +31,7 @@ export function useEntrance(steps: number) {
     );
     animacion.start();
     return () => animacion.stop();
-  }, [progress, reduced]);
+  }, [progress, reduced, distance]);
 
   return (index: number) => ({
     opacity: progress[index] ?? 1,
@@ -40,7 +40,7 @@ export function useEntrance(steps: number) {
         translateY:
           progress[index]?.interpolate({
             inputRange: [0, 1],
-            outputRange: [MOTION.entranceY, 0],
+            outputRange: [distance, 0],
           }) ?? 0,
       },
     ],

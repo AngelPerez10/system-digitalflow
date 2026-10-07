@@ -1,10 +1,10 @@
 import React, { useCallback } from 'react';
 import { View } from 'react-native';
-import { Redirect, Stack, usePathname, useRouter, useSegments } from 'expo-router';
+import { Redirect, Stack, usePathname, useRouter, useSegments, type Href } from 'expo-router';
 import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
 import { portalAcceso } from '@/auth/portalAcceso';
 import { useSession } from '@/auth/SessionProvider';
-import { AppNavbar } from '@/components/AppNavbar';
+import { AppNavbar, IconAgenda, IconOrdenes } from '@/components/AppNavbar';
 import { LoadingState } from '@/components/StateViews';
 import { animationDurationMs, pushAnimation } from '@/navigation/navMotion';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -38,14 +38,10 @@ export default function ClienteLayout() {
     return <Redirect href={RUTA_CAMBIO} />;
   }
 
-  // La barra global (hamburguesa + drawer con tema y salir) solo en el listado.
-  // El detalle trae su propia cabecera marina con chevron de vuelta, y el cambio
-  // de contraseña es una pantalla completa sin sesión visible todavía.
-  //
-  // Contra segmentos de ruta, no el pathname resuelto: al entrar por deep link
-  // directo a una orden el pathname puede no coincidir de forma fiable con
-  // '/cliente' en el primer render.
-  const enInicio = segments.length === 1 && segments[0] === 'cliente';
+  // Barra global en listado de servicios y en Agenda; detalle y cambio de
+  // contraseña traen su propia cabecera / flujo.
+  const seccion = segments.length >= 2 ? String(segments[1]) : 'index';
+  const enListado = segments[0] === 'cliente' && (segments.length === 1 || seccion === 'agenda');
   const nombre = nombreUsuarioDisplay(user, 'Cliente');
   // El backend crea la cuenta con `username = portal_username` (el número que
   // llega por correo), así que `user.username` es el número de usuario. Si el
@@ -55,14 +51,31 @@ export default function ClienteLayout() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.canvas }}>
-      {enInicio ? (
+      {enListado ? (
         <AppNavbar
           nombreUsuario={nombre}
           rolLabel="Cliente"
           numeroUsuario={numeroUsuario}
-          itemLabel="Mis servicios"
-          itemHint="Vuelve al listado de tus servicios"
-          onIrInicio={() => router.replace('/cliente')}
+          items={[
+            {
+              key: 'servicios',
+              label: 'Mis servicios',
+              hint: 'Listado de tus órdenes',
+              grupo: 'Seguimiento',
+              icon: (color) => <IconOrdenes color={color} />,
+              active: segments.length === 1,
+              onPress: () => router.replace('/cliente' as Href),
+            },
+            {
+              key: 'agenda',
+              label: 'Agenda',
+              hint: 'Servicios por día',
+              grupo: 'Seguimiento',
+              icon: (color) => <IconAgenda color={color} />,
+              active: seccion === 'agenda',
+              onPress: () => router.replace('/cliente/agenda' as Href),
+            },
+          ]}
           onCerrarSesion={() => void salir()}
         />
       ) : null}
@@ -76,6 +89,7 @@ export default function ClienteLayout() {
         }}
       >
         <Stack.Screen name="index" />
+        <Stack.Screen name="agenda" options={{ animation: 'none' }} />
         <Stack.Screen name="[id]" />
         <Stack.Screen
           name="cambiar-contrasena"

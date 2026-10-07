@@ -42,7 +42,12 @@ describe('construirMenu', () => {
 
   it('oculta las vistas sin permiso', () => {
     const items = construirMenu({ ...base, puedeVer: (m) => m === 'ordenes' });
-    expect(items.map((i) => i.key)).toEqual(['ordenes']);
+    expect(items.map((i) => i.key)).toEqual(['ordenes', 'agenda']);
+  });
+
+  it('agenda aparece si solo tiene proyectos', () => {
+    const items = construirMenu({ ...base, puedeVer: (m) => m === 'proyectos' });
+    expect(items.map((i) => i.key)).toEqual(['proyectos', 'agenda']);
   });
 
   it('marca la sección actual', () => {
@@ -53,7 +58,7 @@ describe('construirMenu', () => {
 
   it('las entradas sin contador no llevan badge', () => {
     const items = construirMenu({ ...base, puedeVer: () => true });
-    expect(items.every((i) => i.badge === undefined)).toBe(true);
+    expect(items.filter((i) => i.key !== 'disponibles').every((i) => i.badge === undefined)).toBe(true);
   });
 
   it('navega con el modo de la entrada', () => {

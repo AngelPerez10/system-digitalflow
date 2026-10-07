@@ -1,10 +1,12 @@
 import React, { useCallback } from 'react';
 import { RefreshControl, ScrollView, SectionList, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, type Href } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { nombreUsuarioDisplay } from '@/auth/nombreUsuario';
 import { useSession } from '@/auth/SessionProvider';
+import { canCreateModule } from '@/auth/permissions';
 import { BarraCarga } from '@/components/BarraCarga';
+import { BotonFlotante } from '@/components/BotonFlotante';
 import {
   FiltroChips,
   hojaEstilo,
@@ -27,6 +29,7 @@ import { statusLabelPlural, statusTone } from '@/features/orders/ordenFormat';
 import { useOrdenes } from '@/features/orders/useOrdenes';
 import { usePush } from '@/notifications/PushProvider';
 import { useTheme } from '@/theme/ThemeProvider';
+import { spacing } from '@/theme/tokens';
 import type { OrdenListItem, OrdenStatus } from '@/types/orden';
 
 const ICONO_STATUS: Record<OrdenStatus, (color: string) => React.ReactNode> = {
@@ -43,8 +46,10 @@ const ICONO_STATUS: Record<OrdenStatus, (color: string) => React.ReactNode> = {
  */
 export default function OrdenesScreen() {
   const router = useRouter();
-  const { user } = useSession();
+  const insets = useSafeAreaInsets();
+  const { user, permissions } = useSession();
   const { colors, scheme } = useTheme();
+  const puedeCrear = canCreateModule(permissions, user, 'ordenes');
   const { disponiblesSinVer } = usePush();
   const {
     global, mes, setMes, busqueda, setBusqueda, filtro, setFiltro, secciones, total, conteos,
@@ -127,7 +132,7 @@ export default function OrdenesScreen() {
             keyExtractor={(item) => String(item.id)}
             ListHeaderComponent={encabezado}
             stickySectionHeadersEnabled={false}
-            contentContainerStyle={styles.lista}
+            contentContainerStyle={[styles.lista, puedeCrear ? { paddingBottom: 120 + insets.bottom } : null]}
             keyboardShouldPersistTaps="handled"
             renderSectionHeader={({ section }) => (
               <SeccionEncabezado
@@ -154,7 +159,9 @@ export default function OrdenesScreen() {
                       ? 'Toca «Todas» para ver el resto del mes.'
                       : busqueda.trim()
                         ? 'Prueba con otro folio, cliente o dirección.'
-                        : 'Cambia de mes o desliza hacia abajo para actualizar.'
+                        : puedeCrear
+                          ? 'Crea una con «Nueva orden» o cambia de mes.'
+                          : 'Cambia de mes o desliza hacia abajo para actualizar.'
                   }
                 />
               )
@@ -170,6 +177,14 @@ export default function OrdenesScreen() {
           />
         )}
       </View>
+
+      {puedeCrear ? (
+        <BotonFlotante
+          label="Nueva orden"
+          bottom={insets.bottom + spacing.lg}
+          onPress={() => router.push('/ordenes/nueva' as Href)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
