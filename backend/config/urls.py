@@ -15,6 +15,7 @@ api_urlpatterns = [
     path('', include('apps.ai.urls')),
     path('', include('apps.inventario.urls')),
     path('', include('apps.notificaciones.urls')),
+    path('', include('apps.contratos.urls')),
 ]
 
 urlpatterns = [

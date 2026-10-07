@@ -150,6 +150,7 @@ INSTALLED_APPS = [
     'apps.ai',
     'apps.inventario',
     'apps.notificaciones',
+    'apps.contratos',
 ]
 
 # Evitar duplicados accidentales en INSTALLED_APPS (mantiene el primer orden)
@@ -212,7 +213,16 @@ else:
     CSRF_TRUSTED_ORIGINS = list(dict.fromkeys([*CORS_ALLOWED_ORIGINS, *_csrf_origins]))
 
 # Cabeceras visibles en fetch() desde el frontend (p. ej. nombre de archivo en PDF).
-CORS_EXPOSE_HEADERS = ['Content-Disposition']
+CORS_EXPOSE_HEADERS = ['Content-Disposition', 'X-Documento-Sha256']
+
+# Credenciales del link público de firma de contratos (van en cabeceras, no en la URL).
+from corsheaders.defaults import default_headers as _cors_default_headers  # noqa: E402
+
+CORS_ALLOW_HEADERS = (*_cors_default_headers, 'x-firma-token', 'x-firma-sesion')
+
+# URL pública del frontend para construir links (p. ej. firma de contratos).
+# Si falta, se usa el Origin de la petición siempre que esté en CORS_ALLOWED_ORIGINS.
+FRONTEND_PUBLIC_URL = os.environ.get('FRONTEND_PUBLIC_URL', '').strip().rstrip('/')
 
 # CSRF/Session cookie settings
 # In production (Render), frontend and backend may be on different domains.
@@ -400,7 +410,19 @@ REST_FRAMEWORK = {
         # Alta/baja de dispositivos push: la app registra al iniciar sesión y al
         # rotar el token; más de unas pocas al día es un cliente en bucle.
         'push_devices': os.environ.get('THROTTLE_PUSH_DEVICES_RATE', '30/hour'),
+        # Link público de firma de contratos (por IP). Los límites duros de OTP
+        # (intentos / envíos por link) viven en BD: el caché es por worker.
+        'contrato_publico': os.environ.get('THROTTLE_CONTRATO_PUBLICO_RATE', '30/minute'),
+        'contrato_otp_envio': os.environ.get('THROTTLE_CONTRATO_OTP_ENVIO_RATE', '5/hour'),
+        'contrato_otp_verificar': os.environ.get('THROTTLE_CONTRATO_OTP_VERIFICAR_RATE', '10/minute'),
     },
+    # Proxies delante de Django (Render = 1). Sin definir, X-Forwarded-For se toma
+    # tal cual y un atacante podría falsear su IP ante los throttles.
+    'NUM_PROXIES': (
+        int(os.environ['DRF_NUM_PROXIES'])
+        if os.environ.get('DRF_NUM_PROXIES', '').strip().isdigit()
+        else None
+    ),
 }
 
 # Límites de tamaño de uploads

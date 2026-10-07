@@ -500,6 +500,34 @@ class ReportesMantenimientoPermission(ModulePermission):
     module_key = 'reportes_mantenimiento'
 
 
+class ContratosPermission(ModulePermission):
+    """Permisos JSON para Documentos › Contratos."""
+
+    module_key = 'contratos'
+
+
+class ContratosFirmaPermission(ContratosPermission):
+    """Acciones del flujo de firma (enlace, revocar, firmar, cancelar): exigen ``edit``.
+
+    Son POST, pero no crean un contrato: con solo ``create`` no deben poder
+    mandar a firma ni firmar en nombre del prestador.
+    """
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        perms_obj = getattr(user, 'permissions_profile', None)
+        permissions = getattr(perms_obj, 'permissions', None) or {}
+        module_perms = _module_perms_for_key(permissions, self.module_key)
+        return self._as_bool(module_perms.get('edit'), False)
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)
+
+
 class ReportesMantenimientoAttachmentPermission(BasePermission):
     """Subida/borrado de fotos del reporte (upload-image, delete-image).
 
