@@ -50,7 +50,6 @@ from apps.ordenes.email_pdf import (
     smtp_host_configured,
 )
 from apps.ordenes.equipos_inventario import sync_orden_equipos_inventario
-from apps.ordenes.telefono import TELEFONO_MAX, normalizar_telefono
 from apps.ordenes.image_services import (
     ALLOWED_CLOUDINARY_PUBLIC_ID_PREFIXES,
     ALLOWED_IMAGE_MIME_TYPES,
@@ -64,6 +63,7 @@ from apps.ordenes.image_services import (
 from apps.ordenes.pagination import OrdenOptInPagination
 from apps.ordenes.pdf_limits import normalize_fotos_extra_max as _normalize_fotos_extra_max
 from apps.ordenes.pdf_limits import orden_max_fotos as _orden_max_fotos
+from apps.ordenes.telefono import TELEFONO_MAX, normalizar_telefono
 from apps.users.models import UserPermissions, UserSignature
 from apps.users.permissions import (
     ModulePermission,
