@@ -142,8 +142,10 @@ class OrdenSerializer(serializers.ModelSerializer):
                     {"status": "Solo un administrador puede marcar Saldo pendiente."}
                 )
         # Quien solo liquida no puede mover el status (ni con `edit`): exige
-        # la casilla `cambiar_status` en Gestión de usuarios.
-        if "status" in attrs and status_norm != prev_status:
+        # la casilla `cambiar_status` en Gestión de usuarios. El alta sí puede
+        # fijar el default del modelo (`pendiente`); eso no es un cambio.
+        alta_con_default = self.instance is None and status_norm == "pendiente"
+        if "status" in attrs and status_norm != prev_status and not alta_con_default:
             request = self.context.get("request")
             user = getattr(request, "user", None) if request is not None else None
             if not user_can_change_module_status(user, "ordenes"):

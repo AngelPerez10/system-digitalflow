@@ -170,6 +170,53 @@ class ProyectosLiquidarTests(APITestCase):
         self.en_proceso.refresh_from_db()
         self.assertEqual(self.en_proceso.status, "en_proceso")
 
+    def _como_creador_sin_cambiar_status(self):
+        profile = self.liquidador.permissions_profile
+        profile.permissions = {
+            "proyectos": {
+                "view": True, "create": True, "edit": True, "delete": False,
+                "liquidar": True, "cambiar_status": False,
+            }
+        }
+        profile.save(update_fields=["permissions"])
+        self.liquidador = User.objects.get(pk=self.liquidador.pk)
+        self._auth(self.liquidador)
+
+    def test_creador_sin_cambiar_status_alta_queda_en_proceso(self):
+        """El alta con el default (o sin status) no cuenta como cambio de status."""
+        self._como_creador_sin_cambiar_status()
+        explicito = self.client.post(
+            "/api/proyectos/",
+            {"cliente_nombre": "Alta en proceso", "status": "en_proceso"},
+            format="json",
+        )
+        self.assertEqual(explicito.status_code, status.HTTP_201_CREATED, explicito.data)
+        self.assertEqual(explicito.data["status"], "en_proceso")
+
+        omitido = self.client.post(
+            "/api/proyectos/",
+            {"cliente_nombre": "Alta sin status"},
+            format="json",
+        )
+        self.assertEqual(omitido.status_code, status.HTTP_201_CREATED, omitido.data)
+        self.assertEqual(omitido.data["status"], "en_proceso")
+
+    def test_creador_sin_cambiar_status_no_puede_alta_en_otro_status(self):
+        self._como_creador_sin_cambiar_status()
+        antes = Proyecto.objects.count()
+        resp = self.client.post(
+            "/api/proyectos/",
+            {
+                "cliente_nombre": "Alta pausada",
+                "status": "pausado",
+                "motivo_pausa": "Espera de material",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", resp.data)
+        self.assertEqual(Proyecto.objects.count(), antes)
+
     def test_cambiar_status_con_flag_funciona_sin_edit(self):
         profile = self.liquidador.permissions_profile
         profile.permissions = {

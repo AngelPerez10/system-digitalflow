@@ -546,7 +546,9 @@ class ProyectoSerializer(serializers.ModelSerializer):
                 )
 
         # Quien solo liquida no mueve el status (ni con `edit`): exige `cambiar_status`.
-        if "status" in attrs and status_norm != prev_status:
+        # El alta sí puede fijar el default del modelo (`en_proceso`); eso no es un cambio.
+        alta_con_default = instance is None and status_norm == "en_proceso"
+        if "status" in attrs and status_norm != prev_status and not alta_con_default:
             if not user_can_change_module_status(user, "proyectos"):
                 raise serializers.ValidationError(
                     {
