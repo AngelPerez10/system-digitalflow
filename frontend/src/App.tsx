@@ -45,6 +45,10 @@ const IaPage = lazy(() => import("@/pages/IA/iaPage"));
 const ReportesPage = lazy(() => import("@/pages/Operacion/Reportes/ReportesPage"));
 const CuentasAntarixPage = lazy(() => import("@/pages/Ventas/Suscripcion/CuentasAntarix/CuentasAntarixPage"));
 const InventarioPage = lazy(() => import("@/pages/Inventario/InventarioPage"));
+const ContratosPage = lazy(() => import("@/pages/Documentos/Contratos/ContratosPage"));
+const ContratoFormPage = lazy(() => import("@/pages/Documentos/Contratos/form/ContratoFormPage"));
+const ContratoDetallePage = lazy(() => import("@/pages/Documentos/Contratos/ContratoDetallePage"));
+const FirmaContratoPublicaPage = lazy(() => import("@/pages/Documentos/Contratos/publico/FirmaContratoPublicaPage"));
 
 export default function App() {
   return (
@@ -55,6 +59,8 @@ export default function App() {
           <Routes>
           {/* Auth Layout - Pública */}
           <Route path="/signin" element={<SignIn />} />
+          {/* Firma de contrato por el cliente: sin sesión; el token viaja en el #fragmento */}
+          <Route path="/firmar/contrato" element={<FirmaContratoPublicaPage />} />
 
           {/* Dashboard Layout - Protegido */}
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
@@ -163,6 +169,12 @@ export default function App() {
                 </RequirePermission>
               }
             />
+
+            {/* Documentos */}
+            <Route path="/contratos" element={<RequirePermission module="contratos" required="view"><ContratosPage /></RequirePermission>} />
+            <Route path="/contratos/nuevo" element={<RequirePermission module="contratos" required="create"><ContratoFormPage /></RequirePermission>} />
+            <Route path="/contratos/:id/editar" element={<RequirePermission module="contratos" required="edit"><ContratoFormPage /></RequirePermission>} />
+            <Route path="/contratos/:id" element={<RequirePermission module="contratos" required="view"><ContratoDetallePage /></RequirePermission>} />
 
             {/* IA (Admin only) */}
             <Route path="/ia" element={<RequireAdmin><IaPage /></RequireAdmin>} />

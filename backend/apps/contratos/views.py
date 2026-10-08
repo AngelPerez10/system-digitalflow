@@ -17,7 +17,9 @@ from rest_framework.response import Response
 
 from apps.common.pdf_enlace import como_descarga
 from apps.common.pdf_html import ensure_print_page_numbers, request_wants_html_preview
+from apps.common.pdf_images import firma_url_to_data_uri
 from apps.cotizaciones.pdf_render import PdfRenderError, any_provider_configured
+from apps.users.models import UserSignature
 from apps.users.permissions import ContratosFirmaPermission, ContratosPermission
 
 from . import services
@@ -33,6 +35,8 @@ from .security import FirmaInvalida, hash_token, ip_cliente, nuevo_token, proces
 from .serializers import ContratoEventoSerializer, ContratoSerializer
 
 logger = logging.getLogger(__name__)
+# Las firmas registradas vienen normalizadas del perfil (hasta 1400 px de lado).
+FIRMA_REGISTRADA_MAX_BYTES = 2 * 1024 * 1024
 
 RUTA_FIRMA_PUBLICA = "/firmar/contrato"
 
@@ -55,6 +59,27 @@ def url_frontend(request) -> str:
     )
 
 
+def _es_admin(user) -> bool:
+    return bool(getattr(user, "is_superuser", False) or getattr(user, "is_staff", False))
+
+
+def _registro_firmante():
+    """Firma registrada del firmante oficial de EL PRESTADOR, o None."""
+    username = (getattr(settings, "CONTRATOS_FIRMANTE_USERNAME", "") or "").strip()
+    if not username:
+        return None
+    return (
+        UserSignature.objects.select_related("user")
+        .filter(user__username__iexact=username, user__is_active=True)
+        .exclude(url="")
+        .first()
+    )
+
+
+def _puede_aplicar(user, firmante) -> bool:
+    return _es_admin(user) or getattr(user, "pk", None) == firmante.pk
+
+
 def _error(exc: services.ContratoError) -> Response:
     return Response({"detail": exc.detail}, status=exc.status)
 
@@ -64,7 +89,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ContratosPermission]
 
     def get_permissions(self):
-        if self.action in ("enlace_firma", "revocar_enlace", "firmar_prestador", "cancelar"):
+        if self.action in ("enlace_firma", "revocar_enlace", "firmar_prestador", "firmantes", "cancelar"):
             return [IsAuthenticated(), ContratosFirmaPermission()]
         return super().get_permissions()
 
@@ -264,14 +289,57 @@ class ContratoViewSet(viewsets.ModelViewSet):
                 services.registrar_evento(contrato, "revocado", request=request)
         return Response(ContratoSerializer(contrato, context=self.get_serializer_context()).data)
 
+    @action(detail=False, methods=["get"], url_path="firmantes")
+    def firmantes(self, request):
+        """Firmante oficial de EL PRESTADOR (``CONTRATOS_FIRMANTE_USERNAME``) y su firma registrada."""
+        registro = _registro_firmante()
+        if registro is None:
+            return Response([])
+        u = registro.user
+        return Response(
+            [
+                {
+                    "id": u.pk,
+                    "nombre": u.get_full_name() or u.username,
+                    "username": u.username,
+                    "firma_url": registro.url,
+                    "es_yo": u.pk == request.user.pk,
+                    "puede_aplicar": _puede_aplicar(request.user, u),
+                }
+            ]
+        )
+
     @action(detail=True, methods=["post"], url_path="firmar-prestador")
     def firmar_prestador(self, request, pk=None):
+        """Aplica la firma registrada (Cloudinary) del firmante oficial como firma de EL PRESTADOR.
+
+        El firmante es siempre ``CONTRATOS_FIRMANTE_USERNAME``. Puede aplicarla
+        ese mismo usuario o un administrador. Se guarda una copia PNG en el
+        contrato: si después cambia su firma en Cloudinary, el contrato no se altera.
+        """
         body = request.data if isinstance(request.data, dict) else {}
+        registro = _registro_firmante()
+        if registro is None:
+            return Response(
+                {
+                    "detail": f"El usuario «{settings.CONTRATOS_FIRMANTE_USERNAME}» no tiene una firma registrada. "
+                    "Regístrala en Gestión de usuarios."
+                },
+                status=400,
+            )
+        if not _puede_aplicar(request.user, registro.user):
+            return Response(
+                {"detail": f"Solo {registro.user.username} o un administrador pueden aplicar esta firma."},
+                status=403,
+            )
         try:
-            firma = self._firma_prestador(request, body)
+            data_uri = firma_url_to_data_uri(registro.url)
+            if not data_uri:
+                raise FirmaInvalida("No se pudo descargar la firma registrada. Intenta de nuevo.")
+            png, firma_sha = procesar_firma_png(data_uri, max_bytes=FIRMA_REGISTRADA_MAX_BYTES)
         except FirmaInvalida as exc:
             return Response({"detail": str(exc)}, status=400)
-        nombre = str(body.get("nombre") or "").strip()[:255]
+        firmante = registro.user
 
         try:
             with transaction.atomic():
@@ -287,34 +355,34 @@ class ContratoViewSet(viewsets.ModelViewSet):
                     raise services.ContratoError(
                         "El contrato cambió mientras lo revisabas. Vuelve a abrirlo antes de firmar.", status=409
                     )
-                png, firma_sha = firma
                 contrato.firma_prestador_png = png
                 contrato.firma_prestador_sha256 = firma_sha
-                contrato.firmado_prestador_por = request.user
-                contrato.firmado_prestador_nombre = nombre or contrato.prestador_datos.get("representante", "")
+                contrato.firmado_prestador_por = firmante
+                contrato.firmado_prestador_nombre = (
+                    firmante.get_full_name() or contrato.prestador_datos.get("representante", "") or firmante.username
+                )[:255]
                 contrato.firmado_prestador_at = timezone.now()
                 contrato.firmado_prestador_ip = ip_cliente(request)
                 contrato.estado = services.estado_por_firmas(contrato)
                 contrato.save()
-                services.registrar_evento(contrato, "firmado_prestador", request=request)
+                services.registrar_evento(
+                    contrato,
+                    "firmado_prestador",
+                    request=request,
+                    detalle={
+                        "firmante_id": firmante.pk,
+                        "firmante": firmante.username,
+                        "aplicada_por": request.user.username,
+                        "firma_public_id": registro.public_id,
+                        "firma_sha256": firma_sha,
+                    },
+                )
         except services.ContratoError as exc:
             return _error(exc)
 
         services.sellar_si_completo(contrato.pk)
         contrato.refresh_from_db()
         return Response(ContratoSerializer(contrato, context={**self.get_serializer_context(), "incluir_firmas": True}).data)
-
-    def _firma_prestador(self, request, body) -> tuple[str, str]:
-        if str(body.get("usar_firma_guardada", "")).lower() in ("1", "true", "yes"):
-            from apps.common.pdf_images import firma_url_to_data_uri
-            from apps.users.models import UserSignature
-
-            guardada = UserSignature.objects.filter(user=request.user).first()
-            data_uri = firma_url_to_data_uri(guardada.url) if guardada and guardada.url else ""
-            if not data_uri:
-                raise FirmaInvalida("No tienes una firma guardada. Dibuja tu firma.")
-            return procesar_firma_png(data_uri)
-        return procesar_firma_png(body.get("firma"))
 
     @action(detail=True, methods=["post"], url_path="cancelar")
     def cancelar(self, request, pk=None):

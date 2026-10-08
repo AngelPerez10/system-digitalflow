@@ -26,6 +26,9 @@ type Props = {
   extraOption?: SelectOption | null;
   error: string;
   onClienteChange: (id: string, label: string) => void;
+  /** Por defecto obligatorio (pólizas); en contratos solo prellena datos. */
+  required?: boolean;
+  label?: string;
 };
 
 export default function ClienteComboBox({
@@ -33,6 +36,8 @@ export default function ClienteComboBox({
   extraOption = null,
   error,
   onClienteChange,
+  required = true,
+  label: labelText = "Cliente",
 }: Props) {
   const extraValue = extraOption?.value || "";
   const extraLabel = extraOption?.label || "";
@@ -82,7 +87,7 @@ export default function ClienteComboBox({
         fullWidth
         allowsEmptyCollection
         menuTrigger="focus"
-        isRequired
+        isRequired={required}
         validationBehavior="aria"
         name="clienteId"
         selectedKey={clienteId || null}
@@ -104,7 +109,7 @@ export default function ClienteComboBox({
         className="w-full"
       >
         <Label className={fieldLabel}>
-          Cliente
+          {labelText}
         </Label>
         <ComboBox.InputGroup className="w-full">
           <Input

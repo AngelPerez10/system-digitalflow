@@ -137,7 +137,7 @@ def playwright_pdf_kwargs(*, paper_format: str, landscape: bool) -> dict:
     }
 
 
-def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> bytes:
+def _try_playwright(html: str, size: str, landscape: bool, timeout: int, pdf_overrides: dict | None = None) -> bytes:
     """Genera PDF con print media (comportamiento por defecto de ``page.pdf``)."""
     from playwright.sync_api import sync_playwright
 
@@ -166,6 +166,9 @@ def _try_playwright(html: str, size: str, landscape: bool, timeout: int) -> byte
 
     timeout_ms = max(5_000, min(int(timeout * 1000), 120_000))
     pdf_kwargs = playwright_pdf_kwargs(paper_format=fmt, landscape=landscape)
+    if pdf_overrides:
+        # Encabezado/pie y márgenes propios de un documento (p. ej. contratos con rúbricas).
+        pdf_kwargs.update(pdf_overrides)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -196,6 +199,7 @@ def render_html_to_pdf(
     landscape: bool = False,
     timeout: int = 30,
     prefer_local: bool = False,
+    pdf_overrides: dict | None = None,
 ) -> bytes:
     """
     Genera PDF desde HTML.
@@ -212,7 +216,7 @@ def render_html_to_pdf(
 
     def _run_playwright(budget_cap: int) -> bytes | None:
         pw_t = _playwright_budget_s(timeout, budget_cap)
-        out = _try_playwright(html, size, landscape, pw_t)
+        out = _try_playwright(html, size, landscape, pw_t, pdf_overrides)
         if out:
             logger.info("PDF generado localmente (Playwright)")
             return out

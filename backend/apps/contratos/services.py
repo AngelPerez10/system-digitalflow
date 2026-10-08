@@ -99,13 +99,20 @@ def generar_html(contrato: Contrato) -> str:
         contenido_documento(contrato),
         documento_sha256=contrato.documento_sha256 or hash_contenido(contrato),
         eventos=eventos,
-        borrador=contrato.estado != ESTADO_COMPLETADO,
     )
 
 
 def generar_pdf(contrato: Contrato, *, prefer_local: bool = False) -> bytes:
+    from .pdf_templates.contrato_internet import opciones_pdf
+
+    sha = contrato.documento_sha256 or hash_contenido(contrato)
     return render_html_to_pdf(
-        generar_html(contrato), size="Letter", landscape=False, timeout=90, prefer_local=prefer_local
+        generar_html(contrato),
+        size="Letter",
+        landscape=False,
+        timeout=90,
+        prefer_local=prefer_local,
+        pdf_overrides=opciones_pdf(contrato, sha),
     )
 
 

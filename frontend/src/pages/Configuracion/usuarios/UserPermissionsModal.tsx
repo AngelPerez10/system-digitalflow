@@ -25,6 +25,8 @@ import {
   ClipboardCheck,
   ClipboardList,
   Cog,
+  FileSignature,
+  FolderOpen,
   Contact,
   Eye,
   FileText,
@@ -85,6 +87,7 @@ const MODULE_ICON: Record<ModuleKey, ReactNode> = {
   cuentas_antarix: <Satellite aria-hidden />,
   polizas: <ShieldCheck aria-hidden />,
   reportes_mantenimiento: <ClipboardCheck aria-hidden />,
+  contratos: <FileSignature aria-hidden />,
   usuarios: <UserCog aria-hidden />,
 };
 
@@ -94,6 +97,7 @@ const SECTION_ICON: Record<PermissionSectionKey, ReactNode> = {
   productos_servicios: <Boxes aria-hidden />,
   ventas: <TrendingUp aria-hidden />,
   operaciones: <Cog aria-hidden />,
+  documentos: <FolderOpen aria-hidden />,
   configuracion: <Settings aria-hidden />,
 };
 

@@ -42,6 +42,7 @@ export type PermissionsPayload = {
   cuentas_antarix?: Partial<CrudPerms>;
   polizas?: Partial<CrudPerms>;
   reportes_mantenimiento?: Partial<CrudPerms>;
+  contratos?: Partial<CrudPerms>;
 };
 
 export type ModuleKey = keyof Required<PermissionsPayload>;
@@ -144,6 +145,7 @@ export const normalizePerms = (
       delete: false,
       own_only: isAdmin ? false : true,
     },
+    contratos: { view: false, create: false, edit: false, delete: false },
   };
   const safe = (v: unknown) => (typeof v === 'boolean' ? v : undefined);
   const mergeCrud = (dst: Partial<CrudPerms>, src: Partial<CrudPerms> | undefined): Partial<CrudPerms> => {
@@ -180,6 +182,7 @@ export const seedAdminPerms = async (userId: number) => {
     cuentas_antarix: { view: true, create: true, edit: true, delete: true },
     polizas: { view: true, create: true, edit: true, delete: true },
     reportes_mantenimiento: { view: true, create: true, edit: true, delete: true, own_only: false },
+    contratos: { view: true, create: true, edit: true, delete: true },
   };
   const res = await fetchApi(`/api/users/accounts/${userId}/permissions/`, {
     method: 'PUT',
@@ -196,6 +199,7 @@ export type PermissionSectionKey =
   | 'productos_servicios'
   | 'ventas'
   | 'operaciones'
+  | 'documentos'
   | 'configuracion';
 
 /** Submenú dentro de un menú (p. ej. Operación › Mantenimiento). */
@@ -256,6 +260,12 @@ const BASE_SECTIONS: PermissionSection[] = [
         ],
       },
     ],
+  },
+  {
+    key: 'documentos',
+    menu: 'Documentos',
+    // «Editar» habilita mandar a firma y firmar como prestador.
+    modules: [{ key: 'contratos', label: 'Contratos' }],
   },
 ];
 

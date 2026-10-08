@@ -96,7 +96,7 @@ class FirmaInvalida(ValueError):
     pass
 
 
-def procesar_firma_png(data_url: str) -> tuple[str, str]:
+def procesar_firma_png(data_url: str, *, max_bytes: int = FIRMA_MAX_BYTES) -> tuple[str, str]:
     """Valida un data URL PNG de firma y devuelve (data_url_normalizado, sha256_png).
 
     Lanza ``FirmaInvalida`` con un mensaje apto para el usuario.
@@ -108,13 +108,13 @@ def procesar_firma_png(data_url: str) -> tuple[str, str]:
         raise FirmaInvalida("La firma debe ser una imagen PNG.")
     b64 = re.sub(r"\s+", "", m.group(1))
     # base64 crece ~4/3; cortar antes de decodificar.
-    if len(b64) > FIRMA_MAX_BYTES * 4 // 3 + 8:
+    if len(b64) > max_bytes * 4 // 3 + 8:
         raise FirmaInvalida("La imagen de la firma es demasiado grande.")
     try:
         raw = base64.b64decode(b64, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise FirmaInvalida("La firma no es una imagen válida.") from exc
-    if not raw or len(raw) > FIRMA_MAX_BYTES:
+    if not raw or len(raw) > max_bytes:
         raise FirmaInvalida("La imagen de la firma es demasiado grande.")
     try:
         with Image.open(io.BytesIO(raw)) as probe:

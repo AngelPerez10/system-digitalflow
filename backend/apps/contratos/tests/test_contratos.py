@@ -14,7 +14,7 @@ from rest_framework.test import APIClient
 from apps.contratos import services
 from apps.contratos.models import Contrato, ContratoEnlaceFirma
 from apps.contratos.pdf_templates.contrato_internet import dinero_con_letra
-from apps.users.models import UserPermissions
+from apps.users.models import UserPermissions, UserSignature
 
 LIST_URL = "/api/v1/contratos/"
 PUB = "/api/v1/contratos-firma/"
@@ -64,6 +64,22 @@ class ContratosBase(TestCase):
         self.render = pdf.start()
         self.addCleanup(pdf.stop)
 
+    def firmar_prestador(self, contrato_id, firmante=None, api=None):
+        firmante = firmante or self.firmante_oficial()
+        UserSignature.objects.update_or_create(
+            user=firmante, defaults={"url": "https://res.cloudinary.com/demo/image/upload/firma.png", "public_id": "users/firmas/x"}
+        )
+        with mock.patch("apps.contratos.views.firma_url_to_data_uri", return_value=firma_png()):
+            return (api or self.api).post(
+                f"{LIST_URL}{contrato_id}/firmar-prestador/", {"firmante_id": firmante.pk}, format="json"
+            )
+
+    def firmante_oficial(self):
+        user, _ = get_user_model().objects.get_or_create(
+            username="IvanCruz01", defaults={"first_name": "Ivan", "last_name": "Cruz"}
+        )
+        return user
+
     def crear(self, **extra):
         res = self.api.post(LIST_URL, {**PAYLOAD, **extra}, format="json")
         self.assertEqual(res.status_code, 201, res.data)
@@ -111,7 +127,7 @@ class PermisosTests(ContratosBase):
         self.assertEqual(c.get(LIST_URL).status_code, 200)
         self.assertEqual(c.post(f"{LIST_URL}{ctr['id']}/enlace-firma/").status_code, 403)
         self.assertEqual(
-            c.post(f"{LIST_URL}{ctr['id']}/firmar-prestador/", {"firma": firma_png()}, format="json").status_code,
+            c.post(f"{LIST_URL}{ctr['id']}/firmar-prestador/", {"firmante_id": user.pk}, format="json").status_code,
             403,
         )
 
@@ -278,9 +294,10 @@ class FirmaTests(ContratosBase):
 
     def test_firma_completa_y_sellado(self):
         ctr = self.crear()
-        res = self.api.post(f"{LIST_URL}{ctr['id']}/firmar-prestador/", {"firma": firma_png()}, format="json")
+        res = self.firmar_prestador(ctr["id"])
         self.assertEqual(res.status_code, 200, res.data)
         self.assertEqual(res.data["estado"], "firmado_prestador")
+        self.assertTrue(res.data["firma_prestador"].startswith("data:image/png;base64,"))
 
         token, _ = self.enlace(ctr["id"])
         sesion = self.verificar(token)
@@ -351,7 +368,10 @@ class PlantillaTests(ContratosBase):
         self.assertIn("treinta y seis (36)", html)
         self.assertIn("100 Mbps", html)
         self.assertIn("contratos@interpro.test", html)
-        self.assertIn("BORRADOR", html)
+        self.assertNotIn("BORRADOR", html)
+        self.assertIn("font-size: 11pt", html)
+        self.assertIn("font-family: Calibri", html)
+        self.assertNotIn("PRESTADOR</div></div>", html)
 
     def test_importe_con_letra(self):
         self.assertEqual(dinero_con_letra("8000"), "$8,000.00 (Ocho Mil Pesos 00/100 M.N.)")
@@ -363,3 +383,62 @@ class PlantillaTests(ContratosBase):
         self.assertEqual(a, services.hash_contenido(contrato))
         contrato.plan_mbps = 50
         self.assertNotEqual(a, services.hash_contenido(contrato))
+
+
+class FirmaRegistradaTests(ContratosBase):
+    def _usuario(self, username, **perms):
+        user = get_user_model().objects.create_user(username=username, password="x", first_name="Otro", last_name="Usuario")
+        UserPermissions.objects.create(user=user, permissions={"contratos": {"view": True, "create": True, "edit": True, **perms}})
+        c = APIClient()
+        c.force_authenticate(user)
+        return user, c
+
+    def test_siempre_firma_ivan_cruz(self):
+        ctr = self.crear()
+        res = self.firmar_prestador(ctr["id"])
+        self.assertEqual(res.status_code, 200, res.data)
+        contrato = Contrato.objects.get(pk=ctr["id"])
+        self.assertEqual(contrato.firmado_prestador_por.username, "IvanCruz01")
+        self.assertEqual(contrato.firmado_prestador_nombre, "Ivan Cruz")
+        evento = contrato.eventos.get(tipo="firmado_prestador")
+        self.assertEqual(evento.detalle["aplicada_por"], self.admin.username)
+
+    def test_otro_firmante_en_el_cuerpo_se_ignora(self):
+        ctr = self.crear()
+        otro, _ = self._usuario("otro")
+        UserSignature.objects.create(user=otro, url="https://res.cloudinary.com/demo/otro.png")
+        UserSignature.objects.update_or_create(
+            user=self.firmante_oficial(), defaults={"url": "https://res.cloudinary.com/demo/ivan.png"}
+        )
+        with mock.patch("apps.contratos.views.firma_url_to_data_uri", return_value=firma_png()) as descarga:
+            res = self.api.post(f"{LIST_URL}{ctr['id']}/firmar-prestador/", {"firmante_id": otro.pk}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        descarga.assert_called_once_with("https://res.cloudinary.com/demo/ivan.png")
+        self.assertEqual(Contrato.objects.get(pk=ctr["id"]).firmado_prestador_por.username, "IvanCruz01")
+
+    def test_no_admin_que_no_es_ivan_no_puede_aplicar(self):
+        ctr = self.crear()
+        _, api = self._usuario("editor")
+        self.assertEqual(self.firmar_prestador(ctr["id"], api=api).status_code, 403)
+
+    def test_ivan_puede_aplicar_su_firma(self):
+        ctr = self.crear()
+        ivan = self.firmante_oficial()
+        UserPermissions.objects.create(user=ivan, permissions={"contratos": {"view": True, "edit": True}})
+        api = APIClient()
+        api.force_authenticate(ivan)
+        self.assertEqual(self.firmar_prestador(ctr["id"], api=api).status_code, 200)
+
+    def test_sin_firma_registrada(self):
+        ctr = self.crear()
+        res = self.api.post(f"{LIST_URL}{ctr['id']}/firmar-prestador/", {}, format="json")
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("IvanCruz01", res.data["detail"])
+
+    def test_listado_de_firmantes_solo_ivan(self):
+        otro, _ = self._usuario("rep2")
+        UserSignature.objects.create(user=otro, url="https://res.cloudinary.com/demo/f.png")
+        UserSignature.objects.create(user=self.firmante_oficial(), url="https://res.cloudinary.com/demo/ivan.png")
+        data = self.api.get(f"{LIST_URL}firmantes/").data
+        self.assertEqual([f["username"] for f in data], ["IvanCruz01"])
+        self.assertTrue(data[0]["puede_aplicar"])

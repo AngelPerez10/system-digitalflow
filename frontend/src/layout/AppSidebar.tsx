@@ -5,6 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   BoxCubeIcon,
   ChevronDownIcon,
+  DocsIcon,
   GridIcon,
   HorizontaLDots,
   PageIcon,
@@ -121,6 +122,12 @@ export default function AppSidebar() {
 
     if (isAdmin) {
       items.push({ icon: <GridIcon />, name: "Dashboard", path: "/dashboard" });
+
+      items.push({
+        icon: <DocsIcon />,
+        name: "Documentos",
+        subItems: [{ name: "Contratos", path: "/contratos", pro: false }],
+      });
 
       if (SIDEBAR_FUTURE.ia) {
         items.push({
@@ -259,6 +266,14 @@ export default function AppSidebar() {
         });
       }
 
+      if (permissions?.contratos?.view === true) {
+        items.push({
+          icon: <DocsIcon />,
+          name: "Documentos",
+          subItems: [{ name: "Contratos", path: "/contratos", pro: false }],
+        });
+      }
+
       if (permissions?.clientes?.view === true) {
         items.push({
           icon: <UserCircleIcon />,
@@ -305,7 +320,6 @@ export default function AppSidebar() {
           subItems: productosServiciosSub,
         });
       }
-
     }
 
     return items;

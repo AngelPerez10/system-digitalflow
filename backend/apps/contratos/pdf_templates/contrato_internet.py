@@ -372,268 +372,266 @@ def _clausulas(d: dict) -> list[tuple[str, list[str]]]:
 
 
 def _firma_bloque(rol: str, razon_social: str, nombre: str, firma_png: str, firmado_at) -> str:
-    if firma_png and firma_png.startswith("data:image/png;base64,"):
-        imagen = f"<img class='firma-img' src='{esc(firma_png)}' alt='Firma' />"
-    else:
-        imagen = ""
+    imagen = (
+        f"<img class='firma-img' src='{esc(firma_png)}' alt='' />"
+        if firma_png and firma_png.startswith("data:image/png;base64,")
+        else ""
+    )
     sello = (
-        f"<div class='firma-sello'>Firmado electrónicamente el {esc(fecha_hora(firmado_at))}</div>"
+        f"<div class='firma-sello'>Firmado electrónicamente · {esc(fecha_hora(firmado_at))}</div>"
         if firmado_at
         else "<div class='firma-sello pendiente'>Pendiente de firma</div>"
     )
+    razon = f"<div class='firma-razon'>{esc(razon_social)}</div>" if (razon_social or "").strip() else ""
     return (
         "<div class='firma'>"
         f"<div class='firma-rol'>{esc(rol)}</div>"
         f"<div class='firma-espacio'>{imagen}</div>"
         "<div class='firma-linea'></div>"
-        + (f"<div class='firma-razon'>{esc(razon_social)}</div>" if (razon_social or "").strip() else "")
-        + f"<div class='firma-nombre'>{_txt(nombre)}</div>"
-        f"{sello}"
+        f"<div class='firma-nombre'>{_txt(nombre)}</div>"
+        f"{razon}{sello}"
         "</div>"
     )
 
 
-def _caratula(d: dict, folio: str) -> str:
-    pr = d["prestador"]
-    filas = [
-        ("Prestador", f"{_txt(pr['razon_social'])}<span class='sub'>RFC {_txt(pr['rfc'])}</span>"),
-        (
-            "Cliente",
-            f"{_txt(d['cliente_razon_social'])}"
-            + (f"<span class='sub'>RFC {_txt(d['cliente_rfc'])}</span>" if d["cliente_rfc"] else ""),
-        ),
-        ("Servicio", f"Internet Dedicado simétrico de <strong>{int(d['plan_mbps'])} Mbps</strong> con 1 IP pública fija"),
-        (
-            "Contraprestación",
-            f"<strong>{esc(dinero(d['precio_mensual']))}</strong> mensuales + IVA"
-            f"<span class='sub'>{esc(dinero_con_letra(d['precio_mensual']).split(' ', 1)[1])}</span>",
-        ),
-        ("Vigencia forzosa", f"{esc(cantidad_con_letra(d['vigencia_meses']))} meses"),
-        ("Sitio de instalación", _txt(d["domicilio_instalacion"])),
-        ("Lugar y fecha", f"{_txt(d['ciudad_firma'])}, {esc(fecha_larga(d['fecha_firma']))}"),
-    ]
-    rows = "".join(f"<tr><th>{k}</th><td>{v}</td></tr>" for k, v in filas)
-    return (
-        "<section class='caratula'>"
-        f"<div class='caratula-titulo'>Carátula del contrato <span>{esc(folio)}</span></div>"
-        f"<table>{rows}</table>"
-        "</section>"
-    )
+def _prestador_aplicacion(eventos) -> tuple[str, str]:
+    """(firmante, aplicada_por) del evento de firma del prestador, si existe."""
+    for e in eventos:
+        if e.tipo == "firmado_prestador":
+            det = e.detalle or {}
+            return str(det.get("firmante") or ""), str(det.get("aplicada_por") or "")
+    return "", ""
 
 
 def _evidencia(contrato, d: dict, documento_sha256: str, eventos) -> str:
     pr = d["prestador"]
     firmantes = []
     if contrato.firmado_prestador_at:
-        usuario = getattr(contrato.firmado_prestador_por, "username", "") or ""
+        firmante, aplicada_por = _prestador_aplicacion(eventos)
+        usuario = firmante or getattr(contrato.firmado_prestador_por, "username", "") or ""
+        metodo = "Firma autógrafa registrada en el sistema"
+        if usuario:
+            metodo += f" por el usuario «{usuario}»"
+        metodo += ", aplicada en sesión autenticada"
+        if aplicada_por and aplicada_por != usuario:
+            metodo += f" por «{aplicada_por}»"
         firmantes.append({
-            "rol": "EL PRESTADOR",
+            "rol": "El prestador",
             "nombre": contrato.firmado_prestador_nombre or pr.get("representante"),
-            "metodo": "Firma autógrafa digital capturada en sesión autenticada del sistema"
-            + (f" (usuario «{usuario}»)" if usuario else ""),
+            "metodo": metodo + ".",
             "fecha": fecha_hora(contrato.firmado_prestador_at),
             "ip": contrato.firmado_prestador_ip or "—",
-            "dispositivo": "—",
+            "dispositivo": "Sistema de gestión (sesión autenticada)",
             "hash": contrato.firma_prestador_sha256,
         })
     if contrato.firmado_cliente_at:
         firmantes.append({
-            "rol": "EL CLIENTE",
+            "rol": "El cliente",
             "nombre": contrato.firma_cliente_nombre,
-            "metodo": "Firma autógrafa digital mediante enlace único, con identidad verificada por "
-            f"código de un solo uso enviado a {contrato.firmado_cliente_correo or '—'}",
+            "metodo": "Firma autógrafa digital mediante enlace único, con identidad verificada por código de un "
+            f"solo uso enviado a {contrato.firmado_cliente_correo or '—'}.",
             "fecha": fecha_hora(contrato.firmado_cliente_at),
             "ip": contrato.firmado_cliente_ip or "—",
             "dispositivo": contrato.firmado_cliente_user_agent or "—",
             "hash": contrato.firma_cliente_sha256,
         })
+    def dato(k, v, mono=False):
+        clase = " class='mono'" if mono else ""
+        return f"<p class='dato'><span class='k'>{esc(k)}:</span> <span{clase}>{esc(v)}</span></p>"
+
     bloques = "".join(
-        "<table class='evid'>"
-        f"<tr><th colspan='2' class='evid-rol'>{esc(f['rol'])} — {esc(f['nombre'])}</th></tr>"
-        f"<tr><th>Método</th><td>{esc(f['metodo'])}</td></tr>"
-        f"<tr><th>Fecha y hora</th><td>{esc(f['fecha'])}</td></tr>"
-        f"<tr><th>Dirección IP</th><td class='mono'>{esc(f['ip'])}</td></tr>"
-        f"<tr><th>Dispositivo</th><td class='small'>{esc(f['dispositivo'])}</td></tr>"
-        f"<tr><th>Huella de la firma</th><td class='mono small'>SHA-256 {esc(f['hash'])}</td></tr>"
-        "</table>"
+        "<div class='firmante'>"
+        f"<h3 class='declara'>{esc(f['rol'])}: {esc(f['nombre'])}</h3>"
+        + dato("Método", f["metodo"])
+        + dato("Fecha y hora", f["fecha"])
+        + dato("Dirección IP", f["ip"], mono=True)
+        + dato("Dispositivo", f["dispositivo"])
+        + dato("Huella de la firma (SHA-256)", f["hash"], mono=True)
+        + "</div>"
         for f in firmantes
     )
-    filas_eventos = "".join(
-        f"<tr><td>{esc(fecha_hora(e.created_at))}</td><td>{esc(e.get_tipo_display())}</td>"
-        f"<td class='mono'>{esc(e.ip or '—')}</td></tr>"
+    bitacora = "".join(
+        f"<p class='evento'>{esc(fecha_hora(e.created_at))} — {esc(e.get_tipo_display())}"
+        + (f" <span class='mono'>(IP {esc(e.ip)})</span>" if e.ip else "")
+        + "</p>"
         for e in eventos
     )
-    bitacora = (
-        "<h3 class='evid-sub'>Bitácora del proceso de firma</h3>"
-        f"<table class='bitacora'><tr><th>Fecha y hora</th><th>Evento</th><th>IP</th></tr>{filas_eventos}</table>"
-        if filas_eventos
-        else ""
-    )
+    if bitacora:
+        bitacora = "<h3 class='declara'>Bitácora del proceso de firma</h3>" + bitacora
     return (
         "<section class='evidencia'>"
         "<h2 class='seccion'>Constancia de firma electrónica</h2>"
-        "<p class='small'>Esta constancia forma parte integrante del contrato y acredita la manifestación de "
-        "voluntad de los firmantes por medios electrónicos, conforme a la Cláusula Vigésima Segunda.</p>"
-        "<table class='evid'>"
-        f"<tr><th>Folio</th><td>{esc(contrato.folio or contrato.idx)}</td></tr>"
-        f"<tr><th>Huella del contenido</th><td class='mono small'>SHA-256 {esc(documento_sha256 or '—')}</td></tr>"
-        "</table>"
-        f"{bloques}{bitacora}"
+        "<p>La presente constancia forma parte integrante del contrato y acredita la manifestación de voluntad de "
+        "los firmantes por medios electrónicos, en términos de la Cláusula Vigésima Segunda y de los artículos 89 a "
+        "99 del Código de Comercio.</p>"
+        + dato("Folio", str(contrato.folio or contrato.idx))
+        + dato("Huella del contenido (SHA-256)", documento_sha256 or "—", mono=True)
+        + f"{bloques}{bitacora}"
         "</section>"
     )
 
 
-# ---------------------------------------------------------------- estilos
+# ---------------------------------------------------------------- estilos (notarial clásico)
 
+# Mismo tipo de letra que el contrato modelo (Word): Calibri. En servidores sin
+# Calibri, Carlito es su equivalente métrico (mismo ancho de letra).
+FUENTE = "Calibri, Carlito, 'Segoe UI', Arial, 'Liberation Sans', sans-serif"
+AZUL = "#0039B2"
 
 CSS = """
-@page { size: Letter; margin: 22mm 20mm 20mm 20mm; }
+@page { size: Letter; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: #ffffff; color-scheme: light; }
 body {
-  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
-  font-size: 9.6pt; line-height: 1.55; color: #252523;
+  font-family: __FUENTE__;
+  font-size: 11pt; line-height: 1.38; color: #000000;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-.serif { font-family: "Tiempos Headline", Georgia, "Times New Roman", "Liberation Serif", serif; }
-.membrete {
-  display: flex; align-items: center; justify-content: space-between;
-  padding-bottom: 10px; border-bottom: 1.4px solid #141413; margin-bottom: 18px;
+p { margin: 0 0 7pt; text-align: justify; orphans: 3; widows: 3; hyphens: manual; }
+strong { font-weight: 700; }
+
+/* Primera hoja */
+.portada { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26pt; }
+.portada img { max-height: 44px; max-width: 170px; object-fit: contain; }
+.portada .folio { text-align: right; font-size: 9.5pt; color: #444444; line-height: 1.4; }
+.portada .folio b { display: block; font-size: 11pt; color: __AZUL__; letter-spacing: .02em; }
+.titulo {
+  text-align: center; color: __AZUL__; font-weight: 700; font-size: 15pt; line-height: 1.22;
+  text-transform: uppercase; letter-spacing: .01em; margin: 0 auto 6pt; max-width: 15.5cm;
 }
-.membrete img { max-height: 44px; max-width: 170px; object-fit: contain; }
-.membrete .meta { text-align: right; font-size: 8pt; color: #6c6a64; letter-spacing: .04em; }
-.membrete .meta strong { display: block; color: #141413; font-size: 10pt; letter-spacing: .08em; }
-.eyebrow { font-size: 7.5pt; letter-spacing: .18em; text-transform: uppercase; color: #a9583e; font-weight: 600; }
-h1.titulo {
-  font-family: "Tiempos Headline", Georgia, "Times New Roman", "Liberation Serif", serif;
-  font-weight: 400; font-size: 22pt; line-height: 1.12; letter-spacing: -0.4px;
-  color: #141413; margin: 4px 0 6px;
-}
-.subtitulo { font-size: 10pt; color: #6c6a64; margin: 0 0 16px; }
-.caratula { border: 1px solid #e6dfd8; border-radius: 6px; background: #faf9f5; margin: 0 0 18px; overflow: hidden; break-inside: avoid; }
-.caratula-titulo {
-  background: #efe9de; padding: 7px 12px; font-size: 7.8pt; letter-spacing: .16em;
-  text-transform: uppercase; font-weight: 600; color: #3d3d3a;
-  display: flex; justify-content: space-between;
-}
-.caratula-titulo span { letter-spacing: .06em; color: #a9583e; }
-.caratula table { width: 100%; border-collapse: collapse; }
-.caratula th, .caratula td { padding: 6px 12px; vertical-align: top; border-top: 1px solid #ebe6df; text-align: left; }
-.caratula th { width: 30%; font-size: 8pt; font-weight: 600; color: #6c6a64; text-transform: uppercase; letter-spacing: .06em; }
-.caratula td { font-size: 9.4pt; color: #141413; }
-.caratula .sub { display: block; font-size: 8pt; color: #6c6a64; }
-p { margin: 0 0 8px; text-align: justify; hyphens: auto; }
-.proemio { margin-bottom: 14px; }
+.partes { text-align: center !important; color: #444444; font-size: 11pt; margin: 0 auto; max-width: 14.5cm; }
+.regla { width: 64px; height: 0; border-top: 2pt solid __AZUL__; margin: 14pt auto 22pt; }
+
+.proemio { margin-bottom: 10pt; }
+
+/* Secciones y cláusulas */
 h2.seccion {
-  font-family: "Tiempos Headline", Georgia, "Times New Roman", "Liberation Serif", serif;
-  font-weight: 400; font-size: 14pt; letter-spacing: -0.2px; color: #141413;
-  text-align: center; margin: 18px 0 10px; padding-bottom: 6px;
-  border-bottom: 1px solid #e6dfd8; break-after: avoid;
+  color: __AZUL__; font-size: 11.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  text-align: center; margin: 20pt 0 10pt; break-after: avoid;
 }
-h3.declara { font-size: 9.6pt; font-weight: 600; color: #141413; margin: 10px 0 4px; break-after: avoid; }
-ol.incisos { list-style: lower-alpha; margin: 0 0 8px; padding-left: 22px; }
-ol.incisos li { margin-bottom: 5px; text-align: justify; padding-left: 2px; }
-ol.incisos li::marker { font-weight: 600; }
-.clausula { margin-bottom: 10px; }
+h3.declara { font-size: 11pt; font-weight: 700; margin: 10pt 0 6pt; break-after: avoid; }
+ol.incisos { list-style: none; counter-reset: inc; margin: 0 0 6pt; padding-left: 0.75cm; }
+ol.incisos li { counter-increment: inc; position: relative; margin-bottom: 6pt; text-align: justify; }
+ol.incisos li::before { content: counter(inc, lower-alpha) ")"; position: absolute; left: -0.6cm; }
+.clausula { margin-bottom: 2pt; }
 .clausula h4 {
-  margin: 0 0 3px; font-size: 9.2pt; font-weight: 700; color: #141413; letter-spacing: .02em;
-  break-after: avoid;
+  color: __AZUL__; font-size: 11pt; font-weight: 700; text-transform: uppercase;
+  margin: 14pt 0 5pt; break-after: avoid;
 }
-.clausula h4 .num { color: #a9583e; }
-.cierre { margin-top: 14px; }
-.firmas { display: flex; gap: 28px; margin-top: 26px; break-inside: avoid; }
+
+/* Firmas: una sola vez, al final del contrato */
+.otorgamiento { break-inside: avoid; }
+.cierre { margin-top: 14pt; }
+.firmas { display: flex; justify-content: space-between; gap: 1.6cm; margin-top: 40pt; break-inside: avoid; }
 .firma { flex: 1; text-align: center; }
-.firma-rol { font-size: 8pt; letter-spacing: .18em; font-weight: 600; color: #6c6a64; text-transform: uppercase; }
-.firma-espacio { height: 74px; display: flex; align-items: flex-end; justify-content: center; margin-top: 6px; }
-.firma-img { max-height: 70px; max-width: 220px; object-fit: contain; }
-.firma-linea { border-top: 1px solid #141413; margin: 2px 12px 6px; }
-.firma-razon { font-size: 8.4pt; font-weight: 600; color: #141413; }
-.firma-nombre { font-size: 8.8pt; color: #252523; }
-.firma-sello { margin-top: 4px; font-size: 7.4pt; color: #5d7d55; }
-.firma-sello.pendiente { color: #8e8b82; font-style: italic; }
+.firma-rol { font-weight: 700; color: __AZUL__; text-transform: uppercase; font-size: 11pt; letter-spacing: .04em; }
+.firma-espacio { height: 84px; display: flex; align-items: flex-end; justify-content: center; margin-top: 6pt; }
+.firma-img { max-height: 80px; max-width: 6.5cm; object-fit: contain; }
+.firma-linea { border-top: .75pt solid #000; margin: 2pt 4pt 5pt; }
+.firma-nombre { font-size: 11pt; font-weight: 700; }
+.firma-razon { font-size: 10pt; color: #333333; }
+.firma-sello { margin-top: 3pt; font-size: 8.5pt; color: #555555; font-style: italic; }
+.firma-sello.pendiente { color: #888888; }
+
+/* Constancia (anexo), en texto */
 .evidencia { break-before: page; }
-.evid { width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #e6dfd8; break-inside: avoid; }
-.evid th, .evid td { text-align: left; padding: 5px 9px; border-top: 1px solid #ebe6df; vertical-align: top; font-size: 8.4pt; }
-.evid th { width: 26%; color: #6c6a64; font-weight: 600; background: #faf9f5; }
-.evid .evid-rol { width: auto; background: #efe9de; color: #141413; letter-spacing: .04em; }
-.evid-sub { font-size: 9.4pt; margin: 16px 0 6px; color: #141413; }
-.bitacora { width: 100%; border-collapse: collapse; font-size: 7.8pt; }
-.bitacora th { text-align: left; color: #6c6a64; border-bottom: 1px solid #e6dfd8; padding: 4px 6px; }
-.bitacora td { border-bottom: 1px solid #f0ebe3; padding: 4px 6px; }
-.mono { font-family: "JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace; word-break: break-all; }
-.small { font-size: 7.8pt; color: #3d3d3a; }
-.marca-agua {
-  position: fixed; top: 42%; left: 0; right: 0; text-align: center;
-  font-family: Georgia, "Times New Roman", serif; font-size: 92pt; letter-spacing: .12em;
-  color: rgba(204, 120, 92, 0.10); transform: rotate(-28deg); z-index: 0; pointer-events: none;
-}
-"""
+.firmante { margin: 10pt 0 4pt; break-inside: avoid; }
+p.dato { margin: 0 0 3pt; text-align: left; font-size: 10pt; }
+p.dato .k { font-weight: 700; color: #1A2B57; }
+p.evento { margin: 0 0 2pt; text-align: left; font-size: 9.5pt; color: #222222; }
+.mono { font-family: Consolas, 'Courier New', 'DejaVu Sans Mono', monospace; font-size: 9pt; word-break: break-all; }
+""".replace("__FUENTE__", FUENTE).replace("__AZUL__", AZUL)
+
+
+# ---------------------------------------------------------------- encabezado / pie (Chromium)
+
+
+def opciones_pdf(contrato, documento_sha256: str) -> dict:
+    """Encabezado (folio y fecha, como el Word) y pie con la paginación. Sin firmas por hoja."""
+    folio = esc(contrato.folio or "")
+    fecha = esc(fecha_larga(contrato.fecha_firma)) if contrato.fecha_firma else ""
+    base = "font-family:Calibri,Carlito,'Segoe UI',Arial,sans-serif;color:#444444;width:100%;padding:0 22mm;"
+    header = (
+        f"<div style=\"{base}box-sizing:border-box;font-size:8.5px;display:flex;justify-content:space-between;\">"
+        f"<span style='color:#0039B2;font-weight:700;'>{folio}</span><span>{fecha}</span></div>"
+    )
+    footer = (
+        f"<div style=\"{base}box-sizing:border-box;font-size:8.5px;\">"
+        "<div style='display:flex;justify-content:space-between;gap:12px;border-top:0.5px solid #BFCBE3;"
+        "padding-top:4px;'>"
+        "<span>Contrato de prestación de servicios de Internet Dedicado</span>"
+        "<span>Página <span class='pageNumber'></span> de <span class='totalPages'></span></span>"
+        "</div></div>"
+    )
+    return {
+        "display_header_footer": True,
+        "header_template": header,
+        "footer_template": footer,
+        "margin": {"top": "22mm", "bottom": "20mm", "left": "22mm", "right": "22mm"},
+    }
 
 
 # ---------------------------------------------------------------- documento
 
 
-def generar_contrato_html(contrato, d: dict, *, documento_sha256: str = "", eventos=(), borrador: bool = True) -> str:
+def generar_contrato_html(contrato, d: dict, *, documento_sha256: str = "", eventos=()) -> str:
     folio = contrato.folio or f"CTR-{contrato.idx or contrato.pk or ''}"
     logo = logo_data_uri_for_pdf()
-    logo_html = f"<img src='{esc(logo)}' alt='' />" if logo.startswith("data:image/") else ""
+    logo_html = f"<img src='{esc(logo)}' alt='' />" if logo.startswith("data:image/") else "<span></span>"
+    pr = d["prestador"]
 
     clausulas_html = "".join(
         "<div class='clausula'>"
-        f"<h4><span class='num'>{ORDINALES[i]}.</span> {esc(titulo)}</h4>"
-        + "".join(f"<p>{parrafo}</p>" for parrafo in parrafos)
+        f"<h4>{ORDINALES[i]}. {esc(titulo)}</h4>"
+        + "".join(f"<p>{x}</p>" for x in parrafos)
         + "</div>"
         for i, (titulo, parrafos) in enumerate(_clausulas(d))
     )
 
-    pr = d["prestador"]
-    nombre_cliente = (
-        d["cliente_razon_social"]
-        if d["cliente_tipo_persona"] == TIPO_PERSONA_FISICA
-        else (d["cliente_representante"] or "")
-    )
+    es_fisica = d["cliente_tipo_persona"] == TIPO_PERSONA_FISICA
+    nombre_cliente = d["cliente_razon_social"] if es_fisica else (d["cliente_representante"] or "")
     firmas = (
         "<div class='firmas'>"
         + _firma_bloque(
-            "El Prestador",
+            "El prestador",
             pr["razon_social"],
             contrato.firmado_prestador_nombre or pr.get("representante"),
             contrato.firma_prestador_png,
             contrato.firmado_prestador_at,
         )
+
         + _firma_bloque(
-            "El Cliente",
-            d["cliente_razon_social"] if d["cliente_tipo_persona"] != TIPO_PERSONA_FISICA else "",
+            "El cliente",
+            "" if es_fisica else d["cliente_razon_social"],
             contrato.firma_cliente_nombre or nombre_cliente,
             contrato.firma_cliente_png,
             contrato.firmado_cliente_at,
         )
         + "</div>"
     )
-
     hay_firmas = bool(contrato.firmado_prestador_at or contrato.firmado_cliente_at)
     evidencia = _evidencia(contrato, d, documento_sha256, eventos) if hay_firmas else ""
-    marca_agua = "<div class='marca-agua'>BORRADOR</div>" if borrador else ""
 
     return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8" />
 <title>Contrato {esc(folio)}</title>
 <style>{CSS}</style></head>
 <body>
-{marca_agua}
-<header class="membrete">
-  <div>{logo_html}</div>
-  <div class="meta"><strong>{esc(folio)}</strong>Contrato de servicios</div>
-</header>
-<div class="eyebrow">Contrato de prestación de servicios</div>
-<h1 class="titulo">Internet Dedicado</h1>
-<p class="subtitulo">Que celebran {_txt(pr['razon_social'])} y {_txt(d['cliente_razon_social'])}</p>
-{_caratula(d, folio)}
+<div class="portada">
+  {logo_html}
+  <div class="folio"><b>{esc(folio)}</b>{_txt(d['ciudad_firma'])}<br/>{esc(fecha_larga(d['fecha_firma']))}</div>
+</div>
+<div class="titulo">Contrato de prestación de servicios de Internet Dedicado</div>
+<p class="partes">Que celebran {_txt(pr['razon_social'])} y {_txt(d['cliente_razon_social'])}</p>
+<div class="regla"></div>
 {_proemio(d)}
 {_declaraciones(d)}
 <h2 class="seccion">Cláusulas</h2>
 {clausulas_html}
+<div class="otorgamiento">
 <p class="cierre">Leído que fue el presente contrato y enteradas {LP} de su contenido y alcance legal, lo
 firman de conformidad en la ciudad de {_txt(d['ciudad_firma'])}, el día {esc(fecha_larga(d['fecha_firma']))}.</p>
 {firmas}
+</div>
 {evidencia}
 </body></html>"""

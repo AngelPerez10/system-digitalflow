@@ -224,6 +224,9 @@ CORS_ALLOW_HEADERS = (*_cors_default_headers, 'x-firma-token', 'x-firma-sesion')
 # Si falta, se usa el Origin de la petición siempre que esté en CORS_ALLOWED_ORIGINS.
 FRONTEND_PUBLIC_URL = os.environ.get('FRONTEND_PUBLIC_URL', '').strip().rstrip('/')
 
+# Usuario cuya firma registrada (Cloudinary) firma los contratos como EL PRESTADOR.
+CONTRATOS_FIRMANTE_USERNAME = os.environ.get('CONTRATOS_FIRMANTE_USERNAME', 'IvanCruz01').strip()
+
 # CSRF/Session cookie settings
 # In production (Render), frontend and backend may be on different domains.
 # SameSite=None allows cookies to be sent cross-origin (required for cookie-based auth).
