@@ -83,6 +83,72 @@
     animation-name: cot-sheen !important;
   }
 
+  /* Trazo SVG que se «dibuja» (palomita de éxito, firma decorativa). Requiere
+     pathLength="1" en el <path> para que el dash sea 0..1. */
+  .cot-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: cot-draw 900ms cubic-bezier(0.65, 0, 0.35, 1) both;
+    animation-delay: calc(var(--cot-i, 0) * 120ms + 120ms);
+  }
+
+  /* Cambio de paso en un asistente: entra desde el lado hacia el que se avanza. */
+  .cot-step-next {
+    animation: cot-step-next 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .cot-step-back {
+    animation: cot-step-back 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Error de captura (código incorrecto): una sola sacudida corta. */
+  .cot-shake {
+    animation: cot-shake 360ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+
+  /* Insignia de éxito: escala con rebote suave. */
+  .cot-pop-in {
+    animation: cot-pop-in 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  html.theme-changing .cot-draw {
+    animation-name: cot-draw !important;
+  }
+  html.theme-changing .cot-step-next {
+    animation-name: cot-step-next !important;
+  }
+  html.theme-changing .cot-step-back {
+    animation-name: cot-step-back !important;
+  }
+  html.theme-changing .cot-pop-in {
+    animation-name: cot-pop-in !important;
+  }
+
+  /* Bloque que entra al llegar a la vista (scroll). El JS pone `data-shown`
+     una sola vez con IntersectionObserver; `--cot-i` escalona hermanos. */
+  .cot-reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: calc(var(--cot-i, 0) * 80ms);
+  }
+  .cot-reveal[data-shown] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Tarjeta que se eleva levemente al pasar el cursor. */
+  .cot-lift {
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 220ms ease-out,
+      border-color 160ms ease-out;
+  }
+  .cot-lift:hover {
+    transform: translateY(-2px);
+  }
+
   /* Renglones de la hoja de carga: se «escriben» en bucle (solo mientras carga). */
   .cot-write {
     transform-origin: left center;
@@ -176,5 +242,64 @@
 @keyframes cot-sheen {
   to {
     transform: translateX(100%);
+  }
+}
+
+@keyframes cot-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes cot-step-next {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cot-step-back {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cot-shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(3px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-5px);
+  }
+  40%,
+  60% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes cot-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }

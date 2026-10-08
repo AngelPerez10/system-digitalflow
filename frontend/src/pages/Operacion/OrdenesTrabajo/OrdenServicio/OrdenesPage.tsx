@@ -599,7 +599,7 @@ export default function Ordenes() {
 
   const abrirOrdenFromQueryDoneRef = useRef<string | null>(null);
 
-  // Desde historial global (MonthlyTarget): /ordenes?abrir=<id> abre el modal de edición de esa orden
+  // Desde la actividad reciente del panel: /ordenes?abrir=<id> abre el modal de edición de esa orden
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const raw = params.get("abrir");

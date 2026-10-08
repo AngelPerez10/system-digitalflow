@@ -1,47 +1,184 @@
+import { useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
-import EcommerceMetrics from "../../components/ecommerce/EcommerceMetrics";
-import MonthlySalesChart from "../../components/ecommerce/MonthlySalesChart";
-import StatisticsChart from "../../components/ecommerce/StatisticsChart";
-import MonthlyTarget from "../../components/ecommerce/MonthlyTarget";
 import { useDashboardStats } from "../../components/ecommerce/useDashboardStats";
 import PageMeta from "../../components/common/PageMeta";
+import { sansStyle } from "../Operacion/Proyectos/shared/proyectoTokens";
 import TechnicianDashboard from "./TechnicianDashboard";
+import { ActividadReciente } from "./home/ActividadReciente";
+import { CotizacionesEstadoCard } from "./home/CotizacionesEstadoCard";
+import { CotizacionesTrendCard } from "./home/CotizacionesTrendCard";
+import { DashboardHero, type HeroEstado } from "./home/DashboardHero";
+import { KpiCards, type Kpi } from "./home/KpiCards";
+import { MontoAutorizadoCard } from "./home/MontoAutorizadoCard";
+import { OrdenesCompletadasCard } from "./home/OrdenesCompletadasCard";
+import { OrdenesEstadoCard } from "./home/OrdenesEstadoCard";
+import { ProyectosCard } from "./home/ProyectosCard";
+import { MESES_CORTOS, formatEntero, formatMoneda, porcentaje, sumHasta, variacion } from "./home/dashboardMath";
 
 function capitalizar(texto: string) {
   return texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : texto;
 }
 
-export default function Home() {
-  const { isAdmin, loading: authLoading, user } = useAuth();
-  const dashboard = useDashboardStats();
+const container = "mx-auto w-full max-w-[min(100%,1920px)] space-y-5 px-3 pb-12 pt-6 sm:space-y-6 sm:px-5 md:px-6 lg:px-8 xl:px-10";
+const row = "grid grid-cols-1 gap-5 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]";
+
+function HomeSkeleton() {
+  return (
+    <div className={container} role="status" aria-live="polite">
+      <div className="h-42 animate-pulse rounded-4xl border border-[#E7E7EA] bg-[#F4F4F5] dark:border-[#273244] dark:bg-white/5" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="h-42 animate-pulse rounded-4xl bg-[#F4F4F5] dark:bg-white/5" />
+        ))}
+      </div>
+      <span className="sr-only">Cargando panel…</span>
+    </div>
+  );
+}
+
+function AdminDashboard({ nombre }: { nombre: string }) {
+  const { loading, mesActual, cotizacionesYears, ordenesCompletadasMeses, extra } = useDashboardStats();
 
   const ahora = new Date();
-  const hora = ahora.getHours();
-  const saludo =
-    hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
-  const nombre = capitalizar(
-    (user?.first_name || "").trim() || (user?.username || "").trim()
-  );
-  const fechaLarga = capitalizar(
-    ahora.toLocaleDateString("es-MX", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    })
+  const fechaLarga = capitalizar(ahora.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" }));
+  const mesIdx = ahora.getMonth();
+  const mesNombre = capitalizar(ahora.toLocaleDateString("es-MX", { month: "long" }));
+  const horaActualizacion = useMemo(
+    () => new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
+    // Se recalcula al terminar cada carga.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loading],
   );
 
-  if (authLoading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-live="polite">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-[#1B5CFF] border-t-transparent" />
-        <span className="sr-only">Cargando panel…</span>
+  const { current, previous, year, previousYear } = cotizacionesYears;
+  const { cotizacionesStatus, montoAutorizadoMeses, ordenesStatus, proyectos } = extra;
+
+  const cotTotalAnio = Object.values(cotizacionesStatus).reduce((a, s) => a + s.count, 0);
+  const autorizadas = cotizacionesStatus.AUTORIZADA?.count ?? 0;
+  const montoAnio = sumHasta(montoAutorizadoMeses, mesIdx);
+
+  const estado = useMemo<HeroEstado[]>(() => {
+    const finDeMes = new Date(ahora.getFullYear(), mesIdx + 1, 0).getDate();
+    const restantes = finDeMes - ahora.getDate();
+    return [
+      { label: "Proyectos activos", value: proyectos.porStatus.en_proceso ?? 0, hint: "en proceso" },
+      { label: "Órdenes pendientes", value: ordenesStatus.pendiente ?? 0, hint: "por atender" },
+      { label: "Cotizaciones abiertas", value: cotizacionesStatus.PENDIENTE?.count ?? 0, hint: "por autorizar" },
+      {
+        label: `Cierre de ${mesNombre.toLowerCase()}`,
+        value: restantes,
+        hint: restantes === 1 ? "día restante" : "días restantes",
+        ratio: ahora.getDate() / finDeMes,
+      },
+    ];
+    // `ahora` cambia en cada render; el mes ya está en `mesIdx`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proyectos.porStatus, ordenesStatus, cotizacionesStatus, mesIdx, mesNombre]);
+
+  const kpis = useMemo<Kpi[]>(() => {
+    const resueltasMes = ordenesCompletadasMeses[mesIdx] || 0;
+    const mesesConMonto = montoAutorizadoMeses.slice(0, mesIdx + 1).filter((v) => v > 0).length;
+    return [
+      {
+        key: "cot-mes",
+        label: "Cotizaciones del mes",
+        value: mesActual.cotizacionesMes,
+        hint: `${mesNombre} ${year}`,
+        to: "/cotizacion",
+        icon: "cotizacion",
+        modulo: "ventas",
+        delta: {
+          pct: variacion(mesActual.cotizacionesMes, previous[mesIdx] || 0),
+          contra: `vs. ${MESES_CORTOS[mesIdx].toLowerCase()} ${previousYear}`,
+        },
+        spark: current.slice(0, mesIdx + 1),
+      },
+      {
+        key: "monto-mes",
+        label: "Autorizado del mes",
+        value: montoAutorizadoMeses[mesIdx] || 0,
+        format: "moneda",
+        hint: `${mesNombre} ${year}`,
+        to: "/cotizacion",
+        icon: "monto",
+        modulo: "monto",
+        note: `Promedio ${formatMoneda(mesesConMonto ? montoAnio / mesesConMonto : 0)} por mes`,
+        spark: montoAutorizadoMeses.slice(0, mesIdx + 1),
+      },
+      {
+        key: "ord-mes",
+        label: "Órdenes del mes",
+        value: mesActual.ordenesMes,
+        hint: `Registradas en ${mesNombre.toLowerCase()}`,
+        to: "/ordenes",
+        icon: "orden",
+        modulo: "ordenes",
+        progress: {
+          ratio: mesActual.ordenesMes ? Math.min(1, resueltasMes / mesActual.ordenesMes) : 0,
+          label: `${formatEntero(resueltasMes)} resueltas este mes`,
+          tone: "exito",
+        },
+      },
+      {
+        key: "proy",
+        label: "Proyectos en proceso",
+        value: proyectos.porStatus.en_proceso ?? 0,
+        hint: `${formatEntero(sumHasta(proyectos.creadosMeses, mesIdx))} creados en ${year}`,
+        to: "/proyectos",
+        icon: "proyecto",
+        modulo: "proyectos",
+        progress: { ratio: proyectos.avancePromedio / 100, label: "Avance promedio" },
+      },
+    ];
+  }, [current, previous, year, previousYear, mesActual, ordenesCompletadasMeses, montoAutorizadoMeses, montoAnio, proyectos, mesIdx, mesNombre]);
+
+  return (
+    <div className={container} style={sansStyle}>
+      <DashboardHero
+        nombre={nombre}
+        fechaLarga={fechaLarga}
+        horaActualizacion={horaActualizacion}
+        loading={loading}
+        year={year}
+        montoAutorizadoAnio={montoAnio}
+        autorizadas={autorizadas}
+        tasaAutorizacion={porcentaje(autorizadas, cotTotalAnio)}
+        estado={estado}
+      />
+
+      <KpiCards kpis={kpis} loading={loading} />
+
+      <div className={row}>
+        <CotizacionesTrendCard
+          loading={loading}
+          year={year}
+          previousYear={previousYear}
+          current={current}
+          previous={previous}
+          mesIdx={mesIdx}
+          index={0}
+        />
+        <CotizacionesEstadoCard loading={loading} year={year} status={cotizacionesStatus} index={1} />
       </div>
-    );
-  }
 
-  if (!isAdmin) {
-    return <TechnicianDashboard />;
-  }
+      <div className={row}>
+        <MontoAutorizadoCard loading={loading} year={year} serie={montoAutorizadoMeses} mesIdx={mesIdx} index={0} />
+        <OrdenesEstadoCard loading={loading} year={year} status={ordenesStatus} index={1} />
+      </div>
+
+      <ProyectosCard loading={loading} year={year} mesIdx={mesIdx} proyectos={proyectos} index={0} />
+
+      <div className={row}>
+        <OrdenesCompletadasCard loading={loading} year={year} serie={ordenesCompletadasMeses} mesIdx={mesIdx} index={0} />
+        <ActividadReciente index={1} />
+      </div>
+    </div>
+  );
+}
+
+export default function Home() {
+  const { isAdmin, loading: authLoading, user } = useAuth();
+  const nombre = capitalizar((user?.first_name || "").trim() || (user?.username || "").trim());
 
   return (
     <>
@@ -49,56 +186,7 @@ export default function Home() {
         title="Panel de Control | Sistema Grupo Intrax GPS"
         description="Panel principal del sistema de administración Grupo Intrax GPS"
       />
-      <div className="mb-5 font-['Geist','Outfit',system-ui,sans-serif] sm:mb-6">
-        <header className="relative overflow-hidden rounded-[24px] bg-[#17235B] px-5 py-6 dark:bg-[#1B2A63] sm:px-8 sm:py-7">
-          <div
-            className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-[#E6A23C]/15 blur-3xl"
-            aria-hidden
-          />
-          <div className="relative flex min-w-0 items-start gap-4">
-            <span
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]"
-              aria-hidden
-            >
-              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                <rect x="3" y="3" width="8" height="8" rx="1.6" />
-                <rect x="13" y="3" width="8" height="5" rx="1.6" />
-                <rect x="13" y="10" width="8" height="11" rx="1.6" />
-                <rect x="3" y="13" width="8" height="8" rx="1.6" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">
-                Panel de control · {fechaLarga}
-              </p>
-              <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.9px] text-white sm:text-[32px] sm:tracking-[-1.1px]">
-                {saludo}{nombre ? `, ${nombre}` : ""}
-              </h1>
-              <p className="mt-1.5 max-w-[62ch] text-[15px] leading-5.5 tracking-[-0.1px] text-white/70">
-                Este es el resumen de cotizaciones, órdenes de trabajo y actividad reciente del sistema.
-              </p>
-            </div>
-          </div>
-        </header>
-      </div>
-      <div className="grid grid-cols-12 gap-4 font-['Geist','Outfit',system-ui,sans-serif] md:gap-6">
-        <div className="col-span-12 space-y-6 xl:col-span-7">
-          <EcommerceMetrics loading={dashboard.loading} mesActual={dashboard.mesActual} />
-
-          <MonthlySalesChart
-            loading={dashboard.loading}
-            ordenesCompletadasMeses={dashboard.ordenesCompletadasMeses}
-          />
-        </div>
-
-        <div className="col-span-12 xl:col-span-5">
-          <MonthlyTarget />
-        </div>
-
-        <div className="col-span-12">
-          <StatisticsChart loading={dashboard.loading} cotizacionesYears={dashboard.cotizacionesYears} />
-        </div>
-      </div>
+      {authLoading ? <HomeSkeleton /> : isAdmin ? <AdminDashboard nombre={nombre} /> : <TechnicianDashboard />}
     </>
   );
 }

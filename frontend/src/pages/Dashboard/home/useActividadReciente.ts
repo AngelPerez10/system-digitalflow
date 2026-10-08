@@ -1,0 +1,471 @@
+import { useEffect, useState } from "react";
+import { fetchApi } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
+
+/*
+ * Historial global del panel: combina los movimientos recientes de órdenes,
+ * cotizaciones, clientes, tareas, servicios, reportes y permisos.
+ */
+
+export type ModuleKey =
+  | "contactos"
+  | "cotizacion"
+  | "escritorio"
+  | "operacion"
+  | "productos_servicios"
+  | "usuarios";
+
+export type ActivityItem = {
+  id: string;
+  when: string;
+  actor: string;
+  text: string;
+  detail?: string;
+  module: ModuleKey;
+  viewName: string;
+  viewPath: string;
+  /** Si existe, al hacer clic se navega con ?abrir=<id> para abrir el detalle en modal (p. ej. órdenes). */
+  openEntityId?: number;
+};
+
+type UserAccountRow = {
+  id: number;
+  username?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+};
+
+type NamedRecord = {
+  nombre?: unknown;
+  username?: unknown;
+};
+
+const MAX_ITEMS = 40;
+const LOCAL_HISTORY_KEY = "system_activity_log";
+
+const toIso = (v: unknown): string => {
+  if (!v) return "";
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+};
+
+const formatNumberWithCommas = (value: unknown) => {
+  if (value == null || value === "") return "";
+  const n = Number(value);
+  if (Number.isNaN(n)) return String(value);
+  return n.toLocaleString("en-US");
+};
+
+const normalizeRows = (data: unknown): Record<string, unknown>[] => {
+  if (Array.isArray(data)) return data as Record<string, unknown>[];
+  if (
+    data &&
+    typeof data === "object" &&
+    "results" in data &&
+    Array.isArray((data as { results?: unknown[] }).results)
+  ) {
+    return (data as { results: Record<string, unknown>[] }).results;
+  }
+  return [];
+};
+
+const firstNonEmpty = (...values: unknown[]) => {
+  for (const v of values) {
+    const s = String(v ?? "").trim();
+    if (s) return s;
+  }
+  return "";
+};
+
+const displayName = (
+  firstName: unknown,
+  lastName: unknown,
+  fallbackA?: unknown,
+  fallbackB?: unknown,
+  fallbackC?: unknown
+) => {
+  const full = `${String(firstName ?? "").trim()} ${String(lastName ?? "").trim()}`.trim();
+  if (full) return full;
+  return firstNonEmpty(fallbackA, fallbackB, fallbackC) || "sistema";
+};
+
+const normalizeOrderStatus = (raw: unknown) => {
+  const v = String(raw ?? "").trim().toLowerCase();
+  if (!v) return "Pendiente";
+  if (v.includes("resuel") || v.includes("complet") || v.includes("cerrad") || v.includes("finaliz")) return "Resuelto";
+  if (v.includes("proceso") || v.includes("curso") || v.includes("asign")) return "En proceso";
+  if (v.includes("cancel")) return "Cancelado";
+  if (v.includes("pend")) return "Pendiente";
+  return v.charAt(0).toUpperCase() + v.slice(1);
+};
+
+export function useActividadReciente() {
+  const { isAuthenticated, isAdmin } = useAuth();
+  const [allItems, setAllItems] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setAllItems([]);
+      setLoading(false);
+      setError("");
+      return;
+    }
+
+    let cancelled = false;
+
+    const getJson = async (path: string) => {
+      const res = await fetchApi(path);
+      return res.ok ? await res.json().catch(() => []) : [];
+    };
+
+    const load = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        // Listados acotados: el dump completo de órdenes/cotizaciones colgaba el panel.
+        const [ordenesData, cotizacionesData, clientesData, tareasData, serviciosData, reportesData, usersData] =
+          await Promise.all([
+            getJson("/api/ordenes/?limit=80"),
+            getJson("/api/cotizaciones/?page=1&page_size=50"),
+            getJson("/api/clientes/?page=1&page_size=40"),
+            getJson("/api/tareas/"),
+            getJson("/api/servicios/"),
+            getJson("/api/ordenes/reportes-semanales/"),
+            isAdmin ? getJson("/api/users/accounts/") : Promise.resolve(null),
+          ]);
+
+        const items: ActivityItem[] = [];
+
+        for (const o of normalizeRows(ordenesData)) {
+          const created = toIso(o?.fecha_creacion);
+          const updated = toIso(o?.fecha_actualizacion);
+          const actor = displayName(
+            o?.actualizado_por_first_name || o?.creado_por_first_name || o?.tecnico_asignado_first_name,
+            o?.actualizado_por_last_name || o?.creado_por_last_name || o?.tecnico_asignado_last_name,
+            o?.actualizado_por_full_name,
+            o?.creado_por_full_name,
+            o?.tecnico_asignado_full_name
+          ) || firstNonEmpty(o?.actualizado_por_username, o?.creado_por_username, o?.tecnico_asignado_username);
+          const folio = String(o?.folio || o?.idx || o?.id || "-");
+          const cliente = String(
+            o?.cliente_nombre || (o?.cliente as NamedRecord | undefined)?.nombre || "sin cliente"
+          );
+          const tecnico = String(o?.tecnico_asignado_username || o?.tecnico_nombre || "sin técnico");
+          const estado = normalizeOrderStatus(
+            o?.estado ?? o?.status ?? o?.estatus ?? o?.estado_orden ?? o?.situacion
+          );
+          const ordenPk = typeof o?.id === "number" && Number.isFinite(o.id) ? o.id : undefined;
+          if (created) {
+            items.push({
+              id: `orden-create-${o?.id || folio}`,
+              when: created,
+              actor,
+              text: `creó la orden #${folio}`,
+              detail: `Cliente: ${cliente} · Técnico: ${tecnico} · Estado: ${estado}`,
+              module: "operacion",
+              viewName: "Ordenes de trabajo",
+              viewPath: "/ordenes",
+              openEntityId: ordenPk,
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `orden-update-${o?.id || folio}`,
+              when: updated,
+              actor,
+              text: `actualizó la orden #${folio}`,
+              detail: `Cliente: ${cliente} · Técnico: ${tecnico} · Estado: ${estado}`,
+              module: "operacion",
+              viewName: "Ordenes de trabajo",
+              viewPath: "/ordenes",
+              openEntityId: ordenPk,
+            });
+          }
+        }
+
+        for (const c of normalizeRows(cotizacionesData)) {
+          const created = toIso(c?.fecha_creacion);
+          const updated = toIso(c?.fecha_actualizacion);
+          const creatorName = displayName(
+            c?.creado_por_first_name,
+            c?.creado_por_last_name,
+            c?.creado_por_full_name,
+            c?.creado_por_username
+          );
+          const updaterName = displayName(
+            c?.actualizado_por_first_name,
+            c?.actualizado_por_last_name,
+            c?.actualizado_por_full_name,
+            c?.actualizado_por_username,
+            creatorName
+          );
+          const folio = String(c?.idx || c?.id || "-");
+          const cliente = String(
+            c?.cliente_nombre || (c?.cliente as NamedRecord | undefined)?.nombre || "sin cliente"
+          );
+          const total = c?.monto_total ?? c?.total ?? c?.subtotal;
+          if (created) {
+            items.push({
+              id: `cot-create-${c?.id || folio}`,
+              when: created,
+              actor: creatorName,
+              text: `creó la cotización #${folio}`,
+              detail: `Cliente: ${cliente}${total != null ? ` · Total: $${formatNumberWithCommas(total)}` : ""}`,
+              module: "cotizacion",
+              viewName: "Cotizaciones",
+              viewPath: "/cotizacion",
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `cot-update-${c?.id || folio}`,
+              when: updated,
+              actor: updaterName,
+              text: `actualizó la cotización #${folio}`,
+              detail: `Cliente: ${cliente}${total != null ? ` · Total: $${formatNumberWithCommas(total)}` : ""}`,
+              module: "cotizacion",
+              viewName: "Cotizaciones",
+              viewPath: "/cotizacion",
+            });
+          }
+        }
+
+        for (const cl of normalizeRows(clientesData)) {
+          const created = toIso(cl?.fecha_creacion);
+          const updated = toIso(cl?.fecha_actualizacion);
+          const name = String(cl?.nombre || `cliente-${cl?.id}`);
+          const creador =
+            displayName(
+              cl?.creado_por_first_name || cl?.asesor_first_name || cl?.vendedor_first_name,
+              cl?.creado_por_last_name || cl?.asesor_last_name || cl?.vendedor_last_name,
+              cl?.creado_por_full_name,
+              cl?.asesor_nombre_completo,
+              cl?.vendedor_nombre_completo
+            ) ||
+            firstNonEmpty(
+              cl?.creado_por_username,
+              cl?.actualizado_por_username,
+              cl?.usuario_creador,
+              cl?.asesor_username,
+              cl?.vendedor_username,
+              (cl?.owner as NamedRecord | undefined)?.username
+            ) ||
+            "sistema";
+          const actualizador =
+            displayName(
+              cl?.actualizado_por_first_name || cl?.asesor_first_name || cl?.vendedor_first_name,
+              cl?.actualizado_por_last_name || cl?.asesor_last_name || cl?.vendedor_last_name,
+              cl?.actualizado_por_full_name,
+              cl?.asesor_nombre_completo,
+              cl?.vendedor_nombre_completo
+            ) ||
+            firstNonEmpty(
+              cl?.actualizado_por_username,
+              cl?.creado_por_username,
+              cl?.asesor_username,
+              cl?.vendedor_username,
+              (cl?.owner as NamedRecord | undefined)?.username
+            ) ||
+            creador;
+          const tipo = String(cl?.tipo || cl?.tipo_cliente || "general");
+          if (created) {
+            items.push({
+              id: `cliente-create-${cl?.id || name}`,
+              when: created,
+              actor: creador,
+              text: `agregó cliente "${name}"`,
+              detail: `Tipo: ${tipo} · ID: ${cl?.id ?? "-"}`,
+              module: "contactos",
+              viewName: "Contactos de negocio",
+              viewPath: "/clientes",
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `cliente-update-${cl?.id || name}`,
+              when: updated,
+              actor: actualizador,
+              text: `actualizó cliente "${name}"`,
+              detail: `Tipo: ${tipo} · ID: ${cl?.id ?? "-"}`,
+              module: "contactos",
+              viewName: "Contactos de negocio",
+              viewPath: "/clientes",
+            });
+          }
+        }
+
+        for (const t of normalizeRows(tareasData)) {
+          const created = toIso(t?.fecha_creacion);
+          const updated = toIso(t?.fecha_actualizacion);
+          const creator = displayName(
+            t?.creado_por_first_name,
+            t?.creado_por_last_name,
+            t?.creado_por_full_name,
+            t?.creado_por_username,
+            "usuario"
+          );
+          const assignee = String(t?.usuario_asignado_full_name || t?.usuario_asignado_username || "usuario");
+          const title = String(t?.titulo || t?.asunto || t?.nombre || `Tarea #${t?.id ?? "-"}`);
+          const status = String(t?.estado || t?.status || "sin estado");
+          if (created) {
+            items.push({
+              id: `tarea-create-${t?.id}`,
+              when: created,
+              actor: creator,
+              text: `creó tarea "${title}" para ${assignee}`,
+              detail: `Estado: ${status} · ID: ${t?.id ?? "-"}`,
+              module: "escritorio",
+              viewName: "Tareas",
+              viewPath: "/tareas",
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `tarea-update-${t?.id}`,
+              when: updated,
+              actor: creator,
+              text: `actualizó tarea "${title}"`,
+              detail: `Asignado a: ${assignee} · Estado: ${status} · ID: ${t?.id ?? "-"}`,
+              module: "escritorio",
+              viewName: "Tareas",
+              viewPath: "/tareas",
+            });
+          }
+        }
+
+        for (const s of normalizeRows(serviciosData)) {
+          const created = toIso(s?.fecha_creacion);
+          const updated = toIso(s?.fecha_actualizacion);
+          const name = String(s?.nombre || `servicio-${s?.id}`);
+          const actor = displayName(
+            s?.actualizado_por_first_name || s?.creado_por_first_name,
+            s?.actualizado_por_last_name || s?.creado_por_last_name,
+            s?.actualizado_por_full_name,
+            s?.creado_por_full_name,
+            s?.actualizado_por_username || s?.creado_por_username || "usuario"
+          );
+          const categoria = String(s?.categoria_nombre || s?.categoria || "sin categoría");
+          const precio = s?.precio ?? s?.costo;
+          if (created) {
+            items.push({
+              id: `servicio-create-${s?.id || name}`,
+              when: created,
+              actor,
+              text: `agregó servicio "${name}"`,
+              detail: `${categoria}${precio != null ? ` · Precio: $${precio}` : ""} · ID: ${s?.id ?? "-"}`,
+              module: "productos_servicios",
+              viewName: "Servicios",
+              viewPath: "/servicios",
+            });
+          }
+          if (updated && updated !== created) {
+            items.push({
+              id: `servicio-update-${s?.id || name}`,
+              when: updated,
+              actor,
+              text: `actualizó servicio "${name}"`,
+              detail: `${categoria}${precio != null ? ` · Precio: $${precio}` : ""} · ID: ${s?.id ?? "-"}`,
+              module: "productos_servicios",
+              viewName: "Servicios",
+              viewPath: "/servicios",
+            });
+          }
+        }
+
+        for (const r of normalizeRows(reportesData)) {
+          const created = toIso(r?.fecha_creacion);
+          const actor = displayName(
+            r?.tecnico_first_name,
+            r?.tecnico_last_name,
+            r?.tecnico_nombre_completo,
+            r?.tecnico_nombre,
+            r?.tecnico_username || "usuario"
+          );
+          if (created) {
+            items.push({
+              id: `reporte-create-${r?.id}`,
+              when: created,
+              actor,
+              text: "generó reporte semanal",
+              detail: `Semana: ${r?.semana ?? "-"} · Ordenes: ${r?.total_ordenes ?? r?.ordenes ?? "-"} · ID: ${r?.id ?? "-"}`,
+              module: "operacion",
+              viewName: "Reportes",
+              viewPath: "/reportes",
+            });
+          }
+        }
+
+        if (isAdmin && Array.isArray(usersData)) {
+          const recentUsers = (usersData as UserAccountRow[]).slice(0, 12);
+          const permsRows = await Promise.all(
+            recentUsers.map(async (u) => {
+              const r = await fetchApi(`/api/users/accounts/${u.id}/permissions/`, {
+                cache: "no-store" as RequestCache,
+              });
+              if (!r.ok) return null;
+              const d = await r.json().catch(() => null);
+              const updated = toIso(d?.updated_at);
+              if (!updated) return null;
+              const targetName = displayName(u?.first_name, u?.last_name, u?.username, u?.email, `user-${u?.id}`);
+              return {
+                id: `perm-${u?.id}-${updated}`,
+                when: updated,
+                actor: "Sistema",
+                text: `actualizó permisos de ${targetName}`,
+                detail: `Usuario afectado: ${targetName}`,
+                module: "usuarios" as ModuleKey,
+                viewName: "Gestión de usuarios",
+                viewPath: "/usuarios",
+              };
+            })
+          );
+          items.push(...(permsRows.filter(Boolean) as ActivityItem[]));
+        }
+
+        try {
+          const localRaw = localStorage.getItem(LOCAL_HISTORY_KEY) || "[]";
+          const localRows = JSON.parse(localRaw);
+          if (Array.isArray(localRows)) {
+            for (const ev of localRows) {
+              const when = toIso(ev?.when);
+              if (!when) continue;
+              items.push({
+                id: String(ev?.id || `local-${when}`),
+                when,
+                actor: String(ev?.actor_name || ev?.actor || "usuario"),
+                text: String(ev?.text || "realizo una accion"),
+                detail: typeof ev?.detail === "string" ? ev.detail : "",
+                module: (ev?.module as ModuleKey) || "usuarios",
+                viewName: String(ev?.viewName || "Gestión de usuario"),
+                viewPath: String(ev?.viewPath || "/usuarios"),
+              });
+            }
+          }
+        } catch {
+          // ignore local malformed history
+        }
+
+        const merged = items
+          .filter((x) => !!x.when)
+          .sort((a, b) => (a.when < b.when ? 1 : -1))
+          .slice(0, MAX_ITEMS);
+
+        if (!cancelled) setAllItems(merged);
+      } catch {
+        if (!cancelled) setError("No se pudo cargar el historial global.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isAdmin]);
+
+  return { items: allItems, loading, error };
+}

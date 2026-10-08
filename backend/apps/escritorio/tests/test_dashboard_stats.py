@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 from apps.clientes.models import Cliente
 from apps.cotizaciones.models import Cotizacion
 from apps.escritorio.dashboard_stats import build_dashboard_stats
+from apps.operacion.models import Proyecto
 from apps.ordenes.models import Orden
 
 User = get_user_model()
@@ -64,3 +65,28 @@ class DashboardStatsTests(APITestCase):
         data = build_dashboard_stats(today=date(2026, 8, 12))
         self.assertEqual(data["cotizaciones_years"]["year"], 2026)
         self.assertEqual(data["cotizaciones_years"]["previous_year"], 2025)
+
+    def test_stats_incluye_proyectos_y_estados(self):
+        hoy = date.today()
+        Cotizacion.objects.create(
+            cliente="Cliente Dash",
+            cliente_id=self.cliente,
+            fecha=hoy,
+            status="AUTORIZADA",
+            total=1500,
+            creado_por=self.admin,
+        )
+        Proyecto.objects.create(cliente_nombre="Cliente Dash", status="en_proceso", porcentaje_avance=40)
+        Proyecto.objects.create(cliente_nombre="Cliente Dash", status="cerrado", porcentaje_avance=100)
+
+        data = build_dashboard_stats(today=hoy)
+
+        self.assertEqual(data["cotizaciones_status"]["AUTORIZADA"]["count"], 1)
+        self.assertEqual(data["cotizaciones_status"]["AUTORIZADA"]["monto"], 1500.0)
+        self.assertEqual(data["cotizaciones_monto_autorizado_meses"][hoy.month - 1], 1500.0)
+        proyectos = data["proyectos"]
+        self.assertEqual(proyectos["por_status"], {"en_proceso": 1, "cerrado": 1})
+        self.assertEqual(proyectos["avance_promedio"], 40.0)
+        self.assertEqual(len(proyectos["activos"]), 1)
+        self.assertEqual(proyectos["activos"][0]["avance"], 40)
+        self.assertEqual(proyectos["creados_meses"][hoy.month - 1], 2)
