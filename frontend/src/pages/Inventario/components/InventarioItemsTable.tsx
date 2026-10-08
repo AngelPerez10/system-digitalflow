@@ -2,7 +2,6 @@ import { PencilIcon, TrashBinIcon } from "@/icons";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import {
   existenciaBadgeClass,
-  fuenteBadgeClass,
   inventarioEmptyPanelClass,
   invRowActionBarClass,
   invRowActionBtnClass,
@@ -11,27 +10,14 @@ import {
   invTableRowSelectedClass,
   invTableWrapClass,
 } from "../shared/inventarioStyles";
-import type { InventarioFuente, InventarioItem } from "../shared/inventarioTypes";
+import type { InventarioItem } from "../shared/inventarioTypes";
 import InventarioItemsMobileList from "./InventarioItemsMobileList";
+import InventarioProveedorBadge from "./InventarioProveedorBadge";
 import { CostoCell, PrecioVentaCell } from "./InventarioPrecioMercado";
 import InventarioSeccionBadge from "./InventarioSeccionBadge";
 import { UbicacionBadge } from "./InventarioUbicacion";
 import InventarioThumb from "./InventarioThumb";
 import { BarcodeIcon, LinkIcon } from "./inventarioIcons";
-
-function fuenteLabel(fuente: InventarioFuente): string {
-  if (fuente === "syscom") return "SYSCOM";
-  if (fuente === "tvc") return "TVC";
-  return "Sin catálogo";
-}
-
-/** Nombre del proveedor de Contactos, o SYSCOM/TVC si solo hay vínculo de catálogo. */
-function proveedorVisible(item: InventarioItem): string {
-  const nombre = (item.proveedor_nombre ?? "").trim();
-  if (nombre) return nombre;
-  if (item.fuente === "syscom" || item.fuente === "tvc") return fuenteLabel(item.fuente);
-  return "";
-}
 
 const thClass = "whitespace-nowrap px-2 py-2.5 text-[#52525B] dark:text-[#B7C1D1]";
 const tdMuted = "text-[#A1A1AA] dark:text-[#64748b]";
@@ -91,7 +77,6 @@ export default function InventarioItemsTable({
         canEdit={canEdit}
         canDelete={canDelete}
         selectedItemId={selectedItemId}
-        proveedorLabel={proveedorVisible}
         onSelectItem={onSelectItem}
         onEdit={onEdit}
         onDelete={onDelete}
@@ -123,7 +108,7 @@ export default function InventarioItemsTable({
               <TableCell isHeader scope="col" className={`w-[140px] text-left ${thClass}`}>
                 Folio
               </TableCell>
-              <TableCell isHeader scope="col" className={`w-[110px] text-center ${thClass}`}>
+              <TableCell isHeader scope="col" className={`w-[170px] pr-5! text-center ${thClass}`}>
                 Proveedor
               </TableCell>
               <TableCell isHeader scope="col" className={`w-[100px] text-center ${thClass}`}>
@@ -136,9 +121,6 @@ export default function InventarioItemsTable({
               const selected = selectedItemId === item.id;
               const identificado = (item.nombre ?? "").trim().length > 0;
               const nombreVisible = identificado ? item.nombre : "Producto sin identificar";
-              const proveedor = proveedorVisible(item);
-              const proveedorFuente: InventarioFuente =
-                item.fuente === "syscom" || item.fuente === "tvc" ? item.fuente : "desconocido";
               const folio = (item.folio_factura ?? "").trim();
               return (
                 <TableRow
@@ -202,14 +184,8 @@ export default function InventarioItemsTable({
                       <span className={tdMuted}>—</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-2 py-2.5 text-center align-middle">
-                    {proveedor ? (
-                      <span className={fuenteBadgeClass(proveedorFuente)} title={proveedor}>
-                        {proveedor}
-                      </span>
-                    ) : (
-                      <span className={tdMuted}>—</span>
-                    )}
+                  <TableCell className="py-3 pl-2 pr-5 text-center align-middle">
+                    <InventarioProveedorBadge item={item} />
                   </TableCell>
                   <TableCell className="px-2 py-2.5 text-center align-middle">
                     {canEdit || canDelete ? (

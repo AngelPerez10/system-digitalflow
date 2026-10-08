@@ -7,6 +7,11 @@ urlpatterns = [
     path('inventario/items/', views.InventarioItemListView.as_view(), name='inventario-items'),
     path('inventario/stats/', views.InventarioStatsView.as_view(), name='inventario-stats'),
     path(
+        'inventario/proveedores/',
+        views.InventarioProveedoresView.as_view(),
+        name='inventario-proveedores',
+    ),
+    path(
         'inventario/sincronizar-secciones/',
         views.InventarioSincronizarSeccionesView.as_view(),
         name='inventario-sincronizar-secciones',

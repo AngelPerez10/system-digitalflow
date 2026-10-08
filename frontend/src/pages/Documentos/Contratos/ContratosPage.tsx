@@ -1,46 +1,24 @@
 /**
- * Documentos › Contratos — tablero de firma.
- *
- * Un contrato avanza Borrador → En firma → Completado, así que la vista por
- * defecto es un tablero por etapa (como un embudo) con tarjetas que muestran
- * el avance de las dos firmas; «Lista» ofrece la tabla clásica. Las cifras
- * clave viven dentro de la banda marina, igual que en Nueva cotización.
+ * Documentos › Contratos — listado con la misma anatomía que Órdenes y Proyectos:
+ * migas, banda marina, tarjetas de resumen, búsqueda y barra de etapa.
  */
-import { useCallback, useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  ChevronRight,
-  Columns3,
-  FilePlus2,
-  FileSignature,
-  Files,
-  List,
-  Plus,
-  Search,
-  SearchX,
-  ShieldCheck,
-  Trash2,
-  Wallet,
-  X,
-} from "lucide-react";
+import { ChevronRight, FilePenLine, FilePlus2, FileSignature, Files, Plus, Search, SearchX, ShieldCheck, Trash2, X } from "lucide-react";
 import PageMeta from "@/components/common/PageMeta";
 import Alert from "@/components/ui/alert/Alert";
 import { AppConfirmDialog } from "@/components/ui/modal-kit/ModalKit";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { canDeleteInModule } from "@/pages/Configuracion/usuarios/usuariosModel";
-import { deleteContrato, listContratos, type Contrato, type ContratoEstado } from "./shared/contratoApi";
+import { deleteContrato, listContratos, type Contrato } from "./shared/contratoApi";
 import { formatoDinero, formatoFecha, iniciales, relativo } from "./shared/contratoFormato";
 import {
   btn,
-  ESTADO_CONTRATO_TONE,
+  erpPrimaryBtnClass,
+  erpStatCardClass,
   folioText,
   focusRing,
-  heroBand,
-  heroDots,
-  heroGlowBlue,
-  heroGlowGold,
-  heroIcon,
   iconBtnDanger,
   pageCardShellClass,
   pageSearchInputClass,
@@ -49,110 +27,129 @@ import {
 } from "./shared/contratoTokens";
 import { EstadoPill, FirmasIndicator } from "./shared/ContratoUi";
 
-type Vista = "tablero" | "lista";
-type Etapa = "borrador" | "firma" | "completado" | "cancelado";
+type EtapaFiltro = "todas" | "borrador" | "firma" | "completado";
 
-const ETAPAS: { key: Etapa; label: string; hint: string; estados: ContratoEstado[]; tono: ContratoEstado }[] = [
-  { key: "borrador", label: "Borradores", hint: "Listos para revisar y enviar", estados: ["borrador"], tono: "borrador" },
+const SEGMENTOS: {
+  value: EtapaFiltro;
+  label: string;
+  countKey: "total" | "borrador" | "firma" | "completado";
+  activeClass: string;
+  dotClass: string;
+}[] = [
   {
-    key: "firma",
-    label: "En firma",
-    hint: "Esperando una o ambas firmas",
-    estados: ["enviado", "firmado_cliente", "firmado_prestador"],
-    tono: "enviado",
+    value: "todas",
+    label: "Todas",
+    countKey: "total",
+    activeClass: "bg-white text-[#09090B] shadow-[0_1px_2px_rgba(9,9,11,0.08)] dark:bg-[#243048] dark:text-white",
+    dotClass: "bg-[#A1A1AA] dark:bg-[#64748B]",
   },
-  { key: "completado", label: "Completados", hint: "Firmados y sellados", estados: ["completado"], tono: "completado" },
-  { key: "cancelado", label: "Cancelados", hint: "Cerrados sin firma", estados: ["cancelado"], tono: "cancelado" },
+  {
+    value: "borrador",
+    label: "Borradores",
+    countKey: "borrador",
+    activeClass: "bg-[#F4F4F5] text-[#3F3F46] dark:bg-white/10 dark:text-[#F8FAFC]",
+    dotClass: "bg-[#A1A1AA] dark:bg-[#64748B]",
+  },
+  {
+    value: "firma",
+    label: "En firma",
+    countKey: "firma",
+    activeClass: "bg-[#EEF3FF] text-[#1244D1] dark:bg-[#1B2A63] dark:text-[#9BB6FF]",
+    dotClass: "bg-[#1B5CFF] dark:bg-[#4B7CFF]",
+  },
+  {
+    value: "completado",
+    label: "Sellados",
+    countKey: "completado",
+    activeClass: "bg-[#E9F8F0] text-[#04724D] dark:bg-[#22A06B]/15 dark:text-[#22A06B]",
+    dotClass: "bg-[#04724D] dark:bg-[#22A06B]",
+  },
 ];
 
-const VISTA_KEY = "contratos:vista";
+const EN_FIRMA = new Set(["enviado", "firmado_cliente", "firmado_prestador"]);
+
+function etapaDe(estado: string): EtapaFiltro {
+  if (estado === "borrador" || estado === "completado") return estado;
+  if (EN_FIRMA.has(estado)) return "firma";
+  return "todas";
+}
+
+function EtapaSegment({
+  etapa,
+  conteos,
+  onChange,
+}: {
+  etapa: EtapaFiltro;
+  conteos: Record<"total" | "borrador" | "firma" | "completado", number>;
+  onChange: (value: EtapaFiltro) => void;
+}) {
+  const railRef = useRef<HTMLDivElement>(null);
+  const focusTabAt = (index: number) => {
+    const tabs = railRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    tabs?.[index]?.focus();
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const last = SEGMENTOS.length - 1;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault();
+      focusTabAt(index === last ? 0 : index + 1);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault();
+      focusTabAt(index === 0 ? last : index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusTabAt(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusTabAt(last);
+    }
+  };
+  return (
+    <div
+      ref={railRef}
+      role="tablist"
+      aria-label="Filtrar por etapa"
+      aria-orientation="horizontal"
+      className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-[12px] bg-[#F4F4F5] p-1 [-ms-overflow-style:none] [scrollbar-width:none] dark:bg-[#0F172A] [&::-webkit-scrollbar]:hidden"
+    >
+      {SEGMENTOS.map((seg, index) => {
+        const active = etapa === seg.value;
+        return (
+          <button
+            key={seg.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onChange(seg.value)}
+            onKeyDown={(event) => onKeyDown(event, index)}
+            className={cn(
+              "cot-press inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,92,255,0.4)]",
+              active ? seg.activeClass : "text-[#52525B] hover:bg-white hover:text-[#09090B] dark:text-[#8EA0B8] dark:hover:bg-white/5 dark:hover:text-white",
+            )}
+          >
+            <span className={cn("size-1.5 shrink-0 rounded-full", seg.dotClass)} aria-hidden />
+            {seg.label}
+            <span
+              key={conteos[seg.countKey]}
+              className={cn(
+                "cot-flash inline-flex min-w-5 items-center justify-center rounded-full px-1 text-[11px] tabular-nums",
+                active ? "bg-black/10 dark:bg-white/15" : "bg-black/5 text-[#6E6E77] dark:bg-white/10 dark:text-[#8EA0B8]",
+              )}
+            >
+              {conteos[seg.countKey].toLocaleString("es-MX")}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function coincide(c: Contrato, q: string) {
   if (!q) return true;
   const t = q.toLowerCase();
   return [c.folio, c.cliente_razon_social, c.cliente_rfc, c.cliente_correo].some((v) => (v || "").toLowerCase().includes(t));
-}
-
-/* ------------------------------------------------------------------ tarjeta del tablero */
-
-function TarjetaContrato({ c, i, onBorrar }: { c: Contrato; i: number; onBorrar?: () => void }) {
-  const p = Boolean(c.firmado_prestador_at);
-  const cl = Boolean(c.firmado_cliente_at);
-  const firmas = Number(p) + Number(cl);
-  return (
-    <li className="cot-rise group relative" style={{ "--cot-i": Math.min(i, 8) } as CSSProperties}>
-      <Link
-        to={`/contratos/${c.id}`}
-        className={cn(
-          "block rounded-[16px] border border-[#E7E7EA] bg-white p-4 shadow-[0_1px_2px_rgba(9,9,11,0.04)] transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-[#D3D3D8] hover:shadow-[0_10px_24px_-14px_rgba(9,9,11,0.28)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 dark:border-[#273244] dark:bg-[#111827] dark:hover:border-[#3A4661]",
-          focusRing,
-        )}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className={folioText}>{c.folio}</span>
-          <span className="text-[11.5px] text-[#A1A1AA] dark:text-[#64748B]" title={formatoFecha(c.updated_at, true)}>
-            {relativo(c.updated_at)}
-          </span>
-        </div>
-        <div className="mt-2.5 flex items-start gap-3">
-          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#17235B] text-[12px] font-semibold tracking-wide text-white dark:bg-[#1B2A63]">
-            {iniciales(c.cliente_razon_social)}
-          </span>
-          <p className="line-clamp-2 min-w-0 text-[14px] font-semibold leading-snug text-[#09090B] dark:text-[#F8FAFC]">
-            {c.cliente_razon_social}
-          </p>
-        </div>
-        <div className="mt-3 flex items-baseline justify-between gap-2">
-          <span className="inline-flex h-6 items-center rounded-full bg-[#F4F4F5] px-2 text-[12px] font-medium text-[#52525B] dark:bg-white/[0.06] dark:text-[#B7C1D1]">
-            {c.plan_mbps} Mbps · {c.vigencia_meses} m
-          </span>
-          <span className="text-[15px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
-            {formatoDinero(c.precio_mensual)}
-            <span className="text-[11px] font-normal text-[#A1A1AA]"> /mes</span>
-          </span>
-        </div>
-        {c.estado !== "cancelado" && (
-          <div className="mt-3.5 border-t border-[#F0F0F2] pt-3 dark:border-[#1F2A3C]">
-            <div className="flex items-center justify-between text-[11.5px]">
-              <span className="font-medium text-[#52525B] dark:text-[#B7C1D1]">
-                {c.estado === "completado" ? "Sellado" : `${firmas} de 2 firmas`}
-              </span>
-              {c.enlace_activo && !cl ? (
-                <span className="inline-flex items-center gap-1 text-[#1244D1] dark:text-[#9BB6FF]">
-                  <span className="size-1.5 rounded-full bg-[#1B5CFF]" aria-hidden />
-                  {c.enlace_activo.verificado ? "Cliente verificado" : "Enlace enviado"}
-                </span>
-              ) : null}
-            </div>
-            <div className="mt-1.5 grid grid-cols-2 gap-1" aria-hidden>
-              {[p, cl].map((ok, k) => (
-                <span key={k} className="h-1.5 overflow-hidden rounded-full bg-[#F0F0F2] dark:bg-[#1F2A3C]">
-                  <span
-                    className="cot-bar block h-full rounded-full bg-[#04724D] dark:bg-[#22A06B]"
-                    style={{ transform: `scaleX(${ok ? 1 : 0})` }}
-                  />
-                </span>
-              ))}
-            </div>
-            <div className="mt-1 grid grid-cols-2 gap-1 text-[10.5px] uppercase tracking-[0.08em] text-[#A1A1AA] dark:text-[#64748B]">
-              <span>Prestador</span>
-              <span>Cliente</span>
-            </div>
-          </div>
-        )}
-      </Link>
-      {onBorrar ? (
-        <button
-          type="button"
-          onClick={onBorrar}
-          aria-label={`Eliminar ${c.folio}`}
-          className={cn(iconBtnDanger, "absolute right-2 top-9 size-8! opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100")}
-        >
-          <Trash2 aria-hidden />
-        </button>
-      ) : null}
-    </li>
-  );
 }
 
 /* ------------------------------------------------------------------ página */
@@ -167,26 +164,10 @@ export default function ContratosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [vista, setVista] = useState<Vista>(() => {
-    try {
-      return localStorage.getItem(VISTA_KEY) === "lista" ? "lista" : "tablero";
-    } catch {
-      return "tablero";
-    }
-  });
-  const [verCancelados, setVerCancelados] = useState(false);
+  const [etapa, setEtapa] = useState<EtapaFiltro>("todas");
   const [toast, setToast] = useState<{ variant: "success" | "error"; title: string; message: string } | null>(null);
   const [borrar, setBorrar] = useState<Contrato | null>(null);
   const q = useDeferredValue(search.trim());
-
-  const cambiarVista = (v: Vista) => {
-    setVista(v);
-    try {
-      localStorage.setItem(VISTA_KEY, v);
-    } catch {
-      /* sin almacenamiento */
-    }
-  };
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -205,27 +186,20 @@ export default function ContratosPage() {
   }, [cargar]);
 
   const visibles = useMemo(() => rows.filter((r) => coincide(r, q)), [rows, q]);
-  const porEtapa = useMemo(() => {
-    const m = {} as Record<Etapa, Contrato[]>;
-    for (const e of ETAPAS) m[e.key] = visibles.filter((r) => e.estados.includes(r.estado));
-    return m;
-  }, [visibles]);
-  const etapasVisibles = ETAPAS.filter((e) => e.key !== "cancelado" || verCancelados);
-  const listaVisible = useMemo(
-    () => (verCancelados ? visibles : visibles.filter((r) => r.estado !== "cancelado")),
-    [visibles, verCancelados],
-  );
-
-  const kpis = useMemo(() => {
-    const completados = rows.filter((r) => r.estado === "completado");
-    return [
-      { key: "total", label: "Contratos", icon: <Files className="size-3.5" />, value: rows.filter((r) => r.estado !== "cancelado").length.toLocaleString("es-MX") },
-      { key: "firma", label: "En firma", icon: <FileSignature className="size-3.5" />, value: String(rows.filter((r) => ["enviado", "firmado_cliente", "firmado_prestador"].includes(r.estado)).length) },
-      { key: "ok", label: "Completados", icon: <ShieldCheck className="size-3.5" />, value: String(completados.length) },
-      { key: "mrr", label: "Mensualidad contratada", icon: <Wallet className="size-3.5" />, value: formatoDinero(completados.reduce((a, r) => a + Number(r.precio_mensual || 0), 0)) },
-    ];
+  const conteos = useMemo(() => {
+    const activos = rows.filter((r) => r.estado !== "cancelado");
+    return {
+      total: activos.length,
+      borrador: activos.filter((r) => r.estado === "borrador").length,
+      firma: activos.filter((r) => EN_FIRMA.has(r.estado)).length,
+      completado: activos.filter((r) => r.estado === "completado").length,
+    };
   }, [rows]);
-
+  const listaVisible = useMemo(
+    () =>
+      visibles.filter((r) => r.estado !== "cancelado" && (etapa === "todas" || etapaDe(r.estado) === etapa)),
+    [visibles, etapa],
+  );
   const confirmarBorrado = async () => {
     if (!borrar) return;
     const target = borrar;
@@ -247,66 +221,84 @@ export default function ContratosPage() {
         <PageMeta title="Contratos | Sistema Grupo Intrax GPS" description="Contratos de servicio con firma electrónica" />
         {toast && <Alert variant={toast.variant} title={toast.title} message={toast.message} showLink={false} onClose={() => setToast(null)} />}
 
-        {/* ============================ Banda ============================ */}
-        <header className={cn("cot-rise rounded-[24px]", heroBand)} style={{ "--cot-i": 0 } as CSSProperties}>
-          <div className={heroDots} aria-hidden />
-          <div className={heroGlowBlue} aria-hidden />
-          <div className={heroGlowGold} aria-hidden />
-          <div className="relative px-5 pb-5 pt-5 sm:px-8 sm:pb-6 sm:pt-6">
-            <nav className="flex items-center gap-1 text-[13px] text-white/55" aria-label="Migas de pan">
-              <Link to="/" className="rounded px-0.5 transition-colors hover:text-white">
-                Inicio
-              </Link>
-              <ChevronRight className="size-3.5 text-white/30" aria-hidden />
-              <span>Documentos</span>
-              <ChevronRight className="size-3.5 text-white/30" aria-hidden />
-              <span className="font-medium text-white/90" aria-current="page">
-                Contratos
+        <nav className="cot-fade flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]" aria-label="Migas de pan">
+          <Link
+            to="/"
+            className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+          >
+            Inicio
+          </Link>
+          <span className="text-[#D3D3D8] dark:text-[#3A4661]" aria-hidden>
+            /
+          </span>
+          <span className="text-[#6E6E77] dark:text-[#8EA0B8]">Documentos</span>
+          <span className="text-[#D3D3D8] dark:text-[#3A4661]" aria-hidden>
+            /
+          </span>
+          <span className="px-1.5 text-[#09090B] dark:text-[#F8FAFC]" aria-current="page">
+            Contratos
+          </span>
+        </nav>
+
+        <header className="cot-rise cot-sheen relative overflow-hidden rounded-[24px] bg-[#17235B] text-white dark:bg-[#1B2A63]" style={{ "--cot-i": 0 } as CSSProperties}>
+          <div className="pointer-events-none absolute -right-24 -top-28 size-80 rounded-full bg-[#E6A23C]/15 blur-3xl" aria-hidden />
+          <div className="relative flex flex-col gap-5 px-5 py-6 sm:px-8 sm:py-8 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
+              <span className="cot-tick inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C]" aria-hidden>
+                <FileSignature className="size-5" />
               </span>
-            </nav>
-            <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div className="flex min-w-0 items-start gap-4">
-                <span className={heroIcon} aria-hidden>
-                  <FileSignature className="size-5" />
-                </span>
-                <div className="min-w-0">
-                  <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-1px] sm:text-[32px] sm:tracking-[-1.1px]">Contratos</h1>
-                  <p className="mt-1.5 max-w-[58ch] text-[14px] leading-[22px] text-white/70 sm:text-[15px]">
-                    De la captura al documento sellado: genera el contrato con la plantilla oficial, aplica la firma registrada del prestador y
-                    recaba la del cliente con un enlace verificado.
-                  </p>
-                </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">Documentos</p>
+                <h1 className="mt-1 text-[28px] font-bold leading-[1.15] tracking-[-1px] sm:text-[32px] sm:tracking-[-1.1px]">Contratos</h1>
+                <p className="mt-1.5 max-w-[60ch] text-[15px] leading-5.5 tracking-[-0.1px] text-white/70">
+                  Arma el contrato con la plantilla oficial, aplica la firma del prestador y recaba la del cliente.
+                </p>
               </div>
-              {puedeCrear ? (
-                <Link
-                  to="/contratos/nuevo"
-                  className="cot-press inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[10px] bg-white px-4 text-[14px] font-semibold text-[#17235B] shadow-[0_6px_18px_-8px_rgba(0,0,0,0.5)] hover:bg-[#EEF3FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                >
-                  <Plus className="size-4" aria-hidden /> Nuevo contrato
-                </Link>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white/10 px-3.5 text-[13px] font-medium text-white/85">
+                <span className="size-1.5 rounded-full bg-[#4ADE80]" aria-hidden />
+                {loading ? "—" : conteos.total.toLocaleString("es-MX")} {conteos.total === 1 ? "vigente" : "vigentes"}
+              </span>
+              {!loading && conteos.firma > 0 ? (
+                <span className="cot-tick inline-flex h-9 items-center rounded-full bg-[rgba(230,162,60,0.16)] px-3.5 text-[13px] font-semibold text-[#E6A23C]">
+                  {conteos.firma.toLocaleString("es-MX")} en firma
+                </span>
               ) : null}
             </div>
-            <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-white/10 ring-1 ring-inset ring-white/10 md:grid-cols-4">
-              {kpis.map((k) => (
-                <div key={k.key} className="min-w-0 bg-[#17235B]/85 px-4 py-3 dark:bg-[#1B2A63]/85">
-                  <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-widest text-white/50">
-                    {k.icon}
-                    {k.label}
-                  </dt>
-                  <dd className="mt-1 truncate text-[20px] font-semibold tabular-nums tracking-[-0.4px] text-white">
-                    <span key={loading ? "c" : k.value} className="cot-flash inline-block">
-                      {loading ? "—" : k.value}
-                    </span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
           </div>
         </header>
 
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4" role="group" aria-label="Resumen de contratos">
+          {(
+            [
+              ["Vigentes", conteos.total, <Files key="v" className="size-4 sm:size-5" strokeWidth={1.8} />, "border-[#E7E7EA] bg-white/90 text-[#1B5CFF] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#4B7CFF]"],
+              ["Borradores", conteos.borrador, <FilePenLine key="b" className="size-4 sm:size-5" strokeWidth={1.8} />, "border-[#E7E7EA] bg-[#F4F4F5] text-[#52525B] dark:border-[#273244] dark:bg-white/6 dark:text-[#B7C1D1]"],
+              ["En firma", conteos.firma, <FileSignature key="f" className="size-4 sm:size-5" strokeWidth={1.8} />, "border-[#D7E3FF] bg-[#EEF3FF] text-[#1244D1] dark:border-[#4B7CFF]/30 dark:bg-[#1B2A63] dark:text-[#9BB6FF]"],
+              ["Sellados", conteos.completado, <ShieldCheck key="s" className="size-4 sm:size-5" strokeWidth={1.8} />, "border-[#BFE6D4] bg-[#E9F8F0] text-[#04724D] dark:border-[#22A06B]/30 dark:bg-[#22A06B]/10 dark:text-[#22A06B]"],
+            ] as const
+          ).map(([label, value, icon, iconClass], i) => (
+            <div key={label} className={cn(erpStatCardClass, "cot-rise min-w-0")} style={{ "--cot-i": i + 1 } as CSSProperties}>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <span className={cn("inline-flex size-9 shrink-0 items-center justify-center rounded-lg border sm:size-10", iconClass)} aria-hidden>
+                  {icon}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6E77] dark:text-[#8EA0B8] sm:text-[11px]">{label}</p>
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-[#09090B] dark:text-white sm:text-lg">
+                    <span key={loading ? "c" : value} className="cot-flash inline-block">
+                      {loading ? "—" : value.toLocaleString("es-MX")}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* ============================ Barra de herramientas ============================ */}
-        <div className="cot-rise flex flex-col gap-2.5 sm:flex-row sm:items-center" style={{ "--cot-i": 1 } as CSSProperties}>
-          <div className="relative min-w-0 flex-1 sm:max-w-xl">
+        <div className="cot-rise grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4" style={{ "--cot-i": 5 } as CSSProperties}>
+          <div className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8EA0B8]" aria-hidden />
             <input
               value={search}
@@ -326,41 +318,11 @@ export default function ContratosPage() {
               </button>
             ) : null}
           </div>
-          <div className="flex items-center gap-2 sm:ml-auto">
-            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] px-2 text-[13px] text-[#52525B] dark:text-[#B7C1D1]">
-              <input type="checkbox" checked={verCancelados} onChange={(e) => setVerCancelados(e.target.checked)} className="size-4 accent-[#1B5CFF]" />
-              Ver cancelados
-            </label>
-            <div className="relative inline-grid grid-cols-2 rounded-[12px] border border-[#E7E7EA] bg-[#F4F4F5] p-1 dark:border-[#273244] dark:bg-[#0F172A]" role="tablist" aria-label="Vista">
-              <span
-                className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-[9px] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.08)] ring-1 ring-[#E4E4E7] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none dark:bg-[#243048] dark:ring-[#3A4661]"
-                style={{ transform: vista === "lista" ? "translateX(100%)" : "none" }}
-                aria-hidden
-              />
-              {(
-                [
-                  ["tablero", "Tablero", <Columns3 key="t" className="size-4" aria-hidden />],
-                  ["lista", "Lista", <List key="l" className="size-4" aria-hidden />],
-                ] as const
-              ).map(([v, label, icon]) => (
-                <button
-                  key={v}
-                  type="button"
-                  role="tab"
-                  aria-selected={vista === v}
-                  onClick={() => cambiarVista(v)}
-                  className={cn(
-                    "relative z-10 inline-flex min-h-9 items-center gap-1.5 rounded-[9px] px-3 text-[13px] font-medium transition-colors",
-                    focusRing,
-                    vista === v ? "text-[#09090B] dark:text-white" : "text-[#6E6E77] dark:text-[#8EA0B8]",
-                  )}
-                >
-                  {icon}
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {puedeCrear ? (
+            <Link to="/contratos/nuevo" className={cn(erpPrimaryBtnClass, "w-full sm:w-auto")}>
+              <Plus className="size-4" aria-hidden /> Nuevo contrato
+            </Link>
+          ) : null}
         </div>
 
         {error ? (
@@ -370,104 +332,73 @@ export default function ContratosPage() {
               Reintentar
             </button>
           </div>
-        ) : sinResultados ? (
-          <div className={cn(pageCardShellClass, "cot-fade flex flex-col items-center px-6 py-16 text-center")} role="status">
-            <span className="cot-tick mb-4 inline-flex size-14 items-center justify-center rounded-2xl bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]">
-              {q ? <SearchX className="size-6" aria-hidden /> : <FilePlus2 className="size-6" aria-hidden />}
-            </span>
-            <p className="text-[16px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">
-              {q ? "Ningún contrato coincide" : "Aún no hay contratos"}
-            </p>
-            <p className="mt-1.5 max-w-sm text-[14px] leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]">
-              {q ? "Prueba con otro folio, nombre o RFC." : "Captura los datos del cliente y el plan; el sistema arma el contrato con la plantilla oficial."}
-            </p>
-            {q ? (
-              <button type="button" className={cn(btn.secondary, "mt-5")} onClick={() => setSearch("")}>
-                Limpiar búsqueda
-              </button>
-            ) : puedeCrear ? (
-              <Link to="/contratos/nuevo" className={cn(btn.primary, "mt-5")}>
-                <Plus aria-hidden /> Crear el primero
-              </Link>
-            ) : null}
-          </div>
-        ) : vista === "tablero" ? (
-          /* ============================ Tablero ============================ */
-          <div
-            key={`tablero-${verCancelados}`}
-            className={cn("cot-fade grid gap-4", verCancelados ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-3")}
-          >
-            {etapasVisibles.map((e, col) => {
-              const tone = ESTADO_CONTRATO_TONE[e.tono];
-              const items = porEtapa[e.key];
-              return (
-                <section
-                  key={e.key}
-                  aria-labelledby={`col-${e.key}`}
-                  className="cot-rise flex min-w-0 flex-col rounded-[20px] border border-[#EEEEF0] bg-[#FAFAFB] p-2.5 dark:border-[#1F2A3C] dark:bg-[#0F172A]/60"
-                  style={{ "--cot-i": col + 2 } as CSSProperties}
-                >
-                  <header className="flex items-center justify-between gap-2 px-2 pb-2.5 pt-1.5">
-                    <div className="min-w-0">
-                      <h2 id={`col-${e.key}`} className="flex items-center gap-2 text-[13px] font-semibold text-[#09090B] dark:text-[#F8FAFC]">
-                        <span className={cn("size-2 rounded-full", tone.dot)} aria-hidden />
-                        {e.label}
-                      </h2>
-                      <p className="mt-0.5 truncate text-[11.5px] text-[#A1A1AA] dark:text-[#64748B]">{e.hint}</p>
-                    </div>
-                    <span
-                      key={items.length}
-                      className="cot-flash inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-2 text-[12px] font-semibold tabular-nums text-[#52525B] ring-1 ring-[#E7E7EA] dark:bg-[#111827] dark:text-[#B7C1D1] dark:ring-[#273244]"
-                    >
-                      {loading ? "·" : items.length}
-                    </span>
-                  </header>
-                  {loading ? (
-                    <div className="space-y-2.5" aria-hidden>
-                      {[0, 1].map((i) => (
-                        <div key={i} className="h-[150px] animate-pulse rounded-[16px] bg-white dark:bg-[#111827]" />
-                      ))}
-                    </div>
-                  ) : items.length === 0 ? (
-                    <p className="rounded-[14px] border border-dashed border-[#E4E4E7] px-3 py-8 text-center text-[12.5px] text-[#A1A1AA] dark:border-[#273244] dark:text-[#64748B]">
-                      Sin contratos aquí
-                    </p>
-                  ) : (
-                    <ul className="space-y-2.5">
-                      {items.map((c, i) => (
-                        <TarjetaContrato key={c.id} c={c} i={i} onBorrar={puedeBorrarFila(c) ? () => setBorrar(c) : undefined} />
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              );
-            })}
-          </div>
         ) : (
-          /* ============================ Lista ============================ */
-          <section key="lista" className={cn("cot-fade", pageCardShellClass)} aria-label="Lista de contratos" aria-busy={loading || undefined}>
+          <section className={cn("cot-rise", pageCardShellClass)} style={{ "--cot-i": 6 } as CSSProperties} aria-labelledby="contratos-listado" aria-busy={loading || undefined}>
+            <div className="border-b border-[#E7E7EA] px-4 py-4 dark:border-[#273244] sm:px-6">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[rgba(27,92,255,0.10)] text-[#1B5CFF] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#4B7CFF]" aria-hidden>
+                  <FileSignature className="size-4" />
+                </span>
+                <h2 id="contratos-listado" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6E6E77] dark:text-[#8EA0B8]">
+                  Listado de contratos
+                </h2>
+              </div>
+              <p className="mt-2 text-[14px] leading-5 text-[#52525B] dark:text-[#B7C1D1]">Resultados según la búsqueda y la etapa.</p>
+              <div className="mt-3">
+                <EtapaSegment etapa={etapa} conteos={conteos} onChange={setEtapa} />
+              </div>
+            </div>
             {loading ? (
               <div className="divide-y divide-[#F0F0F2] dark:divide-[#1F2A3C]" aria-hidden>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-4 px-6 py-4">
-                    <div className="size-9 animate-pulse rounded-[10px] bg-[#F4F4F5] dark:bg-white/[0.06]" />
-                    <div className="h-3 flex-1 animate-pulse rounded bg-[#F4F4F5] dark:bg-white/[0.06]" />
-                    <div className="h-6 w-24 animate-pulse rounded-full bg-[#F4F4F5] dark:bg-white/[0.06]" />
+                    <div className="size-9 animate-pulse rounded-[10px] bg-[#F4F4F5] dark:bg-white/6" />
+                    <div className="h-3 flex-1 animate-pulse rounded bg-[#F4F4F5] dark:bg-white/6" />
+                    <div className="h-6 w-24 animate-pulse rounded-full bg-[#F4F4F5] dark:bg-white/6" />
                   </div>
                 ))}
               </div>
+            ) : sinResultados ? (
+              <div className="cot-fade flex flex-col items-center px-6 py-16 text-center" role="status">
+                <span className="cot-tick mb-4 inline-flex size-14 items-center justify-center rounded-2xl bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63]/70 dark:text-[#9BB6FF]">
+                  {q ? <SearchX className="size-6" aria-hidden /> : <FilePlus2 className="size-6" aria-hidden />}
+                </span>
+                <p className="text-[16px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">
+                  {q ? "Ningún contrato coincide" : etapa !== "todas" ? "Nada en esta etapa" : "Aún no hay contratos"}
+                </p>
+                <p className="mt-1.5 max-w-sm text-[14px] leading-relaxed text-[#6E6E77] dark:text-[#8EA0B8]">
+                  {q
+                    ? "Prueba con otro folio, nombre o RFC."
+                    : etapa !== "todas"
+                      ? "Elige otra etapa o vuelve a ver todos los contratos."
+                      : "Captura los datos del cliente y el plan; el sistema arma el contrato con la plantilla oficial."}
+                </p>
+                {q ? (
+                  <button type="button" className={cn(btn.secondary, "mt-5")} onClick={() => setSearch("")}>
+                    Limpiar búsqueda
+                  </button>
+                ) : etapa !== "todas" ? (
+                  <button type="button" className={cn(btn.secondary, "mt-5")} onClick={() => setEtapa("todas")}>
+                    Ver todos
+                  </button>
+                ) : puedeCrear ? (
+                  <Link to="/contratos/nuevo" className={cn(btn.primary, "mt-5")}>
+                    <Plus aria-hidden /> Crear el primero
+                  </Link>
+                ) : null}
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px] text-left">
+              <div key={etapa} className="cot-fade overflow-x-auto">
+                <table className="w-full min-w-205 text-left">
                   <thead>
                     <tr className="border-b border-[#E7E7EA] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6E6E77] dark:border-[#273244] dark:text-[#8EA0B8]">
-                      <th className="py-3 pl-6 pr-3 font-semibold">Contrato</th>
-                      <th className="px-3 py-3 font-semibold">Servicio</th>
-                      <th className="px-3 py-3 text-right font-semibold">Mensualidad</th>
-                      <th className="px-3 py-3 font-semibold">Firmas</th>
-                      <th className="px-3 py-3 font-semibold">Estado</th>
-                      <th className="px-3 py-3 font-semibold">Actualizado</th>
-                      <th className="py-3 pl-3 pr-6">
+                      <th scope="col" className="py-3 pl-6 pr-3 font-semibold">Contrato</th>
+                      <th scope="col" className="px-3 py-3 font-semibold">Servicio</th>
+                      <th scope="col" className="px-3 py-3 text-right font-semibold">Mensualidad</th>
+                      <th scope="col" className="px-3 py-3 font-semibold">Firmas</th>
+                      <th scope="col" className="px-3 py-3 font-semibold">Estado</th>
+                      <th scope="col" className="px-3 py-3 font-semibold">Actualizado</th>
+                      <th scope="col" className="py-3 pl-3 pr-6">
                         <span className="sr-only">Acciones</span>
                       </th>
                     </tr>
@@ -478,7 +409,7 @@ export default function ContratosPage() {
                         key={r.id}
                         style={{ "--cot-i": Math.min(i, 12) } as CSSProperties}
                         onClick={() => navigate(`/contratos/${r.id}`)}
-                        className="cot-rise group cursor-pointer border-t border-[#F0F0F2] transition-colors first:border-t-0 hover:bg-[#FAFAFB] dark:border-[#1F2A3C] dark:hover:bg-white/[0.02]"
+                        className="cot-rise group cursor-pointer border-t border-[#F0F0F2] transition-colors first:border-t-0 hover:bg-[#FAFAFB] dark:border-[#1F2A3C] dark:hover:bg-white/2"
                       >
                         <td className="py-3 pl-6 pr-3">
                           <div className="flex items-center gap-3">
@@ -489,7 +420,7 @@ export default function ContratosPage() {
                               <Link
                                 to={`/contratos/${r.id}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className={cn("block max-w-[22rem] truncate rounded text-[14px] font-medium text-[#09090B] hover:text-[#1244D1] dark:text-[#F8FAFC]", focusRing)}
+                                className={cn("block max-w-88 truncate rounded text-[14px] font-medium text-[#09090B] hover:text-[#1244D1] dark:text-[#F8FAFC]", focusRing)}
                               >
                                 {r.cliente_razon_social}
                               </Link>
@@ -542,6 +473,9 @@ export default function ContratosPage() {
         {!loading && !error && listaVisible.length > 0 ? (
           <p className="cot-fade px-1 text-[12px] text-[#71717A] dark:text-[#8EA0B8]" aria-live="polite">
             {listaVisible.length.toLocaleString("es-MX")} {listaVisible.length === 1 ? "contrato" : "contratos"}
+            {etapa === "borrador" ? " en borrador" : null}
+            {etapa === "firma" ? " en firma" : null}
+            {etapa === "completado" ? (listaVisible.length === 1 ? " sellado" : " sellados") : null}
             {q ? <> para «{q}»</> : null}
           </p>
         ) : null}

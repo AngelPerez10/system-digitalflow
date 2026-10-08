@@ -23,6 +23,8 @@ export type InventarioItem = {
   /** FK al Cliente PROVEEDOR de Contactos; null si no hay. */
   proveedor: number | null;
   proveedor_nombre: string;
+  /** Llegó sin pedido: no se atribuye a SYSCOM/TVC aunque los datos vengan de ahí. */
+  sin_proveedor: boolean;
   /** Costo por pieza de la última compra; null si no hay. */
   precio_unitario: string | null;
   ubicacion: InventarioUbicacion | "";
@@ -71,8 +73,13 @@ export type InventarioItemPatch = Partial<
     | "precio_unitario"
     | "seccion"
     | "ubicacion"
+    | "proveedor"
+    | "sin_proveedor"
   >
->;
+> & {
+  /** Atajo: asigna el contacto proveedor «Intrax» (el backend lo crea si no existe). */
+  proveedor_intrax?: boolean;
+};
 
 /** Candidato de SYSCOM/TVC/manuales para vincular a mano un código de barras. */
 export type CatalogoCandidato = {

@@ -407,6 +407,21 @@ class InventarioStatsView(APIView):
         )
 
 
+class InventarioProveedoresView(APIView):
+    """Contactos de tipo proveedor para elegir a quién se le compró un ítem.
+
+    Vive en inventario para no exigir permiso del módulo de Contactos.
+    """
+
+    permission_classes = [IsAuthenticated, InventarioPermission]
+
+    def get(self, request):
+        from apps.clientes.models import Cliente
+
+        rows = Cliente.objects.filter(tipo='PROVEEDOR').order_by('nombre').values('id', 'nombre')[:500]
+        return Response([{'id': r['id'], 'nombre': (r['nombre'] or '').strip()} for r in rows])
+
+
 class InventarioItemDetailView(APIView):
     permission_classes = [IsAuthenticated, InventarioPermission]
 

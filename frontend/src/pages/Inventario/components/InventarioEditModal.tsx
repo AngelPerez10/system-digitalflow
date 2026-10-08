@@ -38,6 +38,7 @@ import "@/components/ui/modal-kit/motion.css";
 import {
   actualizarPrecioMercado,
   fetchCatalogoDetallePorRef,
+  listInventarioProveedores,
   scanInventario,
   searchCatalogo,
   uploadInventarioImagen,
@@ -54,7 +55,15 @@ import {
   invTextareaLikeClass,
 } from "../shared/inventarioStyles";
 import { esDeProveedor, formatMxn, formatPct, precioMercadoInfo } from "../shared/precioMercado";
+import {
+  mismaSeleccion,
+  patchDesdeSeleccion,
+  proveedorVisible,
+  seleccionDesdeItem,
+  type ProveedorSeleccion,
+} from "../shared/inventarioProveedor";
 import InventarioItemHistorialTab from "./InventarioItemHistorialTab";
+import InventarioProveedorPicker from "./InventarioProveedorPicker";
 import { UbicacionBadge, UbicacionPicker } from "./InventarioUbicacion";
 import InventarioSeccionBadge from "./InventarioSeccionBadge";
 import InventarioThumb from "./InventarioThumb";
@@ -143,6 +152,8 @@ export default function InventarioEditModal({
   const [precioUnitario, setPrecioUnitario] = useState("");
   const [seccion, setSeccion] = useState("");
   const [ubicacion, setUbicacion] = useState<InventarioUbicacion | "">("");
+  const [proveedorSel, setProveedorSel] = useState<ProveedorSeleccion>({ modo: "catalogo", otroId: "" });
+  const [proveedores, setProveedores] = useState<{ id: number; nombre: string }[]>([]);
   /** Precio de venta en pantalla (se refresca con «Actualizar» sin cerrar la ficha). */
   const [mercado, setMercado] = useState<InventarioItem | null>(null);
   const [consultandoMercado, setConsultandoMercado] = useState(false);
@@ -200,6 +211,7 @@ export default function InventarioEditModal({
     setPrecioUnitario(item.precio_unitario != null ? String(item.precio_unitario) : "");
     setSeccion(item.seccion || "");
     setUbicacion(item.ubicacion || "");
+    setProveedorSel(seleccionDesdeItem(item));
     setMercado(item);
     setMercadoError(null);
     setCantidadGuardada(item.cantidad);
@@ -213,6 +225,21 @@ export default function InventarioEditModal({
     // Solo al abrir otro ítem: un ±1 pendiente no debe pisar campos sin guardar.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset de ficha solo por id
   }, [item?.id]);
+
+  // Proveedores para el selector; una vez por apertura. Si falla, el selector
+  // sigue ofreciendo «Sin proveedor» y el proveedor ya guardado.
+  useEffect(() => {
+    if (!open) return;
+    let cancel = false;
+    listInventarioProveedores()
+      .then((rows) => {
+        if (!cancel) setProveedores(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancel = true;
+    };
+  }, [open]);
 
   // La búsqueda del catálogo no trae foto ni ficha técnica, solo el detalle; se
   // piden solos al abrir un ítem vinculado al que le falte alguno de los dos.
@@ -442,6 +469,7 @@ export default function InventarioEditModal({
         seccion: seccion.trim(),
         // Una vez asignada no se puede vaciar; solo se envía si hay una.
         ...(ubicacion ? { ubicacion } : {}),
+        ...patchDesdeSeleccion(proveedorSel),
       });
       onClose();
     } catch (err) {
@@ -483,9 +511,10 @@ export default function InventarioEditModal({
       imagenUrl.trim() !== (item.imagen_url || "").trim() ||
       precioUnitario.trim() !== (item.precio_unitario != null ? String(item.precio_unitario) : "") ||
       seccion !== (item.seccion || "") ||
-      ubicacion !== (item.ubicacion || "")
+      ubicacion !== (item.ubicacion || "") ||
+      !mismaSeleccion(proveedorSel, seleccionDesdeItem(item))
     );
-  }, [item, deltaExistencia, nombre, marca, modelo, notas, fuente, refExterna, imagenUrl, precioUnitario, seccion, ubicacion]);
+  }, [item, deltaExistencia, nombre, marca, modelo, notas, fuente, refExterna, imagenUrl, precioUnitario, seccion, ubicacion, proveedorSel]);
 
   const tabIdFor = (id: ModalTab) => `${titleId}-tab-${id}`;
   const panelIdFor = (id: ModalTab) => `${titleId}-panel-${id}`;
@@ -813,6 +842,16 @@ export default function InventarioEditModal({
                       <InventarioSeccionBadge seccion={seccion || null} showEmpty />
                     </div>
                   </Field>
+                  <div className="sm:col-span-2">
+                    <InventarioProveedorPicker
+                      value={proveedorSel}
+                      onChange={setProveedorSel}
+                      proveedores={proveedores}
+                      fuente={fuente}
+                      proveedorGuardado={item?.proveedor != null ? { id: item.proveedor, nombre: item.proveedor_nombre } : null}
+                      disabled={busy}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -911,11 +950,11 @@ export default function InventarioEditModal({
               </p>
             ) : null}
 
-            {item && (item.folio_factura || item.proveedor_nombre) ? (
+            {item && (item.folio_factura || proveedorVisible(item)) ? (
               <dl className="grid grid-cols-2 gap-3 rounded-[14px] border border-[#E7E7EA] p-4 dark:border-[#273244]">
                 <div>
                   <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8EA0B8]">Proveedor</dt>
-                  <dd className="mt-1 text-[14px] text-[#09090B] dark:text-[#F8FAFC]">{item.proveedor_nombre || "—"}</dd>
+                  <dd className="mt-1 text-[14px] text-[#09090B] dark:text-[#F8FAFC]">{proveedorVisible(item) || "—"}</dd>
                 </div>
                 <div>
                   <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6E6E77] dark:text-[#8EA0B8]">Última factura</dt>

@@ -105,6 +105,13 @@ export async function sincronizarSeccionesInventario(
   };
 }
 
+/** Contactos de tipo proveedor (para elegir a quién se le compró un ítem). */
+export async function listInventarioProveedores(): Promise<{ id: number; nombre: string }[]> {
+  const res = await fetchApi("/api/inventario/proveedores/", { method: "GET" });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as { id: number; nombre: string }[];
+}
+
 export async function getInventarioItem(id: number): Promise<InventarioItem> {
   const res = await fetchApi(`/api/inventario/items/${id}/`, { method: "GET" });
   if (!res.ok) {

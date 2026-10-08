@@ -56,6 +56,9 @@ class InventarioItem(models.Model):
         related_name='inventario_items',
         limit_choices_to={'tipo': 'PROVEEDOR'},
     )
+    # Llegó sin pedido (regalo, muestra, reposición): no se atribuye a ningún
+    # proveedor aunque los datos vengan del catálogo de SYSCOM/TVC.
+    sin_proveedor = models.BooleanField(default=False)
     precio_unitario = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True
     )

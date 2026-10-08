@@ -1,10 +1,10 @@
 import { PencilIcon, TrashBinIcon } from "@/icons";
 import {
-  fuenteBadgeClass,
   inventarioMobileCardClass,
   inventarioMobileCardSelectedClass,
 } from "../shared/inventarioStyles";
-import type { InventarioFuente, InventarioItem } from "../shared/inventarioTypes";
+import type { InventarioItem } from "../shared/inventarioTypes";
+import InventarioProveedorBadge from "./InventarioProveedorBadge";
 import { CostoCell, PrecioVentaCell } from "./InventarioPrecioMercado";
 import InventarioSeccionBadge from "./InventarioSeccionBadge";
 import { UbicacionBadge } from "./InventarioUbicacion";
@@ -19,23 +19,17 @@ type InventarioItemsMobileListProps = {
   canEdit: boolean;
   canDelete: boolean;
   selectedItemId: number | null;
-  proveedorLabel: (item: InventarioItem) => string;
   onSelectItem: (item: InventarioItem | null) => void;
   onEdit: (item: InventarioItem) => void;
   onDelete: (item: InventarioItem) => void;
 };
 
-function badgeFuente(item: InventarioItem): InventarioFuente {
-  if (item.fuente === "syscom" || item.fuente === "tvc") return item.fuente;
-  return "desconocido";
-}
 
 export default function InventarioItemsMobileList({
   items,
   canEdit,
   canDelete,
   selectedItemId,
-  proveedorLabel,
   onSelectItem,
   onEdit,
   onDelete,
@@ -46,7 +40,6 @@ export default function InventarioItemsMobileList({
         const selected = selectedItemId === item.id;
         const identificado = (item.nombre ?? "").trim().length > 0;
         const detalle = [item.marca, item.modelo].filter(Boolean).join(" · ");
-        const proveedor = proveedorLabel(item);
         const folio = (item.folio_factura ?? "").trim();
         return (
           <li key={item.id}>
@@ -127,11 +120,7 @@ export default function InventarioItemsMobileList({
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <InventarioSeccionBadge seccion={item.seccion} showEmpty compact />
                 <UbicacionBadge value={item.ubicacion} />
-                {proveedor ? (
-                  <span className={fuenteBadgeClass(badgeFuente(item))}>{proveedor}</span>
-                ) : (
-                  <span className="text-[11px] text-[#A1A1AA] dark:text-[#64748b]">Sin proveedor</span>
-                )}
+                <InventarioProveedorBadge item={item} />
                 <div className="ml-auto flex items-center gap-1.5">
                   {canEdit ? (
                     <button

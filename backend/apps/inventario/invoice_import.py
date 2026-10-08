@@ -27,6 +27,8 @@ PROVEEDORES = frozenset({'syscom', 'tvc'})
 _NOMBRE_PROVEEDOR = {
     'syscom': 'SYSCOM',
     'tvc': 'TVC',
+    # Producto que entra de la propia empresa (no se compró a un distribuidor).
+    'intrax': 'Intrax',
 }
 
 # La factura incluye servicios como si fueran productos (el envío es el artículo
@@ -288,6 +290,7 @@ def _aplicar_ficha(
     # Última compra: siempre la más reciente.
     item.folio_factura = folio
     item.proveedor = proveedor_cliente
+    item.sin_proveedor = False
     item.precio_unitario = linea.precio_unitario
 
 

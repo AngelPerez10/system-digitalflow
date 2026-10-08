@@ -7,7 +7,7 @@ import {
   AppModalHeader,
   AppSpinner,
 } from "@/components/ui/modal-kit/ModalKit";
-import { btn } from "../shared/contratoTokens";
+import { btn, fontSans } from "../shared/contratoTokens";
 import { cn } from "@/lib/utils";
 import { generarEnlaceFirma, type Contrato, type EnlaceFirmaResult } from "../shared/contratoApi";
 import { formatoFecha } from "../shared/contratoFormato";
@@ -68,7 +68,7 @@ export default function EnviarEnlaceModal({ contrato, open, onClose, onGenerado 
   const hayEnlace = Boolean(contrato.enlace_activo);
 
   return (
-    <AppModal open={open} onClose={cerrar} size="lg" busy={busy} labelledBy={titleId}>
+    <AppModal open={open} onClose={cerrar} size="lg" busy={busy} labelledBy={titleId} className={fontSans}>
       <AppModalHeader
         icon={<Link2 className="size-5" />}
         tone="info"
@@ -82,23 +82,23 @@ export default function EnviarEnlaceModal({ contrato, open, onClose, onGenerado 
       <AppModalBody className="space-y-4 pt-5">
         {!resultado ? (
           <>
-            <div className="flex gap-3 rounded-xl border border-[#F0F0F2] bg-[#FAFAFA] p-4 text-sm text-[#3F3F46] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#cbd5e1]">
+            <div className="flex gap-3 rounded-xl border border-[#F0F0F2] bg-[#FAFAFA] p-4 text-[14px] leading-5 tracking-[-0.1px] text-[#3F3F46] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#B7C1D1]">
               <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#04724D]" aria-hidden />
               <div className="space-y-1">
                 <p>
                   El cliente recibirá un enlace personal. Al abrirlo, se le enviará un <strong>código de 6 dígitos</strong> a{" "}
                   <strong>{contrato.cliente_correo}</strong> para verificar su identidad antes de ver y firmar el contrato.
                 </p>
-                <p className="text-[#71717A] dark:text-[#8ea0b8]">El enlace vence en 7 días y solo sirve para una firma.</p>
+                <p className="text-[13px] text-[#71717A] dark:text-[#8EA0B8]">El enlace vence en 7 días y solo sirve para una firma.</p>
               </div>
             </div>
             {hayEnlace && (
-              <p className="rounded-xl border border-[#F0D7A3] bg-[#FFF8EB] p-3 text-sm text-[#8A5D0F]">
+              <p className="rounded-xl border border-[#F0D7A3] bg-[#FFF8EB] p-3 text-[14px] leading-5 tracking-[-0.1px] text-[#8A5D0F]">
                 Ya hay un enlace activo (vence {formatoFecha(contrato.enlace_activo?.expira_at, true)}). Generar uno nuevo
                 invalida el anterior.
               </p>
             )}
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E7E7EA] p-3 text-sm dark:border-[#273244]">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-[#E7E7EA] p-3 text-[14px] leading-5 tracking-[-0.1px] text-[#3F3F46] dark:border-[#273244] dark:text-[#D6DEEA]">
               <input
                 type="checkbox"
                 checked={enviarCorreo}
@@ -112,15 +112,15 @@ export default function EnviarEnlaceModal({ contrato, open, onClose, onGenerado 
         ) : (
           <>
             {resultado.correo_enviado && (
-              <p className="flex items-center gap-2 rounded-xl bg-[#E9F8F0] p-3 text-sm text-[#04724D] cot-fade">
+              <p className="cot-fade flex items-center gap-2 rounded-xl bg-[#E9F8F0] p-3 text-[14px] leading-5 tracking-[-0.1px] text-[#04724D]">
                 <Check className="size-4" aria-hidden /> Enviado a {resultado.correo_destino}.
               </p>
             )}
             {resultado.correo_error && (
-              <p className="rounded-xl bg-[#FFF8EB] p-3 text-sm text-[#8A5D0F]">{resultado.correo_error}</p>
+              <p className="rounded-xl bg-[#FFF8EB] p-3 text-[14px] leading-5 tracking-[-0.1px] text-[#8A5D0F]">{resultado.correo_error}</p>
             )}
             <div>
-              <span className="mb-1.5 block text-sm font-medium text-[#3F3F46] dark:text-[#cbd5e1]">Enlace de firma</span>
+              <span className="mb-1.5 block text-[13px] font-medium text-[#3F3F46] dark:text-[#D6DEEA]">Enlace de firma</span>
               <div className="flex gap-2">
                 <input
                   readOnly
@@ -135,13 +135,13 @@ export default function EnviarEnlaceModal({ contrato, open, onClose, onGenerado 
                 </button>
               </div>
             </div>
-            <p className="text-xs text-[#71717A] dark:text-[#8ea0b8]">
+            <p className="text-[13px] leading-5 text-[#71717A] dark:text-[#8EA0B8]">
               Por seguridad este enlace se muestra <strong>solo una vez</strong> y no se guarda en el sistema. Compártelo
               únicamente con el cliente. Vence el {formatoFecha(resultado.expira_at, true)}.
             </p>
           </>
         )}
-        {error && <p className="rounded-xl bg-[#FEF2F2] p-3 text-sm text-[#B42323] cot-fade">{error}</p>}
+        {error ? <p className="cot-fade rounded-xl bg-[#FEF2F2] p-3 text-[14px] leading-5 tracking-[-0.1px] text-[#B42323]" role="alert">{error}</p> : null}
       </AppModalBody>
       <AppModalFooter>
         {!resultado ? (

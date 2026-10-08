@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.clientes.models import Cliente
+
 from .models import InventarioItem, InventarioMovimiento, InventarioPendiente
 
 
@@ -23,6 +25,7 @@ class InventarioItemSerializer(serializers.ModelSerializer):
             'folio_factura',
             'proveedor',
             'proveedor_nombre',
+            'sin_proveedor',
             'precio_unitario',
             'ubicacion',
             'precio_mercado',
@@ -41,6 +44,9 @@ class InventarioItemSerializer(serializers.ModelSerializer):
 
 
 class InventarioItemPatchSerializer(serializers.ModelSerializer):
+    # Atajo de la ficha: asigna el contacto proveedor «Intrax» (lo crea si no existe).
+    proveedor_intrax = serializers.BooleanField(write_only=True, required=False, default=False)
+
     class Meta:
         model = InventarioItem
         fields = [
@@ -54,6 +60,9 @@ class InventarioItemPatchSerializer(serializers.ModelSerializer):
             'precio_unitario',
             'seccion',
             'ubicacion',
+            'proveedor',
+            'sin_proveedor',
+            'proveedor_intrax',
         ]
         extra_kwargs = {
             # Una vez asignada no se puede dejar vacía (solo cambiar de lugar).
@@ -61,7 +70,25 @@ class InventarioItemPatchSerializer(serializers.ModelSerializer):
             'imagen_url': {'allow_blank': True},
             'precio_unitario': {'required': False, 'allow_null': True},
             'seccion': {'required': False, 'allow_blank': True},
+            'proveedor': {
+                'required': False,
+                'allow_null': True,
+                'queryset': Cliente.objects.filter(tipo='PROVEEDOR'),
+            },
+            'sin_proveedor': {'required': False},
         }
+
+    def validate(self, attrs):
+        if attrs.pop('proveedor_intrax', False):
+            from .invoice_import import obtener_o_crear_proveedor
+
+            attrs['proveedor'] = obtener_o_crear_proveedor('intrax')
+        # Un proveedor elegido y «sin proveedor» se excluyen: gana lo último que se indicó.
+        if attrs.get('proveedor') is not None:
+            attrs['sin_proveedor'] = False
+        elif attrs.get('sin_proveedor'):
+            attrs['proveedor'] = None
+        return attrs
 
 
 class InventarioMovimientoSerializer(serializers.ModelSerializer):

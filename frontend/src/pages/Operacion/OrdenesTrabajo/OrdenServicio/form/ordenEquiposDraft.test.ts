@@ -24,6 +24,7 @@ function makeItem(partial: Partial<InventarioItem> & { id: number }): Inventario
     folio_factura: "",
     proveedor: null,
     proveedor_nombre: "",
+    sin_proveedor: false,
     precio_unitario: null,
     ubicacion: "",
     precio_mercado: null,
