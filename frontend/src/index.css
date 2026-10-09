@@ -256,8 +256,8 @@ layer(base);
   max-width: 100%;
 }
 
-html:has([data-slot="combo-box-trigger"][data-open]),
-body:has([data-slot="combo-box-trigger"][data-open]),
+/* Solo en modales: en páginas normales el documento debe seguir con su scroll
+   (quitarlo esconde la barra y recorre el layout al abrir un combobox). */
 .erp-modal-overlay:has([data-slot="combo-box-trigger"][data-open]),
 .erp-modal-form-scroll:has([data-slot="combo-box-trigger"][data-open]) {
   overflow-y: hidden;

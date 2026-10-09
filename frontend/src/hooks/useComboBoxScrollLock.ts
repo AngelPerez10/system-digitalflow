@@ -13,10 +13,15 @@ function isInsideComboPopover(target: EventTarget | null): boolean {
  * evento `scroll` y RAC cierra el menú en el mismo instante en que abre
  * (técnico / quién instaló / quién entregó, más abajo del viewport del modal).
  * Bloqueamos rueda y touch fuera del popover; la lista sí puede hacer scroll.
+ *
+ * Solo aplica con un modal abierto: en una página normal el documento sigue
+ * con su scroll y React Aria cierra el menú al desplazarse (comportamiento
+ * estándar), en vez de dejar la página congelada.
  */
 export function useComboBoxScrollLock(isOpen: boolean) {
   useEffect(() => {
     if (!isOpen) return;
+    if (!document.querySelector('[role="dialog"][aria-modal="true"]')) return;
 
     const blockOutsidePopover = (event: Event) => {
       if (isInsideComboPopover(event.target)) return;

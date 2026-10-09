@@ -1,19 +1,33 @@
 import type { Cliente } from "@/types/cliente";
 
-export type ClienteSelectOption = { value: string; label: string };
+export type ClienteTipoContacto = "Empresa" | "Persona" | "Proveedor";
 
-const TIPO_CONTACTO: Record<string, string> = {
+export type ClienteSelectOption = {
+  value: string;
+  label: string;
+  /** Datos para pintar la fila del combobox; `label` sigue siendo el texto del campo. */
+  nombre?: string;
+  tipo?: ClienteTipoContacto | "";
+  correo?: string;
+};
+
+const TIPO_CONTACTO: Record<string, ClienteTipoContacto> = {
   EMPRESA: "Empresa",
   PERSONA_FISICA: "Persona",
   PROVEEDOR: "Proveedor",
 };
 
-export function clienteToSelectOption(cliente: Pick<Cliente, "id" | "nombre" | "tipo">): ClienteSelectOption {
+export function clienteToSelectOption(
+  cliente: Pick<Cliente, "id" | "nombre" | "tipo"> & Partial<Pick<Cliente, "correo">>
+): ClienteSelectOption {
   const tipo = TIPO_CONTACTO[String(cliente.tipo || "").trim()] || "";
   const nombre = String(cliente.nombre || "").trim() || `Cliente ${cliente.id}`;
   return {
     value: String(cliente.id),
     label: tipo ? `${nombre} · ${tipo}` : nombre,
+    nombre,
+    tipo,
+    correo: String(cliente.correo || "").trim(),
   };
 }
 

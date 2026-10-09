@@ -12,6 +12,21 @@ export async function fetchClientesCatalog(search = "", pageSize = 50, signal?: 
   return dedupeClientesByIdentity(unwrapList<Cliente>(data));
 }
 
+/** Una página del catálogo con el total del servidor; `tipo` filtra en el backend. */
+export async function fetchClientesPage(
+  search = "",
+  { tipo, pageSize = 50, signal }: { tipo?: NonNullable<Cliente["tipo"]>; pageSize?: number; signal?: AbortSignal } = {}
+): Promise<{ rows: Cliente[]; total: number }> {
+  const params = new URLSearchParams({ search: search.trim(), page_size: String(pageSize) });
+  if (tipo) params.set("tipo", tipo);
+  const res = await fetchApi(`/api/clientes/?${params.toString()}`, { signal });
+  if (!res.ok) throw new Error("No se pudieron cargar los contactos.");
+  const data: unknown = await res.json().catch(() => null);
+  const rows = dedupeClientesByIdentity(unwrapList<Cliente>(data));
+  const count = (data as { count?: unknown } | null)?.count;
+  return { rows, total: typeof count === "number" ? count : rows.length };
+}
+
 /**
  * Colapsa clientes duplicados (mismo nombre + teléfono, distinto id) para que
  * los buscadores no repitan la misma fila varias veces — la causa real es

@@ -1177,6 +1177,14 @@ export default function NuevaCotizacionPage() {
 
   useEffect(() => {
     const q = productoSearch.trim();
+    // Al editar, el nombre se carga en el campo. No es una búsqueda: el panel
+    // tapaba cantidad y precio, y había que pulsar Editar otra vez para cerrarlo.
+    if (editingConceptoId) {
+      setSyscomOpen(false);
+      setLoadingSyscom(false);
+      setSyscomError("");
+      return;
+    }
     if (selectedSyscomProducto || selectedCatalogoConcepto || selectedManualProducto) {
       setSyscomOpen(false);
       setSyscomError("");
@@ -1233,7 +1241,7 @@ export default function NuevaCotizacionPage() {
       window.clearTimeout(timer);
       ac.abort();
     };
-  }, [productoSearch, selectedSyscomProducto, selectedCatalogoConcepto, selectedManualProducto]);
+  }, [productoSearch, selectedSyscomProducto, selectedCatalogoConcepto, selectedManualProducto, editingConceptoId]);
 
   const selectSyscomProducto = useCallback((p: SyscomProducto) => {
     setSelectedSyscomProducto(p);
@@ -2664,6 +2672,7 @@ export default function NuevaCotizacionPage() {
           createPortal(
             <div
               ref={syscomPopRef}
+              id="cotizacion-producto-sugerencias"
               role="listbox"
               aria-label="Resultados de productos"
               style={{
@@ -3673,13 +3682,18 @@ export default function NuevaCotizacionPage() {
                               />
                               <input
                                 id="cot-producto-input"
+                                role="combobox"
+                                aria-expanded={showSyscomPanel}
+                                aria-controls={showSyscomPanel ? "cotizacion-producto-sugerencias" : undefined}
+                                aria-autocomplete="list"
                                 className={`${inputLikeClassName} min-h-12! pl-10 text-[15px] disabled:cursor-not-allowed disabled:opacity-60 ${
                                   hasProductoSeleccionado ? "pr-10" : ""
                                 }`}
                                 value={productoSearch}
                                 disabled={bloquearProductoInput}
                                 onFocus={() => {
-                                  if (!bloquearProductoInput && productoSearch.trim().length >= 2) setSyscomOpen(true);
+                                  if (editingConceptoId || bloquearProductoInput) return;
+                                  if (productoSearch.trim().length >= 2) setSyscomOpen(true);
                                 }}
                                 onChange={(e) => {
                                   setProductoSearch(e.target.value);

@@ -11,7 +11,7 @@ PRESTADOR_DEFAULTS: dict[str, str] = {
     "rfc": "IMA200110CI4",
     "representante": "EDGAR IVÁN CRUZ SANDOVAL",
     "representante_cargo": "Representante legal",
-    "correo": "",
+    "correo": "soporte@sertel.mx",
     "cuenta_bancaria": "65508072048",
     "clabe": "014095655080720484",
     "telefono_soporte": "3141420811",

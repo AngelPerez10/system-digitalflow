@@ -1,6 +1,6 @@
 /**
  * Hoja en vivo: la primera página del contrato tal como sale en el PDF
- * (Calibri, título azul, texto corrido, sin tablas). Cada valor capturado se
+ * (título azul, texto corrido, sin tablas), con la tipografía del sistema. Cada valor capturado se
  * vuelve a montar con `key` para que el cambio destelle (`cot-flash`).
  */
 import { cn } from "@/lib/utils";
@@ -28,7 +28,7 @@ export default function HojaPreview({ values, folio, className }: { values: Cont
       <div className="absolute inset-x-1.5 -bottom-1 top-1.5 -rotate-[0.8deg] rounded-[4px] bg-white/85 shadow-[0_8px_24px_-16px_rgba(9,9,11,0.35)] dark:bg-white/30" aria-hidden />
       <article
         aria-label="Vista previa de la primera hoja"
-        className="relative aspect-[8.5/11] overflow-hidden rounded-[4px] bg-white px-[10%] pt-[8%] text-[9.5px] leading-[1.42] text-black shadow-[0_18px_40px_-20px_rgba(9,9,11,0.45)] ring-1 ring-black/5 [font-family:Calibri,Carlito,'Segoe_UI',Arial,sans-serif]"
+        className="relative aspect-[8.5/11] overflow-hidden rounded-[4px] bg-white px-[10%] pt-[8%] text-[9.5px] leading-[1.42] text-black shadow-[0_18px_40px_-20px_rgba(9,9,11,0.45)] ring-1 ring-black/5 [font-family:Geist,Outfit,system-ui,sans-serif]"
       >
         <div className="flex items-center justify-between text-[8px] text-[#444]">
           <span className="text-[9px] font-bold tracking-[0.06em] text-[#0039B2]">LOGO</span>

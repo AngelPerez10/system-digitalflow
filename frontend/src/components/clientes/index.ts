@@ -18,7 +18,7 @@ export * from "./domain";
 
 // API
 export { formatApiErrors } from "./api/apiErrors";
-export { deleteCliente, fetchClientesCatalog, saveCliente, searchClientes, type SaveClienteResult } from "./api/clientesApi";
+export { deleteCliente, fetchClientesCatalog, fetchClientesPage, saveCliente, searchClientes, type SaveClienteResult } from "./api/clientesApi";
 
 // Componentes
 export { ClienteFormModal, type ClienteFormModalProps, type ClienteSaveMeta } from "./form/ClienteFormModal";
