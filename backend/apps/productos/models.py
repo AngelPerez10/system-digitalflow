@@ -68,8 +68,30 @@ class ProductoManual(models.Model):
     sat_key = models.CharField(max_length=32, blank=True, default='')
     imagen_url = models.CharField(max_length=500, blank=True, default='')
     fuente = models.CharField(max_length=20, blank=False, default='manual')
+    # Cuánto le costó a la empresa (sin IVA). Base para la utilidad de cada precio.
+    costo = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # `precio` es el precio 1 (el que usan cotizaciones); 2-4 son listas alternas.
     precio = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    precio_2 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    precio_3 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    precio_4 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Porcentaje de utilidad sobre el costo de cada precio.
+    utilidad_1 = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    utilidad_2 = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    utilidad_3 = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    utilidad_4 = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    # Los precios se capturan sin IVA; marca si al producto se le traslada IVA.
+    aplica_iva = models.BooleanField(default=False, db_default=False)
     stock = models.IntegerField(default=0)
+    # Solo contactos ya dados de alta como proveedor (Contactos de negocio).
+    proveedor = models.ForeignKey(
+        'clientes.Cliente',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='productos_manuales',
+        limit_choices_to={'tipo': 'PROVEEDOR'},
+    )
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True, null=True, blank=True)

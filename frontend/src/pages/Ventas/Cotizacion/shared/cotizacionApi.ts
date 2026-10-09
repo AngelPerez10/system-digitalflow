@@ -112,12 +112,25 @@ export async function fetchCatalogoConceptos(): Promise<CatalogoConcepto[]> {
   });
 }
 
-export async function fetchProductosManualesCatalogo(): Promise<ProductoManualCatalogo[]> {
-  const res = await fetchApi("/api/productos-manuales/?ordering=-fecha_creacion&page_size=500");
-  const data = (await res.json().catch(() => ({ results: [] }))) as ApiListPayload;
-  if (!res.ok) throw new Error("No se pudieron cargar productos manuales.");
+/** La API limita `page_size` a 200: se recorren las páginas hasta traer todo el catálogo. */
+const MANUALES_PAGE_SIZE = 200;
+const MANUALES_MAX_PAGES = 20;
 
-  return listFromPayload(data)
+export async function fetchProductosManualesCatalogo(): Promise<ProductoManualCatalogo[]> {
+  const items: unknown[] = [];
+  for (let page = 1; page <= MANUALES_MAX_PAGES; page += 1) {
+    const res = await fetchApi(
+      `/api/productos-manuales/?ordering=-fecha_creacion&page_size=${MANUALES_PAGE_SIZE}&page=${page}`,
+    );
+    const data = (await res.json().catch(() => ({ results: [] }))) as ApiListPayload;
+    if (!res.ok) throw new Error("No se pudieron cargar productos manuales.");
+    const lote = listFromPayload(data);
+    items.push(...lote);
+    const next = data && typeof data === "object" && !Array.isArray(data) ? (data as { next?: unknown }).next : null;
+    if (!next || lote.length < MANUALES_PAGE_SIZE) break;
+  }
+
+  return items
     .map((item) => {
       const p = asRecord(item);
       return {

@@ -64,7 +64,7 @@ class ProveedorManualTests(APITestCase):
     def test_proveedor_intrax_crea_el_contacto_una_sola_vez(self):
         res = self._patch({'proveedor_intrax': True})
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data['proveedor_nombre'], 'Intrax')
+        self.assertEqual(res.data['proveedor_nombre'], 'INTRAX')
         self.assertFalse(res.data['sin_proveedor'])
         # Reutiliza el mismo contacto en la siguiente ficha.
         otro = InventarioItem.objects.create(codigo_barras='OTRO-1', cantidad=1)

@@ -28,7 +28,7 @@ _NOMBRE_PROVEEDOR = {
     'syscom': 'SYSCOM',
     'tvc': 'TVC',
     # Producto que entra de la propia empresa (no se compró a un distribuidor).
-    'intrax': 'Intrax',
+    'intrax': 'INTRAX',
 }
 
 # La factura incluye servicios como si fueran productos (el envío es el artículo

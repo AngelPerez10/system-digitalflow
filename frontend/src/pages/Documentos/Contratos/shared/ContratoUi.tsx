@@ -36,7 +36,7 @@ export function FirmasIndicator({ prestador, cliente }: { prestador: boolean; cl
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-1" aria-label={`Prestador ${prestador ? "firmó" : "pendiente"}, cliente ${cliente ? "firmó" : "pendiente"}`}>
+    <span className="inline-flex items-center gap-1" role="img" aria-label={`Prestador ${prestador ? "firmó" : "pendiente"}, cliente ${cliente ? "firmó" : "pendiente"}`}>
       {item(prestador, "P", "Prestador")}
       <span className={cn("h-px w-2.5", prestador && cliente ? "bg-[#04724D] dark:bg-[#22A06B]" : "bg-[#E4E4E7] dark:bg-[#273244]")} aria-hidden />
       {item(cliente, "C", "Cliente")}
@@ -69,7 +69,7 @@ export function StatCard({
           {icon}
         </span>
         <div className="min-w-0">
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#6E6E77] sm:text-[10px]">{label}</p>
+          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[#6E6E77] dark:text-[#8EA0B8] sm:text-[11px]">{label}</p>
           <p className="mt-0.5 truncate text-base font-semibold tabular-nums text-[#09090B] dark:text-white sm:text-lg">
             <span key={String(value)} className="cot-flash inline-block">
               {value}
@@ -82,11 +82,12 @@ export function StatCard({
   );
 }
 
+/** Cajas de ícono de las tarjetas de resumen: marino para el total y tonos de `ESTADO_TONE` para cada etapa. */
 export const STAT_ICON = {
-  neutral: "border-[#E7E7EA] bg-white/90 text-[#1B5CFF] dark:border-[#273244] dark:bg-[#0f172a] dark:text-[#4B7CFF]",
-  blue: "border-sky-200/70 bg-sky-50/90 text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300",
-  gold: "border-orange-200/80 bg-orange-50/90 text-orange-900 dark:border-orange-500/25 dark:bg-orange-500/10 dark:text-orange-200",
-  green: "border-emerald-200/70 bg-emerald-50/90 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300",
+  navy: "border-[#17235B]/10 bg-[#17235B]/[0.06] text-[#17235B] dark:border-[#3A4661] dark:bg-[#1B2A63]/60 dark:text-[#D6DEEA]",
+  neutral: "border-[#E4E4E7] bg-[#F4F4F5] text-[#52525B] dark:border-[#273244] dark:bg-white/[0.06] dark:text-[#B7C1D1]",
+  blue: "border-[#D7E3FF] bg-[#EEF3FF] text-[#1244D1] dark:border-[#4B7CFF]/30 dark:bg-[#1B2A63] dark:text-[#9BB6FF]",
+  green: "border-[#BFE6D4] bg-[#E9F8F0] text-[#04724D] dark:border-[#22A06B]/30 dark:bg-[#22A06B]/10 dark:text-[#22A06B]",
 } as const;
 
 /** Sección numerada con palomita al completarse (misma que Nueva cotización). */

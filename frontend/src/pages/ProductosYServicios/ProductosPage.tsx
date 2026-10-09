@@ -53,6 +53,8 @@ import ProductosFiltroPanel from "./productos/ProductosFiltroPanel";
 import { filtrarEnPantalla, filtrosPantallaActivos, precioTexto } from "./productos/productosFiltros";
 import ProductoDetalleModal from "./productos/ProductoDetalleModal";
 import ProductoManualModal from "./productos/ProductoManualModal";
+import { emptyManualForm, precioKey, utilidadKey, type ManualForm, type ProveedorOpcion } from "./productos/manualForm";
+import { NIVELES_PRECIO, numeroCampo, textoDinero, textoPorcentaje } from "./productos/precioUtilidad";
 import { useAuth } from "@/context/AuthContext";
 
 const ORDEN_OPTIONS: { value: NonNullable<SyscomSearchParams["orden"]>; label: string }[] = [
@@ -89,6 +91,25 @@ type ManualProduct = {
   fuente: "manual";
   precio: number;
   stock: number;
+  proveedor_id: number | null;
+  proveedor_nombre: string;
+  costo: number | null;
+  /** Precios 2–4 (el 1 es `precio`). */
+  precio_2: number | null;
+  precio_3: number | null;
+  precio_4: number | null;
+  utilidad_1: number | null;
+  utilidad_2: number | null;
+  utilidad_3: number | null;
+  utilidad_4: number | null;
+  aplica_iva: boolean;
+};
+
+/** Decimal opcional de la API («12.50» | null) a número. */
+const numOpcional = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 };
 
 const MANUAL_PRODUCTS_IMAGE_FOLDER = "productos/manuales";
@@ -350,20 +371,14 @@ export default function ProductosPage() {
   // El diálogo de confirmación lleva su propio «eliminando…»; aquí solo evita dobles envíos.
   const [, setDeletingManual] = useState(false);
   const [toast, setToast] = useState<{ variant: AlertVariant; title: string; message?: string } | null>(null);
+  const [proveedores, setProveedores] = useState<ProveedorOpcion[]>([]);
+  const [proveedoresLoading, setProveedoresLoading] = useState(false);
+  const [proveedoresError, setProveedoresError] = useState("");
 
   const detailModalTitleId = useId();
   const manualModalTitleId = useId();
 
-  const [manualForm, setManualForm] = useState({
-    imagen_url: "",
-    producto: "",
-    caracteristicas: "",
-    marca: "",
-    modelo: "",
-    sat_key: "",
-    precio: "",
-    stock: "",
-  });
+  const [manualForm, setManualForm] = useState<ManualForm>(emptyManualForm);
 
   const fetchManualProducts = useCallback(async () => {
     if (!catalogReady) return;
@@ -409,6 +424,17 @@ export default function ProductosPage() {
             fuente: "manual",
             precio: toMoney2(Number(row.precio || 0)),
             stock: Number.isFinite(Number(row.stock)) ? Number(row.stock) : 0,
+            proveedor_id: Number.isFinite(Number(row.proveedor)) && row.proveedor != null ? Number(row.proveedor) : null,
+            proveedor_nombre: String(row.proveedor_nombre || "").trim(),
+            costo: numOpcional(row.costo),
+            precio_2: numOpcional(row.precio_2),
+            precio_3: numOpcional(row.precio_3),
+            precio_4: numOpcional(row.precio_4),
+            utilidad_1: numOpcional(row.utilidad_1),
+            utilidad_2: numOpcional(row.utilidad_2),
+            utilidad_3: numOpcional(row.utilidad_3),
+            utilidad_4: numOpcional(row.utilidad_4),
+            aplica_iva: row.aplica_iva === true,
           });
         }
         if (list.length === 0) break;
@@ -424,6 +450,39 @@ export default function ProductosPage() {
   useEffect(() => {
     if (catalogReady) fetchManualProducts();
   }, [catalogReady, fetchManualProducts]);
+
+  // Proveedores (contactos tipo proveedor): se recargan al abrir el alta/edición
+  // para que aparezca uno recién dado de alta en Contactos.
+  useEffect(() => {
+    if (!manualModalOpen) return;
+    let cancel = false;
+    setProveedoresLoading(true);
+    setProveedoresError("");
+    fetchApi("/api/productos-manuales/proveedores/", { method: "GET" })
+      .then(async (res) => {
+        const data = await res.json().catch(() => []);
+        if (cancel) return;
+        if (!res.ok || !Array.isArray(data)) {
+          setProveedores([]);
+          setProveedoresError("No se pudieron cargar los proveedores.");
+          return;
+        }
+        setProveedores(
+          data
+            .filter((x): x is { id: number; nombre?: unknown } => Boolean(x) && typeof x === "object" && Number.isFinite(Number((x as { id?: unknown }).id)))
+            .map((x) => ({ id: Number(x.id), nombre: String(x.nombre || "").trim() })),
+        );
+      })
+      .catch(() => {
+        if (!cancel) setProveedoresError("No se pudieron cargar los proveedores.");
+      })
+      .finally(() => {
+        if (!cancel) setProveedoresLoading(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [manualModalOpen]);
 
   const onDropManualImage = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles.find((f) => f.type.startsWith("image/")); if (!file) return;
@@ -831,16 +890,7 @@ export default function ProductosPage() {
     if (!canProductosCreate) return;
     setEditingManualId(null);
     setManualFormError("");
-    setManualForm({
-      imagen_url: "",
-      producto: "",
-      caracteristicas: "",
-      marca: "",
-      modelo: "",
-      sat_key: "",
-      precio: "",
-      stock: "",
-    });
+    setManualForm(emptyManualForm());
     setManualModalOpen(true);
   };
   const openEditManual = (id: string) => {
@@ -856,18 +906,35 @@ export default function ProductosPage() {
       marca: p.marca || "",
       modelo: p.modelo || "",
       sat_key: p.sat_key || "",
-      precio: String(p.precio ?? 0),
       stock: String(p.stock ?? 0),
+      proveedor: p.proveedor_id ? String(p.proveedor_id) : "",
+      costo: textoDinero(p.costo),
+      precio: textoDinero(p.precio ?? 0),
+      precio_2: textoDinero(p.precio_2),
+      precio_3: textoDinero(p.precio_3),
+      precio_4: textoDinero(p.precio_4),
+      utilidad_1: textoPorcentaje(p.utilidad_1),
+      utilidad_2: textoPorcentaje(p.utilidad_2),
+      utilidad_3: textoPorcentaje(p.utilidad_3),
+      utilidad_4: textoPorcentaje(p.utilidad_4),
+      aplica_iva: p.aplica_iva,
     });
     setManualModalOpen(true);
   };
 
   const saveManualProduct = async () => {
     const producto = manualForm.producto.trim(); const marca = manualForm.marca.trim(); const modelo = manualForm.modelo.trim();
-    const precio = Number(manualForm.precio); const stock = Number(manualForm.stock);
+    const precio = numeroCampo(manualForm.precio); const stock = Number(manualForm.stock);
+    const costo = numeroCampo(manualForm.costo);
     if (!producto || !marca || !modelo) { setManualFormError("Producto, marca y modelo son requeridos."); return; }
-    if (!Number.isFinite(precio) || precio < 0) { setManualFormError("Precio inválido."); return; }
     if (!Number.isFinite(stock) || stock < 0) { setManualFormError("Stock inválido."); return; }
+    if (manualForm.costo.trim() && (costo == null || costo < 0)) { setManualFormError("El costo no puede ser negativo."); return; }
+    if (precio == null || precio < 0) { setManualFormError("Captura el precio 1 (no puede ser negativo)."); return; }
+    for (const n of NIVELES_PRECIO) {
+      const raw = manualForm[precioKey(n)];
+      const v = numeroCampo(raw);
+      if (raw.trim() && (v == null || v < 0)) { setManualFormError(`El precio ${n} no puede ser negativo.`); return; }
+    }
     if (!catalogReady) {
       setManualFormError("Debes iniciar sesión para guardar productos.");
       return;
@@ -900,6 +967,19 @@ export default function ProductosPage() {
       sat_key: manualForm.sat_key.trim(),
       precio: toMoney2(precio),
       stock: Math.round(stock),
+      proveedor: manualForm.proveedor ? Number(manualForm.proveedor) : null,
+      costo: costo == null ? null : toMoney2(costo),
+      aplica_iva: manualForm.aplica_iva,
+      ...Object.fromEntries(
+        NIVELES_PRECIO.flatMap((n) => {
+          const pr = numeroCampo(manualForm[precioKey(n)]);
+          const u = numeroCampo(manualForm[utilidadKey(n)]);
+          return [
+            ...(n === 1 ? [] : [[precioKey(n), pr == null ? null : toMoney2(pr)]]),
+            [utilidadKey(n), u == null ? null : toMoney2(u)],
+          ];
+        }),
+      ),
       activo: true,
     };
     setSavingManual(true);
@@ -913,6 +993,25 @@ export default function ProductosPage() {
         if (Array.isArray(modeloErr) && typeof modeloErr[0] === "string") {
           setManualFormError(modeloErr[0]);
           return;
+        }
+        const campos: [string, string][] = [
+          ["proveedor", "Proveedor"],
+          ["costo", "Costo"],
+          ["precio", "Precio 1"],
+          ["precio_2", "Precio 2"],
+          ["precio_3", "Precio 3"],
+          ["precio_4", "Precio 4"],
+          ["utilidad_1", "Utilidad del precio 1"],
+          ["utilidad_2", "Utilidad del precio 2"],
+          ["utilidad_3", "Utilidad del precio 3"],
+          ["utilidad_4", "Utilidad del precio 4"],
+        ];
+        for (const [campo, etiqueta] of campos) {
+          const err = record[campo];
+          if (Array.isArray(err) && typeof err[0] === "string") {
+            setManualFormError(`${etiqueta}: ${err[0]}`);
+            return;
+          }
         }
         const detail = "detail" in record ? record.detail : undefined;
         setManualFormError(typeof detail === "string" && detail.trim() ? detail : "No se pudo guardar el producto.");
@@ -1285,6 +1384,13 @@ export default function ProductosPage() {
           getInputProps: getManualImageInputProps,
           isDragActive: isManualImageDragActive,
         }}
+        proveedores={proveedores}
+        proveedoresLoading={proveedoresLoading}
+        proveedoresError={proveedoresError}
+        proveedorGuardado={(() => {
+          const actual = editingManualId ? manualProducts.find((x) => x.id === editingManualId) : undefined;
+          return actual?.proveedor_id ? { id: actual.proveedor_id, nombre: actual.proveedor_nombre } : null;
+        })()}
         onClose={() => setManualModalOpen(false)}
         onSave={saveManualProduct}
       />

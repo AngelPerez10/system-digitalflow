@@ -1,6 +1,8 @@
 """ViewSets for productos app (Servicios + SYSCOM proxy in syscom_views)."""
 from rest_framework import filters, viewsets
+from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
 
 from apps.users.permissions import (
     ModulePermission,
@@ -115,7 +117,7 @@ class ConceptoViewSet(viewsets.ModelViewSet):
 
 
 class ProductoManualViewSet(viewsets.ModelViewSet):
-    queryset = ProductoManual.objects.all()
+    queryset = ProductoManual.objects.select_related('proveedor')
     serializer_class = ProductoManualSerializer
     permission_classes = [ProductoManualPermission]
     pagination_class = ServiciosPagination
@@ -124,6 +126,18 @@ class ProductoManualViewSet(viewsets.ModelViewSet):
     search_fields = ['producto', 'marca', 'modelo']
     ordering_fields = ['producto', 'marca', 'modelo', 'precio', 'stock', 'fecha_creacion']
     ordering = ['-fecha_creacion']
+
+    @action(detail=False, methods=['get'], pagination_class=None)
+    def proveedores(self, request):
+        """Contactos de tipo proveedor (solo id y nombre) para el alta de producto.
+
+        INTRAX, SYSCOM y TVC siempre aparecen (se dan de alta si faltan).
+
+        Vive aquí para no exigir permiso del módulo de Contactos.
+        """
+        from .proveedores import listar_proveedores
+
+        return Response(listar_proveedores())
 
     def perform_update(self, serializer):
         from apps.ordenes.views import _delete_cloudinary_resource
