@@ -110,7 +110,7 @@ function EtapaSegment({
       role="tablist"
       aria-label="Filtrar por etapa"
       aria-orientation="horizontal"
-      className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-[12px] bg-[#F4F4F5] p-1 [-ms-overflow-style:none] [scrollbar-width:none] dark:bg-[#0F172A] [&::-webkit-scrollbar]:hidden"
+      className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-2xl bg-[#F4F4F5] p-1 [-ms-overflow-style:none] [scrollbar-width:none] dark:bg-[#0F172A] [&::-webkit-scrollbar]:hidden"
     >
       {SEGMENTOS.map((seg, index) => {
         const active = etapa === seg.value;

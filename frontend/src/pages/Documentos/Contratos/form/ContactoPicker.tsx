@@ -69,7 +69,7 @@ const TIPO_META: Record<TipoApi, { label: string; Icon: typeof Building2; tile: 
   EMPRESA: {
     label: "Empresa",
     Icon: Building2,
-    tile: "bg-[#F4F4F5] text-[#52525B] dark:bg-white/[0.06] dark:text-[#B7C1D1]",
+    tile: "bg-[#F4F4F5] text-[#52525B] dark:bg-white/6 dark:text-[#B7C1D1]",
   },
   PERSONA_FISICA: {
     label: "Persona",
@@ -109,11 +109,11 @@ function TipoTile({ tipo, size = "md" }: { tipo?: TipoApi | ""; size?: "md" | "l
       aria-hidden
       className={cn(
         "inline-flex shrink-0 items-center justify-center",
-        size === "lg" ? "size-11 rounded-[12px]" : "size-10 rounded-[10px]",
+        size === "lg" ? "size-11 rounded-2xl" : "size-10 rounded-[10px]",
         meta.tile,
       )}
     >
-      <Icon className={size === "lg" ? "size-5" : "size-[18px]"} strokeWidth={1.75} />
+      <Icon className={size === "lg" ? "size-5" : "size-4.5"} strokeWidth={1.75} />
     </span>
   );
 }
@@ -242,7 +242,7 @@ export default function ContactoPicker({
           <span className="absolute inset-y-0 left-0 w-1 bg-[#E6A23C]" aria-hidden />
           <span
             aria-hidden
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF]"
+            className="inline-flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF]"
           >
             <UsersRound className="size-5" strokeWidth={1.75} />
           </span>
@@ -409,7 +409,7 @@ function ContactoPickerModal({
       dismissOnBackdrop
       labelledBy={titleId}
       describedBy={descId}
-      className={cn(fontSans, "h-[min(680px,calc(100dvh-2rem))] sm:max-w-[44rem]!")}
+      className={cn(fontSans, "h-[min(680px,calc(100dvh-2rem))] sm:max-w-176!")}
     >
       <header className="relative shrink-0 overflow-hidden bg-[#17235B] text-white dark:bg-[#1B2A63]">
         <div className="pointer-events-none absolute -right-16 -top-24 size-56 rounded-full bg-[#E6A23C]/20 blur-3xl" aria-hidden />
@@ -435,7 +435,7 @@ function ContactoPickerModal({
         >
           <X className="size-4" aria-hidden />
         </button>
-        <div className="h-[3px] bg-[#E6A23C]" aria-hidden />
+        <div className="h-0.75 bg-[#E6A23C]" aria-hidden />
       </header>
 
       {/* Buscador + filtro por tipo */}
@@ -471,7 +471,7 @@ function ContactoPickerModal({
               }}
               aria-label="Limpiar búsqueda"
               className={cn(
-                "absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-[8px] text-[#A1A1AA] hover:bg-[#F4F4F5] hover:text-[#52525B] dark:text-[#64748B] dark:hover:bg-white/[0.06] dark:hover:text-[#D6DEEA]",
+                "absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-xl text-[#A1A1AA] hover:bg-[#F4F4F5] hover:text-[#52525B] dark:text-[#64748B] dark:hover:bg-white/6 dark:hover:text-[#D6DEEA]",
                 focusRing,
               )}
             >
@@ -484,7 +484,7 @@ function ContactoPickerModal({
           role="tablist"
           aria-label="Tipo de contacto"
           onKeyDown={onTabsKeyDown}
-          className="flex gap-1 overflow-x-auto rounded-[12px] bg-[#F4F4F5] p-1 dark:bg-[#0F172A]"
+          className="flex gap-1 overflow-x-auto rounded-2xl bg-[#F4F4F5] p-1 dark:bg-[#0F172A]"
         >
           {FILTROS.map((t) => {
             const sel = t.id === tipo;
@@ -518,14 +518,14 @@ function ContactoPickerModal({
         {estado.fase === "cargando" ? (
           <ul aria-hidden className="space-y-1 p-1">
             {Array.from({ length: 7 }, (_, i) => (
-              <li key={i} className="flex items-center gap-3 rounded-[12px] px-3 py-2.5">
-                <span className="size-10 shrink-0 animate-pulse rounded-[10px] bg-[#F4F4F5] dark:bg-white/[0.06]" />
+              <li key={i} className="flex items-center gap-3 rounded-2xl px-3 py-2.5">
+                <span className="size-10 shrink-0 animate-pulse rounded-[10px] bg-[#F4F4F5] dark:bg-white/6" />
                 <span className="flex-1 space-y-2">
                   <span
-                    className="block h-3 animate-pulse rounded-full bg-[#F4F4F5] dark:bg-white/[0.06]"
+                    className="block h-3 animate-pulse rounded-full bg-[#F4F4F5] dark:bg-white/6"
                     style={{ width: `${48 + ((i * 17) % 32)}%` }}
                   />
-                  <span className="block h-2.5 w-1/3 animate-pulse rounded-full bg-[#F4F4F5] dark:bg-white/[0.06]" />
+                  <span className="block h-2.5 w-1/3 animate-pulse rounded-full bg-[#F4F4F5] dark:bg-white/6" />
                 </span>
               </li>
             ))}
@@ -543,7 +543,7 @@ function ContactoPickerModal({
         ) : filas.length === 0 ? (
           <div className="cot-fade grid h-full place-items-center px-6 text-center">
             <div>
-              <span className="cot-tick mx-auto inline-flex size-14 items-center justify-center rounded-[16px] bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF]">
+              <span className="cot-tick mx-auto inline-flex size-14 items-center justify-center rounded-3xl bg-[#EEF3FF] text-[#1B5CFF] dark:bg-[#1B2A63] dark:text-[#9BB6FF]">
                 <SearchX className="size-6" aria-hidden />
               </span>
               <p className="mt-4 text-[16px] font-semibold tracking-[-0.2px] text-[#09090B] dark:text-[#F8FAFC]">
@@ -593,15 +593,15 @@ function ContactoPickerModal({
                   onClick={() => onElegir(c)}
                   style={{ "--cot-i": Math.min(i, 12) } as CSSProperties}
                   className={cn(
-                    "cot-rise group relative flex min-h-[60px] cursor-pointer items-center gap-3 rounded-[12px] py-2.5 pl-4 pr-3 transition-colors",
+                    "cot-rise group relative flex min-h-15 cursor-pointer items-center gap-3 rounded-2xl py-2.5 pl-4 pr-3 transition-colors",
                     esSel
                       ? "bg-[#EEF3FF] dark:bg-[#1B2A63]/70"
                       : esActivo
-                        ? "bg-[#F4F4F5] dark:bg-white/[0.06]"
-                        : "hover:bg-[#F4F4F5] dark:hover:bg-white/[0.06]",
+                        ? "bg-[#F4F4F5] dark:bg-white/6"
+                        : "hover:bg-[#F4F4F5] dark:hover:bg-white/6",
                   )}
                 >
-                  <span className={cn("absolute inset-y-2.5 left-1.5 w-[3px] rounded-full", rielTipo(c.tipo))} aria-hidden />
+                  <span className={cn("absolute inset-y-2.5 left-1.5 w-0.75 rounded-full", rielTipo(c.tipo))} aria-hidden />
                   <TipoTile tipo={c.tipo} />
                   <div className="min-w-0 flex-1">
                     <p

@@ -284,7 +284,7 @@ function Campo({
 function EstadoBloque({ faltan, opcional }: { faltan: number; opcional: boolean }) {
   const tono =
     opcional
-      ? "bg-[#F4F4F5] text-[#52525B] ring-[#E4E4E7] dark:bg-white/[0.06] dark:text-[#B7C1D1] dark:ring-[#273244]"
+      ? "bg-[#F4F4F5] text-[#52525B] ring-[#E4E4E7] dark:bg-white/6 dark:text-[#B7C1D1] dark:ring-[#273244]"
       : faltan === 0
         ? "bg-[#E9F8F0] text-[#04724D] ring-[#BFE6D4] dark:bg-[#0F2A1C] dark:text-[#86EFAC] dark:ring-[#1E5A42]"
         : "bg-[#FFF8EB] text-[#8A5D0F] ring-[#F0D7A3] dark:bg-[rgba(230,162,60,0.12)] dark:text-[#F2C27A] dark:ring-[rgba(230,162,60,0.3)]";
@@ -558,13 +558,13 @@ export default function ContratoFormPage() {
     return (
       <div className="mx-auto w-full max-w-[min(100%,1920px)] space-y-6 px-3 pb-10 pt-6 sm:px-5 md:px-6 lg:px-8 xl:px-10" style={sansStyle} aria-busy>
         <div className="h-4 w-40 animate-pulse rounded-full bg-[#F4F4F5] dark:bg-[#1B2539]" />
-        <div className="h-[150px] animate-pulse rounded-[24px] bg-[#E9EBF0] dark:bg-[#1B2539]" />
+        <div className="h-37.5 animate-pulse rounded-[24px] bg-[#E9EBF0] dark:bg-[#1B2539]" />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-[112px] animate-pulse rounded-[20px] bg-[#F4F4F5] dark:bg-[#111827]" />
+            <div key={i} className="h-28 animate-pulse rounded-4xl bg-[#F4F4F5] dark:bg-[#111827]" />
           ))}
         </div>
-        <div className="h-[640px] animate-pulse rounded-[24px] bg-[#F4F4F5] dark:bg-[#111827]" />
+        <div className="h-160 animate-pulse rounded-[24px] bg-[#F4F4F5] dark:bg-[#111827]" />
         <span className="sr-only">Cargando contrato…</span>
       </div>
     );
@@ -604,8 +604,8 @@ export default function ContratoFormPage() {
         onClick={() => void guardar()}
         disabled={saving}
         className={cn(
-          "cot-press inline-flex h-12 items-center justify-center gap-2 rounded-[12px] bg-[#1B5CFF] px-6 text-[15px] font-semibold tracking-[-0.1px] text-white shadow-[0_8px_20px_-8px_rgba(27,92,255,0.6)] transition-colors hover:bg-[#1244D1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.25)] disabled:cursor-wait disabled:opacity-80 dark:bg-[#4B7CFF] dark:hover:bg-[#3B6AF0] [&_svg]:size-[18px]",
-          modo === "panel" ? "w-full" : "flex-[2] sm:flex-none",
+          "cot-press inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#1B5CFF] px-6 text-[15px] font-semibold tracking-[-0.1px] text-white shadow-[0_8px_20px_-8px_rgba(27,92,255,0.6)] transition-colors hover:bg-[#1244D1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.25)] disabled:cursor-wait disabled:opacity-80 dark:bg-[#4B7CFF] dark:hover:bg-[#3B6AF0] [&_svg]:size-4.5",
+          modo === "panel" ? "w-full" : "flex-2 sm:flex-none",
         )}
       >
         {saving ? <Loader2 className="animate-spin" aria-hidden /> : <Save aria-hidden />}
@@ -616,7 +616,7 @@ export default function ContratoFormPage() {
       <Link
         to={salirA}
         className={cn(
-          "cot-press inline-flex h-12 items-center justify-center rounded-[12px] border border-[#E4E4E7] bg-white px-5 text-[15px] font-medium text-[#3F3F46] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539]",
+          "cot-press inline-flex h-12 items-center justify-center rounded-2xl border border-[#E4E4E7] bg-white px-5 text-[15px] font-medium text-[#3F3F46] transition-colors hover:border-[#D3D3D8] hover:bg-[#FAFAFA] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(27,92,255,0.18)] dark:border-[#273244] dark:bg-[#151E32] dark:text-[#D6DEEA] dark:hover:bg-[#1B2539]",
           modo === "panel" ? "w-full" : "flex-1 sm:flex-none",
         )}
       >
@@ -626,7 +626,7 @@ export default function ContratoFormPage() {
 
     if (modo === "barra") {
       return (
-        <div className="mx-auto flex max-w-3xl flex-col gap-3 rounded-[20px] border border-[#E7E7EA] bg-white/95 p-3 shadow-[0_18px_40px_-18px_rgba(9,9,11,0.3)] backdrop-blur-md sm:flex-row sm:items-center sm:pl-5 dark:border-[#273244] dark:bg-[#111827]/95">
+        <div className="mx-auto flex max-w-3xl flex-col gap-3 rounded-4xl border border-[#E7E7EA] bg-white/95 p-3 shadow-[0_18px_40px_-18px_rgba(9,9,11,0.3)] backdrop-blur-md sm:flex-row sm:items-center sm:pl-5 dark:border-[#273244] dark:bg-[#111827]/95">
           <div className="min-w-0 flex-1">{aviso}</div>
           <div className="flex gap-2">
             {botonCancelar}
@@ -637,7 +637,7 @@ export default function ContratoFormPage() {
     }
 
     return (
-      <div className="rounded-[20px] border border-[#E7E7EA] bg-white p-4 shadow-[0_6px_20px_-12px_rgba(9,9,11,0.16)] dark:border-[#273244] dark:bg-[#111827]">
+      <div className="rounded-4xl border border-[#E7E7EA] bg-white p-4 shadow-[0_6px_20px_-12px_rgba(9,9,11,0.16)] dark:border-[#273244] dark:bg-[#111827]">
         {botonGuardar}
         <div className="mt-2">{botonCancelar}</div>
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#F0F0F2] pt-3 dark:border-[#1F2A3C]">
@@ -685,7 +685,7 @@ export default function ContratoFormPage() {
             </div>
             <p className={cn(cardDescClass, "mt-1")}>{meta.desc}</p>
           </div>
-          <span className="hidden size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F4F4F5] text-[#3F3F46] sm:inline-flex dark:bg-white/[0.06] dark:text-[#D6DEEA] [&_svg]:size-[18px]" aria-hidden>
+          <span className="hidden size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F4F4F5] text-[#3F3F46] sm:inline-flex dark:bg-white/6 dark:text-[#D6DEEA] [&_svg]:size-4.5" aria-hidden>
             {meta.icon}
           </span>
         </header>
@@ -706,7 +706,7 @@ export default function ContratoFormPage() {
           <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] font-medium text-[#6E6E77] dark:text-[#8EA0B8]" aria-label="Migas de pan">
             <Link
               to="/contratos"
-              className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/[0.04] hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+              className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-black/4 hover:text-[#09090B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
             >
               Contratos
             </Link>
@@ -717,7 +717,7 @@ export default function ContratoFormPage() {
                 </span>
                 <Link
                   to={`/contratos/${original.id}`}
-                  className="rounded-md px-1.5 py-0.5 font-mono text-[12px] transition-colors hover:bg-black/[0.04] hover:text-[#09090B] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
+                  className="rounded-md px-1.5 py-0.5 font-mono text-[12px] transition-colors hover:bg-black/4 hover:text-[#09090B] dark:hover:bg-white/10 dark:hover:text-[#F8FAFC]"
                 >
                   {original.folio}
                 </Link>
@@ -741,7 +741,7 @@ export default function ContratoFormPage() {
                 <div className="min-w-0">
                   <div className="flex items-start gap-4">
                     <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-[rgba(230,162,60,0.16)] text-[#E6A23C] ring-1 ring-inset ring-[#E6A23C]/30">
-                      <FileSignature className="size-[22px]" strokeWidth={1.6} aria-hidden />
+                      <FileSignature className="size-5.5" strokeWidth={1.6} aria-hidden />
                     </span>
                     <div className="min-w-0">
                       <p className={heroEyebrowClass}>Documentos · Contratos</p>
@@ -767,7 +767,7 @@ export default function ContratoFormPage() {
                         key={k}
                         className={cn(
                           "inline-flex h-8 max-w-full items-center gap-1.5 rounded-full px-3 text-[13px] ring-1 ring-inset [&_svg]:size-3.5 [&_svg]:shrink-0",
-                          ok ? "bg-white/[0.10] text-white ring-white/15" : "bg-transparent text-white/55 ring-white/10",
+                          ok ? "bg-white/10 text-white ring-white/15" : "bg-transparent text-white/55 ring-white/10",
                         )}
                       >
                         {icon}
@@ -782,7 +782,7 @@ export default function ContratoFormPage() {
                 <button
                   type="button"
                   onClick={() => setVerHoja(true)}
-                  className="cot-press inline-flex h-11 items-center justify-center gap-2 self-start rounded-[12px] bg-white/10 px-5 text-[15px] font-medium text-white ring-1 ring-inset ring-white/20 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:self-end [&_svg]:size-4"
+                  className="cot-press inline-flex h-11 items-center justify-center gap-2 self-start rounded-2xl bg-white/10 px-5 text-[15px] font-medium text-white ring-1 ring-inset ring-white/20 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:self-end [&_svg]:size-4"
                 >
                   <Eye aria-hidden /> Vista previa
                 </button>
@@ -790,7 +790,7 @@ export default function ContratoFormPage() {
             </header>
 
             {firmasEnRiesgo && !cerrado && (
-              <div className="cot-fade flex gap-3 rounded-[16px] border border-[#F0D7A3] bg-[#FFF8EB] p-4 text-[14px] leading-[20px] text-[#8A5D0F] dark:border-[rgba(230,162,60,0.3)] dark:bg-[rgba(230,162,60,0.1)] dark:text-[#F2C27A]" role="status">
+              <div className="cot-fade flex gap-3 rounded-3xl border border-[#F0D7A3] bg-[#FFF8EB] p-4 text-[14px] leading-5 text-[#8A5D0F] dark:border-[rgba(230,162,60,0.3)] dark:bg-[rgba(230,162,60,0.1)] dark:text-[#F2C27A]" role="status">
                 <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden />
                 <p>
                   Este contrato ya se envió a firma o tiene firmas. Si cambias su contenido, <strong>las firmas se descartan</strong> y el enlace actual deja
@@ -799,7 +799,7 @@ export default function ContratoFormPage() {
               </div>
             )}
             {cerrado && (
-              <div className="cot-fade flex items-center gap-3 rounded-[16px] border border-[#E7E7EA] bg-[#FAFAFA] p-4 text-[14px] text-[#52525B] dark:border-[#273244] dark:bg-[#0F172A] dark:text-[#B7C1D1]">
+              <div className="cot-fade flex items-center gap-3 rounded-3xl border border-[#E7E7EA] bg-[#FAFAFA] p-4 text-[14px] text-[#52525B] dark:border-[#273244] dark:bg-[#0F172A] dark:text-[#B7C1D1]">
                 <Lock className="size-4 shrink-0" aria-hidden /> Este contrato está {original?.estado_display.toLowerCase()} y ya no se puede editar.
               </div>
             )}
@@ -841,7 +841,7 @@ export default function ContratoFormPage() {
                             disabled={cerrado}
                             onClick={() => set("cliente_tipo_persona", t)}
                             className={cn(
-                              "cot-press flex min-h-11 items-center gap-3 rounded-[12px] border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                              "cot-press flex min-h-11 items-center gap-3 rounded-2xl border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
                               focusRing,
                               activo
                                 ? "border-[#1B5CFF] bg-[#F5F8FF] ring-4 ring-[rgba(27,92,255,0.10)] dark:border-[#4B7CFF] dark:bg-[#1B2A63]/40 dark:ring-[rgba(75,124,255,0.16)]"
@@ -851,7 +851,7 @@ export default function ContratoFormPage() {
                             <span
                               className={cn(
                                 "inline-flex size-9 shrink-0 items-center justify-center rounded-[10px]",
-                                activo ? "bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]" : "bg-[#F4F4F5] text-[#52525B] dark:bg-white/[0.06] dark:text-[#B7C1D1]",
+                                activo ? "bg-[#1B5CFF] text-white dark:bg-[#4B7CFF]" : "bg-[#F4F4F5] text-[#52525B] dark:bg-white/6 dark:text-[#B7C1D1]",
                               )}
                               aria-hidden
                             >
@@ -1012,7 +1012,7 @@ export default function ContratoFormPage() {
                 </div>
               </div>
               {!cerrado ? <div className="mt-4">{panelAcciones("panel")}</div> : null}
-              <div className="mt-4 rounded-[20px] bg-[#E9EBF0] p-4 dark:bg-[#0B1220]">
+              <div className="mt-4 rounded-4xl bg-[#E9EBF0] p-4 dark:bg-[#0B1220]">
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]">Hoja en vivo</p>
                 <HojaPreview values={values} folio={original?.folio} className="mx-auto max-w-[320px]" />
               </div>
@@ -1028,7 +1028,7 @@ export default function ContratoFormPage() {
       </div>
 
       {/* Vista previa (portal: declara la tipografía) */}
-      <AppModal open={verHoja} onClose={() => setVerHoja(false)} size="lg" dismissOnBackdrop labelledBy="hoja-titulo" className={cn(fontSans, "sm:max-w-[40rem]!")}>
+      <AppModal open={verHoja} onClose={() => setVerHoja(false)} size="lg" dismissOnBackdrop labelledBy="hoja-titulo" className={cn(fontSans, "sm:max-w-160!")}>
         <AppModalHeader
           icon={<FileText className="size-5" />}
           tone="info"
@@ -1040,7 +1040,7 @@ export default function ContratoFormPage() {
           divided
         />
         <div className="custom-scrollbar max-h-[70dvh] overflow-y-auto bg-[#EEF0F4] p-6 dark:bg-[#0B1220] sm:p-8">
-          <HojaPreview values={values} folio={original?.folio} className="mx-auto max-w-[460px]" />
+          <HojaPreview values={values} folio={original?.folio} className="mx-auto max-w-115" />
         </div>
       </AppModal>
 

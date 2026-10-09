@@ -18,7 +18,6 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { Link } from "react-router-dom";
 import type { DropzoneInputProps, DropzoneRootProps } from "react-dropzone";
 import {
   ArrowLeft,
@@ -34,7 +33,6 @@ import {
   Pencil,
   Trash2,
   Truck,
-  UserPlus,
   Wallet,
   X,
 } from "lucide-react";
@@ -351,27 +349,6 @@ export default function ProductoManualModal({
     );
   const estadoSr = (p: Paso) => (errorPaso === p ? " (tiene errores)" : hecho[p] ? " (completo)" : "");
 
-  /* ---- resumen (riel en escritorio; al pie del contenido en celular) ---- */
-  const resumen = (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-[#F0F0F2] ring-1 ring-[#F0F0F2] dark:bg-[#1F2A3C] dark:ring-[#1F2A3C]">
-      {(
-        [
-          ["Costo", dinero(costo)],
-          ["Precio 1", dinero(precio1)],
-          ["Utilidad", form.utilidad_1.trim() ? `${form.utilidad_1} %` : "—"],
-          [form.aplica_iva ? "Con IVA" : "IVA", form.aplica_iva ? dinero(conIva(precio1)) : "No aplica"],
-        ] as const
-      ).map(([k, v]) => (
-        <div key={k} className="min-w-0 bg-white px-3 py-2.5 dark:bg-[#111827]">
-          <dt className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#A1A1AA] dark:text-[#64748B]">{k}</dt>
-          <dd key={v} className="cot-flash mt-0.5 truncate text-[14px] font-semibold tabular-nums text-[#09090B] dark:text-[#F8FAFC]">
-            {v}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-
   return (
     <Modal
       mobileBottomSheet
@@ -433,7 +410,7 @@ export default function ProductoManualModal({
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* Riel de pasos + resumen (escritorio). */}
+        {/* Riel de pasos (escritorio). */}
         <aside className="hidden w-64 shrink-0 flex-col gap-4 border-r border-[#F0F0F2] bg-[#FAFAFA] p-3 dark:border-[#1F2A3C] dark:bg-[#0F172A]/60 md:flex">
           <div role="tablist" aria-orientation="vertical" aria-label="Secciones del producto" className="flex flex-col gap-1">
             {PASOS.map((p, i) => {
@@ -450,10 +427,10 @@ export default function ProductoManualModal({
                   disabled={saving}
                   onClick={() => ir(p.id)}
                   onKeyDown={(e) => onStepKeyDown(e, p.id)}
-                  className={`cot-press flex w-full items-center gap-3 rounded-[12px] px-2.5 py-2.5 text-left disabled:cursor-not-allowed ${focusRing} ${
+                  className={`cot-press flex w-full items-center gap-3 rounded-2xl px-2.5 py-2.5 text-left disabled:cursor-not-allowed ${focusRing} ${
                     active
                       ? "bg-white shadow-[0_1px_2px_rgba(9,9,11,0.06)] ring-1 ring-[#E4E4E7] dark:bg-[#1B2539] dark:ring-[#273244]"
-                      : "hover:bg-white/60 dark:hover:bg-white/[0.03]"
+                      : "hover:bg-white/60 dark:hover:bg-white/3"
                   }`}
                 >
                   {marcador(p.id, i, active)}
@@ -471,10 +448,6 @@ export default function ProductoManualModal({
                 </button>
               );
             })}
-          </div>
-          <div className="mt-auto space-y-2">
-            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717A] dark:text-[#8EA0B8]">Resumen</p>
-            {resumen}
           </div>
         </aside>
 
@@ -533,7 +506,7 @@ export default function ProductoManualModal({
                   role="alert"
                   className="cot-fade flex items-start gap-3 rounded-[14px] border border-[#F6CFCF] bg-[#FEF2F2] px-4 py-3 text-[14px] text-[#B42323] dark:border-[#7F1D1D] dark:bg-[#3F1518] dark:text-[#FCA5A5]"
                 >
-                  <CircleAlert className="mt-0.5 size-[18px] shrink-0" aria-hidden />
+                  <CircleAlert className="mt-0.5 size-4.5 shrink-0" aria-hidden />
                   <div>
                     <p className="font-semibold">Revisa el formulario</p>
                     <p className="mt-0.5 text-[13px]">{error}</p>
@@ -566,7 +539,7 @@ export default function ProductoManualModal({
                           <span className={fieldLabel}>Imagen</span>
                           {form.imagen_url ? (
                             <div className="cot-fade space-y-2">
-                              <div className="flex aspect-square items-center justify-center overflow-hidden rounded-[16px] border border-[#E7E7EA] bg-white p-3 dark:border-[#273244] dark:bg-[#0F172A]">
+                              <div className="flex aspect-square items-center justify-center overflow-hidden rounded-3xl border border-[#E7E7EA] bg-white p-3 dark:border-[#273244] dark:bg-[#0F172A]">
                                 <img src={resolveMediaUrl(form.imagen_url)} alt="Imagen del producto" className="h-full w-full object-contain" />
                               </div>
                               <button type="button" onClick={() => set("imagen_url", "")} className={`${btn.secondary} h-10 w-full text-[13px]`}>
@@ -577,7 +550,7 @@ export default function ProductoManualModal({
                           ) : (
                             <div
                               {...dropzone.getRootProps()}
-                              className={`flex aspect-square max-h-44 cursor-pointer flex-col items-center justify-center gap-2 rounded-[16px] border-2 border-dashed px-3 text-center transition-[border-color,background-color] duration-150 sm:max-h-none ${focusRing} ${
+                              className={`flex aspect-square max-h-44 cursor-pointer flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-3 text-center transition-[border-color,background-color] duration-150 sm:max-h-none ${focusRing} ${
                                 dropzone.isDragActive
                                   ? "border-[#1B5CFF] bg-[rgba(27,92,255,0.06)] dark:border-[#4B7CFF] dark:bg-[rgba(75,124,255,0.10)]"
                                   : "border-[#D4D4D8] bg-[#FAFAFA] hover:border-[#1B5CFF]/50 dark:border-[#3A4661] dark:bg-[#0F172A] dark:hover:border-[#4B7CFF]/50"
@@ -587,7 +560,7 @@ export default function ProductoManualModal({
                               {uploading ? (
                                 <Loader2 className="size-7 animate-spin text-[#1B5CFF]" aria-hidden />
                               ) : (
-                                <span className="inline-flex size-11 items-center justify-center rounded-[12px] bg-[#EEF3FF] text-[#1244D1] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#9BB6FF]">
+                                <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-[#EEF3FF] text-[#1244D1] dark:bg-[rgba(75,124,255,0.16)] dark:text-[#9BB6FF]">
                                   <ImagePlus className="size-5" aria-hidden />
                                 </span>
                               )}
@@ -702,27 +675,13 @@ export default function ProductoManualModal({
                         placeholder={proveedoresLoading ? "Cargando proveedores…" : sinProveedores ? "No hay proveedores en Contactos" : "Busca un proveedor…"}
                         emptyMessage="Ningún proveedor coincide. Solo aparecen los dados de alta en Contactos."
                         clearOptionLabel="Sin proveedor"
-                        describedBy="manual-proveedor-hint"
+                        describedBy={proveedoresError ? "manual-proveedor-hint" : undefined}
                       />
-                      <p id="manual-proveedor-hint" className="mt-1.5 text-[12.5px] text-[#6E6E77] dark:text-[#8EA0B8]" aria-live="polite">
-                        {proveedoresError ? (
-                          <span className="text-[#B42323] dark:text-[#F87171]">{proveedoresError}</span>
-                        ) : (
-                          <>
-                            ¿No está en la lista? Dalo de alta en{" "}
-                            <Link
-                              to="/clientes"
-                              target="_blank"
-                              rel="noopener"
-                              className="inline-flex items-center gap-1 rounded font-medium text-[#1244D1] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5CFF] dark:text-[#9BB6FF]"
-                            >
-                              <UserPlus className="size-3.5" aria-hidden />
-                              Contactos de negocio
-                            </Link>{" "}
-                            con tipo «Proveedor» y vuelve a abrir este formulario.
-                          </>
-                        )}
-                      </p>
+                      {proveedoresError ? (
+                        <p id="manual-proveedor-hint" className="mt-1.5 text-[12.5px] text-[#B42323] dark:text-[#F87171]" role="alert">
+                          {proveedoresError}
+                        </p>
+                      ) : null}
                     </Seccion>
 
                     <Seccion
@@ -878,9 +837,6 @@ export default function ProductoManualModal({
                   </Seccion>
                 ) : null}
               </div>
-
-              {/* Resumen en celular (el riel no se muestra). */}
-              <div className="md:hidden">{resumen}</div>
             </div>
           </div>
 
